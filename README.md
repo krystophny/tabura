@@ -14,6 +14,8 @@ Tabula provides:
 ```bash
 python -m pip install -e .[test]
 python -m pip install -e .[gui]   # optional for local canvas window
+# Arch/PEP668 user install example:
+python -m pip install --user --break-system-packages PySide6
 ```
 
 ## Core commands
@@ -60,6 +62,7 @@ Bootstrap AGENTS behavior:
 
 Canvas state is MCP-first and in-memory; no filesystem event log is required.
 UX scope for this MVP is only `prompt` and `review` canvas modes.
+`canvas_activate`/`canvas_status` also report `canvas_process_alive` and `canvas_launch_error` for startup diagnostics.
 
 ## Tests
 

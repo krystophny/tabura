@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import builtins
 import json
 import runpy
 import sys
@@ -31,6 +30,7 @@ def test_given_canvas_mode_when_invoked_then_calls_ui_runner(monkeypatch) -> Non
         seen["poll_ms"] = poll_interval_ms
         return 7
 
+    monkeypatch.setattr("tabula.cli.has_display", lambda _env=None: True)
     monkeypatch.setitem(sys.modules, "tabula.window", types.SimpleNamespace(run_canvas=fake_run_canvas))
 
     rc = main(["canvas", "--poll-ms", "999"])
@@ -38,22 +38,27 @@ def test_given_canvas_mode_when_invoked_then_calls_ui_runner(monkeypatch) -> Non
     assert seen["poll_ms"] == 999
 
 
-def test_given_canvas_mode_without_window_dependency_then_shows_install_hint(monkeypatch, capsys) -> None:
-    original_import = builtins.__import__
+def test_given_canvas_mode_when_ui_runner_raises_then_error_is_reported(monkeypatch, capsys) -> None:
+    monkeypatch.setattr("tabula.cli.has_display", lambda _env=None: True)
+    def fake_run_canvas(*, poll_interval_ms: int) -> int:
+        raise RuntimeError(f"boom-{poll_interval_ms}")
 
-    def fake_import(name, globals=None, locals=None, fromlist=(), level=0):
-        if name == "tabula.window":
-            raise ModuleNotFoundError("No module named 'PySide6'")
-        return original_import(name, globals, locals, fromlist, level)
+    monkeypatch.setitem(sys.modules, "tabula.window", types.SimpleNamespace(run_canvas=fake_run_canvas))
 
-    monkeypatch.delitem(sys.modules, "tabula.window", raising=False)
-    monkeypatch.setattr(builtins, "__import__", fake_import)
+    rc = main(["canvas", "--poll-ms", "55"])
+    err = capsys.readouterr().err
 
+    assert rc == 2
+    assert "failed to start canvas window: boom-55" in err
+
+
+def test_given_canvas_mode_without_display_then_shows_headless_hint(monkeypatch, capsys) -> None:
+    monkeypatch.setattr("tabula.cli.has_display", lambda _env=None: False)
     rc = main(["canvas"])
     err = capsys.readouterr().err
 
     assert rc == 2
-    assert "PySide6 is required for 'tabula canvas'" in err
+    assert "DISPLAY/WAYLAND_DISPLAY not found" in err
 
 
 def test_given_bootstrap_mode_when_invoked_then_project_is_prepared(monkeypatch, tmp_path: Path, capsys) -> None:

@@ -30,7 +30,13 @@ def launch_canvas_background(project_dir: Path, *, poll_interval_ms: int = 250) 
         "--poll-ms",
         str(poll_interval_ms),
     ]
-    return subprocess.Popen(cmd, cwd=project_dir, stdin=subprocess.PIPE)
+    return subprocess.Popen(
+        cmd,
+        cwd=project_dir,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+    )
 
 
 @dataclass
@@ -60,6 +66,7 @@ class CanvasAdapter:
 
         self._sessions: dict[str, SessionRecord] = {}
         self._canvas_proc: subprocess.Popen[bytes] | None = None
+        self._canvas_launch_error: str | None = None
 
     def _effective_headless(self) -> bool:
         return self._headless_override or not has_display(self._env)
@@ -130,6 +137,7 @@ class CanvasAdapter:
 
     def _ensure_canvas_process(self) -> None:
         if self._effective_headless() or not self._start_canvas:
+            self._canvas_launch_error = None
             return
         if self._canvas_proc is not None and self._canvas_proc.poll() is None:
             return
@@ -138,6 +146,35 @@ class CanvasAdapter:
         self._canvas_proc = launch_canvas_background(self._project_dir, poll_interval_ms=self._poll_interval_ms)
         if self._canvas_proc.pid > 0:
             self._write_canvas_pid_file(self._canvas_proc.pid)
+
+        # Detect immediate startup failures (for example missing PySide6/Qt deps).
+        # Without this, callers may see headless=false even though no window exists.
+        for _ in range(5):
+            if self._canvas_proc.poll() is not None:
+                break
+            time.sleep(0.05)
+        if self._canvas_proc.poll() is None:
+            self._canvas_launch_error = None
+            return
+
+        exit_code = self._canvas_proc.poll()
+        err_text = ""
+        try:
+            if self._canvas_proc.stderr is not None:
+                raw_err = self._canvas_proc.stderr.read() or b""
+                err_text = raw_err.decode("utf-8", errors="replace").strip()
+        except OSError:
+            err_text = ""
+
+        detail = f"canvas process exited early with code {exit_code}"
+        if err_text:
+            detail += f": {err_text.splitlines()[-1]}"
+        self._canvas_launch_error = detail
+        self._canvas_proc = None
+        self._clear_canvas_pid_file()
+
+    def _canvas_process_alive(self) -> bool:
+        return self._canvas_proc is not None and self._canvas_proc.poll() is None
 
     def _ensure_session(self, session_id: str) -> SessionRecord:
         if session_id not in self._sessions:
@@ -190,6 +227,8 @@ class CanvasAdapter:
             "headless": self._effective_headless(),
             "mode": record.state.mode,
             "mode_hint": mode_hint,
+            "canvas_process_alive": self._canvas_process_alive(),
+            "canvas_launch_error": self._canvas_launch_error,
         }
 
     def canvas_render_text(self, *, session_id: str, title: str, markdown_or_text: str) -> dict[str, object]:
@@ -273,6 +312,8 @@ class CanvasAdapter:
             "active_kind": kind,
             "history_size": len(record.history),
             "headless": self._effective_headless(),
+            "canvas_process_alive": self._canvas_process_alive(),
+            "canvas_launch_error": self._canvas_launch_error,
         }
 
     def canvas_history(self, *, session_id: str, limit: int = 20) -> dict[str, object]:

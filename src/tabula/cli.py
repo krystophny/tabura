@@ -8,6 +8,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from .canvas_adapter import has_display
 from .events import event_schema
 from .mcp_server import run_mcp_stdio_server
 from .protocol import bootstrap_project
@@ -63,6 +64,12 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def _cmd_canvas(poll_ms: int) -> int:
+    if not has_display():
+        print(
+            "DISPLAY/WAYLAND_DISPLAY not found; cannot open canvas window. Use tabula run --headless or tabula mcp-server --headless --no-canvas.",
+            file=sys.stderr,
+        )
+        return 2
     try:
         from .window import run_canvas
     except ModuleNotFoundError:
@@ -71,7 +78,11 @@ def _cmd_canvas(poll_ms: int) -> int:
             file=sys.stderr,
         )
         return 2
-    return run_canvas(poll_interval_ms=poll_ms)
+    try:
+        return run_canvas(poll_interval_ms=poll_ms)
+    except Exception as exc:  # pragma: no cover - defensive
+        print(f"failed to start canvas window: {exc}", file=sys.stderr)
+        return 2
 
 
 def _cmd_schema() -> int:

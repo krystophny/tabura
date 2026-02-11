@@ -16,8 +16,12 @@ def test_given_headless_adapter_when_activate_then_status_reports_prompt_and_hea
     assert activation["active"] is True
     assert activation["headless"] is True
     assert activation["mode_hint"] == "review"
+    assert activation["canvas_process_alive"] is False
+    assert activation["canvas_launch_error"] is None
     assert status["mode"] == "prompt"
     assert status["headless"] is True
+    assert status["canvas_process_alive"] is False
+    assert status["canvas_launch_error"] is None
 
 
 def test_given_text_then_clear_when_rendering_then_mode_review_then_prompt_and_history_updates(tmp_path: Path) -> None:

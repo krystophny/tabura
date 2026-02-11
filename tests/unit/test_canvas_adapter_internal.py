@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 from pathlib import Path
 
 import pytest
@@ -19,15 +20,18 @@ def test_launch_canvas_background_uses_expected_command(monkeypatch, tmp_path: P
 
     class FakeProc:
         stdin = None
+        stderr = io.BytesIO()
         pid = 12345
 
         def poll(self):
             return 0
 
-    def fake_popen(cmd, cwd=None, stdin=None):
+    def fake_popen(cmd, cwd=None, stdin=None, stdout=None, stderr=None):
         seen["cmd"] = cmd
         seen["cwd"] = cwd
         seen["stdin"] = stdin
+        seen["stdout"] = stdout
+        seen["stderr"] = stderr
         return FakeProc()
 
     monkeypatch.setattr(adapter_module.subprocess, "Popen", fake_popen)
@@ -37,6 +41,8 @@ def test_launch_canvas_background_uses_expected_command(monkeypatch, tmp_path: P
     cmd = seen["cmd"]
     assert cmd[1:4] == ["-m", "tabula", "canvas"]
     assert "--poll-ms" in cmd
+    assert seen["stdout"] == adapter_module.subprocess.DEVNULL
+    assert seen["stderr"] == adapter_module.subprocess.PIPE
 
 
 def test_canvas_process_launch_and_reuse(monkeypatch, tmp_path: Path) -> None:
@@ -44,6 +50,7 @@ def test_canvas_process_launch_and_reuse(monkeypatch, tmp_path: Path) -> None:
 
     class FakeProc:
         stdin = None
+        stderr = io.BytesIO()
 
         def __init__(self, poll_value: int | None, pid: int):
             self._poll_value = poll_value
@@ -78,6 +85,7 @@ def test_fresh_canvas_mode_terminates_stale_pid_before_launch(monkeypatch, tmp_p
 
     class FakeProc:
         stdin = None
+        stderr = io.BytesIO()
         pid = 1234
 
         def poll(self):
@@ -101,6 +109,32 @@ def test_fresh_canvas_mode_terminates_stale_pid_before_launch(monkeypatch, tmp_p
     )
     adapter.canvas_activate(session_id="s1")
     assert seen["cleanup"] == 1
+
+
+def test_canvas_launch_failure_is_reported_in_activation_and_status(monkeypatch, tmp_path: Path) -> None:
+    class FakeProc:
+        stdin = None
+        stderr = io.BytesIO(b"ModuleNotFoundError: No module named 'PySide6'")
+        pid = 777
+
+        def poll(self):
+            return 1
+
+    monkeypatch.setattr(adapter_module, "launch_canvas_background", lambda _project_dir, poll_interval_ms=250: FakeProc())
+    adapter = CanvasAdapter(
+        project_dir=tmp_path,
+        headless=False,
+        start_canvas=True,
+        env={"DISPLAY": ":0"},
+    )
+
+    activation = adapter.canvas_activate(session_id="s1")
+    status = adapter.canvas_status(session_id="s1")
+
+    assert activation["canvas_process_alive"] is False
+    assert status["canvas_process_alive"] is False
+    assert "PySide6" in str(activation["canvas_launch_error"])
+    assert "PySide6" in str(status["canvas_launch_error"])
 
 
 def test_canvas_activate_requires_nonempty_session_id(tmp_path: Path) -> None:
