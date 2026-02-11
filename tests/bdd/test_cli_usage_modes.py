@@ -135,6 +135,7 @@ def test_given_bootstrap_mode_when_invoked_then_project_is_prepared(monkeypatch,
     class _Paths:
         project_dir: Path
         agents_path: Path
+        mcp_config_path: Path
 
     @dataclass(frozen=True)
     class _Result:
@@ -142,7 +143,14 @@ def test_given_bootstrap_mode_when_invoked_then_project_is_prepared(monkeypatch,
         git_initialized: bool
 
     def fake_bootstrap(project_dir: Path):
-        return _Result(paths=_Paths(project_dir=project_dir, agents_path=project_dir / "AGENTS.md"), git_initialized=True)
+        return _Result(
+            paths=_Paths(
+                project_dir=project_dir,
+                agents_path=project_dir / "AGENTS.md",
+                mcp_config_path=project_dir / ".tabula" / "codex-mcp.toml",
+            ),
+            git_initialized=True,
+        )
 
     monkeypatch.setattr("tabula.cli.bootstrap_project", fake_bootstrap)
     rc = main(["bootstrap", "--project-dir", str(tmp_path)])
@@ -150,67 +158,58 @@ def test_given_bootstrap_mode_when_invoked_then_project_is_prepared(monkeypatch,
 
     assert rc == 0
     assert "project prepared:" in out
+    assert "mcp config snippet:" in out
     assert "git initialized" in out
 
 
-def test_given_default_tabula_mode_when_invoked_then_cli_returns_workflow_status(monkeypatch, tmp_path: Path, capsys) -> None:
+def test_given_mcp_server_mode_when_invoked_then_bootstrap_and_server_runner_are_called(monkeypatch, tmp_path: Path) -> None:
     @dataclass(frozen=True)
-    class _WorkflowResult:
-        returncode: int
-        message: str
+    class _Paths:
+        project_dir: Path
+        events_path: Path
+        agents_path: Path
+        mcp_config_path: Path
 
-    def fake_workflow(
-        *,
-        user_prompt: str,
-        project_dir: Path,
-        mode: str,
-        headless: bool,
-        start_canvas: bool,
-        poll_interval_ms: int,
-    ):
-        assert user_prompt == "draft text"
-        assert project_dir == tmp_path
-        assert mode == "project"
-        assert headless is True
-        assert start_canvas is False
-        assert poll_interval_ms == 333
-        return _WorkflowResult(returncode=0, message="ok")
-
-    monkeypatch.setattr("tabula.cli.run_tabula_session", fake_workflow)
-    rc = main(
-        [
-            "--project-dir",
-            str(tmp_path),
-            "--mode",
-            "project",
-            "--prompt",
-            "draft text",
-            "--headless",
-            "--no-canvas",
-            "--poll-ms",
-            "333",
-        ]
-    )
-    out = capsys.readouterr().out
-
-    assert rc == 0
-    assert "ok" in out
-
-
-def test_given_positional_prompt_when_default_tabula_mode_then_prompt_is_forwarded(monkeypatch, tmp_path: Path, capsys) -> None:
     @dataclass(frozen=True)
-    class _WorkflowResult:
-        returncode: int
-        message: str
+    class _Result:
+        paths: _Paths
+        git_initialized: bool
 
-    seen: dict[str, str] = {}
+    calls: dict[str, object] = {}
 
-    def fake_workflow(**kwargs):
-        seen["prompt"] = kwargs["user_prompt"]
-        return _WorkflowResult(returncode=0, message="ok")
+    def fake_bootstrap(project_dir: Path):
+        return _Result(
+            paths=_Paths(
+                project_dir=project_dir.resolve(),
+                events_path=(project_dir / ".tabula" / "canvas-events.jsonl").resolve(),
+                agents_path=(project_dir / "AGENTS.md").resolve(),
+                mcp_config_path=(project_dir / ".tabula" / "codex-mcp.toml").resolve(),
+            ),
+            git_initialized=False,
+        )
 
-    monkeypatch.setattr("tabula.cli.run_tabula_session", fake_workflow)
-    rc = main(["--project-dir", str(tmp_path), "hello", "world"])
-    assert rc == 0
-    assert seen["prompt"] == "hello world"
-    assert "ok" in capsys.readouterr().out
+    def fake_run_server(*, project_dir: Path, events_path: Path, headless: bool, poll_interval_ms: int, start_canvas: bool) -> int:
+        calls["project_dir"] = project_dir
+        calls["events_path"] = events_path
+        calls["headless"] = headless
+        calls["poll"] = poll_interval_ms
+        calls["start_canvas"] = start_canvas
+        return 11
+
+    monkeypatch.setattr("tabula.cli.bootstrap_project", fake_bootstrap)
+    monkeypatch.setattr("tabula.cli.run_mcp_stdio_server", fake_run_server)
+
+    rc = main(["mcp-server", "--project-dir", str(tmp_path), "--headless", "--no-canvas", "--poll-ms", "777"])
+    assert rc == 11
+    assert calls["project_dir"] == tmp_path.resolve()
+    assert calls["events_path"] == (tmp_path / ".tabula" / "canvas-events.jsonl").resolve()
+    assert calls["headless"] is True
+    assert calls["poll"] == 777
+    assert calls["start_canvas"] is False
+
+
+def test_given_no_args_when_invoked_then_help_and_exit_2(capsys) -> None:
+    rc = main([])
+    err = capsys.readouterr().err
+    assert rc == 2
+    assert "usage: tabula" in err

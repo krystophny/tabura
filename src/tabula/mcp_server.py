@@ -1,0 +1,343 @@
+from __future__ import annotations
+
+import json
+import sys
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, BinaryIO
+
+from .canvas_adapter import CanvasAdapter
+
+SERVER_NAME = "tabula-canvas"
+SERVER_VERSION = "0.1.0"
+MCP_PROTOCOL_VERSION = "2025-06-18"
+
+
+class RpcError(Exception):
+    def __init__(self, code: int, message: str) -> None:
+        self.code = code
+        self.message = message
+        super().__init__(message)
+
+
+def read_message(stream: BinaryIO) -> dict[str, Any] | None:
+    first_line = stream.readline()
+    if not first_line:
+        return None
+
+    stripped = first_line.lstrip()
+    if stripped.startswith(b"{"):
+        try:
+            return json.loads(first_line.decode("utf-8"))
+        except json.JSONDecodeError as exc:  # pragma: no cover
+            raise RpcError(-32700, f"invalid json: {exc.msg}") from exc
+
+    headers: dict[str, str] = {}
+    line = first_line
+    while line:
+        if line in (b"\r\n", b"\n"):
+            break
+        text = line.decode("utf-8").strip()
+        if ":" not in text:
+            raise RpcError(-32700, "invalid header line")
+        key, value = text.split(":", 1)
+        headers[key.strip().lower()] = value.strip()
+        line = stream.readline()
+
+    if "content-length" not in headers:
+        raise RpcError(-32700, "missing content-length header")
+
+    try:
+        length = int(headers["content-length"])
+    except ValueError as exc:
+        raise RpcError(-32700, "invalid content-length header") from exc
+
+    body = stream.read(length)
+    if len(body) != length:
+        raise RpcError(-32700, "unexpected EOF while reading message")
+
+    try:
+        payload = json.loads(body.decode("utf-8"))
+    except json.JSONDecodeError as exc:
+        raise RpcError(-32700, f"invalid json: {exc.msg}") from exc
+
+    if not isinstance(payload, dict):
+        raise RpcError(-32600, "request must be an object")
+    return payload
+
+
+def write_message(stream: BinaryIO, payload: dict[str, Any]) -> None:
+    encoded = json.dumps(payload, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+    header = f"Content-Length: {len(encoded)}\r\n\r\n".encode("utf-8")
+    stream.write(header)
+    stream.write(encoded)
+    if hasattr(stream, "flush"):
+        stream.flush()
+
+
+def _tool_definitions() -> list[dict[str, Any]]:
+    return [
+        {
+            "name": "canvas_activate",
+            "description": "Activate canvas session and optionally launch UI window.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "session_id": {"type": "string", "minLength": 1},
+                    "mode_hint": {"type": "string"},
+                },
+                "required": ["session_id"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "canvas_render_text",
+            "description": "Render text/markdown artifact to canvas and switch mode to discussion.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "session_id": {"type": "string", "minLength": 1},
+                    "title": {"type": "string", "minLength": 1},
+                    "markdown_or_text": {"type": "string"},
+                },
+                "required": ["session_id", "title", "markdown_or_text"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "canvas_render_image",
+            "description": "Render image artifact from local path.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "session_id": {"type": "string", "minLength": 1},
+                    "title": {"type": "string", "minLength": 1},
+                    "path": {"type": "string", "minLength": 1},
+                },
+                "required": ["session_id", "title", "path"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "canvas_render_pdf",
+            "description": "Render PDF artifact from local path and optional page index.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "session_id": {"type": "string", "minLength": 1},
+                    "title": {"type": "string", "minLength": 1},
+                    "path": {"type": "string", "minLength": 1},
+                    "page": {"type": "integer", "minimum": 0},
+                },
+                "required": ["session_id", "title", "path"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "canvas_clear",
+            "description": "Clear current canvas artifact and switch mode back to prompt.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "session_id": {"type": "string", "minLength": 1},
+                    "reason": {"type": "string"},
+                },
+                "required": ["session_id"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "canvas_status",
+            "description": "Get current mode/status for a canvas session.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {"session_id": {"type": "string", "minLength": 1}},
+                "required": ["session_id"],
+                "additionalProperties": False,
+            },
+        },
+    ]
+
+
+@dataclass
+class TabulaMcpServer:
+    adapter: CanvasAdapter
+    input_stream: BinaryIO
+    output_stream: BinaryIO
+
+    def __init__(
+        self,
+        adapter: CanvasAdapter,
+        *,
+        input_stream: BinaryIO | None = None,
+        output_stream: BinaryIO | None = None,
+    ) -> None:
+        self.adapter = adapter
+        self.input_stream = input_stream or sys.stdin.buffer
+        self.output_stream = output_stream or sys.stdout.buffer
+
+    def run_forever(self) -> int:
+        while True:
+            try:
+                message = read_message(self.input_stream)
+            except RpcError as exc:
+                # Parse-level errors do not have ids.
+                write_message(
+                    self.output_stream,
+                    {
+                        "jsonrpc": "2.0",
+                        "id": None,
+                        "error": {"code": exc.code, "message": exc.message},
+                    },
+                )
+                continue
+
+            if message is None:
+                return 0
+            self.handle_message(message)
+
+    def handle_message(self, message: dict[str, Any]) -> None:
+        msg_id = message.get("id")
+        method = message.get("method")
+        params = message.get("params", {})
+
+        if method is None:
+            if msg_id is not None:
+                self._write_error(msg_id, -32600, "missing method")
+            return
+
+        if msg_id is None:
+            # Notification
+            return
+
+        try:
+            result = self._dispatch(method, params)
+        except RpcError as exc:
+            self._write_error(msg_id, exc.code, exc.message)
+            return
+        except Exception as exc:  # pragma: no cover
+            self._write_error(msg_id, -32603, str(exc))
+            return
+
+        write_message(self.output_stream, {"jsonrpc": "2.0", "id": msg_id, "result": result})
+
+    def _write_error(self, msg_id: Any, code: int, message: str) -> None:
+        write_message(
+            self.output_stream,
+            {
+                "jsonrpc": "2.0",
+                "id": msg_id,
+                "error": {"code": code, "message": message},
+            },
+        )
+
+    def _dispatch(self, method: str, params: Any) -> dict[str, Any]:
+        if not isinstance(params, dict):
+            raise RpcError(-32602, "params must be an object")
+
+        if method == "initialize":
+            return {
+                "protocolVersion": MCP_PROTOCOL_VERSION,
+                "capabilities": {"tools": {"listChanged": False}},
+                "serverInfo": {"name": SERVER_NAME, "version": SERVER_VERSION},
+            }
+        if method == "ping":
+            return {}
+        if method == "tools/list":
+            return {"tools": _tool_definitions()}
+        if method == "tools/call":
+            return self._dispatch_tool_call(params)
+
+        raise RpcError(-32601, f"method not found: {method}")
+
+    def _dispatch_tool_call(self, params: dict[str, Any]) -> dict[str, Any]:
+        name = params.get("name")
+        arguments = params.get("arguments", {})
+        if not isinstance(name, str) or not name:
+            raise RpcError(-32602, "tools/call requires non-empty name")
+        if not isinstance(arguments, dict):
+            raise RpcError(-32602, "tools/call arguments must be an object")
+
+        try:
+            structured = self._call_tool(name, arguments)
+            return {
+                "content": [{"type": "text", "text": json.dumps(structured, sort_keys=True)}],
+                "structuredContent": structured,
+                "isError": False,
+            }
+        except ValueError as exc:
+            return {
+                "content": [{"type": "text", "text": str(exc)}],
+                "structuredContent": {"error": str(exc)},
+                "isError": True,
+            }
+
+    def _call_tool(self, name: str, args: dict[str, Any]) -> dict[str, Any]:
+        if name == "canvas_activate":
+            session_id = _require_str(args, "session_id")
+            mode_hint = args.get("mode_hint")
+            if mode_hint is not None and not isinstance(mode_hint, str):
+                raise ValueError("mode_hint must be string")
+            return self.adapter.canvas_activate(session_id=session_id, mode_hint=mode_hint)
+
+        if name == "canvas_render_text":
+            return self.adapter.canvas_render_text(
+                session_id=_require_str(args, "session_id"),
+                title=_require_str(args, "title"),
+                markdown_or_text=_require_str(args, "markdown_or_text"),
+            )
+
+        if name == "canvas_render_image":
+            return self.adapter.canvas_render_image(
+                session_id=_require_str(args, "session_id"),
+                title=_require_str(args, "title"),
+                path=_require_str(args, "path"),
+            )
+
+        if name == "canvas_render_pdf":
+            page_obj = args.get("page", 0)
+            if not isinstance(page_obj, int):
+                raise ValueError("page must be integer")
+            return self.adapter.canvas_render_pdf(
+                session_id=_require_str(args, "session_id"),
+                title=_require_str(args, "title"),
+                path=_require_str(args, "path"),
+                page=page_obj,
+            )
+
+        if name == "canvas_clear":
+            reason = args.get("reason")
+            if reason is not None and not isinstance(reason, str):
+                raise ValueError("reason must be string")
+            return self.adapter.canvas_clear(session_id=_require_str(args, "session_id"), reason=reason)
+
+        if name == "canvas_status":
+            return self.adapter.canvas_status(session_id=_require_str(args, "session_id"))
+
+        raise ValueError(f"unknown tool: {name}")
+
+
+def _require_str(payload: dict[str, Any], key: str) -> str:
+    value = payload.get(key)
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{key} must be non-empty string")
+    return value
+
+
+def run_mcp_stdio_server(
+    *,
+    project_dir: Path,
+    events_path: Path,
+    headless: bool = False,
+    poll_interval_ms: int = 250,
+    start_canvas: bool = True,
+) -> int:
+    adapter = CanvasAdapter(
+        project_dir=project_dir,
+        events_path=events_path,
+        headless=headless,
+        start_canvas=start_canvas,
+        poll_interval_ms=poll_interval_ms,
+    )
+    server = TabulaMcpServer(adapter)
+    return server.run_forever()

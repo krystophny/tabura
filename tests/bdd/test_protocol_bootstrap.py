@@ -1,33 +1,20 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
 
 from tabula.protocol import AGENTS_PROTOCOL_BEGIN, AGENTS_PROTOCOL_END, bootstrap_project
-from tabula.runner import RunResult
 
 
-@dataclass
-class FakeRunner:
-    def __post_init__(self) -> None:
-        self.calls: list[list[str]] = []
-
-    def run(self, argv: list[str], *, cwd: Path | None = None, capture: bool = False) -> RunResult:
-        self.calls.append(argv)
-        if argv[:2] == ["git", "init"]:
-            return RunResult(returncode=0, stdout="initialized\n")
-        return RunResult(returncode=0)
-
-
-def test_given_new_project_when_bootstrapped_then_git_agents_and_binary_ignores_are_created(tmp_path: Path) -> None:
-    runner = FakeRunner()
-    result = bootstrap_project(tmp_path, runner=runner)
+def test_given_new_project_when_bootstrapped_then_git_agents_mcp_and_binary_ignores_are_created(tmp_path: Path) -> None:
+    result = bootstrap_project(tmp_path)
 
     assert result.git_initialized is True
+    assert (tmp_path / ".git").exists()
     assert (tmp_path / ".gitignore").exists()
     assert (tmp_path / ".tabula" / "artifacts").exists()
     assert (tmp_path / ".tabula" / "prompt-injection.txt").exists()
     assert (tmp_path / ".tabula" / "canvas-events.jsonl").exists()
+    assert (tmp_path / ".tabula" / "codex-mcp.toml").exists()
     assert (tmp_path / "AGENTS.md").exists()
 
     agents = (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
@@ -35,6 +22,13 @@ def test_given_new_project_when_bootstrapped_then_git_agents_and_binary_ignores_
     assert AGENTS_PROTOCOL_END in agents
     assert ".tabula/artifacts" in agents
     assert ".tabula/canvas-events.jsonl" in agents
+    assert "canvas_activate" in agents
+    assert "tabula-canvas" in agents
+
+    mcp_cfg = (tmp_path / ".tabula" / "codex-mcp.toml").read_text(encoding="utf-8")
+    assert "[mcp_servers.tabula-canvas]" in mcp_cfg
+    assert 'command = "tabula"' in mcp_cfg
+    assert '--project-dir' in mcp_cfg
 
     gitignore = (tmp_path / ".gitignore").read_text(encoding="utf-8")
     assert ".tabula/artifacts/*.pdf" in gitignore
@@ -46,11 +40,16 @@ def test_given_existing_agents_when_bootstrapped_then_protocol_block_is_upserted
 ) -> None:
     custom = "# AGENTS\n\nCustom section\n\n"
     (tmp_path / "AGENTS.md").write_text(custom, encoding="utf-8")
-    runner = FakeRunner()
 
-    bootstrap_project(tmp_path, runner=runner)
+    bootstrap_project(tmp_path)
     content = (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
 
     assert "Custom section" in content
     assert content.count(AGENTS_PROTOCOL_BEGIN) == 1
     assert content.count(AGENTS_PROTOCOL_END) == 1
+
+
+def test_given_existing_git_repo_when_bootstrapped_then_does_not_reinitialize(tmp_path: Path) -> None:
+    (tmp_path / ".git").mkdir()
+    result = bootstrap_project(tmp_path)
+    assert result.git_initialized is False
