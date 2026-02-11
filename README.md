@@ -29,6 +29,7 @@ tabula schema
 `tabula run` launches interactive `codex` with inline Tabula MCP configuration and defaults to `--yolo --search`.
 It also requests a fresh canvas process (`--fresh-canvas`) per launch.
 If no `DISPLAY`/`WAYLAND_DISPLAY` is available, it warns and runs headless.
+When available, it forwards display-related env vars (`DISPLAY`, `WAYLAND_DISPLAY`, `XAUTHORITY`, etc.) into MCP startup.
 
 ## Codex MCP integration
 

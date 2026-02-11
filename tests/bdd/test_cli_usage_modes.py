@@ -314,9 +314,13 @@ def test_given_run_mode_when_invoked_then_codex_launches_with_inline_mcp_yolo_an
     assert "hello from tabula run" in cmd
 
     # Inline MCP server config overrides must be present.
-    assert "mcp_servers.tabula-canvas.command" in cmd[cmd.index("-c") + 1]
+    command_override = cmd[cmd.index("-c") + 1]
+    assert "mcp_servers.tabula-canvas.command" in command_override
+    assert "bash" in command_override
     args_override = cmd[cmd.index("-c", cmd.index("-c") + 1) + 1]
     assert "mcp_servers.tabula-canvas.args=" in args_override
+    assert "-lc" in args_override
+    assert "python" in args_override
     assert "--headless" in args_override
     assert "--no-canvas" in args_override
     assert "--fresh-canvas" in args_override
@@ -397,6 +401,54 @@ def test_given_run_mode_without_display_when_canvas_expected_then_headless_warni
     err = capsys.readouterr().err
     assert rc == 0
     assert "tabula-canvas will run headless" in err
+
+
+def test_given_run_mode_with_display_env_when_invoked_then_display_vars_are_forwarded(monkeypatch, tmp_path: Path) -> None:
+    @dataclass(frozen=True)
+    class _Paths:
+        project_dir: Path
+        agents_path: Path
+        mcp_config_path: Path
+
+    @dataclass(frozen=True)
+    class _Result:
+        paths: _Paths
+        git_initialized: bool
+        agents_preserved: bool
+
+    seen: dict[str, object] = {}
+
+    def fake_bootstrap(project_dir: Path):
+        resolved = project_dir.resolve()
+        return _Result(
+            paths=_Paths(
+                project_dir=resolved,
+                agents_path=resolved / "AGENTS.md",
+                mcp_config_path=resolved / ".tabula" / "codex-mcp.toml",
+            ),
+            git_initialized=False,
+            agents_preserved=False,
+        )
+
+    class _RunResult:
+        returncode = 0
+
+    def fake_run(cmd):
+        seen["cmd"] = cmd
+        return _RunResult()
+
+    monkeypatch.setattr("tabula.cli.bootstrap_project", fake_bootstrap)
+    monkeypatch.setattr("tabula.cli.subprocess.run", fake_run)
+    monkeypatch.setenv("DISPLAY", ":0")
+    monkeypatch.setenv("XAUTHORITY", "/tmp/xauth")
+
+    rc = main(["run", "--project-dir", str(tmp_path)])
+    assert rc == 0
+    cmd = seen["cmd"]
+    assert isinstance(cmd, list)
+    args_override = cmd[cmd.index("-c", cmd.index("-c") + 1) + 1]
+    assert "DISPLAY=" in args_override
+    assert "XAUTHORITY=" in args_override
 
 
 def test_given_no_args_when_invoked_then_help_and_exit_2(capsys) -> None:

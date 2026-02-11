@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -10,6 +11,27 @@ from pathlib import Path
 from .events import event_schema
 from .mcp_server import run_mcp_stdio_server
 from .protocol import bootstrap_project
+
+
+DISPLAY_ENV_KEYS = (
+    "DISPLAY",
+    "WAYLAND_DISPLAY",
+    "XAUTHORITY",
+    "XDG_RUNTIME_DIR",
+    "DBUS_SESSION_BUS_ADDRESS",
+)
+
+
+def _build_mcp_shell_command(*, python_bin: str, mcp_args: list[str], env: dict[str, str]) -> str:
+    exports: list[str] = []
+    for key in DISPLAY_ENV_KEYS:
+        value = env.get(key)
+        if value:
+            exports.append(f"{key}={shlex.quote(value)}")
+    argv = " ".join(shlex.quote(part) for part in [python_bin, *mcp_args])
+    if exports:
+        return " ".join(exports) + " exec " + argv
+    return "exec " + argv
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -128,6 +150,11 @@ def _cmd_run(
                 file=sys.stderr,
             )
 
+    mcp_shell = _build_mcp_shell_command(
+        python_bin=sys.executable,
+        mcp_args=mcp_args,
+        env=dict(os.environ),
+    )
     codex_cmd = [
         "codex",
         "--no-alt-screen",
@@ -136,9 +163,9 @@ def _cmd_run(
         "-C",
         str(target),
         "-c",
-        f"mcp_servers.tabula-canvas.command={json.dumps(sys.executable)}",
+        f"mcp_servers.tabula-canvas.command={json.dumps('bash')}",
         "-c",
-        f"mcp_servers.tabula-canvas.args={json.dumps(mcp_args)}",
+        f"mcp_servers.tabula-canvas.args={json.dumps(['-lc', mcp_shell])}",
     ]
     if prompt:
         codex_cmd.append(prompt)
