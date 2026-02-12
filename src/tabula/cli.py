@@ -125,6 +125,51 @@ def _cmd_mcp_server(project_dir: Path, headless: bool, no_canvas: bool, fresh_ca
     )
 
 
+def _launch_codex(target: Path, mcp_shell: str, prompt: str | None) -> int:
+    cmd = [
+        "codex",
+        "--no-alt-screen",
+        "--yolo",
+        "--search",
+        "-C",
+        str(target),
+        "-c",
+        f"mcp_servers.tabula-canvas.command={json.dumps('bash')}",
+        "-c",
+        f"mcp_servers.tabula-canvas.args={json.dumps(['-lc', mcp_shell])}",
+    ]
+    if prompt:
+        cmd.append(prompt)
+    try:
+        return subprocess.run(cmd).returncode
+    except FileNotFoundError:
+        print("codex CLI not found on PATH", file=sys.stderr)
+        return 1
+
+
+def _launch_claude(target: Path, mcp_shell: str, prompt: str | None) -> int:
+    claude_mcp_config = {
+        "mcpServers": {
+            "tabula-canvas": {
+                "command": "bash",
+                "args": ["-lc", mcp_shell],
+            }
+        }
+    }
+    cmd = [
+        "claude",
+        "--mcp-config",
+        json.dumps(claude_mcp_config, separators=(",", ":")),
+    ]
+    if prompt:
+        cmd.append(prompt)
+    try:
+        return subprocess.run(cmd, cwd=target).returncode
+    except FileNotFoundError:
+        print("claude CLI not found on PATH", file=sys.stderr)
+        return 1
+
+
 def _cmd_run(
     project_dir: Path,
     *,
@@ -169,46 +214,12 @@ def _cmd_run(
         env=dict(os.environ),
     )
     if assistant == "codex":
-        cmd = [
-            "codex",
-            "--no-alt-screen",
-            "--yolo",
-            "--search",
-            "-C",
-            str(target),
-            "-c",
-            f"mcp_servers.tabula-canvas.command={json.dumps('bash')}",
-            "-c",
-            f"mcp_servers.tabula-canvas.args={json.dumps(['-lc', mcp_shell])}",
-        ]
-        if prompt:
-            cmd.append(prompt)
-        try:
-            return subprocess.run(cmd).returncode
-        except FileNotFoundError:
-            print("codex CLI not found on PATH", file=sys.stderr)
-            return 1
+        return _launch_codex(target, mcp_shell, prompt)
+    if assistant == "claude":
+        return _launch_claude(target, mcp_shell, prompt)
 
-    claude_mcp_config = {
-        "mcpServers": {
-            "tabula-canvas": {
-                "command": "bash",
-                "args": ["-lc", mcp_shell],
-            }
-        }
-    }
-    cmd = [
-        "claude",
-        "--mcp-config",
-        json.dumps(claude_mcp_config, separators=(",", ":")),
-    ]
-    if prompt:
-        cmd.append(prompt)
-    try:
-        return subprocess.run(cmd, cwd=target).returncode
-    except FileNotFoundError:
-        print("claude CLI not found on PATH", file=sys.stderr)
-        return 1
+    print(f"unsupported assistant: {assistant}", file=sys.stderr)
+    return 1
 
 
 def main(argv: list[str] | None = None) -> int:
