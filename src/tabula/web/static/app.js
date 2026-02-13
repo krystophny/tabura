@@ -191,6 +191,17 @@ function openTerminal() {
   };
 
   ws.onmessage = (event) => {
+    if (typeof event.data === 'string') {
+      try {
+        const payload = JSON.parse(event.data);
+        if (payload && payload.type === 'terminal_frame') {
+          writeToTerminal(payload);
+          return;
+        }
+      } catch (_) {
+        // Keep backward compatibility with plain text terminal streams.
+      }
+    }
     writeToTerminal(event.data);
   };
 
