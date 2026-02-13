@@ -61,7 +61,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     p_web = sub.add_parser("web", help="launch tabula web server")
     p_web.add_argument("--data-dir", type=Path, default=Path("~/.tabula-web").expanduser())
-    p_web.add_argument("--project-dir", type=Path, default=None, help="run local tabula serve for this project (no SSH needed)")
+    p_web.add_argument("--project-dir", type=Path, default=Path("."), help="local project dir for tabula serve (no SSH needed)")
     p_web.add_argument("--host", default="127.0.0.1")
     p_web.add_argument("--port", type=int, default=8420)
 

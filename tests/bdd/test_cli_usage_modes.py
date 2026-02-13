@@ -391,11 +391,13 @@ def test_given_web_mode_when_invoked_then_web_server_is_called(monkeypatch, tmp_
         calls["local_project_dir"] = local_project_dir
         return 0
 
+    monkeypatch.setattr("tabula.cli.bootstrap_project", _make_fake_bootstrap())
     monkeypatch.setattr("tabula.web.server.run_web", fake_run_web)
 
     rc = main(["web", "--data-dir", str(tmp_path), "--port", "7778"])
     assert rc == 0
     assert calls["port"] == 7778
+    assert calls["local_project_dir"] is not None
 
 
 def test_given_run_with_mcp_url_when_invoked_then_uses_http_mcp(monkeypatch, tmp_path: Path) -> None:

@@ -448,11 +448,14 @@ def run_web(
     port: int = DEFAULT_PORT,
     local_project_dir: Path | None = None,
 ) -> int:
+    from ..serve import _listen_urls
+
     web_app = TabulaWebApp(data_dir=data_dir, local_project_dir=local_project_dir)
     app = web_app.create_app()
-    display_host = "localhost" if host in ("127.0.0.1", "0.0.0.0") else host
-    url = f"http://{display_host}:{port}"
-    print(f"tabula web: {url}", flush=True)
+    urls = _listen_urls(host, port)
+    print("tabula web listening on:", flush=True)
+    for url in urls:
+        print(f"  {url}", flush=True)
     if local_project_dir:
         print(f"  local project: {local_project_dir}", flush=True)
         print(f"  local MCP:     http://127.0.0.1:{DAEMON_PORT}/mcp", flush=True)

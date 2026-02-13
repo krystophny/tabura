@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+import fcntl
 import json
 import secrets
+import socket
+import struct
 import threading
 from pathlib import Path
 
@@ -154,11 +157,40 @@ class TabulaServeApp:
         return app
 
 
+SIOCGIFADDR = 0x8915
+
+
+def _interface_ips() -> list[str]:
+    ips: list[str] = []
+    for _, name in socket.if_nameindex():
+        if name == "lo":
+            continue
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                data = fcntl.ioctl(s.fileno(), SIOCGIFADDR, struct.pack("256s", name.encode()))
+            ips.append(socket.inet_ntoa(data[20:24]))
+        except OSError:
+            continue
+    return ips
+
+
+def _listen_urls(host: str, port: int) -> list[str]:
+    if host not in ("0.0.0.0", "::"):
+        return [f"http://{host}:{port}"]
+    urls = [f"http://localhost:{port}"]
+    for ip in _interface_ips():
+        urls.append(f"http://{ip}:{port}")
+    return urls
+
+
 def run_serve(*, project_dir: Path, host: str = DEFAULT_HOST, port: int = DEFAULT_PORT) -> int:
     serve_app = TabulaServeApp(project_dir=project_dir)
     app = serve_app.create_app()
-    print(f"tabula serve listening on http://{host}:{port}", flush=True)
-    print(f"  MCP endpoint: http://{host}:{port}/mcp", flush=True)
+    urls = _listen_urls(host, port)
+    print(f"tabula serve listening on:", flush=True)
+    for url in urls:
+        print(f"  {url}", flush=True)
+    print(f"  MCP endpoint: {urls[0]}/mcp", flush=True)
     print(f"  project dir:  {project_dir}", flush=True)
     try:
         web.run_app(app, host=host, port=port, print=None)
