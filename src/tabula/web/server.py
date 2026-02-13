@@ -16,6 +16,7 @@ from ..serve import broadcast_ws
 from .pty import LocalPtyTransport, PtyTransport, SshPtyTransport
 from .ssh import SSHService
 from .store import Store
+from .terminal_emulator import TerminalSession
 
 _log = logging.getLogger(__name__)
 
@@ -212,9 +213,31 @@ class TabulaWebApp:
         self._terminal_ws[session_id] = ws
 
         transport = await self._create_pty_transport(session_id)
-        read_task = asyncio.create_task(transport.reader(ws))
+        terminal = TerminalSession()
+
+        async def _send_frame() -> None:
+            if ws.closed:
+                return
+            try:
+                await ws.send_str(json.dumps(terminal.snapshot().to_payload()))
+            except (ConnectionResetError, RuntimeError):
+                return
+
+        async def _on_pty_data(data: bytes) -> None:
+            update = terminal.feed_bytes(data)
+            if update.responses:
+                transport.write(update.responses)
+            if ws.closed:
+                return
+            try:
+                await ws.send_str(json.dumps(update.frame.to_payload()))
+            except (ConnectionResetError, RuntimeError):
+                return
+
+        read_task = asyncio.create_task(transport.reader(_on_pty_data))
 
         try:
+            await _send_frame()
             async for msg in ws:
                 if msg.type == aiohttp.WSMsgType.BINARY:
                     transport.write(msg.data)
@@ -225,7 +248,11 @@ class TabulaWebApp:
                         transport.write(msg.data.encode("utf-8"))
                         continue
                     if cmd.get("type") == "resize":
-                        transport.resize(cmd.get("cols", 120), cmd.get("rows", 40))
+                        cols = int(cmd.get("cols", 120))
+                        rows = int(cmd.get("rows", 40))
+                        transport.resize(cols, rows)
+                        frame = terminal.resize(cols=cols, rows=rows)
+                        await ws.send_str(json.dumps(frame.to_payload()))
                     else:
                         transport.write(msg.data.encode("utf-8"))
                 elif msg.type in (aiohttp.WSMsgType.ERROR, aiohttp.WSMsgType.CLOSE):

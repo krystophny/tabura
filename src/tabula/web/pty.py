@@ -8,9 +8,8 @@ import signal
 import struct
 import termios
 from abc import ABC, abstractmethod
+from collections.abc import Awaitable, Callable
 from typing import Any
-
-from aiohttp import web
 
 _log = logging.getLogger(__name__)
 
@@ -28,7 +27,7 @@ class PtyTransport(ABC):
     def close(self) -> None: ...
 
     @abstractmethod
-    async def reader(self, ws: web.WebSocketResponse) -> None: ...
+    async def reader(self, on_data: Callable[[bytes], Awaitable[None]]) -> None: ...
 
 
 class LocalPtyTransport(PtyTransport):
@@ -91,7 +90,7 @@ class LocalPtyTransport(PtyTransport):
         except RuntimeError:
             pass
 
-    async def reader(self, ws: web.WebSocketResponse) -> None:
+    async def reader(self, on_data: Callable[[bytes], Awaitable[None]]) -> None:
         loop = asyncio.get_running_loop()
         fd = self._fd
         queue: asyncio.Queue[bytes | None] = asyncio.Queue()
@@ -109,7 +108,7 @@ class LocalPtyTransport(PtyTransport):
                 data = await queue.get()
                 if data is None:
                     break
-                await ws.send_bytes(data)
+                await on_data(data)
         except (asyncio.CancelledError, ConnectionResetError):
             pass
         finally:
@@ -134,15 +133,15 @@ class SshPtyTransport(PtyTransport):
     def close(self) -> None:
         self._process.close()
 
-    async def reader(self, ws: web.WebSocketResponse) -> None:
+    async def reader(self, on_data: Callable[[bytes], Awaitable[None]]) -> None:
         try:
             while not self._process.stdout.at_eof():
                 data = await self._process.stdout.read(4096)
                 if not data:
                     break
                 if isinstance(data, bytes):
-                    await ws.send_bytes(data)
+                    await on_data(data)
                 else:
-                    await ws.send_str(data)
+                    await on_data(data.encode("utf-8", errors="replace"))
         except (asyncio.CancelledError, ConnectionResetError):
             pass

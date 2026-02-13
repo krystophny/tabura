@@ -1,5 +1,3 @@
-import { normalizeTerminalOutput } from './terminal-text.js';
-
 const MAX_BUFFER_SIZE = 200_000;
 const STICK_THRESHOLD = 24;
 
@@ -9,6 +7,7 @@ let probe = null;
 let inputCapture = null;
 let resizeObserver = null;
 let buffer = "";
+let frameText = "";
 let cols = 120;
 let rows = 40;
 let cellMetrics = { width: 8.4, height: 18 };
@@ -96,8 +95,7 @@ function scrollToBottom() {
 
 function render() {
   if (!pre) return;
-  const text = normalizeTerminalOutput(buffer, { cols });
-  pre.textContent = text;
+  pre.textContent = frameText || buffer;
   if (stickToBottom) {
     scrollToBottom();
   }
@@ -131,6 +129,7 @@ export function initTerminal(containerEl) {
   container = containerEl;
   container.innerHTML = "";
   buffer = "";
+  frameText = "";
   stickToBottom = true;
   dataCallback = null;
   resizeCallback = null;
@@ -215,17 +214,42 @@ export function destroyTerminal() {
   probe = null;
   inputCapture = null;
   buffer = "";
+  frameText = "";
   dataCallback = null;
   resizeCallback = null;
   window._tabulaTerminal = null;
 }
 
 export function writeToTerminal(data) {
+  if (data && typeof data === "object" && data.type === "terminal_frame") {
+    const screen = data.screen || {};
+    if (typeof screen.text === "string") {
+      frameText = screen.text;
+    }
+    if (Number.isFinite(screen.cols) && Number.isFinite(screen.rows)) {
+      cols = Math.max(40, Math.floor(screen.cols));
+      rows = Math.max(10, Math.floor(screen.rows));
+      if (window._tabulaTerminal) {
+        window._tabulaTerminal.cols = cols;
+        window._tabulaTerminal.rows = rows;
+      }
+    }
+    render();
+    return;
+  }
+
   let text;
   if (data instanceof ArrayBuffer || data instanceof Uint8Array) {
     text = decoder.decode(data instanceof ArrayBuffer ? data : data.buffer, { stream: true });
   } else {
     text = data;
+  }
+  if (typeof text !== "string") {
+    return;
+  }
+  if (frameText) {
+    // Keep legacy fallback path available without mixing paradigms.
+    return;
   }
   buffer += text;
   if (buffer.length > MAX_BUFFER_SIZE) {

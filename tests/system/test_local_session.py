@@ -30,7 +30,18 @@ async def _ws_read_until(ws, marker: bytes, *, attempts: int = 50) -> bytes:
             if msg.type == aiohttp.WSMsgType.BINARY:
                 output += msg.data
             elif msg.type == aiohttp.WSMsgType.TEXT:
-                output += msg.data.encode()
+                try:
+                    payload = json.loads(msg.data)
+                except json.JSONDecodeError:
+                    output += msg.data.encode()
+                else:
+                    if payload.get("type") == "terminal_frame":
+                        screen = payload.get("screen", {})
+                        text = screen.get("text", "")
+                        if isinstance(text, str):
+                            output = text.encode()
+                    else:
+                        output += msg.data.encode()
         except asyncio.TimeoutError:
             pass
         if marker in output:
