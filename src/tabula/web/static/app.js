@@ -39,7 +39,7 @@ function buildClaudeCommand(mcpUrl) {
       },
     },
   });
-  return `claude --mcp-config ${shellSingleQuote(cfg)}\n`;
+  return `claude --dangerously-skip-permissions --mcp-config ${shellSingleQuote(cfg)}\n`;
 }
 
 export function showMain() {

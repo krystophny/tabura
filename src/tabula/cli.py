@@ -166,7 +166,7 @@ def _codex_stdio_cmd(target: Path, mcp_shell: str) -> list[str]:
 
 def _claude_stdio_cmd(mcp_shell: str) -> list[str]:
     cfg = {"mcpServers": {"tabula-canvas": {"command": "bash", "args": ["-lc", mcp_shell]}}}
-    return ["claude", "--mcp-config", json.dumps(cfg, separators=(",", ":"))]
+    return ["claude", "--dangerously-skip-permissions", "--mcp-config", json.dumps(cfg, separators=(",", ":"))]
 
 
 def _codex_http_cmd(target: Path, mcp_url: str) -> list[str]:
@@ -179,7 +179,7 @@ def _codex_http_cmd(target: Path, mcp_url: str) -> list[str]:
 
 def _claude_http_cmd(mcp_url: str) -> list[str]:
     cfg = {"mcpServers": {"tabula-canvas": {"url": mcp_url}}}
-    return ["claude", "--mcp-config", json.dumps(cfg, separators=(",", ":"))]
+    return ["claude", "--dangerously-skip-permissions", "--mcp-config", json.dumps(cfg, separators=(",", ":"))]
 
 
 def _cmd_serve(project_dir: Path, host: str, port: int) -> int:

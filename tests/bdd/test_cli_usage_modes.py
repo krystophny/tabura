@@ -311,6 +311,7 @@ def test_given_run_mode_with_claude_assistant_when_invoked_then_claude_launches_
     cmd = seen["cmd"]
     assert isinstance(cmd, list)
     assert cmd[0] == "claude"
+    assert "--dangerously-skip-permissions" in cmd
     assert "--mcp-config" in cmd
     assert "hello from claude tabula run" in cmd
     cfg = json.loads(cmd[cmd.index("--mcp-config") + 1])
@@ -437,6 +438,33 @@ def test_given_run_with_mcp_url_when_invoked_then_uses_http_mcp(monkeypatch, tmp
     url_cfg = [c for c in cmd if "tabula-canvas.url" in c]
     assert len(url_cfg) == 1
     assert "http://localhost:9420/mcp" in url_cfg[0]
+
+
+def test_given_run_with_mcp_url_and_claude_when_invoked_then_uses_http_mcp_with_dangerous_flag(
+    monkeypatch, tmp_path: Path
+) -> None:
+    seen: dict[str, object] = {}
+
+    class _RunResult:
+        returncode = 0
+
+    def fake_run(cmd, cwd=None):
+        seen["cmd"] = cmd
+        seen["cwd"] = cwd
+        return _RunResult()
+
+    monkeypatch.setattr("tabula.cli.bootstrap_project", _make_fake_bootstrap())
+    monkeypatch.setattr("tabula.cli.subprocess.run", fake_run)
+
+    rc = main(["run", "--assistant", "claude", "--mcp-url", "http://localhost:9420/mcp", "--project-dir", str(tmp_path)])
+    assert rc == 0
+    cmd = seen["cmd"]
+    assert isinstance(cmd, list)
+    assert cmd[0] == "claude"
+    assert "--dangerously-skip-permissions" in cmd
+    assert "--mcp-config" in cmd
+    cfg = json.loads(cmd[cmd.index("--mcp-config") + 1])
+    assert cfg["mcpServers"]["tabula-canvas"]["url"] == "http://localhost:9420/mcp"
 
 
 def test_given_no_args_when_invoked_then_help_and_exit_2(capsys) -> None:

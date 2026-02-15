@@ -32,7 +32,7 @@ def test_real_claude_http_mcp(tmp_path: Path) -> None:
                 "Then immediately exit with no further output."
             )
             proc = await asyncio.create_subprocess_exec(
-                "claude", "--mcp-config", json.dumps(cfg, separators=(",", ":")),
+                "claude", "--dangerously-skip-permissions", "--mcp-config", json.dumps(cfg, separators=(",", ":")),
                 "-p", prompt,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,

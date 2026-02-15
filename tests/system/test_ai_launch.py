@@ -236,7 +236,7 @@ def test_pty_launches_claude_with_mcp_config(tmp_path: Path) -> None:
         async with client:
             mcp_url = f"http://127.0.0.1:{client.port}/mcp"
             cfg = json.dumps({"mcpServers": {"tabula-canvas": {"url": mcp_url}}})
-            cmd = f"export PATH={tmp_path}:$PATH; claude --mcp-config '{cfg}'\n"
+            cmd = f"export PATH={tmp_path}:$PATH; claude --dangerously-skip-permissions --mcp-config '{cfg}'\n"
 
             transport = await LocalPtyTransport.open(str(tmp_path))
             try:
