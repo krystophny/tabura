@@ -321,6 +321,22 @@ body.desktop-canvas-only #panel-canvas {
 #canvas-text pre { background: var(--bg-elevated); padding: 0.75rem; border-radius: 4px; overflow-x: auto; }
 #canvas-text pre code { background: none; padding: 0; }
 
+#canvas-text pre code .hl-kw { color: #8be9fd; font-weight: 600; }
+#canvas-text pre code .hl-str { color: #f1fa8c; }
+#canvas-text pre code .hl-num { color: #bd93f9; }
+#canvas-text pre code .hl-cmt { color: #8f9fb3; font-style: italic; }
+
+#canvas-text pre code .hl-diff-line {
+  display: block;
+  margin: 0 -0.2rem;
+  padding: 0 0.2rem;
+}
+#canvas-text pre code .hl-diff-meta { color: #7da4d4; }
+#canvas-text pre code .hl-diff-hunk { color: #d5a6ff; }
+#canvas-text pre code .hl-diff-add { background: rgba(62, 132, 89, 0.25); }
+#canvas-text pre code .hl-diff-del { background: rgba(166, 70, 70, 0.28); }
+#canvas-text pre code .hl-diff-ctx { color: #d2d8df; }
+
 #canvas-img { max-width: 100%; height: auto; }
 
 /* Hosts */

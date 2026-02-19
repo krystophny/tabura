@@ -1,6 +1,106 @@
 import { marked } from './vendor/marked.esm.js';
 
-marked.setOptions({ breaks: true });
+const FORTRAN_KEYWORDS = [
+  'program', 'module', 'contains', 'implicit', 'none',
+  'integer', 'real', 'double', 'precision', 'complex', 'logical', 'character', 'type',
+  'subroutine', 'function', 'call',
+  'if', 'then', 'else', 'elseif', 'select', 'case', 'where',
+  'do', 'enddo', 'end', 'stop', 'return', 'cycle', 'exit',
+  'allocate', 'deallocate', 'parameter', 'intent', 'in', 'out', 'inout',
+  'use', 'only', 'private', 'public', 'interface', 'elemental', 'pure', 'recursive',
+];
+
+function escapeHtml(text) {
+  return String(text)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function withStashedParts(input, stasher) {
+  const stash = [];
+  const out = stasher(input, (html) => {
+    const key = `@@HL${stash.length}@@`;
+    stash.push({ key, html });
+    return key;
+  });
+  let restored = out;
+  for (const part of stash) {
+    restored = restored.replaceAll(part.key, part.html);
+  }
+  return restored;
+}
+
+function highlightFortranInline(lineEscaped) {
+  const kwPattern = new RegExp(`\\b(?:${FORTRAN_KEYWORDS.join('|')})\\b`, 'gi');
+  return withStashedParts(lineEscaped, (source, put) => {
+    let out = source;
+    out = out.replace(/"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g, (m) => put(`<span class="hl-str">${m}</span>`));
+    out = out.replace(/!.*/g, (m) => put(`<span class="hl-cmt">${m}</span>`));
+    out = out.replace(/\b\d+(?:\.\d+)?(?:[edED][+\-]?\d+)?\b/g, '<span class="hl-num">$&</span>');
+    out = out.replace(/\.(?:eq|ne|lt|le|gt|ge|and|or|not|true|false)\./gi, '<span class="hl-kw">$&</span>');
+    out = out.replace(kwPattern, '<span class="hl-kw">$&</span>');
+    return out;
+  });
+}
+
+function highlightFortran(code) {
+  return code.split('\n').map((line) => highlightFortranInline(escapeHtml(line))).join('\n');
+}
+
+function classifyDiffLine(line) {
+  if (line.startsWith('diff --git') || line.startsWith('index ') || line.startsWith('+++ ') || line.startsWith('--- ')) {
+    return 'meta';
+  }
+  if (line.startsWith('@@')) {
+    return 'hunk';
+  }
+  if (line.startsWith('+') && !line.startsWith('+++')) {
+    return 'add';
+  }
+  if (line.startsWith('-') && !line.startsWith('---')) {
+    return 'del';
+  }
+  return 'ctx';
+}
+
+function highlightDiff(code) {
+  const lines = code.split('\n');
+  return lines.map((line) => {
+    const kind = classifyDiffLine(line);
+    if (kind === 'meta' || kind === 'hunk') {
+      return `<span class="hl-diff-line hl-diff-${kind}">${escapeHtml(line)}</span>`;
+    }
+    if (!line) {
+      return '<span class="hl-diff-line hl-diff-ctx"></span>';
+    }
+    const prefix = line.charAt(0);
+    const rest = line.slice(1);
+    const highlightedRest = highlightFortranInline(escapeHtml(rest));
+    return `<span class="hl-diff-line hl-diff-${kind}">${escapeHtml(prefix)}${highlightedRest}</span>`;
+  }).join('\n');
+}
+
+function renderCodeBlock(code, langRaw) {
+  const lang = (langRaw || '').toLowerCase();
+  if (lang === 'fortran' || lang === 'f90' || lang === 'f95' || lang === 'f03' || lang === 'f08') {
+    return `<pre><code class="language-${escapeHtml(lang || 'fortran')}">${highlightFortran(code)}</code></pre>\n`;
+  }
+  if (lang === 'diff' || lang === 'patch' || lang === 'git') {
+    return `<pre><code class="language-${escapeHtml(lang)}">${highlightDiff(code)}</code></pre>\n`;
+  }
+  return `<pre><code class="language-${escapeHtml(lang || 'plaintext')}">${escapeHtml(code)}</code></pre>\n`;
+}
+
+const renderer = new marked.Renderer();
+renderer.code = ({ text, lang }) => renderCodeBlock(text || '', lang || '');
+
+marked.setOptions({
+  breaks: true,
+  renderer,
+});
 
 const els = {};
 let activeTextEventId = null;
