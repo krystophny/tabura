@@ -80,7 +80,7 @@ function highlightDiff(code) {
     const rest = line.slice(1);
     const highlightedRest = highlightFortranInline(escapeHtml(rest));
     return `<span class="hl-diff-line hl-diff-${kind}">${escapeHtml(prefix)}${highlightedRest}</span>`;
-  }).join('\n');
+  }).join('');
 }
 
 function renderCodeBlock(code, langRaw) {
