@@ -711,6 +711,15 @@ func normalizeProducerMCPURL(raw string) (string, error) {
 	if !isLoopbackHost(host) {
 		return "", fmt.Errorf("producer_mcp_url host must be loopback")
 	}
+	if strings.TrimSpace(u.Path) == "" || u.Path == "/" {
+		u.Path = "/mcp"
+	}
+	if u.Path != "/mcp" {
+		return "", fmt.Errorf("producer_mcp_url path must be /mcp")
+	}
+	if u.RawQuery != "" || u.Fragment != "" {
+		return "", fmt.Errorf("producer_mcp_url must not include query or fragment")
+	}
 	return u.String(), nil
 }
 

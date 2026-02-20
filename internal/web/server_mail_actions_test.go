@@ -148,6 +148,17 @@ func TestMailActionRejectsMalformedUntilAt(t *testing.T) {
 	}
 }
 
+func TestMailActionRejectsNonMCPPath(t *testing.T) {
+	app := newAuthedTestApp(t)
+	rr := doAuthedJSONRequest(t, app.Router(), "POST", "/api/mail/action-capabilities", map[string]any{
+		"provider":         "gmail",
+		"producer_mcp_url": "http://127.0.0.1:8090/not-mcp",
+	})
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
 func newAuthedTestApp(t *testing.T) *App {
 	t.Helper()
 	app, err := New(t.TempDir(), "", "", "", false)
