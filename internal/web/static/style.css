@@ -473,6 +473,41 @@ body.desktop-canvas-only #panel-canvas {
   display: flex;
 }
 
+.mail-draft-panel {
+  margin-top: 0.75rem;
+  border: 1px solid var(--border);
+  padding: 0.55rem;
+  background: var(--bg-surface);
+}
+
+.mail-draft-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+  font-size: 0.8rem;
+}
+
+.mail-draft-panel textarea {
+  width: 100%;
+  min-height: 140px;
+  resize: vertical;
+  font-family: inherit;
+  font-size: 0.82rem;
+  padding: 0.45rem;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+}
+
+.mail-draft-actions {
+  margin-top: 0.45rem;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.35rem;
+}
+
 #canvas-img { max-width: 100%; height: auto; }
 
 /* Hosts */

@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -149,6 +150,7 @@ func (a *App) Router() http.Handler {
 	r.Get("/api/files/{session_id}/*", a.handleFilesProxy)
 	r.Post("/api/mail/action-capabilities", a.handleMailActionCapabilities)
 	r.Post("/api/mail/action", a.handleMailAction)
+	r.Post("/api/mail/draft-reply", a.handleMailDraftReply)
 
 	// ws
 	r.Get("/ws/terminal/{session_id}", a.handleTerminalWS)
@@ -659,6 +661,141 @@ func (a *App) handleMailAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, resp)
+}
+
+func (a *App) handleMailDraftReply(w http.ResponseWriter, r *http.Request) {
+	if !a.requireAuth(w, r) {
+		return
+	}
+	if strings.EqualFold(strings.TrimSpace(os.Getenv("TABULA_DRAFT_REPLY_DISABLED")), "1") {
+		http.Error(w, "draft reply is disabled", http.StatusServiceUnavailable)
+		return
+	}
+	var req struct {
+		Provider       string `json:"provider"`
+		MessageID      string `json:"message_id"`
+		Subject        string `json:"subject"`
+		Sender         string `json:"sender"`
+		SelectionText  string `json:"selection_text"`
+		ProducerMCPURL string `json:"producer_mcp_url"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		http.Error(w, "invalid JSON", http.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(req.MessageID) == "" {
+		http.Error(w, "message_id is required", http.StatusBadRequest)
+		return
+	}
+	mcpURL, err := normalizeProducerMCPURL(req.ProducerMCPURL)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if draft, ok := tryProducerDraftReply(mcpURL, req.Provider, req.MessageID, req.Subject, req.Sender, req.SelectionText); ok {
+		writeJSON(w, map[string]interface{}{
+			"draft_text": draft,
+			"source":     "llm",
+		})
+		return
+	}
+
+	messagePreview := ""
+	if readResp, err := mcpToolsCallURL(mcpURL, "email_read", map[string]interface{}{
+		"provider":   req.Provider,
+		"message_id": req.MessageID,
+		"format":     "full",
+	}); err == nil {
+		if message, _ := readResp["message"].(map[string]interface{}); message != nil {
+			messagePreview = strings.TrimSpace(firstNonEmpty(
+				fmt.Sprint(message["snippet"]),
+				fmt.Sprint(message["body"]),
+				fmt.Sprint(message["plain"]),
+			))
+		}
+	}
+	draft := composeFallbackDraftReply(req.Sender, req.Subject, req.SelectionText, messagePreview)
+	writeJSON(w, map[string]interface{}{
+		"draft_text": draft,
+		"source":     "fallback",
+	})
+}
+
+func tryProducerDraftReply(mcpURL, provider, messageID, subject, sender, selectionText string) (string, bool) {
+	resp, err := mcpToolsCallURL(mcpURL, "draft_reply", map[string]interface{}{
+		"provider":       provider,
+		"message_id":     messageID,
+		"subject":        subject,
+		"sender":         sender,
+		"selection_text": selectionText,
+	})
+	if err != nil {
+		return "", false
+	}
+	for _, key := range []string{"draft_text", "draft", "text"} {
+		if text := strings.TrimSpace(fmt.Sprint(resp[key])); text != "" && text != "<nil>" {
+			return text, true
+		}
+	}
+	if nested, _ := resp["reply"].(map[string]interface{}); nested != nil {
+		for _, key := range []string{"draft_text", "draft", "text"} {
+			if text := strings.TrimSpace(fmt.Sprint(nested[key])); text != "" && text != "<nil>" {
+				return text, true
+			}
+		}
+	}
+	return "", false
+}
+
+func composeFallbackDraftReply(sender, subject, selectionText, preview string) string {
+	senderName := formatSenderName(sender)
+	if senderName == "" {
+		senderName = "there"
+	}
+	subjectLine := strings.TrimSpace(subject)
+	if subjectLine == "" {
+		subjectLine = "your message"
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "Hi %s,\n\n", senderName)
+	fmt.Fprintf(&b, "Thanks for your email regarding \"%s\".\n", subjectLine)
+	if strings.TrimSpace(selectionText) != "" {
+		b.WriteString("\nI noted this point:\n")
+		fmt.Fprintf(&b, "\"%s\"\n", strings.TrimSpace(selectionText))
+	}
+	if strings.TrimSpace(preview) != "" {
+		b.WriteString("\nI reviewed your note and will follow up with a concrete next step shortly.\n")
+	} else {
+		b.WriteString("\nI will follow up with a concrete next step shortly.\n")
+	}
+	b.WriteString("\nBest,\n")
+	b.WriteString("Your Name")
+	return b.String()
+}
+
+func formatSenderName(sender string) string {
+	sender = strings.TrimSpace(sender)
+	if sender == "" {
+		return ""
+	}
+	if i := strings.Index(sender, "<"); i > 0 {
+		return strings.Trim(strings.TrimSpace(sender[:i]), "\"")
+	}
+	if at := strings.Index(sender, "@"); at > 0 {
+		return strings.TrimSpace(sender[:at])
+	}
+	return sender
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		v = strings.TrimSpace(v)
+		if v != "" && v != "<nil>" {
+			return v
+		}
+	}
+	return ""
 }
 
 func (a *App) mcpToolsCall(port int, name string, arguments map[string]interface{}) (map[string]interface{}, error) {

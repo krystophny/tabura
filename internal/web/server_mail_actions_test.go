@@ -159,6 +159,73 @@ func TestMailActionRejectsNonMCPPath(t *testing.T) {
 	}
 }
 
+func TestMailDraftReplyUsesProducerDraftTool(t *testing.T) {
+	calls := []string{}
+	producer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+		var req map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Fatalf("decode producer request: %v", err)
+		}
+		params, _ := req["params"].(map[string]any)
+		name, _ := params["name"].(string)
+		calls = append(calls, name)
+		if name != "draft_reply" {
+			t.Fatalf("unexpected tool call: %s", name)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"jsonrpc": "2.0",
+			"id":      1,
+			"result": map[string]any{
+				"isError": false,
+				"structuredContent": map[string]any{
+					"draft_text": "Hi team,\\n\\nHere is a draft reply.\\n\\nBest,\\nMe",
+				},
+			},
+		})
+	}))
+	defer producer.Close()
+
+	app := newAuthedTestApp(t)
+	rr := doAuthedJSONRequest(t, app.Router(), "POST", "/api/mail/draft-reply", map[string]any{
+		"provider":         "gmail",
+		"message_id":       "m42",
+		"subject":          "Question",
+		"sender":           "Alice <alice@example.com>",
+		"selection_text":   "Can you reply by Friday?",
+		"producer_mcp_url": producer.URL,
+	})
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(rr.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if got := payload["source"]; got != "llm" {
+		t.Fatalf("expected source=llm, got %#v", got)
+	}
+	if got := payload["draft_text"]; got == "" {
+		t.Fatalf("expected non-empty draft_text")
+	}
+	if len(calls) != 1 || calls[0] != "draft_reply" {
+		t.Fatalf("unexpected producer tool calls: %#v", calls)
+	}
+}
+
+func TestMailDraftReplyDisabled(t *testing.T) {
+	t.Setenv("TABULA_DRAFT_REPLY_DISABLED", "1")
+	app := newAuthedTestApp(t)
+	rr := doAuthedJSONRequest(t, app.Router(), "POST", "/api/mail/draft-reply", map[string]any{
+		"provider":         "gmail",
+		"message_id":       "m42",
+		"producer_mcp_url": "http://127.0.0.1:8090/mcp",
+	})
+	if rr.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected 503, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
 func newAuthedTestApp(t *testing.T) *App {
 	t.Helper()
 	app, err := New(t.TempDir(), "", "", "", false)

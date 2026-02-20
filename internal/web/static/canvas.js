@@ -357,6 +357,7 @@ function clearTextInteractionHandlers() {
     window.removeEventListener('pointercancel', e.text._mailPointerUpHandler);
     e.text._mailPointerUpHandler = null;
   }
+  closeDraftPanel();
   e.text.classList.remove('mail-artifact');
   activeMailContext = null;
 }
@@ -514,6 +515,72 @@ async function callMailAction(context, action, messageID, untilAt) {
   return payload.result || payload;
 }
 
+async function callDraftReply(context, message) {
+  const resp = await fetch('/api/mail/draft-reply', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      provider: context.provider,
+      message_id: message.id,
+      subject: message.subject,
+      sender: message.sender,
+      selection_text: message.selectionText || '',
+      producer_mcp_url: context.producerMcpUrl,
+    }),
+  });
+  let payload = {};
+  const raw = await resp.text();
+  if (raw) {
+    try {
+      payload = JSON.parse(raw);
+    } catch (_) {
+      if (!resp.ok) throw new Error(raw);
+    }
+  }
+  if (!resp.ok) {
+    throw new Error(typeof payload === 'object' && payload !== null && payload.error ? payload.error : raw || 'draft generation failed');
+  }
+  if (typeof payload !== 'object' || payload === null) {
+    throw new Error('draft reply returned invalid response');
+  }
+  return payload;
+}
+
+function findMailHeader(context, messageID) {
+  for (const h of context.headers || []) {
+    if (h.id === messageID) return h;
+  }
+  return null;
+}
+
+function openDraftPanel(content, sourceLabel) {
+  const panel = document.querySelector('[data-mail-draft-panel]');
+  if (!panel) return;
+  const textarea = panel.querySelector('[data-mail-draft-text]');
+  const source = panel.querySelector('[data-mail-draft-source]');
+  if (textarea) {
+    textarea.value = content || '';
+  }
+  if (source) {
+    source.textContent = sourceLabel || '';
+  }
+  panel.hidden = false;
+}
+
+function closeDraftPanel() {
+  const panel = document.querySelector('[data-mail-draft-panel]');
+  if (!panel) return;
+  const textarea = panel.querySelector('[data-mail-draft-text]');
+  const source = panel.querySelector('[data-mail-draft-source]');
+  if (textarea) {
+    textarea.value = '';
+  }
+  if (source) {
+    source.textContent = '';
+  }
+  panel.hidden = true;
+}
+
 function renderMailHeadersHtml(context) {
   const provider = context.provider || 'default';
   const folder = context.folder || '-';
@@ -528,6 +595,7 @@ function renderMailHeadersHtml(context) {
           <button type="button" data-mail-action="archive">Archive</button>
           <button type="button" data-mail-action="delete">Delete</button>
           <button type="button" data-mail-action="defer">Defer</button>
+          <button type="button" data-mail-action="draft-reply">Draft Reply</button>
         </div>
         <div class="mail-defer-controls" data-mail-defer-controls hidden>
           <input type="datetime-local" data-mail-defer-input>
@@ -556,6 +624,17 @@ function renderMailHeadersHtml(context) {
       </thead>
       <tbody>${rows}</tbody>
     </table>
+    <div class="mail-draft-panel" data-mail-draft-panel hidden>
+      <div class="mail-draft-head">
+        <strong>Draft Reply</strong>
+        <span data-mail-draft-source></span>
+      </div>
+      <textarea data-mail-draft-text placeholder="Draft reply will appear here"></textarea>
+      <div class="mail-draft-actions">
+        <button type="button" data-mail-action="draft-copy">Copy</button>
+        <button type="button" data-mail-action="draft-cancel">Cancel</button>
+      </div>
+    </div>
   `;
 }
 
@@ -758,11 +837,56 @@ function setupMailActionHandlers(eventId, context) {
   const onClick = (ev) => {
     const button = ev.target.closest('button[data-mail-action]');
     if (!button) return;
+    const action = button.dataset.mailAction;
+    if (action === 'draft-cancel') {
+      closeDraftPanel();
+      return;
+    }
+    if (action === 'draft-copy') {
+      const panel = document.querySelector('[data-mail-draft-panel]');
+      const textarea = panel ? panel.querySelector('[data-mail-draft-text]') : null;
+      const text = textarea ? textarea.value : '';
+      if (text && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        void navigator.clipboard.writeText(text);
+      }
+      return;
+    }
+
     const row = button.closest('tr[data-message-id]');
     if (!row) return;
-    const action = button.dataset.mailAction;
     const messageID = row.dataset.messageId || '';
     if (!messageID) return;
+
+    if (action === 'draft-reply') {
+      const header = findMailHeader(context, messageID);
+      const message = {
+        id: messageID,
+        sender: header?.sender || '',
+        subject: header?.subject || '',
+        selectionText: window.getSelection()?.toString?.() || '',
+      };
+      setMailRowBusy(row, true);
+      setMailRowStatus(row, 'Generating draft reply...', 'info');
+      openDraftPanel('', 'Generating...');
+      void callDraftReply(context, message)
+        .then((payload) => {
+          if (activeTextEventId !== eventId) return;
+          const draftText = String(payload.draft_text || '').trim();
+          const source = String(payload.source || 'llm').trim();
+          openDraftPanel(draftText, source === 'llm' ? 'Generated by LLM (unsent)' : 'Fallback draft (unsent)');
+          setMailRowStatus(row, 'Draft ready. Review and edit before sending.', 'success');
+        })
+        .catch((err) => {
+          if (activeTextEventId !== eventId) return;
+          closeDraftPanel();
+          setMailRowStatus(row, String(err?.message || err || 'draft generation failed'), 'error');
+        })
+        .finally(() => {
+          if (activeTextEventId !== eventId) return;
+          setMailRowBusy(row, false);
+        });
+      return;
+    }
 
     if (action === 'defer-cancel') {
       closeMailDeferControls(row);
