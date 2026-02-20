@@ -43,6 +43,41 @@ Notes:
 - `tabula web --dev-runtime` enables `/api/runtime` metadata used by browser auto-reload.
 - `tabula canvas` opens the desktop canvas view in your default browser (`/canvas` -> `/?desktop=1`).
 
+## Desktop Mode + Handoff Test Quickstart
+
+Desktop canvas mode:
+
+- `http://localhost:8420/canvas`
+- `http://localhost:8420/?desktop=1`
+- `tabula canvas`
+
+For local single-machine integration (Tabula + Helpy):
+
+```bash
+systemctl --user restart helpy-mcp.service tabula-mcp.service tabula-ptyd.service tabula-web.service
+```
+
+Handoff-first mail UI test (do not print mail payload into chat):
+
+```bash
+HELPY=http://127.0.0.1:8090/mcp
+TAB=http://127.0.0.1:9420/mcp
+
+handoff_id=$(
+  curl -sS -X POST "$HELPY" -H 'content-type: application/json' \
+    -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"handoff.create","arguments":{"kind":"mail_headers","selector":{"provider":"tugraz","folder":"Archive","limit":20}}}}' \
+  | jq -r '.result.structuredContent.handoff_id'
+)
+
+curl -sS -X POST "$TAB" -H 'content-type: application/json' \
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"canvas_session_open","arguments":{"session_id":"local"}}}'
+
+curl -sS -X POST "$TAB" -H 'content-type: application/json' \
+  -d "{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/call\",\"params\":{\"name\":\"canvas_import_handoff\",\"arguments\":{\"session_id\":\"local\",\"handoff_id\":\"$handoff_id\",\"producer_mcp_url\":\"http://127.0.0.1:8090/mcp\",\"title\":\"Archive (20)\"}}}"
+```
+
+If you get `unknown tool`, restart the affected service; this usually means stale binary state.
+
 ## Dev Hot Reload (Systemd User Units)
 
 Unit templates and install helper live in:
