@@ -358,6 +358,7 @@ function clearTextInteractionHandlers() {
     e.text._mailPointerUpHandler = null;
   }
   closeDraftPanel();
+  closeOpenPanel();
   e.text.classList.remove('mail-artifact');
   activeMailContext = null;
 }
@@ -515,6 +516,37 @@ async function callMailAction(context, action, messageID, untilAt) {
   return payload.result || payload;
 }
 
+async function callMailRead(context, messageID) {
+  const resp = await fetch('/api/mail/read', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      provider: context.provider,
+      message_id: messageID,
+      format: 'full',
+      producer_mcp_url: context.producerMcpUrl,
+    }),
+  });
+  let payload = {};
+  const raw = await resp.text();
+  if (raw) {
+    try {
+      payload = JSON.parse(raw);
+    } catch (_) {
+      if (!resp.ok) {
+        throw new Error(raw);
+      }
+    }
+  }
+  if (!resp.ok) {
+    throw new Error(typeof payload === 'object' && payload !== null && payload.error ? payload.error : raw || 'mail read failed');
+  }
+  if (typeof payload !== 'object' || payload === null) {
+    throw new Error('mail read returned invalid response');
+  }
+  return payload.message || payload.result?.message || null;
+}
+
 async function callDraftReply(context, message) {
   const resp = await fetch('/api/mail/draft-reply', {
     method: 'POST',
@@ -581,6 +613,61 @@ function closeDraftPanel() {
   panel.hidden = true;
 }
 
+function firstMailField(message, keys) {
+  if (!message || typeof message !== 'object') return '';
+  for (const key of keys) {
+    const value = message[key];
+    if (value === null || value === undefined) continue;
+    if (Array.isArray(value)) {
+      const joined = value.map((v) => String(v || '').trim()).filter(Boolean).join(', ');
+      if (joined) return joined;
+      continue;
+    }
+    const text = String(value).trim();
+    if (text && text !== '<nil>') return text;
+  }
+  return '';
+}
+
+function openMailPanel(header, message) {
+  const panel = document.querySelector('[data-mail-open-panel]');
+  if (!panel) return;
+  const subject = panel.querySelector('[data-mail-open-subject]');
+  const from = panel.querySelector('[data-mail-open-from]');
+  const to = panel.querySelector('[data-mail-open-to]');
+  const date = panel.querySelector('[data-mail-open-date]');
+  const body = panel.querySelector('[data-mail-open-body]');
+
+  const subjectText = firstMailField(message, ['Subject', 'subject']) || header?.subject || '(no subject)';
+  const fromText = firstMailField(message, ['Sender', 'sender']) || header?.sender || '-';
+  const toText = firstMailField(message, ['Recipients', 'recipients']) || '-';
+  const dateText = formatMailDate(firstMailField(message, ['Date', 'date']) || header?.date || '');
+  const bodyText = firstMailField(message, ['BodyText', 'body_text', 'plain', 'text', 'Snippet', 'snippet']) || '(no body text available)';
+
+  if (subject) subject.textContent = subjectText;
+  if (from) from.textContent = fromText;
+  if (to) to.textContent = toText;
+  if (date) date.textContent = dateText || '-';
+  if (body) body.textContent = bodyText;
+  panel.hidden = false;
+}
+
+function closeOpenPanel() {
+  const panel = document.querySelector('[data-mail-open-panel]');
+  if (!panel) return;
+  const subject = panel.querySelector('[data-mail-open-subject]');
+  const from = panel.querySelector('[data-mail-open-from]');
+  const to = panel.querySelector('[data-mail-open-to]');
+  const date = panel.querySelector('[data-mail-open-date]');
+  const body = panel.querySelector('[data-mail-open-body]');
+  if (subject) subject.textContent = '';
+  if (from) from.textContent = '';
+  if (to) to.textContent = '';
+  if (date) date.textContent = '';
+  if (body) body.textContent = '';
+  panel.hidden = true;
+}
+
 function renderMailHeadersHtml(context) {
   const provider = context.provider || 'default';
   const folder = context.folder || '-';
@@ -624,6 +711,18 @@ function renderMailHeadersHtml(context) {
       </thead>
       <tbody>${rows}</tbody>
     </table>
+    <div class="mail-open-panel" data-mail-open-panel hidden>
+      <div class="mail-open-head">
+        <strong data-mail-open-subject></strong>
+        <button type="button" data-mail-action="open-close">Close</button>
+      </div>
+      <div class="mail-open-meta">
+        <div><strong>From:</strong> <span data-mail-open-from></span></div>
+        <div><strong>To:</strong> <span data-mail-open-to></span></div>
+        <div><strong>Date:</strong> <span data-mail-open-date></span></div>
+      </div>
+      <pre data-mail-open-body></pre>
+    </div>
     <div class="mail-draft-panel" data-mail-draft-panel hidden>
       <div class="mail-draft-head">
         <strong>Draft Reply</strong>
@@ -838,6 +937,10 @@ function setupMailActionHandlers(eventId, context) {
     const button = ev.target.closest('button[data-mail-action]');
     if (!button) return;
     const action = button.dataset.mailAction;
+    if (action === 'open-close') {
+      closeOpenPanel();
+      return;
+    }
     if (action === 'draft-cancel') {
       closeDraftPanel();
       return;
@@ -916,7 +1019,32 @@ function setupMailActionHandlers(eventId, context) {
       runImmediateMailAction(eventId, context, row, 'defer', messageID, untilAt);
       return;
     }
-    if (action !== 'open' && action !== 'archive' && action !== 'delete') {
+    if (action === 'open') {
+      const header = findMailHeader(context, messageID);
+      setMailRowBusy(row, true);
+      setMailRowStatus(row, 'Opening...', 'info');
+      void callMailRead(context, messageID)
+        .then((message) => {
+          if (activeTextEventId !== eventId) return;
+          closeDraftPanel();
+          openMailPanel(header, message || {});
+          e.text.querySelectorAll('tr[data-message-id]').forEach((candidate) => {
+            candidate.classList.remove('mail-row-opened');
+          });
+          row.classList.add('mail-row-opened');
+          setMailRowStatus(row, 'Opened.', 'success');
+        })
+        .catch((err) => {
+          if (activeTextEventId !== eventId) return;
+          setMailRowStatus(row, String(err?.message || err || 'open failed'), 'error');
+        })
+        .finally(() => {
+          if (activeTextEventId !== eventId) return;
+          setMailRowBusy(row, false);
+        });
+      return;
+    }
+    if (action !== 'archive' && action !== 'delete') {
       return;
     }
     if (action === 'archive' || action === 'delete') {

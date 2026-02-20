@@ -122,6 +122,75 @@ func TestMailActionProxy(t *testing.T) {
 	}
 }
 
+func TestMailReadProxy(t *testing.T) {
+	producer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+		var req map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Fatalf("decode producer request: %v", err)
+		}
+		params, _ := req["params"].(map[string]any)
+		name, _ := params["name"].(string)
+		if name != "email_read" {
+			t.Fatalf("unexpected tool call: %s", name)
+		}
+		args, _ := params["arguments"].(map[string]any)
+		if args["message_id"] != "m42" {
+			t.Fatalf("expected message_id=m42, got %#v", args["message_id"])
+		}
+		if args["format"] != "full" {
+			t.Fatalf("expected format=full, got %#v", args["format"])
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"jsonrpc": "2.0",
+			"id":      1,
+			"result": map[string]any{
+				"isError": false,
+				"structuredContent": map[string]any{
+					"message": map[string]any{
+						"ID":      "m42",
+						"Subject": "hello",
+						"Snippet": "world",
+					},
+				},
+			},
+		})
+	}))
+	defer producer.Close()
+
+	app := newAuthedTestApp(t)
+	rr := doAuthedJSONRequest(t, app.Router(), "POST", "/api/mail/read", map[string]any{
+		"provider":         "gmail",
+		"message_id":       "m42",
+		"producer_mcp_url": producer.URL,
+	})
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(rr.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	message, _ := payload["message"].(map[string]any)
+	if message == nil {
+		t.Fatalf("missing message: %#v", payload)
+	}
+	if got := message["ID"]; got != "m42" {
+		t.Fatalf("expected ID=m42, got %#v", got)
+	}
+}
+
+func TestMailReadRequiresMessageID(t *testing.T) {
+	app := newAuthedTestApp(t)
+	rr := doAuthedJSONRequest(t, app.Router(), "POST", "/api/mail/read", map[string]any{
+		"provider":         "gmail",
+		"producer_mcp_url": "http://127.0.0.1:8090/mcp",
+	})
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
 func TestMailActionRejectsNonLoopbackProducerURL(t *testing.T) {
 	app := newAuthedTestApp(t)
 	rr := doAuthedJSONRequest(t, app.Router(), "POST", "/api/mail/action", map[string]any{

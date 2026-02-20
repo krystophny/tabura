@@ -455,6 +455,10 @@ body.desktop-canvas-only #panel-canvas {
   background: var(--bg-elevated);
 }
 
+.mail-row-opened {
+  background: #fff9db;
+}
+
 .mail-undo-toast {
   position: sticky;
   bottom: 0.75rem;
@@ -478,6 +482,44 @@ body.desktop-canvas-only #panel-canvas {
   border: 1px solid var(--border);
   padding: 0.55rem;
   background: var(--bg-surface);
+}
+
+.mail-open-panel {
+  margin-top: 0.75rem;
+  border: 1px solid var(--border);
+  padding: 0.55rem;
+  background: var(--bg-surface);
+}
+
+.mail-open-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+  font-size: 0.84rem;
+}
+
+.mail-open-meta {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.2rem;
+  margin-bottom: 0.45rem;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+}
+
+.mail-open-panel pre {
+  margin: 0;
+  max-height: 340px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.82rem;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  padding: 0.45rem;
 }
 
 .mail-draft-head {
