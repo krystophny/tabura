@@ -739,7 +739,26 @@ function openReviewCommentPopover(eventId, options = {}) {
       if (typeof options.onCancel === 'function') {
         options.onCancel();
       }
+      return;
     }
+    const isCommitShortcut = ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey) && !ev.shiftKey && !ev.altKey;
+    if (!isCommitShortcut) return;
+    const target = ev.target instanceof Element ? ev.target : null;
+    if (!target || !popover.contains(target)) return;
+    const inCommentInput = target.matches('input, textarea') || target.closest('input, textarea');
+    if (!inCommentInput) return;
+    ev.preventDefault();
+    if (typeof popover.requestSubmit === 'function') {
+      popover.requestSubmit();
+    } else {
+      popover.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    }
+    window.setTimeout(() => {
+      const commitBtn = document.getElementById('btn-canvas-commit');
+      if (commitBtn) {
+        commitBtn.click();
+      }
+    }, 0);
   };
   document.addEventListener('keydown', keyDownHandler, true);
   e.text._reviewPopoverKeyDownHandler = keyDownHandler;
@@ -3561,6 +3580,9 @@ export function initCanvasControls() {
         const isCommitShortcut = ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey) && !ev.shiftKey && !ev.altKey;
         if (!isCommitShortcut) return;
 
+        if (document.querySelector('[data-review-popover="true"]')) {
+          return;
+        }
         const activeEl = document.activeElement;
         if (activeEl && document.getElementById('terminal-container')?.contains(activeEl)) {
           return;
