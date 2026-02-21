@@ -1063,7 +1063,7 @@ button[data-mail-record-action="stop"] {
 #chat-input {
   width: 100%;
   resize: none;
-  min-height: 46px;
+  min-height: calc(2.8em + 1.1rem + 2px);
   max-height: 240px;
   line-height: 1.4;
   padding: 0.55rem 0.75rem;
