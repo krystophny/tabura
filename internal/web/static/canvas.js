@@ -155,10 +155,7 @@ const mailAssistActionRegistry = new Map();
 const DRAFT_PROMPT_CANCELLED_CODE = 'draft_prompt_cancelled';
 let pendingDraftPromptCapture = null;
 const POINT_COMMENT_MARK_SIZE_PX = 16;
-const MATH_DELIM_INLINE_OPEN = '@@TABULA_MATH_INLINE_OPEN@@';
-const MATH_DELIM_INLINE_CLOSE = '@@TABULA_MATH_INLINE_CLOSE@@';
-const MATH_DELIM_DISPLAY_OPEN = '@@TABULA_MATH_DISPLAY_OPEN@@';
-const MATH_DELIM_DISPLAY_CLOSE = '@@TABULA_MATH_DISPLAY_CLOSE@@';
+const MATH_SEGMENT_TOKEN_PREFIX = '@@TABULA_MATH_SEGMENT_';
 
 function getEls() {
   if (!els.empty) {
@@ -194,21 +191,39 @@ function sanitizeHtml(html) {
   return doc.body.innerHTML;
 }
 
-function preserveMathDelimiters(markdownSource) {
-  const src = String(markdownSource || '');
-  return src
-    .replace(/\\\(/g, MATH_DELIM_INLINE_OPEN)
-    .replace(/\\\)/g, MATH_DELIM_INLINE_CLOSE)
-    .replace(/\\\[/g, MATH_DELIM_DISPLAY_OPEN)
-    .replace(/\\\]/g, MATH_DELIM_DISPLAY_CLOSE);
+function extractMathSegments(markdownSource) {
+  const source = String(markdownSource || '');
+  const stash = [];
+  let text = source;
+
+  const patterns = [
+    /\$\$[\s\S]+?\$\$/g,
+    /\\\[[\s\S]+?\\\]/g,
+    /\\\([\s\S]+?\\\)/g,
+  ];
+
+  for (const pattern of patterns) {
+    text = text.replace(pattern, (segment) => {
+      const token = `${MATH_SEGMENT_TOKEN_PREFIX}${stash.length}@@`;
+      stash.push(segment);
+      return token;
+    });
+  }
+
+  return { text, stash };
 }
 
-function restoreMathDelimiters(renderedHtml) {
-  return String(renderedHtml || '')
-    .replaceAll(MATH_DELIM_INLINE_OPEN, '\\(')
-    .replaceAll(MATH_DELIM_INLINE_CLOSE, '\\)')
-    .replaceAll(MATH_DELIM_DISPLAY_OPEN, '\\[')
-    .replaceAll(MATH_DELIM_DISPLAY_CLOSE, '\\]');
+function restoreMathSegments(renderedHtml, mathSegments) {
+  let output = String(renderedHtml || '');
+  if (!Array.isArray(mathSegments) || mathSegments.length === 0) {
+    return output;
+  }
+  for (let i = 0; i < mathSegments.length; i += 1) {
+    const token = `${MATH_SEGMENT_TOKEN_PREFIX}${i}@@`;
+    const safeSegment = escapeHtml(String(mathSegments[i] || ''));
+    output = output.replaceAll(token, safeSegment);
+  }
+  return output;
 }
 
 function typesetMarkdownMath(root, attempt = 0) {
@@ -4217,9 +4232,9 @@ export function renderCanvas(event) {
       return;
     }
     activeMailContext = null;
-    const markdownWithMathSentinels = preserveMathDelimiters(event.text || '');
-    const renderedMarkdownHtml = marked.parse(markdownWithMathSentinels);
-    e.text.innerHTML = restoreMathDelimiters(sanitizeHtml(renderedMarkdownHtml));
+    const { text: markdownText, stash: mathSegments } = extractMathSegments(event.text || '');
+    const renderedMarkdownHtml = marked.parse(markdownText);
+    e.text.innerHTML = restoreMathSegments(sanitizeHtml(renderedMarkdownHtml), mathSegments);
     typesetMarkdownMath(e.text);
     setupTextSelection(event.event_id);
     renderDraftOverlay();
