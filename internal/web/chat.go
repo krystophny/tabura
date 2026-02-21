@@ -444,6 +444,7 @@ func (a *App) runAssistantTurn(sessionID string) {
 			"thread_id": ev.ThreadID,
 			"turn_id":   ev.TurnID,
 		}
+		shouldBroadcast := true
 		switch ev.Type {
 		case "thread_started":
 			if strings.TrimSpace(ev.ThreadID) != "" {
@@ -467,9 +468,16 @@ func (a *App) runAssistantTurn(sessionID string) {
 			persistAssistantSnapshot(latestMessage)
 			payload["message"] = latestMessage
 		case "error":
-			payload["error"] = ev.Error
+			if strings.TrimSpace(ev.TurnID) != "" {
+				latestTurnID = ev.TurnID
+			}
+			// Stream-level errors are normalized and emitted by the final error path
+			// below so the UI receives one clean terminal error event.
+			shouldBroadcast = false
 		}
-		a.broadcastChatEvent(sessionID, payload)
+		if shouldBroadcast {
+			a.broadcastChatEvent(sessionID, payload)
+		}
 	})
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
