@@ -1085,9 +1085,39 @@ button[data-mail-record-action="stop"] {
   gap: 0.75rem;
 }
 
+.chat-compose-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
 #chat-hint {
   font-size: 0.78rem;
   color: #6b7280;
+}
+
+.chat-assistant-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.76rem;
+  color: #4b5563;
+}
+
+.chat-assistant-state::before {
+  content: '';
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: #9ca3af;
+}
+
+.chat-assistant-state.is-working {
+  color: #111827;
+}
+
+.chat-assistant-state.is-working::before {
+  background: #111827;
 }
 
 @media (max-width: 768px) {

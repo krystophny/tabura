@@ -60,6 +60,7 @@ type App struct {
 	mu               sync.Mutex
 	canvasWS         map[string]map[*websocket.Conn]struct{}
 	chatWS           map[string]map[*websocket.Conn]struct{}
+	chatTurnCancel   map[string]map[string]context.CancelFunc
 	remoteCanvasWS   map[string]*websocket.Conn
 	tunnelPorts      map[string]int
 	relayCancel      map[string]context.CancelFunc
@@ -101,6 +102,7 @@ func New(dataDir, localProjectDir, localMCPURL, appServerURL string, devRuntime 
 		upgrader:        websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }},
 		canvasWS:        map[string]map[*websocket.Conn]struct{}{},
 		chatWS:          map[string]map[*websocket.Conn]struct{}{},
+		chatTurnCancel:  map[string]map[string]context.CancelFunc{},
 		remoteCanvasWS:  map[string]*websocket.Conn{},
 		tunnelPorts:     map[string]int{},
 		relayCancel:     map[string]context.CancelFunc{},
@@ -165,6 +167,7 @@ func (a *App) Router() http.Handler {
 	r.Get("/api/chat/sessions/{session_id}/history", a.handleChatSessionHistory)
 	r.Post("/api/chat/sessions/{session_id}/messages", a.handleChatSessionMessage)
 	r.Post("/api/chat/sessions/{session_id}/commands", a.handleChatSessionCommand)
+	r.Post("/api/chat/sessions/{session_id}/cancel", a.handleChatSessionCancel)
 
 	// canvas/file proxy
 	r.Get("/api/canvas/{session_id}/snapshot", a.handleCanvasSnapshot)
@@ -1435,6 +1438,11 @@ func (a *App) Shutdown(ctx context.Context) error {
 	a.mu.Lock()
 	for _, cancel := range a.relayCancel {
 		cancel()
+	}
+	for _, runs := range a.chatTurnCancel {
+		for _, cancel := range runs {
+			cancel()
+		}
 	}
 	for _, ws := range a.remoteCanvasWS {
 		_ = ws.Close()

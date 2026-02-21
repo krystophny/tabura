@@ -106,6 +106,26 @@ func (a *App) handleChatSessionCommand(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (a *App) handleChatSessionCancel(w http.ResponseWriter, r *http.Request) {
+	if !a.requireAuth(w, r) {
+		return
+	}
+	sessionID := strings.TrimSpace(chi.URLParam(r, "session_id"))
+	if sessionID == "" {
+		http.Error(w, "missing session_id", http.StatusBadRequest)
+		return
+	}
+	if _, err := a.store.GetChatSession(sessionID); err != nil {
+		http.Error(w, "session not found", http.StatusNotFound)
+		return
+	}
+	canceled := a.cancelActiveChatTurns(sessionID)
+	writeJSON(w, map[string]interface{}{
+		"ok":       true,
+		"canceled": canceled,
+	})
+}
+
 func (a *App) handleChatSessionMessage(w http.ResponseWriter, r *http.Request) {
 	if !a.requireAuth(w, r) {
 		return
@@ -253,9 +273,61 @@ func (a *App) executeChatCommand(sessionID, raw string) (map[string]interface{},
 			"action":  "commit_canvas",
 			"message": message,
 		}, nil
+	case "stop", "cancel":
+		canceled := a.cancelActiveChatTurns(sessionID)
+		message := "No assistant turn is currently running."
+		if canceled > 0 {
+			message = "Stopping assistant work."
+		}
+		return map[string]interface{}{
+			"name":     name,
+			"canceled": canceled,
+			"message":  message,
+		}, nil
 	default:
 		return nil, fmt.Errorf("unknown command: /%s", name)
 	}
+}
+
+func (a *App) registerActiveChatTurn(sessionID, runID string, cancel context.CancelFunc) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.chatTurnCancel[sessionID] == nil {
+		a.chatTurnCancel[sessionID] = map[string]context.CancelFunc{}
+	}
+	a.chatTurnCancel[sessionID][runID] = cancel
+}
+
+func (a *App) unregisterActiveChatTurn(sessionID, runID string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	runs := a.chatTurnCancel[sessionID]
+	if runs == nil {
+		return
+	}
+	delete(runs, runID)
+	if len(runs) == 0 {
+		delete(a.chatTurnCancel, sessionID)
+	}
+}
+
+func (a *App) cancelActiveChatTurns(sessionID string) int {
+	a.mu.Lock()
+	runs := a.chatTurnCancel[sessionID]
+	if len(runs) == 0 {
+		a.mu.Unlock()
+		return 0
+	}
+	cancels := make([]context.CancelFunc, 0, len(runs))
+	for _, cancel := range runs {
+		cancels = append(cancels, cancel)
+	}
+	delete(a.chatTurnCancel, sessionID)
+	a.mu.Unlock()
+	for _, cancel := range cancels {
+		cancel()
+	}
+	return len(cancels)
 }
 
 func (a *App) runAssistantTurn(sessionID string) {
@@ -282,7 +354,12 @@ func (a *App) runAssistantTurn(sessionID string) {
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
-	defer cancel()
+	runID := randomToken()
+	a.registerActiveChatTurn(sessionID, runID, cancel)
+	defer func() {
+		cancel()
+		a.unregisterActiveChatTurn(sessionID, runID)
+	}()
 
 	latestMessage := ""
 	latestTurnID := ""
@@ -342,6 +419,10 @@ func (a *App) runAssistantTurn(sessionID string) {
 			if strings.TrimSpace(ev.ThreadID) != "" {
 				_ = a.store.UpdateChatSessionThread(sessionID, ev.ThreadID)
 			}
+		case "turn_started":
+			if strings.TrimSpace(ev.TurnID) != "" {
+				latestTurnID = ev.TurnID
+			}
 		case "assistant_message":
 			latestMessage = ev.Message
 			latestTurnID = ev.TurnID
@@ -361,15 +442,39 @@ func (a *App) runAssistantTurn(sessionID string) {
 		a.broadcastChatEvent(sessionID, payload)
 	})
 	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			a.broadcastChatEvent(sessionID, map[string]interface{}{
+				"type":    "turn_cancelled",
+				"turn_id": latestTurnID,
+			})
+			return
+		}
+		if errors.Is(err, context.DeadlineExceeded) {
+			errText := "assistant request timed out"
+			_, _ = a.store.AddChatMessage(sessionID, "system", errText, errText, "text")
+			payload := map[string]interface{}{
+				"type":  "error",
+				"error": errText,
+			}
+			if strings.TrimSpace(latestTurnID) != "" {
+				payload["turn_id"] = latestTurnID
+			}
+			a.broadcastChatEvent(sessionID, payload)
+			return
+		}
 		errText := strings.TrimSpace(err.Error())
 		if errText == "" {
 			errText = "assistant request failed"
 		}
 		_, _ = a.store.AddChatMessage(sessionID, "system", errText, errText, "text")
-		a.broadcastChatEvent(sessionID, map[string]interface{}{
+		payload := map[string]interface{}{
 			"type":  "error",
 			"error": errText,
-		})
+		}
+		if strings.TrimSpace(latestTurnID) != "" {
+			payload["turn_id"] = latestTurnID
+		}
+		a.broadcastChatEvent(sessionID, payload)
 		return
 	}
 

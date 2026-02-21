@@ -12,6 +12,9 @@ const state = {
   canvasHasUnread: false,
   pendingByTurn: new Map(),
   pendingQueue: [],
+  assistantActiveTurns: new Set(),
+  assistantUnknownTurns: 0,
+  assistantCancelInFlight: false,
   chatCtrlHoldTimer: null,
   chatVoiceCapture: null,
 };
@@ -528,6 +531,61 @@ function setChatMode(mode) {
   }
 }
 
+function isAssistantWorking() {
+  return state.pendingQueue.length > 0
+    || state.pendingByTurn.size > 0
+    || state.assistantActiveTurns.size > 0
+    || state.assistantUnknownTurns > 0;
+}
+
+function updateAssistantActivityIndicator() {
+  if (!isAssistantWorking()) {
+    state.assistantUnknownTurns = 0;
+    state.assistantActiveTurns.clear();
+  }
+  const el = document.getElementById('chat-assistant-state');
+  if (!(el instanceof HTMLElement)) return;
+  const working = isAssistantWorking();
+  el.textContent = working ? 'Assistant is working...' : 'Assistant idle';
+  el.classList.toggle('is-working', working);
+  el.classList.toggle('is-idle', !working);
+}
+
+function trackAssistantTurnStarted(turnID) {
+  const key = String(turnID || '').trim();
+  if (key) {
+    state.assistantActiveTurns.add(key);
+  } else {
+    state.assistantUnknownTurns += 1;
+  }
+  updateAssistantActivityIndicator();
+}
+
+function trackAssistantTurnFinished(turnID) {
+  const key = String(turnID || '').trim();
+  if (key) {
+    if (!state.assistantActiveTurns.delete(key) && state.assistantUnknownTurns > 0) {
+      state.assistantUnknownTurns -= 1;
+    }
+  } else if (state.assistantUnknownTurns > 0) {
+    state.assistantUnknownTurns -= 1;
+  }
+  updateAssistantActivityIndicator();
+}
+
+function takePendingRow(turnID) {
+  const key = String(turnID || '').trim();
+  if (key && state.pendingByTurn.has(key)) {
+    const row = state.pendingByTurn.get(key);
+    state.pendingByTurn.delete(key);
+    updateAssistantActivityIndicator();
+    return row;
+  }
+  const row = state.pendingQueue.shift() || null;
+  updateAssistantActivityIndicator();
+  return row;
+}
+
 function nextLocalMessageId() {
   localMessageSeq += 1;
   return `local-msg-${Date.now()}-${localMessageSeq}`;
@@ -611,6 +669,7 @@ function ensurePendingForTurn(turnID) {
     row.dataset.turnId = key;
     state.pendingByTurn.set(key, row);
   }
+  updateAssistantActivityIndicator();
   return row;
 }
 
@@ -656,6 +715,7 @@ async function loadChatHistory() {
     }
   }
   scrollChatToBottom(host);
+  updateAssistantActivityIndicator();
 }
 
 function openChatWs() {
@@ -672,6 +732,9 @@ function openChatWs() {
     if (isReconnect) {
       state.pendingByTurn.clear();
       state.pendingQueue = [];
+      state.assistantActiveTurns.clear();
+      state.assistantUnknownTurns = 0;
+      updateAssistantActivityIndicator();
       void loadChatHistory().catch((err) => {
         appendPlainMessage('system', `History sync failed: ${String(err?.message || err)}`);
       });
@@ -721,12 +784,14 @@ function handleChatEvent(payload) {
   }
 
   if (type === 'turn_started') {
+    trackAssistantTurnStarted(payload.turn_id);
     ensurePendingForTurn(payload.turn_id);
     return;
   }
 
   if (type === 'assistant_message') {
     const turnID = String(payload.turn_id || '').trim();
+    trackAssistantTurnStarted(turnID);
     const row = ensurePendingForTurn(turnID);
     updateAssistantRow(row, String(payload.message || ''), true);
     return;
@@ -735,22 +800,35 @@ function handleChatEvent(payload) {
   if (type === 'message_persisted') {
     if (String(payload.role || '') !== 'assistant') return;
     const turnID = String(payload.turn_id || '').trim();
-    let row = null;
-    if (turnID && state.pendingByTurn.has(turnID)) {
-      row = state.pendingByTurn.get(turnID);
-      state.pendingByTurn.delete(turnID);
-    } else {
-      row = state.pendingQueue.shift() || null;
-    }
+    const row = takePendingRow(turnID);
     if (row) {
       updateAssistantRow(row, String(payload.message || ''), false);
     } else {
       appendRenderedAssistant(String(payload.message || ''));
     }
+    trackAssistantTurnFinished(turnID);
+    showStatus('ready');
+    return;
+  }
+
+  if (type === 'turn_cancelled') {
+    const turnID = String(payload.turn_id || '').trim();
+    const row = takePendingRow(turnID);
+    if (row) {
+      updateAssistantRow(row, '_Stopped._', false);
+    }
+    trackAssistantTurnFinished(turnID);
+    showStatus('assistant stopped');
     return;
   }
 
   if (type === 'error') {
+    const turnID = String(payload.turn_id || '').trim();
+    const row = takePendingRow(turnID);
+    if (row) {
+      row.classList.remove('is-pending');
+    }
+    trackAssistantTurnFinished(turnID);
     const errText = String(payload.error || 'assistant request failed');
     appendPlainMessage('system', errText);
   }
@@ -769,6 +847,7 @@ async function sendChatMessage() {
   if (!text.startsWith('/')) {
     const pending = appendRenderedAssistant('_Thinking..._', { pending: true, localId: nextLocalMessageId() });
     state.pendingQueue.push(pending);
+    updateAssistantActivityIndicator();
   }
 
   try {
@@ -779,6 +858,9 @@ async function sendChatMessage() {
     });
     if (!resp.ok) {
       const detail = (await resp.text()).trim() || `HTTP ${resp.status}`;
+      const pending = takePendingRow('');
+      pending?.remove();
+      trackAssistantTurnFinished('');
       appendPlainMessage('system', `Send failed: ${detail}`);
       return;
     }
@@ -787,9 +869,41 @@ async function sendChatMessage() {
       appendPlainMessage('system', String(payload.result.message));
     }
   } catch (err) {
+    const pending = takePendingRow('');
+    pending?.remove();
+    trackAssistantTurnFinished('');
     appendPlainMessage('system', `Send failed: ${String(err?.message || err)}`);
   }
   focusChatInput({ placeCursorAtEnd: true });
+}
+
+async function cancelActiveAssistantTurn() {
+  if (!state.chatSessionId || state.assistantCancelInFlight) return;
+  if (!isAssistantWorking()) {
+    showStatus('assistant idle');
+    return;
+  }
+  state.assistantCancelInFlight = true;
+  showStatus('stopping assistant...');
+  try {
+    const resp = await fetch(`/api/chat/sessions/${encodeURIComponent(state.chatSessionId)}/cancel`, {
+      method: 'POST',
+    });
+    if (!resp.ok) {
+      const detail = (await resp.text()).trim() || `HTTP ${resp.status}`;
+      showStatus(`stop failed: ${detail}`);
+      return;
+    }
+    const payload = await resp.json();
+    const canceled = Number(payload?.canceled || 0);
+    if (canceled <= 0) {
+      showStatus('assistant idle');
+    }
+  } catch (err) {
+    showStatus(`stop failed: ${String(err?.message || err)}`);
+  } finally {
+    state.assistantCancelInFlight = false;
+  }
 }
 
 function openCanvasWs() {
@@ -912,6 +1026,12 @@ function bindUi() {
   document.addEventListener('keydown', (ev) => {
     if (state.activeTab !== 'chat') return;
 
+    if (ev.key === 'Escape' && !ev.metaKey && !ev.ctrlKey && !ev.altKey) {
+      ev.preventDefault();
+      void cancelActiveAssistantTurn();
+      return;
+    }
+
     if (ev.key === 'Control' && !ev.repeat) {
       if (state.chatCtrlHoldTimer || state.chatVoiceCapture) return;
       state.chatCtrlHoldTimer = window.setTimeout(() => {
@@ -1005,6 +1125,7 @@ function bindUi() {
 
 async function init() {
   bindUi();
+  updateAssistantActivityIndicator();
   startDevReloadWatcher();
   initCanvasControls();
   clearCanvas();
