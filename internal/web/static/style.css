@@ -1120,6 +1120,14 @@ button[data-mail-record-action="stop"] {
   background: #111827;
 }
 
+.chat-assistant-state.is-stopping {
+  color: #92400e;
+}
+
+.chat-assistant-state.is-stopping::before {
+  background: #d97706;
+}
+
 @media (max-width: 768px) {
   #toolbar {
     flex-wrap: wrap;

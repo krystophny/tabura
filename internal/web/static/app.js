@@ -14,6 +14,7 @@ const state = {
   pendingQueue: [],
   assistantActiveTurns: new Set(),
   assistantUnknownTurns: 0,
+  assistantRemoteActiveCount: 0,
   assistantCancelInFlight: false,
   chatCtrlHoldTimer: null,
   chatVoiceCapture: null,
@@ -27,6 +28,7 @@ window._tabulaApp = { getState };
 
 const MATH_SEGMENT_TOKEN_PREFIX = '@@TABULA_CHAT_MATH_SEGMENT_';
 const DEV_UI_RELOAD_POLL_MS = 1500;
+const ASSISTANT_ACTIVITY_POLL_MS = 1200;
 let localMessageSeq = 0;
 const CHAT_CTRL_LONG_PRESS_MS = 180;
 const sttActionStart = 'start';
@@ -37,6 +39,8 @@ let devReloadBootID = '';
 let devReloadTimer = null;
 let devReloadInFlight = false;
 let devReloadRequested = false;
+let assistantActivityTimer = null;
+let assistantActivityInFlight = false;
 
 const renderer = new marked.Renderer();
 renderer.code = ({ text, lang }) => {
@@ -531,24 +535,36 @@ function setChatMode(mode) {
   }
 }
 
-function isAssistantWorking() {
+function hasLocalAssistantWork() {
   return state.pendingQueue.length > 0
     || state.pendingByTurn.size > 0
     || state.assistantActiveTurns.size > 0
     || state.assistantUnknownTurns > 0;
 }
 
+function isAssistantWorking() {
+  return hasLocalAssistantWork()
+    || state.assistantRemoteActiveCount > 0
+    || state.assistantCancelInFlight;
+}
+
 function updateAssistantActivityIndicator() {
-  if (!isAssistantWorking()) {
+  if (!hasLocalAssistantWork() && state.assistantRemoteActiveCount <= 0) {
     state.assistantUnknownTurns = 0;
     state.assistantActiveTurns.clear();
   }
   const el = document.getElementById('chat-assistant-state');
   if (!(el instanceof HTMLElement)) return;
   const working = isAssistantWorking();
-  el.textContent = working ? 'Assistant is working...' : 'Assistant idle';
-  el.classList.toggle('is-working', working);
-  el.classList.toggle('is-idle', !working);
+  const stopping = state.assistantCancelInFlight;
+  if (stopping) {
+    el.textContent = 'Assistant stopping...';
+  } else {
+    el.textContent = working ? 'Assistant is working...' : 'Assistant idle';
+  }
+  el.classList.toggle('is-working', working && !stopping);
+  el.classList.toggle('is-stopping', stopping);
+  el.classList.toggle('is-idle', !working && !stopping);
 }
 
 function trackAssistantTurnStarted(turnID) {
@@ -718,6 +734,42 @@ async function loadChatHistory() {
   updateAssistantActivityIndicator();
 }
 
+async function refreshAssistantActivity() {
+  if (!state.chatSessionId || assistantActivityInFlight) return;
+  assistantActivityInFlight = true;
+  try {
+    const resp = await fetch(`/api/chat/sessions/${encodeURIComponent(state.chatSessionId)}/activity`, {
+      cache: 'no-store',
+    });
+    if (!resp.ok) return;
+    const payload = await resp.json();
+    const activeTurns = Number(payload?.active_turns || 0);
+    if (!Number.isFinite(activeTurns) || activeTurns < 0) return;
+    state.assistantRemoteActiveCount = activeTurns;
+    updateAssistantActivityIndicator();
+  } catch (_) {
+    // Ignore transient probes while reconnecting.
+  } finally {
+    assistantActivityInFlight = false;
+  }
+}
+
+function startAssistantActivityWatcher() {
+  if (assistantActivityTimer !== null) return;
+  const tick = () => {
+    if (document.hidden) return;
+    void refreshAssistantActivity();
+  };
+  assistantActivityTimer = window.setInterval(tick, ASSISTANT_ACTIVITY_POLL_MS);
+  tick();
+  window.addEventListener('focus', tick);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      tick();
+    }
+  });
+}
+
 function openChatWs() {
   if (!state.chatSessionId) return;
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -729,6 +781,7 @@ function openChatWs() {
     const isReconnect = state.chatWsHasConnected;
     state.chatWsHasConnected = true;
     showStatus('chat connected');
+    void refreshAssistantActivity();
     if (isReconnect) {
       state.pendingByTurn.clear();
       state.pendingQueue = [];
@@ -808,6 +861,7 @@ function handleChatEvent(payload) {
     }
     trackAssistantTurnFinished(turnID);
     showStatus('ready');
+    void refreshAssistantActivity();
     return;
   }
 
@@ -819,6 +873,7 @@ function handleChatEvent(payload) {
     }
     trackAssistantTurnFinished(turnID);
     showStatus('assistant stopped');
+    void refreshAssistantActivity();
     return;
   }
 
@@ -831,6 +886,7 @@ function handleChatEvent(payload) {
     trackAssistantTurnFinished(turnID);
     const errText = String(payload.error || 'assistant request failed');
     appendPlainMessage('system', errText);
+    void refreshAssistantActivity();
   }
 }
 
@@ -879,11 +935,14 @@ async function sendChatMessage() {
 
 async function cancelActiveAssistantTurn() {
   if (!state.chatSessionId || state.assistantCancelInFlight) return;
+  await refreshAssistantActivity();
   if (!isAssistantWorking()) {
     showStatus('assistant idle');
+    updateAssistantActivityIndicator();
     return;
   }
   state.assistantCancelInFlight = true;
+  updateAssistantActivityIndicator();
   showStatus('stopping assistant...');
   try {
     const resp = await fetch(`/api/chat/sessions/${encodeURIComponent(state.chatSessionId)}/cancel`, {
@@ -897,12 +956,19 @@ async function cancelActiveAssistantTurn() {
     const payload = await resp.json();
     const canceled = Number(payload?.canceled || 0);
     if (canceled <= 0) {
-      showStatus('assistant idle');
+      await refreshAssistantActivity();
+      if (!isAssistantWorking()) {
+        showStatus('assistant idle');
+      }
     }
   } catch (err) {
     showStatus(`stop failed: ${String(err?.message || err)}`);
   } finally {
     state.assistantCancelInFlight = false;
+    updateAssistantActivityIndicator();
+    window.setTimeout(() => {
+      void refreshAssistantActivity();
+    }, 120);
   }
 }
 
@@ -1127,6 +1193,7 @@ async function init() {
   bindUi();
   updateAssistantActivityIndicator();
   startDevReloadWatcher();
+  startAssistantActivityWatcher();
   initCanvasControls();
   clearCanvas();
   setActiveTab('chat');
@@ -1135,6 +1202,7 @@ async function init() {
   openCanvasWs();
   await ensureChatSession();
   await loadChatHistory();
+  await refreshAssistantActivity();
   openChatWs();
   focusChatInput({ placeCursorAtEnd: true });
 }

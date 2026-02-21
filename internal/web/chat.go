@@ -80,6 +80,27 @@ func (a *App) handleChatSessionHistory(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (a *App) handleChatSessionActivity(w http.ResponseWriter, r *http.Request) {
+	if !a.requireAuth(w, r) {
+		return
+	}
+	sessionID := strings.TrimSpace(chi.URLParam(r, "session_id"))
+	if sessionID == "" {
+		http.Error(w, "missing session_id", http.StatusBadRequest)
+		return
+	}
+	if _, err := a.store.GetChatSession(sessionID); err != nil {
+		http.Error(w, "session not found", http.StatusNotFound)
+		return
+	}
+	activeTurns := a.activeChatTurnCount(sessionID)
+	writeJSON(w, map[string]interface{}{
+		"ok":           true,
+		"active_turns": activeTurns,
+		"is_working":   activeTurns > 0,
+	})
+}
+
 func (a *App) handleChatSessionCommand(w http.ResponseWriter, r *http.Request) {
 	if !a.requireAuth(w, r) {
 		return
@@ -328,6 +349,12 @@ func (a *App) cancelActiveChatTurns(sessionID string) int {
 		cancel()
 	}
 	return len(cancels)
+}
+
+func (a *App) activeChatTurnCount(sessionID string) int {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return len(a.chatTurnCancel[sessionID])
 }
 
 func (a *App) runAssistantTurn(sessionID string) {

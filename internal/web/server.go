@@ -165,6 +165,7 @@ func (a *App) Router() http.Handler {
 	r.Get("/api/runtime", a.handleRuntime)
 	r.Post("/api/chat/sessions", a.handleChatSessionCreate)
 	r.Get("/api/chat/sessions/{session_id}/history", a.handleChatSessionHistory)
+	r.Get("/api/chat/sessions/{session_id}/activity", a.handleChatSessionActivity)
 	r.Post("/api/chat/sessions/{session_id}/messages", a.handleChatSessionMessage)
 	r.Post("/api/chat/sessions/{session_id}/commands", a.handleChatSessionCommand)
 	r.Post("/api/chat/sessions/{session_id}/cancel", a.handleChatSessionCancel)
