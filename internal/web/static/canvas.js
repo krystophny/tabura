@@ -755,6 +755,72 @@ function sendSelectionFeedback(payload) {
   state.canvasWs.send(JSON.stringify(payload));
 }
 
+function activeArtifactIDForCommit() {
+  if (activeTextEventId) return activeTextEventId;
+  return String(activePdfEvent?.event_id || '');
+}
+
+function waitForCanvasWsOpen(ws, timeoutMs = 450) {
+  if (!ws || ws.readyState !== WebSocket.CONNECTING) {
+    return Promise.resolve(false);
+  }
+  return new Promise((resolve) => {
+    const started = Date.now();
+    const timer = setInterval(() => {
+      if (!ws || ws.readyState === WebSocket.OPEN) {
+        clearInterval(timer);
+        resolve(true);
+        return;
+      }
+      if (ws.readyState !== WebSocket.CONNECTING || (Date.now() - started) >= timeoutMs) {
+        clearInterval(timer);
+        resolve(false);
+      }
+    }, 50);
+  });
+}
+
+async function commitCanvasDraft() {
+  const { getState } = window._tabulaApp || {};
+  if (!getState) throw new Error('app state unavailable');
+  const state = getState();
+  const sessionID = String(state?.sessionId || '').trim();
+  if (!sessionID) throw new Error('no active session');
+  const artifactID = activeArtifactIDForCommit();
+  const payload = {
+    kind: 'mark_commit',
+    session_id: sessionID,
+    include_draft: true,
+  };
+  if (artifactID) {
+    payload.artifact_id = artifactID;
+  }
+
+  const ws = state.canvasWs;
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify(payload));
+    return { transport: 'ws' };
+  }
+  if (await waitForCanvasWsOpen(ws)) {
+    ws.send(JSON.stringify(payload));
+    return { transport: 'ws' };
+  }
+
+  const response = await fetch(`/api/canvas/${encodeURIComponent(sessionID)}/commit`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      artifact_id: artifactID || '',
+      include_draft: true,
+    }),
+  });
+  if (!response.ok) {
+    const detail = (await response.text()).trim();
+    throw new Error(detail || `commit failed: HTTP ${response.status}`);
+  }
+  return { transport: 'http' };
+}
+
 function ensureUndoToast() {
   const host = document.getElementById('canvas-content');
   if (!host) return null;
@@ -3362,16 +3428,25 @@ export function initCanvasControls() {
   const clearBtn = document.getElementById('btn-canvas-clear-draft');
 
   if (commitBtn) {
-    commitBtn.addEventListener('click', () => {
-      const { getState } = window._tabulaApp || {};
-      if (!getState) return;
-      const state = getState();
-      if (!state.canvasWs || state.canvasWs.readyState !== WebSocket.OPEN) return;
-      state.canvasWs.send(JSON.stringify({
-        kind: 'mark_commit',
-        session_id: state.sessionId,
-        include_draft: true,
-      }));
+    commitBtn.addEventListener('click', async () => {
+      if (commitBtn.dataset.busy === '1') return;
+      const originalText = commitBtn.textContent || 'Commit';
+      commitBtn.dataset.busy = '1';
+      commitBtn.disabled = true;
+      commitBtn.textContent = 'Committing...';
+      try {
+        await commitCanvasDraft();
+        commitBtn.textContent = 'Committed';
+      } catch (err) {
+        console.error('canvas commit failed:', err);
+        commitBtn.textContent = 'Commit failed';
+      } finally {
+        window.setTimeout(() => {
+          delete commitBtn.dataset.busy;
+          commitBtn.disabled = false;
+          commitBtn.textContent = originalText;
+        }, 900);
+      }
     });
   }
 

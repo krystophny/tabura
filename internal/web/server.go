@@ -153,6 +153,7 @@ func (a *App) Router() http.Handler {
 
 	// canvas/file proxy
 	r.Get("/api/canvas/{session_id}/snapshot", a.handleCanvasSnapshot)
+	r.Post("/api/canvas/{session_id}/commit", a.handleCanvasCommit)
 	r.Get("/api/files/{session_id}/*", a.handleFilesProxy)
 	r.Post("/api/mail/action-capabilities", a.handleMailActionCapabilities)
 	r.Post("/api/mail/read", a.handleMailRead)
@@ -600,6 +601,57 @@ func (a *App) handleCanvasSnapshot(w http.ResponseWriter, r *http.Request) {
 	}
 	event, _ := status["active_artifact"].(map[string]interface{})
 	writeJSON(w, map[string]interface{}{"status": status, "event": event})
+}
+
+func (a *App) handleCanvasCommit(w http.ResponseWriter, r *http.Request) {
+	if !a.requireAuth(w, r) {
+		return
+	}
+	sid := chi.URLParam(r, "session_id")
+	if strings.TrimSpace(sid) == "" {
+		http.Error(w, "missing session_id", http.StatusBadRequest)
+		return
+	}
+
+	var req struct {
+		ArtifactID   string `json:"artifact_id"`
+		IncludeDraft *bool  `json:"include_draft"`
+	}
+	includeDraft := true
+	defer r.Body.Close()
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "failed reading request body", http.StatusBadRequest)
+		return
+	}
+	if len(bytes.TrimSpace(body)) > 0 {
+		if err := json.Unmarshal(body, &req); err != nil {
+			http.Error(w, "invalid JSON", http.StatusBadRequest)
+			return
+		}
+		if req.IncludeDraft != nil {
+			includeDraft = *req.IncludeDraft
+		}
+	}
+
+	a.mu.Lock()
+	port, ok := a.tunnelPorts[sid]
+	a.mu.Unlock()
+	if !ok {
+		http.Error(w, "no active tunnel for session", http.StatusNotFound)
+		return
+	}
+
+	resp, err := a.mcpToolsCall(port, "canvas_commit", map[string]interface{}{
+		"session_id":    sid,
+		"artifact_id":   req.ArtifactID,
+		"include_draft": includeDraft,
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadGateway)
+		return
+	}
+	writeJSON(w, resp)
 }
 
 func (a *App) handleMailActionCapabilities(w http.ResponseWriter, r *http.Request) {
