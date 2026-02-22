@@ -910,13 +910,15 @@ func (a *App) mcpToolsCall(port int, name string, arguments map[string]interface
 }
 
 type reviewComment struct {
-	Comment    string
-	MarkType   string
-	TargetKind string
-	LineStart  int
-	LineEnd    int
-	Page       int
-	UpdatedAt  string
+	Comment     string
+	MarkType    string
+	TargetKind  string
+	LineStart   int
+	LineEnd     int
+	StartOffset int
+	EndOffset   int
+	Page        int
+	UpdatedAt   string
 }
 
 func (a *App) rewriteCommittedArtifactWithAppServer(ctx context.Context, sessionID string, tunnelPort int, requestedArtifactID string) (map[string]interface{}, error) {
@@ -1014,13 +1016,15 @@ func (a *App) rewriteCommittedArtifactWithAppServer(ctx context.Context, session
 		}
 		page := intFromAny(target["page"], 0)
 		comments = append(comments, reviewComment{
-			Comment:    comment,
-			MarkType:   strings.TrimSpace(fmt.Sprint(mark["type"])),
-			TargetKind: strings.TrimSpace(fmt.Sprint(mark["target_kind"])),
-			LineStart:  lineStart,
-			LineEnd:    lineEnd,
-			Page:       page,
-			UpdatedAt:  strings.TrimSpace(fmt.Sprint(mark["updated_at"])),
+			Comment:     comment,
+			MarkType:    strings.TrimSpace(fmt.Sprint(mark["type"])),
+			TargetKind:  strings.TrimSpace(fmt.Sprint(mark["target_kind"])),
+			LineStart:   lineStart,
+			LineEnd:     lineEnd,
+			StartOffset: intFromAny(target["start_offset"], 0),
+			EndOffset:   intFromAny(target["end_offset"], 0),
+			Page:        page,
+			UpdatedAt:   strings.TrimSpace(fmt.Sprint(mark["updated_at"])),
 		})
 	}
 	if len(comments) == 0 {
@@ -1040,7 +1044,46 @@ func (a *App) rewriteCommittedArtifactWithAppServer(ctx context.Context, session
 		return comments[i].UpdatedAt < comments[j].UpdatedAt
 	})
 
-	prompt := buildArtifactRewritePrompt(kind, title, originalText, artifactPath, artifactPage, comments)
+	workingText := originalText
+	deleteDirectivesApplied := 0
+	if kind == "text_artifact" {
+		workingText, comments, deleteDirectivesApplied = applyDeleteDirectivesToText(workingText, comments)
+	}
+
+	if len(comments) == 0 {
+		if kind == "text_artifact" && deleteDirectivesApplied > 0 {
+			showResp, err := a.mcpToolsCall(tunnelPort, "canvas_artifact_show", map[string]interface{}{
+				"session_id":       sessionID,
+				"kind":             "text",
+				"title":            title,
+				"markdown_or_text": workingText,
+				"reason":           "commit_review_delete_directive",
+			})
+			if err != nil {
+				return nil, err
+			}
+			return map[string]interface{}{
+				"enabled":                   true,
+				"applied":                   true,
+				"source":                    "deterministic_delete_directive",
+				"artifact_kind":             kind,
+				"input_artifact_id":         artifactID,
+				"output_artifact_id":        showResp["artifact_id"],
+				"comments_used":             0,
+				"delete_directives_applied": deleteDirectivesApplied,
+			}, nil
+		}
+		return map[string]interface{}{
+			"enabled":       true,
+			"applied":       false,
+			"reason":        "no_persistent_comments",
+			"artifact_id":   artifactID,
+			"marks_total":   len(rawMarks),
+			"comments_used": 0,
+		}, nil
+	}
+
+	prompt := buildArtifactRewritePrompt(kind, title, workingText, artifactPath, artifactPage, comments)
 	rewriteCtx, cancel := context.WithTimeout(ctx, 90*time.Second)
 	defer cancel()
 	cwd := "."
@@ -1064,16 +1107,19 @@ func (a *App) rewriteCommittedArtifactWithAppServer(ctx context.Context, session
 	if strings.TrimSpace(rewrittenText) == "" {
 		return nil, errors.New("app-server returned empty rewrite result")
 	}
-	if kind == "text_artifact" && normalizeLineEndings(strings.TrimSpace(rewrittenText)) == normalizeLineEndings(strings.TrimSpace(originalText)) {
-		return map[string]interface{}{
-			"enabled":       true,
-			"applied":       false,
-			"reason":        "unchanged",
-			"artifact_id":   artifactID,
-			"comments_used": len(comments),
-			"thread_id":     appResp.ThreadID,
-			"turn_id":       appResp.TurnID,
-		}, nil
+	if kind == "text_artifact" && normalizeLineEndings(strings.TrimSpace(rewrittenText)) == normalizeLineEndings(strings.TrimSpace(workingText)) {
+		if deleteDirectivesApplied == 0 {
+			return map[string]interface{}{
+				"enabled":       true,
+				"applied":       false,
+				"reason":        "unchanged",
+				"artifact_id":   artifactID,
+				"comments_used": len(comments),
+				"thread_id":     appResp.ThreadID,
+				"turn_id":       appResp.TurnID,
+			}, nil
+		}
+		rewrittenText = workingText
 	}
 
 	outputTitle := title
@@ -1096,16 +1142,168 @@ func (a *App) rewriteCommittedArtifactWithAppServer(ctx context.Context, session
 	}
 
 	return map[string]interface{}{
-		"enabled":            true,
-		"applied":            true,
-		"source":             "codex_app_server",
-		"artifact_kind":      kind,
-		"input_artifact_id":  artifactID,
-		"output_artifact_id": showResp["artifact_id"],
-		"comments_used":      len(comments),
-		"thread_id":          appResp.ThreadID,
-		"turn_id":            appResp.TurnID,
+		"enabled":                   true,
+		"applied":                   true,
+		"source":                    "codex_app_server",
+		"artifact_kind":             kind,
+		"input_artifact_id":         artifactID,
+		"output_artifact_id":        showResp["artifact_id"],
+		"comments_used":             len(comments),
+		"delete_directives_applied": deleteDirectivesApplied,
+		"thread_id":                 appResp.ThreadID,
+		"turn_id":                   appResp.TurnID,
 	}, nil
+}
+
+type runeSpan struct {
+	Start int
+	End   int
+}
+
+func applyDeleteDirectivesToText(text string, comments []reviewComment) (string, []reviewComment, int) {
+	if len(comments) == 0 {
+		return text, comments, 0
+	}
+	remaining := make([]reviewComment, 0, len(comments))
+	spans := make([]runeSpan, 0, len(comments))
+	deleteCount := 0
+	for _, c := range comments {
+		if c.TargetKind != "text_range" || !isDeleteDirective(c.Comment) {
+			remaining = append(remaining, c)
+			continue
+		}
+		span, ok := runeSpanForCommentTarget(text, c)
+		if !ok || span.End <= span.Start {
+			remaining = append(remaining, c)
+			continue
+		}
+		deleteCount++
+		spans = append(spans, span)
+	}
+	if len(spans) == 0 {
+		return text, comments, 0
+	}
+	return deleteRuneSpans(text, spans), remaining, deleteCount
+}
+
+func isDeleteDirective(comment string) bool {
+	s := strings.ToLower(strings.TrimSpace(comment))
+	if s == "" {
+		return false
+	}
+	words := strings.FieldsFunc(s, func(r rune) bool {
+		switch r {
+		case ' ', '\t', '\n', '\r', ':', ';', ',', '.', '!', '?':
+			return true
+		default:
+			return false
+		}
+	})
+	if len(words) == 0 {
+		return false
+	}
+	verb := strings.TrimLeft(words[0], "/#-")
+	switch verb {
+	case "delete", "remove", "omit", "cut":
+		return true
+	default:
+		return false
+	}
+}
+
+func runeSpanForCommentTarget(text string, c reviewComment) (runeSpan, bool) {
+	lines := strings.Split(text, "\n")
+	if len(lines) == 0 || c.LineStart <= 0 || c.LineEnd <= 0 {
+		return runeSpan{}, false
+	}
+	startLine := c.LineStart
+	endLine := c.LineEnd
+	if endLine < startLine {
+		startLine, endLine = endLine, startLine
+	}
+	if startLine > len(lines) {
+		return runeSpan{}, false
+	}
+	if endLine > len(lines) {
+		endLine = len(lines)
+	}
+	lineStartOffsets := make([]int, len(lines))
+	runeOffset := 0
+	for i, line := range lines {
+		lineStartOffsets[i] = runeOffset
+		runeOffset += len([]rune(line))
+		if i < len(lines)-1 {
+			runeOffset++ // newline
+		}
+	}
+	startLineLen := len([]rune(lines[startLine-1]))
+	endLineLen := len([]rune(lines[endLine-1]))
+	startCol := c.StartOffset
+	if startCol < 0 {
+		startCol = 0
+	}
+	endCol := c.EndOffset
+	if endCol < 0 {
+		endCol = 0
+	}
+	if startCol > startLineLen {
+		startCol = startLineLen
+	}
+	if c.StartOffset == 0 && c.EndOffset == 0 {
+		startCol = 0
+		endCol = endLineLen
+	} else if endCol > endLineLen {
+		endCol = endLineLen
+	}
+	start := lineStartOffsets[startLine-1] + startCol
+	end := lineStartOffsets[endLine-1] + endCol
+	if end < start {
+		start, end = end, start
+	}
+	return runeSpan{Start: start, End: end}, true
+}
+
+func deleteRuneSpans(text string, spans []runeSpan) string {
+	if len(spans) == 0 {
+		return text
+	}
+	sort.Slice(spans, func(i, j int) bool {
+		if spans[i].Start == spans[j].Start {
+			return spans[i].End < spans[j].End
+		}
+		return spans[i].Start < spans[j].Start
+	})
+	merged := make([]runeSpan, 0, len(spans))
+	for _, s := range spans {
+		if len(merged) == 0 {
+			merged = append(merged, s)
+			continue
+		}
+		last := &merged[len(merged)-1]
+		if s.Start > last.End {
+			merged = append(merged, s)
+			continue
+		}
+		if s.End > last.End {
+			last.End = s.End
+		}
+	}
+	runes := []rune(text)
+	for i := len(merged) - 1; i >= 0; i-- {
+		start := merged[i].Start
+		end := merged[i].End
+		if start < 0 {
+			start = 0
+		}
+		if end > len(runes) {
+			end = len(runes)
+		}
+		if end <= start {
+			continue
+		}
+		runes = append(runes[:start], runes[end:]...)
+	}
+	return string(runes)
 }
 
 func buildArtifactRewritePrompt(kind, title, text, path string, page int, comments []reviewComment) string {

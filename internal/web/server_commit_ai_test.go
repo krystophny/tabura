@@ -217,6 +217,130 @@ func TestCanvasCommitTriggersAppServerRewriteForTextArtifact(t *testing.T) {
 	}
 }
 
+func TestCanvasCommitDeleteDirectiveAppliesWithoutAppServerRewrite(t *testing.T) {
+	type capture struct {
+		mu            sync.Mutex
+		showCallCount int
+		showMarkdown  string
+	}
+	c := &capture{}
+
+	mcp := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+		var req map[string]interface{}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Fatalf("decode mcp request: %v", err)
+		}
+		params, _ := req["params"].(map[string]interface{})
+		name, _ := params["name"].(string)
+		args, _ := params["arguments"].(map[string]interface{})
+		var sc map[string]interface{}
+		switch name {
+		case "canvas_commit":
+			sc = map[string]interface{}{"artifact_id": "artifact-delete-1"}
+		case "canvas_status":
+			sc = map[string]interface{}{
+				"active_artifact_id": "artifact-delete-1",
+				"active_artifact": map[string]interface{}{
+					"kind":     "text_artifact",
+					"event_id": "artifact-delete-1",
+					"title":    "Delete Test",
+					"text":     "alpha DELETE beta\n",
+				},
+			}
+		case "canvas_marks_list":
+			sc = map[string]interface{}{
+				"marks": []interface{}{
+					map[string]interface{}{
+						"comment":     "delete",
+						"type":        "highlight",
+						"target_kind": "text_range",
+						"target": map[string]interface{}{
+							"line_start":   1,
+							"line_end":     1,
+							"start_offset": 6,
+							"end_offset":   12,
+						},
+						"updated_at": "2026-02-22T12:00:00Z",
+					},
+				},
+			}
+		case "canvas_artifact_show":
+			c.mu.Lock()
+			c.showCallCount++
+			c.showMarkdown = strings.TrimSpace(toString(args["markdown_or_text"]))
+			c.mu.Unlock()
+			sc = map[string]interface{}{"artifact_id": "artifact-delete-2", "kind": "text_artifact"}
+		default:
+			t.Fatalf("unexpected mcp tool call: %s", name)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"jsonrpc": "2.0",
+			"id":      req["id"],
+			"result": map[string]interface{}{
+				"isError":           false,
+				"structuredContent": sc,
+			},
+		})
+	}))
+	defer mcp.Close()
+
+	app, err := New(t.TempDir(), t.TempDir(), mcp.URL, "ws://127.0.0.1:1", false)
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	defer app.Shutdown(context.Background())
+	if err := app.store.AddAuthSession("token-test"); err != nil {
+		t.Fatalf("add auth: %v", err)
+	}
+	u, err := url.Parse(mcp.URL)
+	if err != nil {
+		t.Fatalf("parse mcp url: %v", err)
+	}
+	port, err := strconv.Atoi(u.Port())
+	if err != nil {
+		t.Fatalf("parse mcp port: %v", err)
+	}
+	app.mu.Lock()
+	app.tunnelPorts[LocalSessionID] = port
+	app.mu.Unlock()
+
+	rr := doAuthedJSONRequest(t, app.Router(), http.MethodPost, "/api/canvas/local/commit", map[string]interface{}{
+		"artifact_id":   "artifact-delete-1",
+		"include_draft": true,
+	})
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var payload map[string]interface{}
+	if err := json.Unmarshal(rr.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	aiReview, _ := payload["ai_review"].(map[string]interface{})
+	if aiReview == nil {
+		t.Fatalf("expected ai_review in response: %#v", payload)
+	}
+	if got := aiReview["applied"]; got != true {
+		t.Fatalf("expected ai_review.applied=true, got %#v", got)
+	}
+	if got := aiReview["source"]; got != "deterministic_delete_directive" {
+		t.Fatalf("expected deterministic delete source, got %#v", got)
+	}
+	if got := aiReview["delete_directives_applied"]; got != float64(1) {
+		t.Fatalf("expected one delete directive applied, got %#v", got)
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.showCallCount != 1 {
+		t.Fatalf("expected exactly one canvas_artifact_show call, got %d", c.showCallCount)
+	}
+	if c.showMarkdown != "alpha  beta" {
+		t.Fatalf("unexpected delete rewrite markdown: %q", c.showMarkdown)
+	}
+}
+
 func TestCanvasCommitTriggersAppServerReviewNotesForPDFArtifact(t *testing.T) {
 	type capture struct {
 		mu            sync.Mutex
