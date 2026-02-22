@@ -207,8 +207,6 @@ func (a *App) watchCanvasFile(ctx context.Context, projectKey string) {
 		return
 	}
 	defer watcher.Close()
-	// Watch the parent directory so we catch editors that write to a temp
-	// file and rename (atomic write pattern).
 	dir := filepath.Dir(t.filePath)
 	if err := watcher.Add(dir); err != nil {
 		return
