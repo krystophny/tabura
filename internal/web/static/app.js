@@ -1916,6 +1916,16 @@ function bindUi() {
       }
     });
 
+    canvasText.addEventListener('contextmenu', (ev) => {
+      ev.preventDefault();
+      const loc = getLocationFromPoint(ev.clientX, ev.clientY);
+      if (loc) {
+        showTransientMarker(ev.clientX, ev.clientY);
+        setPromptContext(loc);
+        focusChatInput({ placeCursorAtEnd: true });
+      }
+    });
+
     let selDebounce = null;
     document.addEventListener('selectionchange', () => {
       if (selDebounce) clearTimeout(selDebounce);
