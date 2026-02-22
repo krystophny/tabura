@@ -38,7 +38,7 @@ export function getState() {
   return state;
 }
 
-window._taburaApp = { getState, acquireMicStream, sttStart, sttSendChunk, sttStop, sttCancel };
+window._taburaApp = { getState, acquireMicStream, sttStart, sttSendBlob, sttStop, sttCancel };
 
 const MATH_SEGMENT_TOKEN_PREFIX = '@@TABURA_CHAT_MATH_SEGMENT_';
 const DEV_UI_RELOAD_POLL_MS = 1500;
@@ -301,7 +301,6 @@ function releaseMicStream() {
 let _sttResolve = null;
 let _sttReject = null;
 let _sttActive = false;
-let _sttPendingSends = [];
 
 function sttStart(mimeType) {
   const ws = state.chatWs;
@@ -309,46 +308,36 @@ function sttStart(mimeType) {
     return Promise.reject(new Error('chat WebSocket not connected'));
   }
   _sttActive = true;
-  _sttPendingSends = [];
   ws.send(JSON.stringify({ type: 'stt_start', mime_type: mimeType || 'audio/webm' }));
 }
 
-function sttSendChunk(blob) {
-  if (!_sttActive) return;
+function sttSendBlob(blob) {
+  if (!_sttActive) return Promise.resolve();
   const ws = state.chatWs;
-  if (!ws || ws.readyState !== WebSocket.OPEN) return;
-  if (!blob || typeof blob.arrayBuffer !== 'function' || blob.size <= 0) return;
-  const p = blob.arrayBuffer().then((buf) => {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return Promise.resolve();
+  if (!blob || blob.size <= 0) return Promise.resolve();
+  return blob.arrayBuffer().then((buf) => {
     if (!state.chatWs || state.chatWs.readyState !== WebSocket.OPEN) return;
     state.chatWs.send(buf);
   });
-  _sttPendingSends.push(p);
 }
 
 function sttStop() {
   const ws = state.chatWs;
   if (!ws || ws.readyState !== WebSocket.OPEN) {
     _sttActive = false;
-    _sttPendingSends = [];
     return Promise.reject(new Error('chat WebSocket not connected'));
   }
   _sttActive = false;
-  // Drain all pending chunk sends before sending stt_stop so the server
-  // receives every audio byte before it begins transcription.
-  const pending = _sttPendingSends.slice();
-  _sttPendingSends = [];
-  return Promise.all(pending).then(() => {
-    return new Promise((resolve, reject) => {
-      _sttResolve = resolve;
-      _sttReject = reject;
-      ws.send(JSON.stringify({ type: 'stt_stop' }));
-    });
+  return new Promise((resolve, reject) => {
+    _sttResolve = resolve;
+    _sttReject = reject;
+    ws.send(JSON.stringify({ type: 'stt_stop' }));
   });
 }
 
 function sttCancel() {
   _sttActive = false;
-  _sttPendingSends = [];
   if (_sttReject) {
     _sttReject(new Error('STT cancelled'));
     _sttResolve = null;
@@ -459,6 +448,7 @@ async function beginChatVoiceCapture(opts) {
     autoSend: Boolean(opts?.autoSend),
     mediaStream: null,
     mediaRecorder: null,
+    chunks: [],
   };
   state.chatVoiceCapture = capture;
   showStatus('recording...');
@@ -466,7 +456,7 @@ async function beginChatVoiceCapture(opts) {
     const stream = await acquireMicStream();
     if (state.chatVoiceCapture !== capture) return;
     const recorder = newMediaRecorder(stream);
-    sttStart(recorder.mimeType || 'audio/webm');
+    capture.mimeType = recorder.mimeType || 'audio/webm';
     if (state.chatVoiceCapture !== capture) return;
     capture.mediaStream = stream;
     capture.mediaRecorder = recorder;
@@ -474,9 +464,11 @@ async function beginChatVoiceCapture(opts) {
     setSendButtonRecording(true);
     recorder.addEventListener('dataavailable', (ev) => {
       if (!ev?.data || ev.data.size <= 0) return;
-      sttSendChunk(ev.data);
+      capture.chunks.push(ev.data);
     });
-    recorder.start(300);
+    // No timeslice: one dataavailable fires on stop() with all audio
+    // in a single valid container. Avoids Firefox chunk concatenation bugs.
+    recorder.start();
     if (capture.stopRequested) {
       void stopChatVoiceCaptureAndApply();
     }
@@ -501,6 +493,14 @@ async function stopChatVoiceCaptureAndApply() {
   let remoteStopped = false;
   try {
     await stopChatVoiceMediaAndFlush(capture);
+    // Send all collected audio as one blob, then stt_stop.
+    const mimeType = capture.mimeType || 'audio/webm';
+    sttStart(mimeType);
+    if (capture.chunks.length > 0) {
+      const blob = new Blob(capture.chunks, { type: mimeType });
+      capture.chunks = [];
+      await sttSendBlob(blob);
+    }
     const result = await sttStop();
     remoteStopped = true;
     const transcript = String(result?.text || '').trim();
@@ -1703,7 +1703,7 @@ function bindUi() {
         inputHoldActive = true;
         if (isTouch) input.blur();
         input.classList.add('is-recording');
-        void beginChatVoiceCapture({ autoSend: true });
+        void beginChatVoiceCapture();
       }, CHAT_SEND_HOLD_MS);
     };
     const inputHoldEnd = () => {

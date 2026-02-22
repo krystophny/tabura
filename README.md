@@ -1,11 +1,9 @@
 # タブラ tabura
 
-Tabura is a human-in-the-loop UI paradigm for turning intent into reviewed actions: discuss in chat, reference artifacts in context, and execute only what is explicitly approved across domains.
-
 Core paradigm:
 - Start in a persistent project chat canvas (browser-first).
 - Artifacts appear as closeable tabs in the canvas viewport.
-- Capture intent in context via tap-to-reference (tap for silent, long-press for voice).
+## Available Actions
 - Location-scoped requests route through AI backend.
 
 License: MIT (`LICENSE`)
