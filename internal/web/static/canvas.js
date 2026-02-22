@@ -908,8 +908,8 @@ function openReviewCommentPopover(eventId, options = {}) {
       }
       return;
     }
-    const isCommitShortcut = ev.key === 'Enter' && !ev.shiftKey && !ev.altKey;
-    if (!isCommitShortcut) return;
+    const isEnterShortcut = ev.key === 'Enter' && !ev.shiftKey && !ev.altKey;
+    if (!isEnterShortcut) return;
     const target = ev.target instanceof Element ? ev.target : null;
     if (!target || !popover.contains(target)) return;
     const inCommentInput = target.matches('input, textarea') || target.closest('input, textarea');
@@ -919,6 +919,9 @@ function openReviewCommentPopover(eventId, options = {}) {
       popover.requestSubmit();
     } else {
       popover.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    }
+    if (ev.ctrlKey || ev.metaKey) {
+      void commitCanvasDraft();
     }
   };
   document.addEventListener('keydown', keyDownHandler, true);
@@ -1908,26 +1911,24 @@ function stopMailRecordingMedia(recording) {
   recording.stopRequested = false;
 }
 
-async function pushToPromptAppendChunk(context, recording, chunkBlob) {
+function pushToPromptAppendChunk(context, recording, chunkBlob) {
   if (!recording?.sttSessionID) return;
   if (!chunkBlob || typeof chunkBlob.arrayBuffer !== 'function' || chunkBlob.size <= 0) return;
-  const bytes = new Uint8Array(await chunkBlob.arrayBuffer());
-  if (!bytes.length) return;
   const seq = Number(recording.appendSeq || 0);
   recording.appendSeq = seq + 1;
-  const payload = {
-    session_id: recording.sttSessionID,
-    seq,
-    audio_base64: base64FromBytes(bytes),
-  };
-  const chain = recording.appendChain || Promise.resolve();
-  recording.appendChain = chain.then(() => callPushToPromptAction(context, sttActionAppend, payload));
-  try {
-    await recording.appendChain;
-  } catch (err) {
+  const prev = recording.appendChain || Promise.resolve();
+  recording.appendChain = prev.then(async () => {
+    const bytes = new Uint8Array(await chunkBlob.arrayBuffer());
+    if (!bytes.length) return;
+    const payload = {
+      session_id: recording.sttSessionID,
+      seq,
+      audio_base64: base64FromBytes(bytes),
+    };
+    await callPushToPromptAction(context, sttActionAppend, payload);
+  }).catch((err) => {
     recording.appendError = String(err?.message || err || 'chunk append failed');
-    throw err;
-  }
+  });
 }
 
 async function startMailRecordingMediaCapture(context, token) {
@@ -1968,9 +1969,7 @@ async function startMailRecordingMediaCapture(context, token) {
   recorder.addEventListener('dataavailable', (ev) => {
     if (ev?.data && ev.data.size > 0) {
       recording.chunks.push(ev.data);
-      void pushToPromptAppendChunk(context, recording, ev.data).catch(() => {
-        // appendError is set in helper; final transcription path will surface the error
-      });
+      pushToPromptAppendChunk(context, recording, ev.data);
     }
   });
   recorder.start(300);
@@ -3226,17 +3225,22 @@ function setupMailRecordingHandlers(eventId, context) {
   };
   const onTouchStart = (ev) => mailRecordHoldStart(ev, true);
   const onTouchEnd = (ev) => {
-    if (mailRecordIsTouch) {
-      ev.preventDefault();
-      mailRecordHoldEnd();
+    if (!mailRecordIsTouch) return;
+    const touch = ev.changedTouches?.[0];
+    if (touch) {
+      const target = document.elementFromPoint(touch.clientX, touch.clientY);
+      if (target instanceof Element && target.closest('button[data-mail-record-action="stop"]')) return;
     }
+    ev.preventDefault();
+    mailRecordHoldEnd();
   };
   const onMouseDown = (ev) => {
     if (ev.button !== 0 || mailRecordIsTouch) return;
     mailRecordHoldStart(ev, false);
   };
-  const onMouseUp = () => {
+  const onMouseUp = (ev) => {
     if (mailRecordIsTouch) return;
+    if (ev.target instanceof Element && ev.target.closest('button[data-mail-record-action="stop"]')) return;
     mailRecordHoldEnd();
   };
 
@@ -3794,21 +3798,24 @@ function setupTextSelection(eventId) {
     }
   };
 
-  const appendReviewVoiceChunk = async (capture, chunkBlob) => {
+  const appendReviewVoiceChunk = (capture, chunkBlob) => {
     if (!capture?.sttSessionID) return;
     if (!chunkBlob || typeof chunkBlob.arrayBuffer !== 'function' || chunkBlob.size <= 0) return;
-    const bytes = new Uint8Array(await chunkBlob.arrayBuffer());
-    if (!bytes.length) return;
     const seq = Number(capture.appendSeq || 0);
     capture.appendSeq = seq + 1;
-    const payload = {
-      session_id: capture.sttSessionID,
-      seq,
-      audio_base64: base64FromBytes(bytes),
-    };
-    const chain = capture.appendChain || Promise.resolve();
-    capture.appendChain = chain.then(() => callPushToPromptAction(null, sttActionAppend, payload));
-    await capture.appendChain;
+    const prev = capture.appendChain || Promise.resolve();
+    capture.appendChain = prev.then(async () => {
+      const bytes = new Uint8Array(await chunkBlob.arrayBuffer());
+      if (!bytes.length) return;
+      const payload = {
+        session_id: capture.sttSessionID,
+        seq,
+        audio_base64: base64FromBytes(bytes),
+      };
+      await callPushToPromptAction(null, sttActionAppend, payload);
+    }).catch((err) => {
+      capture.appendError = String(err?.message || err || 'audio chunk append failed');
+    });
   };
 
   const beginReviewVoiceCapture = async (capture) => {
@@ -3850,12 +3857,7 @@ function setupTextSelection(eventId) {
     capture.mediaRecorder = recorder;
     recorder.addEventListener('dataavailable', (ev) => {
       if (!ev?.data || ev.data.size <= 0) return;
-      const chain = appendReviewVoiceChunk(capture, ev.data);
-      capture.appendChain = chain.catch((err) => {
-        capture.appendError = String(err?.message || err || 'audio chunk append failed');
-        throw err;
-      });
-      void capture.appendChain.catch(() => {});
+      appendReviewVoiceChunk(capture, ev.data);
     });
     recorder.start(300);
     if (capture.stopRequested) {
@@ -4394,7 +4396,7 @@ export function initCanvasControls() {
 
 	    if (!document.__tabulaCommitShortcutHandler) {
 	      const shortcutHandler = (ev) => {
-	        const isCommitShortcut = ev.key === 'Enter' && !ev.ctrlKey && !ev.metaKey && !ev.shiftKey && !ev.altKey;
+	        const isCommitShortcut = ev.key === 'Enter' && !ev.shiftKey && !ev.altKey;
 	        if (!isCommitShortcut) return;
 
 	        const appState = window._tabulaApp?.getState?.();

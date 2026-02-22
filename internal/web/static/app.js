@@ -34,7 +34,7 @@ export function getState() {
   return state;
 }
 
-window._tabulaApp = { getState };
+window._tabulaApp = { getState, acquireMicStream };
 
 const MATH_SEGMENT_TOKEN_PREFIX = '@@TABULA_CHAT_MATH_SEGMENT_';
 const DEV_UI_RELOAD_POLL_MS = 1500;
@@ -348,21 +348,53 @@ function canUseMicrophoneCapture() {
     && typeof navigator.mediaDevices.getUserMedia === 'function';
 }
 
-async function appendChatVoiceChunk(capture, chunkBlob) {
+let _cachedMicStream = null;
+let _micStreamPromise = null;
+
+function acquireMicStream() {
+  if (_cachedMicStream) {
+    const tracks = _cachedMicStream.getAudioTracks();
+    if (tracks.length > 0 && tracks[0].readyState === 'live') {
+      return Promise.resolve(_cachedMicStream);
+    }
+    _cachedMicStream = null;
+  }
+  if (_micStreamPromise) return _micStreamPromise;
+  _micStreamPromise = navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
+    _cachedMicStream = stream;
+    _micStreamPromise = null;
+    return stream;
+  }).catch((err) => {
+    _micStreamPromise = null;
+    throw err;
+  });
+  return _micStreamPromise;
+}
+
+function releaseMicStream() {
+  if (!_cachedMicStream) return;
+  _cachedMicStream.getTracks().forEach((t) => t.stop());
+  _cachedMicStream = null;
+}
+
+function appendChatVoiceChunk(capture, chunkBlob) {
   if (!capture?.sttSessionID) return;
   if (!chunkBlob || typeof chunkBlob.arrayBuffer !== 'function' || chunkBlob.size <= 0) return;
-  const bytes = new Uint8Array(await chunkBlob.arrayBuffer());
-  if (!bytes.length) return;
   const seq = Number(capture.appendSeq || 0);
   capture.appendSeq = seq + 1;
-  const payload = {
-    session_id: capture.sttSessionID,
-    seq,
-    audio_base64: base64FromBytes(bytes),
-  };
-  const chain = capture.appendChain || Promise.resolve();
-  capture.appendChain = chain.then(() => callPushToPromptAction(sttActionAppend, payload));
-  await capture.appendChain;
+  const prev = capture.appendChain || Promise.resolve();
+  capture.appendChain = prev.then(async () => {
+    const bytes = new Uint8Array(await chunkBlob.arrayBuffer());
+    if (!bytes.length) return;
+    const payload = {
+      session_id: capture.sttSessionID,
+      seq,
+      audio_base64: base64FromBytes(bytes),
+    };
+    await callPushToPromptAction(sttActionAppend, payload);
+  }).catch((err) => {
+    capture.appendError = String(err?.message || err || 'audio chunk append failed');
+  });
 }
 
 function stopChatVoiceMedia(capture) {
@@ -375,13 +407,6 @@ function stopChatVoiceMedia(capture) {
     } catch (_) {
       // noop
     }
-  }
-  if (capture.mediaStream && typeof capture.mediaStream.getTracks === 'function') {
-    capture.mediaStream.getTracks().forEach((track) => {
-      if (track && typeof track.stop === 'function') {
-        track.stop();
-      }
-    });
   }
   capture.mediaRecorder = null;
   capture.mediaStream = null;
@@ -424,6 +449,7 @@ function stopChatVoiceMediaAndFlush(capture) {
 async function beginChatVoiceCapture(opts) {
   if (state.activeTab !== 'chat') return;
   if (state.chatVoiceCapture) return;
+  if (!canUseMicrophoneCapture()) return;
   const capture = {
     active: false,
     stopping: false,
@@ -439,34 +465,20 @@ async function beginChatVoiceCapture(opts) {
   state.chatVoiceCapture = capture;
   showStatus('push-to-prompt recording...');
   try {
-    const startResp = await callPushToPromptAction(sttActionStart, {
+    const stream = await acquireMicStream();
+    if (state.chatVoiceCapture !== capture) return;
+    await callPushToPromptAction(sttActionStart, {
       session_id: capture.sttSessionID,
       mime_type: 'audio/webm',
     });
-    capture.active = true;
-    if (!canUseMicrophoneCapture()) {
-      throw new Error('Microphone capture is unavailable in this browser.');
-    }
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    if (state.chatVoiceCapture !== capture) {
-      if (typeof stream.getTracks === 'function') {
-        stream.getTracks().forEach((track) => {
-          if (track && typeof track.stop === 'function') track.stop();
-        });
-      }
-      return;
-    }
+    if (state.chatVoiceCapture !== capture) return;
     const recorder = newMediaRecorder(stream);
     capture.mediaStream = stream;
     capture.mediaRecorder = recorder;
+    capture.active = true;
     recorder.addEventListener('dataavailable', (ev) => {
       if (!ev?.data || ev.data.size <= 0) return;
-      const chain = appendChatVoiceChunk(capture, ev.data);
-      capture.appendChain = chain.catch((err) => {
-        capture.appendError = String(err?.message || err || 'audio chunk append failed');
-        throw err;
-      });
-      void capture.appendChain.catch(() => {});
+      appendChatVoiceChunk(capture, ev.data);
     });
     recorder.start(300);
     if (capture.stopRequested) {
@@ -1621,16 +1633,14 @@ function bindUi() {
   });
 }
 
-function requestMicPermission() {
-  if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') return;
-  navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
-    stream.getTracks().forEach((t) => t.stop());
-  }).catch(() => {});
+function warmMicStream() {
+  if (!canUseMicrophoneCapture()) return;
+  acquireMicStream().catch(() => {});
 }
 
 async function init() {
   bindUi();
-  requestMicPermission();
+  warmMicStream();
   updateAssistantActivityIndicator();
   startDevReloadWatcher();
   startAssistantActivityWatcher();

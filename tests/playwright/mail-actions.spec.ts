@@ -769,11 +769,11 @@ test('global recording control supports hold mode press/release transitions', as
 
   await expect(canvasText).toHaveAttribute('data-mail-recording-mode', 'hold');
   await expect(canvasText).toHaveAttribute('data-mail-recording-state', 'idle');
-  await trigger.dispatchEvent('pointerdown', { button: 0, pointerId: 17 });
+  await trigger.dispatchEvent('mousedown', { button: 0 });
   await expect(canvasText).toHaveAttribute('data-mail-recording-state', 'recording');
   await expect(page.locator('[data-mail-record-indicator]')).toContainText('Push To Prompt (hold mode)');
 
-  await trigger.dispatchEvent('pointerup', { button: 0, pointerId: 17 });
+  await trigger.dispatchEvent('mouseup', { button: 0 });
   await expect(canvasText).toHaveAttribute('data-mail-recording-state', 'idle');
   await expect(canvasText).toHaveAttribute('data-mail-recording-last-stop', 'release');
   await expect(page.locator('[data-mail-record-indicator]')).toContainText('Ready for Push To Prompt (hold mode)');
@@ -792,7 +792,7 @@ test('global recording stop semantics support click and space in hold/toggle mod
   const toggleMode = page.locator('button[data-mail-record-mode="toggle"]');
   const canvasText = page.locator('#canvas-text');
 
-  await trigger.dispatchEvent('pointerdown', { button: 0, pointerId: 29 });
+  await trigger.dispatchEvent('mousedown', { button: 0 });
   await expect(canvasText).toHaveAttribute('data-mail-recording-state', 'recording');
   await stopButton.click();
   await expect(canvasText).toHaveAttribute('data-mail-recording-state', 'idle');
@@ -822,7 +822,7 @@ test.describe('touch stop semantics', () => {
     const stopButton = page.locator('button[data-mail-record-action="stop"]');
     const canvasText = page.locator('#canvas-text');
 
-    await trigger.dispatchEvent('pointerdown', { button: 0, pointerId: 44 });
+    await trigger.dispatchEvent('mousedown', { button: 0 });
     await expect(canvasText).toHaveAttribute('data-mail-recording-state', 'recording');
     await stopButton.tap();
     await expect(canvasText).toHaveAttribute('data-mail-recording-state', 'idle');
