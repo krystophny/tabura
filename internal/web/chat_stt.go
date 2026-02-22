@@ -62,6 +62,7 @@ func handleSTTStop(conn *chatWSConn) {
 	conn.sttBuf = nil
 	conn.sttMimeType = ""
 	conn.sttMu.Unlock()
+
 	if len(buf) < 1024 {
 		_ = conn.writeJSON(sttMessage{Type: "stt_error", Error: "recording too short"})
 		return

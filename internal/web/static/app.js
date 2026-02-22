@@ -247,19 +247,21 @@ function setActiveProjectID(projectID) {
 
 
 function newMediaRecorder(stream) {
-  let recorder = null;
-  try {
-    const preferredType = 'audio/webm;codecs=opus';
-    if (typeof window.MediaRecorder?.isTypeSupported === 'function'
-      && window.MediaRecorder.isTypeSupported(preferredType)) {
-      recorder = new window.MediaRecorder(stream, { mimeType: preferredType });
-    } else {
-      recorder = new window.MediaRecorder(stream);
+  const candidates = [
+    'audio/ogg;codecs=opus',
+    'audio/webm;codecs=opus',
+  ];
+  const isSupported = typeof window.MediaRecorder?.isTypeSupported === 'function'
+    ? (t) => window.MediaRecorder.isTypeSupported(t)
+    : () => false;
+  for (const mt of candidates) {
+    if (isSupported(mt)) {
+      try {
+        return new window.MediaRecorder(stream, { mimeType: mt });
+      } catch (_) { /* try next */ }
     }
-  } catch (_) {
-    recorder = new window.MediaRecorder(stream);
   }
-  return recorder;
+  return new window.MediaRecorder(stream);
 }
 
 
@@ -281,7 +283,9 @@ function acquireMicStream() {
     _cachedMicStream = null;
   }
   if (_micStreamPromise) return _micStreamPromise;
-  _micStreamPromise = navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
+  _micStreamPromise = navigator.mediaDevices.getUserMedia({
+    audio: { echoCancellation: true, autoGainControl: true, noiseSuppression: true },
+  }).then((stream) => {
     _cachedMicStream = stream;
     _micStreamPromise = null;
     return stream;
