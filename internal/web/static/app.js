@@ -301,6 +301,7 @@ function releaseMicStream() {
 let _sttResolve = null;
 let _sttReject = null;
 let _sttActive = false;
+let _sttPendingSends = [];
 
 function sttStart(mimeType) {
   const ws = state.chatWs;
@@ -308,6 +309,7 @@ function sttStart(mimeType) {
     return Promise.reject(new Error('chat WebSocket not connected'));
   }
   _sttActive = true;
+  _sttPendingSends = [];
   ws.send(JSON.stringify({ type: 'stt_start', mime_type: mimeType || 'audio/webm' }));
 }
 
@@ -316,29 +318,37 @@ function sttSendChunk(blob) {
   const ws = state.chatWs;
   if (!ws || ws.readyState !== WebSocket.OPEN) return;
   if (!blob || typeof blob.arrayBuffer !== 'function' || blob.size <= 0) return;
-  blob.arrayBuffer().then((buf) => {
-    if (!_sttActive) return;
+  const p = blob.arrayBuffer().then((buf) => {
     if (!state.chatWs || state.chatWs.readyState !== WebSocket.OPEN) return;
     state.chatWs.send(buf);
   });
+  _sttPendingSends.push(p);
 }
 
 function sttStop() {
   const ws = state.chatWs;
   if (!ws || ws.readyState !== WebSocket.OPEN) {
     _sttActive = false;
+    _sttPendingSends = [];
     return Promise.reject(new Error('chat WebSocket not connected'));
   }
   _sttActive = false;
-  return new Promise((resolve, reject) => {
-    _sttResolve = resolve;
-    _sttReject = reject;
-    ws.send(JSON.stringify({ type: 'stt_stop' }));
+  // Drain all pending chunk sends before sending stt_stop so the server
+  // receives every audio byte before it begins transcription.
+  const pending = _sttPendingSends.slice();
+  _sttPendingSends = [];
+  return Promise.all(pending).then(() => {
+    return new Promise((resolve, reject) => {
+      _sttResolve = resolve;
+      _sttReject = reject;
+      ws.send(JSON.stringify({ type: 'stt_stop' }));
+    });
   });
 }
 
 function sttCancel() {
   _sttActive = false;
+  _sttPendingSends = [];
   if (_sttReject) {
     _sttReject(new Error('STT cancelled'));
     _sttResolve = null;
@@ -455,9 +465,9 @@ async function beginChatVoiceCapture(opts) {
   try {
     const stream = await acquireMicStream();
     if (state.chatVoiceCapture !== capture) return;
-    sttStart('audio/webm');
-    if (state.chatVoiceCapture !== capture) return;
     const recorder = newMediaRecorder(stream);
+    sttStart(recorder.mimeType || 'audio/webm');
+    if (state.chatVoiceCapture !== capture) return;
     capture.mediaStream = stream;
     capture.mediaRecorder = recorder;
     capture.active = true;
