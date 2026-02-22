@@ -7,7 +7,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	"time"
+
+	"github.com/fsnotify/fsnotify"
 )
 
 type canvasAction struct {
@@ -193,25 +194,44 @@ func (a *App) pushCanvasFileIfChanged(t *canvasFileTarget) bool {
 	return true
 }
 
-// pollCanvasFileRefresh polls the disk file backing the active canvas artifact
-// every 500ms until ctx is cancelled. Intended to run in a goroutine for the
-// duration of an assistant turn.
-func (a *App) pollCanvasFileRefresh(ctx context.Context, projectKey string) {
+// watchCanvasFile uses fsnotify to watch the disk file backing the active
+// canvas artifact. On every write, it reads the new content and pushes it
+// to the canvas via MCP. Blocks until ctx is cancelled.
+func (a *App) watchCanvasFile(ctx context.Context, projectKey string) {
 	t := a.resolveCanvasFileTarget(projectKey)
 	if t == nil {
 		return
 	}
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return
+	}
+	defer watcher.Close()
+	// Watch the parent directory so we catch editors that write to a temp
+	// file and rename (atomic write pattern).
+	dir := filepath.Dir(t.filePath)
+	if err := watcher.Add(dir); err != nil {
+		return
+	}
+	base := filepath.Base(t.filePath)
 	lastContent := ""
 	if b, err := os.ReadFile(t.filePath); err == nil {
 		lastContent = string(b)
 	}
-	ticker := time.NewTicker(500 * time.Millisecond)
-	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
+		case ev, ok := <-watcher.Events:
+			if !ok {
+				return
+			}
+			if filepath.Base(ev.Name) != base {
+				continue
+			}
+			if ev.Op&(fsnotify.Write|fsnotify.Create|fsnotify.Rename) == 0 {
+				continue
+			}
 			b, err := os.ReadFile(t.filePath)
 			if err != nil {
 				continue
@@ -227,6 +247,10 @@ func (a *App) pollCanvasFileRefresh(ctx context.Context, projectKey string) {
 				"title":            t.title,
 				"markdown_or_text": content,
 			})
+		case _, ok := <-watcher.Errors:
+			if !ok {
+				return
+			}
 		}
 	}
 }

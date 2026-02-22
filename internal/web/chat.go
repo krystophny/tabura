@@ -556,7 +556,7 @@ func (a *App) runAssistantTurn(sessionID string) {
 		a.unregisterActiveChatTurn(sessionID, runID)
 	}()
 
-	go a.pollCanvasFileRefresh(ctx, session.ProjectKey)
+	go a.watchCanvasFile(ctx, session.ProjectKey)
 
 	latestMessage := ""
 	latestTurnID := ""
@@ -748,7 +748,7 @@ func (a *App) runAssistantTurnLegacy(sessionID string, session store.ChatSession
 		a.unregisterActiveChatTurn(sessionID, runID)
 	}()
 
-	go a.pollCanvasFileRefresh(ctx, session.ProjectKey)
+	go a.watchCanvasFile(ctx, session.ProjectKey)
 
 	latestMessage := ""
 	latestTurnID := ""
