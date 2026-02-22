@@ -21,6 +21,7 @@ export function getActiveThreadKey() {
 export function openAnnotationBubble({ location, clientX, clientY, voiceAutoStart }) {
   closeAnnotationBubble();
   const isMobile = window.innerWidth < 600;
+  const isWide = !isMobile && window.innerWidth >= 900;
   activeThreadKey = `ann-${Date.now()}`;
 
   const bubble = document.createElement('div');
@@ -49,7 +50,7 @@ export function openAnnotationBubble({ location, clientX, clientY, voiceAutoStar
   const messages = document.createElement('div');
   messages.className = 'annotation-bubble-messages';
 
-  const bar = document.createElement('form');
+  const bar = document.createElement('div');
   bar.className = 'annotation-bubble-bar';
   const input = document.createElement('textarea');
   input.className = 'annotation-bubble-input';
@@ -57,7 +58,7 @@ export function openAnnotationBubble({ location, clientX, clientY, voiceAutoStar
   input.rows = 1;
   const send = document.createElement('button');
   send.className = 'annotation-bubble-send';
-  send.type = 'submit';
+  send.type = 'button';
   send.setAttribute('aria-label', 'send');
   send.textContent = '\u25b6';
   bar.appendChild(input);
@@ -67,8 +68,7 @@ export function openAnnotationBubble({ location, clientX, clientY, voiceAutoStar
   bubble.appendChild(messages);
   bubble.appendChild(bar);
 
-  bar.addEventListener('submit', (ev) => {
-    ev.preventDefault();
+  const submitBubble = () => {
     const text = input.value.trim();
     if (!text) return;
     appendBubbleMessage('user', text);
@@ -77,12 +77,18 @@ export function openAnnotationBubble({ location, clientX, clientY, voiceAutoStar
     if (bubbleSendFn) {
       bubbleSendFn(text, activeThreadKey);
     }
+  };
+
+  send.addEventListener('click', (ev) => {
+    ev.preventDefault();
+    submitBubble();
   });
 
   input.addEventListener('keydown', (ev) => {
     if (ev.key === 'Enter' && !ev.shiftKey) {
       ev.preventDefault();
-      bar.dispatchEvent(new Event('submit', { bubbles: true }));
+      ev.stopPropagation();
+      submitBubble();
     }
   });
 
@@ -92,30 +98,92 @@ export function openAnnotationBubble({ location, clientX, clientY, voiceAutoStar
   });
 
   // Voice hold on send button
+  const HOLD_MS = 300;
   let sendHoldTimer = null;
   let sendHoldActive = false;
-  send.addEventListener('mousedown', (ev) => {
-    if (ev.button !== 0) return;
+  let sendHoldIsTouch = false;
+  const sendStartHold = (ev, isTouch) => {
+    if (isTouch) ev.preventDefault();
+    sendHoldActive = false;
+    sendHoldIsTouch = isTouch;
     sendHoldTimer = window.setTimeout(() => {
       sendHoldTimer = null;
       sendHoldActive = true;
       if (bubbleVoiceFn) bubbleVoiceFn(true);
-    }, 300);
-  });
-  window.addEventListener('mouseup', () => {
+    }, HOLD_MS);
+  };
+  const sendEndHold = () => {
     if (sendHoldTimer) {
       clearTimeout(sendHoldTimer);
       sendHoldTimer = null;
+      sendHoldIsTouch = false;
       return;
     }
     if (sendHoldActive) {
       sendHoldActive = false;
+      sendHoldIsTouch = false;
       if (bubbleVoiceFn) bubbleVoiceFn(false);
     }
+  };
+  send.addEventListener('touchstart', (ev) => sendStartHold(ev, true), { passive: false });
+  send.addEventListener('mousedown', (ev) => {
+    if (ev.button !== 0 || sendHoldIsTouch) return;
+    sendStartHold(ev, false);
   });
+  window.addEventListener('touchend', () => { if (sendHoldIsTouch) sendEndHold(); }, { passive: true });
+  window.addEventListener('touchcancel', () => { if (sendHoldIsTouch) sendEndHold(); });
+  window.addEventListener('mouseup', () => { if (!sendHoldIsTouch) sendEndHold(); });
+
+  // Voice hold on input textarea (PTT when empty)
+  let inputHoldTimer = null;
+  let inputHoldActive = false;
+  let inputHoldIsTouch = false;
+  const inputStartHold = (ev, isTouch) => {
+    if (input.value.trim()) return;
+    inputHoldActive = false;
+    inputHoldIsTouch = isTouch;
+    inputHoldTimer = window.setTimeout(() => {
+      inputHoldTimer = null;
+      inputHoldActive = true;
+      if (isTouch) input.blur();
+      input.classList.add('is-recording');
+      if (bubbleVoiceFn) bubbleVoiceFn(true);
+    }, HOLD_MS);
+  };
+  const inputEndHold = () => {
+    if (inputHoldTimer) {
+      clearTimeout(inputHoldTimer);
+      inputHoldTimer = null;
+      inputHoldIsTouch = false;
+      return;
+    }
+    if (inputHoldActive) {
+      inputHoldActive = false;
+      inputHoldIsTouch = false;
+      input.classList.remove('is-recording');
+      if (bubbleVoiceFn) bubbleVoiceFn(false);
+    }
+  };
+  input.addEventListener('touchstart', (ev) => inputStartHold(ev, true), { passive: true });
+  input.addEventListener('mousedown', (ev) => {
+    if (ev.button !== 0 || inputHoldIsTouch) return;
+    inputStartHold(ev, false);
+  });
+  window.addEventListener('touchend', () => { if (inputHoldIsTouch) inputEndHold(); }, { passive: true });
+  window.addEventListener('touchcancel', () => { if (inputHoldIsTouch) inputEndHold(); });
+  window.addEventListener('mouseup', () => { if (!inputHoldIsTouch) inputEndHold(); });
 
   if (isMobile) {
     document.body.appendChild(bubble);
+  } else if (isWide) {
+    bubble.classList.add('annotation-side-panel');
+    const viewport = document.getElementById('canvas-viewport');
+    if (viewport) {
+      viewport.classList.add('has-annotation-panel');
+      viewport.appendChild(bubble);
+    } else {
+      document.body.appendChild(bubble);
+    }
   } else {
     const canvasText = document.getElementById('canvas-text');
     const isCanvasVisible = canvasText && canvasText.offsetParent !== null;
@@ -148,6 +216,10 @@ export function openAnnotationBubble({ location, clientX, clientY, voiceAutoStar
   const outsideHandler = (ev) => {
     if (!activeBubble) return;
     if (activeBubble.contains(ev.target)) return;
+    if (isWide) {
+      const ct = document.getElementById('canvas-text');
+      if (ct && ct.contains(ev.target)) return;
+    }
     closeAnnotationBubble();
   };
   window.setTimeout(() => {
@@ -202,6 +274,8 @@ export function closeAnnotationBubble() {
   if (bubble._escHandler) {
     document.removeEventListener('keydown', bubble._escHandler, { capture: true });
   }
+  const viewport = document.getElementById('canvas-viewport');
+  if (viewport) viewport.classList.remove('has-annotation-panel');
   bubble.remove();
   clearLineHighlight();
 }

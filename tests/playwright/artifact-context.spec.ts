@@ -69,7 +69,22 @@ test.describe('annotation bubble', () => {
     await installMessageSpy(page);
   });
 
-  test('click on artifact opens annotation bubble', async ({ page }) => {
+  test('right-click on artifact opens annotation bubble', async ({ page }) => {
+    await renderTestArtifact(page);
+    const canvasText = page.locator('#canvas-text');
+    await expect(canvasText).toBeVisible();
+
+    const box = await canvasText.boundingBox();
+    if (!box) throw new Error('canvas-text not visible');
+    await page.mouse.click(box.x + 20, box.y + 20, { button: 'right' });
+    await page.waitForTimeout(200);
+
+    // In headless, caretRangeFromPoint may not work; verify no crash.
+    const bubbleCount = await page.locator('.annotation-bubble').count();
+    expect(bubbleCount).toBeLessThanOrEqual(1);
+  });
+
+  test('left-click on artifact does not open bubble', async ({ page }) => {
     await renderTestArtifact(page);
     const canvasText = page.locator('#canvas-text');
     await expect(canvasText).toBeVisible();
@@ -79,15 +94,11 @@ test.describe('annotation bubble', () => {
     await page.mouse.click(box.x + 20, box.y + 20);
     await page.waitForTimeout(200);
 
-    // In headless, caretRangeFromPoint may not work; verify no crash.
-    // If it works, bubble should appear.
     const bubbleCount = await page.locator('.annotation-bubble').count();
-    // Either 0 (caretRange failed) or 1 (success) — both are acceptable
-    expect(bubbleCount).toBeLessThanOrEqual(1);
+    expect(bubbleCount).toBe(0);
   });
 
   test('bubble send posts message with thread_key', async ({ page }) => {
-    // Manually open a bubble via module API
     await page.evaluate(async () => {
       const mod = await import('../../internal/web/static/canvas-bubble.js');
       mod.openAnnotationBubble({
@@ -112,6 +123,33 @@ test.describe('annotation bubble', () => {
     expect(String(sent.thread_key)).toMatch(/^ann-/);
   });
 
+  test('Enter key in bubble submits message', async ({ page }) => {
+    await page.evaluate(async () => {
+      const mod = await import('../../internal/web/static/canvas-bubble.js');
+      mod.openAnnotationBubble({
+        location: { line: 1, title: 'test.txt' },
+        clientX: 100,
+        clientY: 100,
+      });
+    });
+    await expect(page.locator('.annotation-bubble')).toBeVisible();
+
+    const input = page.locator('.annotation-bubble-input');
+    await input.fill('enter test');
+    await input.press('Enter');
+    await page.waitForTimeout(300);
+
+    // User message should appear in bubble
+    await expect(page.locator('.annotation-bubble-msg-user')).toContainText('enter test');
+
+    // POST body should have thread_key
+    const bodies = await getSentBodies(page);
+    expect(bodies.length).toBeGreaterThanOrEqual(1);
+    const sent = bodies[bodies.length - 1];
+    expect(sent.text).toBe('enter test');
+    expect(String(sent.thread_key)).toMatch(/^ann-/);
+  });
+
   test('bubble receives streamed response', async ({ page }) => {
     await page.evaluate(async () => {
       const mod = await import('../../internal/web/static/canvas-bubble.js');
@@ -121,7 +159,6 @@ test.describe('annotation bubble', () => {
         clientY: 100,
       });
       const threadKey = mod.getActiveThreadKey();
-      // Simulate streamed response
       mod.routeBubbleEvent({ type: 'turn_started', turn_id: 'turn-1', thread_key: threadKey });
       mod.routeBubbleEvent({
         type: 'assistant_message',
@@ -153,11 +190,8 @@ test.describe('annotation bubble', () => {
       });
     });
     await expect(page.locator('.annotation-bubble')).toBeVisible();
-
-    // Wait for outside-click handler to register (50ms setTimeout in bubble code)
     await page.waitForTimeout(100);
 
-    // Click outside (on body)
     await page.mouse.click(5, 5);
     await page.waitForTimeout(200);
     await expect(page.locator('.annotation-bubble')).toHaveCount(0);
@@ -179,30 +213,86 @@ test.describe('annotation bubble', () => {
     await expect(page.locator('.annotation-bubble')).toHaveCount(0);
   });
 
-  test('long-press opens bubble with voice recording', async ({ page }) => {
-    await renderTestArtifact(page);
-    const canvasText = page.locator('#canvas-text');
-    await expect(canvasText).toBeVisible();
+  test('wide viewport opens side panel', async ({ page }) => {
+    // Default Playwright viewport is 1280x720 (≥900px) → side panel mode
+    await page.evaluate(async () => {
+      const mod = await import('../../internal/web/static/canvas-bubble.js');
+      mod.openAnnotationBubble({
+        location: { line: 5, title: 'review.md' },
+        clientX: 100,
+        clientY: 100,
+      });
+    });
+    const bubble = page.locator('.annotation-bubble');
+    await expect(bubble).toBeVisible();
+    await expect(bubble).toHaveClass(/annotation-side-panel/);
 
-    const box = await canvasText.boundingBox();
-    if (!box) throw new Error('canvas-text not visible');
+    const viewport = page.locator('#canvas-viewport');
+    await expect(viewport).toHaveClass(/has-annotation-panel/);
 
-    await clearLog(page);
+    // Verify it is inside #canvas-viewport
+    const parent = await bubble.evaluate((el) => el.parentElement?.id);
+    expect(parent).toBe('canvas-viewport');
+  });
 
-    // Long-press: mouse down, wait beyond hold threshold (300ms), then release
-    await page.mouse.move(box.x + 30, box.y + 20);
-    await page.mouse.down();
-    await page.waitForTimeout(500);
+  test('medium viewport opens floating bubble not side panel', async ({ page }) => {
+    await page.setViewportSize({ width: 800, height: 600 });
+    await page.evaluate(async () => {
+      const mod = await import('../../internal/web/static/canvas-bubble.js');
+      mod.openAnnotationBubble({
+        location: { line: 1, title: 'test.txt' },
+        clientX: 100,
+        clientY: 100,
+      });
+    });
+    const bubble = page.locator('.annotation-bubble');
+    await expect(bubble).toBeVisible();
+    const hasSidePanel = await bubble.evaluate((el) =>
+      el.classList.contains('annotation-side-panel')
+    );
+    expect(hasSidePanel).toBe(false);
+  });
 
-    const log = await getLog(page);
-    const hasSTTStart = log.some(e => e.type === 'stt' && e.action === 'start');
-    // caretRangeFromPoint may not work in headless; verify no crash
-    if (hasSTTStart) {
-      // Bubble should be open if caretRange worked
-      const bubbleCount = await page.locator('.annotation-bubble').count();
-      expect(bubbleCount).toBeLessThanOrEqual(1);
-    }
-    await page.mouse.up();
+  test('side panel not dismissed by click on canvas-text', async ({ page }) => {
+    // Default viewport is wide (1280x720)
+    await page.evaluate(async () => {
+      const mod = await import('../../internal/web/static/canvas-bubble.js');
+      mod.openAnnotationBubble({
+        location: { line: 2, title: 'test.txt' },
+        clientX: 100,
+        clientY: 100,
+      });
+    });
+    const panel = page.locator('.annotation-side-panel');
+    await expect(panel).toBeVisible();
+    await page.waitForTimeout(100);
+
+    // Programmatic click on canvas-text should NOT close the side panel
+    const survived = await page.evaluate(() => {
+      const ct = document.getElementById('canvas-text');
+      if (ct) ct.click();
+      return !!document.querySelector('.annotation-side-panel');
+    });
+    expect(survived).toBe(true);
+    await expect(panel).toBeVisible();
+  });
+
+  test('side panel close removes has-annotation-panel class', async ({ page }) => {
+    await page.evaluate(async () => {
+      const mod = await import('../../internal/web/static/canvas-bubble.js');
+      mod.openAnnotationBubble({
+        location: { line: 1, title: 'test.txt' },
+        clientX: 100,
+        clientY: 100,
+      });
+    });
+    const viewport = page.locator('#canvas-viewport');
+    await expect(viewport).toHaveClass(/has-annotation-panel/);
+
+    await page.locator('.annotation-bubble-dismiss').click();
+    await page.waitForTimeout(100);
+    const classes = await viewport.getAttribute('class');
+    expect(classes).not.toContain('has-annotation-panel');
   });
 
   test('mobile bottom sheet layout', async ({ page }) => {
@@ -238,13 +328,11 @@ test.describe('annotation bubble', () => {
       });
     });
 
-    // Send from bubble
     const input = page.locator('.annotation-bubble-input');
     await input.fill('bubble comment');
     await page.locator('.annotation-bubble-send').click();
     await page.waitForTimeout(300);
 
-    // Main chat should not have new entries from the bubble
     const chatHistoryAfter = await page.locator('#chat-history .chat-message').count();
     expect(chatHistoryAfter).toBe(chatHistoryBefore);
   });
@@ -257,69 +345,22 @@ test.describe('annotation bubble', () => {
     const box = await canvasText.boundingBox();
     if (!box) throw new Error('canvas-text not visible');
 
-    // Select text by dragging
     await page.mouse.move(box.x + 10, box.y + 10);
     await page.mouse.down();
     await page.mouse.move(box.x + 100, box.y + 10);
     await page.mouse.up();
     await page.waitForTimeout(200);
 
-    // Selection should exist, no bubble
-    const hasSelection = await page.evaluate(() => {
-      const sel = window.getSelection();
-      return sel && !sel.isCollapsed;
-    });
-    // In headless, selection may not work as expected,
-    // but we at least verify no crash and no bubble
     const bubbleCount = await page.locator('.annotation-bubble').count();
     expect(bubbleCount).toBe(0);
   });
 
-  test('right-click shows browser default (no bubble)', async ({ page }) => {
-    await renderTestArtifact(page);
-    const canvasText = page.locator('#canvas-text');
-    await expect(canvasText).toBeVisible();
-
-    const box = await canvasText.boundingBox();
-    if (!box) throw new Error('canvas-text not visible');
-    await page.mouse.click(box.x + 20, box.y + 20, { button: 'right' });
-    await page.waitForTimeout(100);
-
-    // No bubble should open on right-click
-    const bubbleCount = await page.locator('.annotation-bubble').count();
-    expect(bubbleCount).toBe(0);
-  });
-
-  test('quick click-release does not start PTT', async ({ page }) => {
-    await renderTestArtifact(page);
-    const canvasText = page.locator('#canvas-text');
-    await expect(canvasText).toBeVisible();
-
-    const box = await canvasText.boundingBox();
-    if (!box) throw new Error('canvas-text not visible');
-
-    await clearLog(page);
-
-    // Quick mouse down + up (no hold) should not start PTT
-    await page.mouse.move(box.x + 30, box.y + 20);
-    await page.mouse.down();
-    await page.waitForTimeout(50);
-    await page.mouse.up();
-    await page.waitForTimeout(100);
-
-    const log = await getLog(page);
-    const hasSTTStart = log.some(e => e.type === 'stt' && e.action === 'start');
-    expect(hasSTTStart).toBe(false);
-  });
-
-  test('line highlight replaces transient marker', async ({ page }) => {
+  test('line highlight absent after left-click', async ({ page }) => {
     await renderTestArtifact(page);
 
-    // Verify no old-style transient markers exist
     const markerCount = await page.locator('.transient-marker').count();
     expect(markerCount).toBe(0);
 
-    // Click to trigger line highlight (if caretRangeFromPoint works)
     const canvasText = page.locator('#canvas-text');
     const box = await canvasText.boundingBox();
     if (box) {
@@ -327,8 +368,10 @@ test.describe('annotation bubble', () => {
       await page.waitForTimeout(100);
     }
 
-    // No transient markers should exist (old API removed)
+    // Left-click should not produce a highlight or marker
     const markerCountAfter = await page.locator('.transient-marker').count();
     expect(markerCountAfter).toBe(0);
+    const highlightCount = await page.locator('.review-line-highlight').count();
+    expect(highlightCount).toBe(0);
   });
 });

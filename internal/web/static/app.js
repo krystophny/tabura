@@ -514,12 +514,8 @@ async function stopChatVoiceCaptureAndApply() {
     if (isAnnotationBubbleOpen()) {
       appendBubbleTranscript(transcript);
       if (capture.autoSend) {
-        const threadKey = getActiveThreadKey();
-        const bubbleInput = document.querySelector('.annotation-bubble-input');
-        if (bubbleInput) {
-          const bubbleBar = bubbleInput.closest('.annotation-bubble-bar');
-          if (bubbleBar) bubbleBar.dispatchEvent(new Event('submit', { bubbles: true }));
-        }
+        const bubbleSendBtn = document.querySelector('.annotation-bubble-send');
+        if (bubbleSendBtn) bubbleSendBtn.click();
       }
       showStatus('ready');
       return;
@@ -1816,101 +1812,91 @@ function bindUi() {
 
   const canvasText = document.getElementById('canvas-text');
   if (canvasText) {
+    // Touch long-press for mobile PTT annotation
     let artHoldTimer = null;
     let artHoldActive = false;
-    let artHoldIsTouch = false;
     let artHoldX = 0;
     let artHoldY = 0;
     const ART_HOLD_MOVE_THRESHOLD = 5;
 
-    const artStartHold = (clientX, clientY, isTouch) => {
+    canvasText.addEventListener('touchstart', (ev) => {
+      if (ev.touches.length !== 1) return;
+      const t = ev.touches[0];
       artHoldActive = false;
-      artHoldIsTouch = isTouch;
-      artHoldX = clientX;
-      artHoldY = clientY;
+      artHoldX = t.clientX;
+      artHoldY = t.clientY;
       artHoldTimer = window.setTimeout(() => {
         artHoldTimer = null;
         artHoldActive = true;
         const loc = getLocationFromPoint(artHoldX, artHoldY);
         if (loc) {
-          showLineHighlight(artHoldX, artHoldY);
           openAnnotationBubble({ location: loc, clientX: artHoldX, clientY: artHoldY, voiceAutoStart: true });
+          showLineHighlight(artHoldX, artHoldY);
         }
       }, CHAT_SEND_HOLD_MS);
-    };
-
-    const artCancelHold = () => {
-      if (artHoldTimer) {
-        clearTimeout(artHoldTimer);
-        artHoldTimer = null;
-      }
-    };
-
-    const artEndHold = () => {
-      if (artHoldTimer) {
-        clearTimeout(artHoldTimer);
-        artHoldTimer = null;
-        artHoldIsTouch = false;
-        return;
-      }
-      if (artHoldActive || state.chatVoiceCapture) {
-        artHoldActive = false;
-        artHoldIsTouch = false;
-        void stopChatVoiceCaptureAndApply();
-      }
-    };
-
-    canvasText.addEventListener('touchstart', (ev) => {
-      if (ev.touches.length !== 1) return;
-      const t = ev.touches[0];
-      artStartHold(t.clientX, t.clientY, true);
     }, { passive: true });
 
     canvasText.addEventListener('touchmove', (ev) => {
-      if (!artHoldIsTouch || !artHoldTimer) return;
+      if (!artHoldTimer) return;
       if (ev.touches.length !== 1) return;
       const t = ev.touches[0];
       const dx = t.clientX - artHoldX;
       const dy = t.clientY - artHoldY;
       if (Math.sqrt(dx * dx + dy * dy) > ART_HOLD_MOVE_THRESHOLD) {
-        artCancelHold();
+        if (artHoldTimer) { clearTimeout(artHoldTimer); artHoldTimer = null; }
       }
     }, { passive: true });
 
     window.addEventListener('touchend', () => {
-      if (!artHoldIsTouch) return;
-      artEndHold();
+      if (artHoldTimer) { clearTimeout(artHoldTimer); artHoldTimer = null; return; }
+      if (artHoldActive || state.chatVoiceCapture) {
+        artHoldActive = false;
+        void stopChatVoiceCaptureAndApply();
+      }
     }, { passive: true });
 
     window.addEventListener('touchcancel', () => {
-      if (!artHoldIsTouch) return;
-      artCancelHold();
-      artHoldIsTouch = false;
+      if (artHoldTimer) { clearTimeout(artHoldTimer); artHoldTimer = null; }
+      artHoldActive = false;
     });
 
+    // Mouse long-press for PTT annotation (desktop)
     canvasText.addEventListener('mousedown', (ev) => {
       if (ev.button !== 0) return;
-      if (artHoldIsTouch) return;
-      artStartHold(ev.clientX, ev.clientY, false);
+      artHoldActive = false;
+      artHoldX = ev.clientX;
+      artHoldY = ev.clientY;
+      artHoldTimer = window.setTimeout(() => {
+        artHoldTimer = null;
+        artHoldActive = true;
+        // Suppress the click event that follows mouseup so the bubble's
+        // outside-click handler doesn't immediately close it.
+        document.addEventListener('click', (e) => {
+          e.stopImmediatePropagation();
+        }, { once: true, capture: true });
+        const loc = getLocationFromPoint(artHoldX, artHoldY);
+        if (loc) {
+          openAnnotationBubble({ location: loc, clientX: artHoldX, clientY: artHoldY, voiceAutoStart: true });
+          showLineHighlight(artHoldX, artHoldY);
+        }
+      }, CHAT_SEND_HOLD_MS);
     });
 
     window.addEventListener('mouseup', () => {
-      if (artHoldIsTouch) return;
-      artEndHold();
+      if (artHoldTimer) { clearTimeout(artHoldTimer); artHoldTimer = null; return; }
+      if (artHoldActive || state.chatVoiceCapture) {
+        artHoldActive = false;
+        void stopChatVoiceCaptureAndApply();
+      }
     });
 
-    canvasText.addEventListener('click', (ev) => {
-      if (artHoldActive) {
-        artHoldActive = false;
-        return;
-      }
-      if (isAnnotationBubbleOpen()) return;
-      const sel = window.getSelection();
-      if (sel && !sel.isCollapsed) return;
+    // Right-click opens annotation bubble for typing (desktop)
+    canvasText.addEventListener('contextmenu', (ev) => {
       const loc = getLocationFromPoint(ev.clientX, ev.clientY);
       if (loc) {
-        showLineHighlight(ev.clientX, ev.clientY);
+        ev.preventDefault();
         openAnnotationBubble({ location: loc, clientX: ev.clientX, clientY: ev.clientY });
+        showLineHighlight(ev.clientX, ev.clientY);
       }
     });
   }

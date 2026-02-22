@@ -230,7 +230,7 @@ body.desktop-canvas-only #toolbar {
   background: #ffffff;
   color: #111827;
   font-family: inherit;
-  font-size: 0.9rem;
+  font-size: 1rem;
 }
 
 #prompt-input:focus {
@@ -474,7 +474,7 @@ body.desktop-canvas-only #toolbar {
 }
 
 .annotation-bubble-location {
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   color: var(--text-dim);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -507,7 +507,7 @@ body.desktop-canvas-only #toolbar {
 }
 
 .annotation-bubble-msg {
-  font-size: 0.82rem;
+  font-size: 1rem;
   line-height: 1.45;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -562,7 +562,7 @@ body.desktop-canvas-only #toolbar {
   background: var(--bg);
   color: var(--text);
   font-family: inherit;
-  font-size: 0.82rem;
+  font-size: 1rem;
 }
 
 .annotation-bubble-input:focus {
@@ -577,6 +577,25 @@ body.desktop-canvas-only #toolbar {
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
+}
+
+.annotation-side-panel {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  left: auto;
+  width: 340px;
+  max-height: none;
+  z-index: 10;
+  border: none;
+  border-left: 1px solid var(--border);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+#canvas-viewport.has-annotation-panel .canvas-pane.is-active {
+  margin-right: 340px;
 }
 
 @media (max-width: 599px) {

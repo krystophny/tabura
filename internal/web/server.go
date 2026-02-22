@@ -213,7 +213,12 @@ func (a *App) Router() http.Handler {
 	// static
 	r.Get("/", a.serveIndex)
 	r.Get("/canvas", a.serveCanvas)
-	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.FS(staticSubFS()))))
+	if a.devRuntime {
+		diskDir := pathJoin(a.localProjectDir, "internal", "web", "static")
+		r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.Dir(diskDir))))
+	} else {
+		r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.FS(staticSubFS()))))
+	}
 	return securityHeaders(r)
 }
 
@@ -245,7 +250,13 @@ func securityHeaders(next http.Handler) http.Handler {
 }
 
 func (a *App) serveIndex(w http.ResponseWriter, r *http.Request) {
-	data, err := staticFiles.ReadFile("static/index.html")
+	var data []byte
+	var err error
+	if a.devRuntime {
+		data, err = os.ReadFile(pathJoin(a.localProjectDir, "internal", "web", "static", "index.html"))
+	} else {
+		data, err = staticFiles.ReadFile("static/index.html")
+	}
 	if err != nil {
 		http.Error(w, "web client not found", http.StatusNotFound)
 		return
