@@ -120,7 +120,8 @@ Workflow:
 3. To release: `scripts/bump-version.sh v0.0.X` (strip -dev suffix)
 4. Create `docs/release-v0.0.X.md`, update README.md and docs/spec-index.md release links
 5. Tag and push: `git tag v0.0.X && git push origin v0.0.X`
-6. Immediately after: `scripts/bump-version.sh v0.0.Y-dev` (next cycle)
+6. Create GitHub release: `gh release create v0.0.X --title "v0.0.X" --notes-file docs/release-v0.0.X.md`
+7. Immediately after: `scripts/bump-version.sh v0.0.Y-dev` (next cycle)
 
 The bump script updates: `.zenodo.json`, `CITATION.cff`, `internal/mcp/server.go`, `internal/web/server.go`, `internal/appserver/client.go`, `internal/voxtypemcp/server.go`.
 
