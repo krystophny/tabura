@@ -89,7 +89,7 @@ func (s *Server) handleMCP(w http.ResponseWriter, r *http.Request) {
 			"protocolVersion": "2024-11-05",
 			"serverInfo": map[string]interface{}{
 				"name":    "tabura-voxtype-mcp",
-				"version": "0.0.7-dev",
+				"version": "0.0.7",
 			},
 			"capabilities": map[string]interface{}{
 				"tools": map[string]interface{}{},

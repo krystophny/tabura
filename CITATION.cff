@@ -6,8 +6,8 @@ authors:
   - family-names: Albert
     given-names: Christopher
 license: MIT
-version: v0.0.7-dev
-date-released: 2026-02-22
+version: v0.0.7
+date-released: 2026-02-23
 repository-code: https://github.com/krystophny/tabura
 url: https://github.com/krystophny/tabura
 abstract: >-
