@@ -232,11 +232,10 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .zen-indicator-dot {
   display: block;
-  width: 10px;
-  height: 10px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
-  background: #c4a882;
-  opacity: 0.7;
+  background: #d44;
 }
 
 /* Zen: Floating text input */
