@@ -45,7 +45,9 @@ else
         pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
     fi
 
-    pip install f5-tts fastapi 'uvicorn[standard]'
+    # pydantic-core 2.27.2 uses PyO3 0.22 which caps at Python 3.13;
+    # the ABI3 forward-compat flag lets it build on 3.14+.
+    PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 pip install f5-tts fastapi 'uvicorn[standard]'
 
     deactivate
     echo "Dependencies installed."
