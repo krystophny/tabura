@@ -2,12 +2,13 @@ import { marked } from './vendor/marked.esm.js';
 import { renderCanvas, clearCanvas, getLocationFromPoint, getLocationFromSelection, showLineHighlight, clearLineHighlight, escapeHtml, sanitizeHtml, getActiveTextEventId } from './canvas.js';
 import {
   getZenState, setZenMode,
-  showIndicator, hideIndicator,
+  showIndicator, hideIndicator, showThinkingIndicator,
   showTextInput, hideTextInput,
   showOverlay, hideOverlay, updateOverlay,
   isOverlayVisible, isTextInputVisible, isRecording, setRecording,
   getInputAnchor, setInputAnchor, getAnchorFromPoint,
   buildContextPrefix, getLastInputPosition,
+  showSpeakingIndicator, hideSpeakingIndicator, dismissSpeakingIndicator,
 } from './zen.js';
 
 const state = {
@@ -40,10 +41,15 @@ const state = {
   contextMax: 0,
   // Zen-specific: track if a canvas action happened during this turn
   zenCanvasActionThisTurn: false,
+  lastInputOrigin: 'text',
 };
 
 export function getState() {
   return state;
+}
+
+function isVoiceTurn() {
+  return state.lastInputOrigin === 'voice';
 }
 
 window._taburaApp = { getState, acquireMicStream, sttStart, sttSendBlob, sttStop, sttCancel };
@@ -63,6 +69,140 @@ let assistantActivityInFlight = false;
 
 const ACTIVE_PROJECT_STORAGE_KEY = 'tabura.activeProjectId';
 const LAST_VIEW_STORAGE_KEY = 'tabura.lastView';
+
+// --- TTS infrastructure ---
+
+function parseSpeakTags(markdown) {
+  const speakParts = [];
+  let visualMarkdown = markdown;
+  const speakRegex = /<speak>([\s\S]*?)<\/speak>/g;
+  let match;
+  while ((match = speakRegex.exec(markdown)) !== null) {
+    speakParts.push(match[1].trim());
+  }
+  visualMarkdown = markdown.replace(speakRegex, '').trim();
+  return { speakText: speakParts.join(' '), visualMarkdown };
+}
+
+function detectLanguage(text) {
+  const lower = text.toLowerCase();
+  const dePatterns = /\b(der|die|das|ein|eine|ist|und|aber|nicht|haben|werden|ich|mich|mir|wir|ihr|auf|mit|von|nach|bei|zum|zur|kann|habe|wird)\b/g;
+  const matches = lower.match(dePatterns);
+  return matches && matches.length >= 2 ? 'de' : 'en';
+}
+
+class SentenceChunker {
+  constructor(onSentence) {
+    this._buffer = '';
+    this._onSentence = onSentence;
+    this._timer = null;
+  }
+  add(text) {
+    this._buffer += text;
+    this._tryEmit();
+  }
+  _tryEmit() {
+    if (this._timer) { clearTimeout(this._timer); this._timer = null; }
+    const boundaries = /([.!?])\s+/g;
+    let lastIndex = 0;
+    let match;
+    while ((match = boundaries.exec(this._buffer)) !== null) {
+      const end = match.index + match[1].length;
+      const sentence = this._buffer.slice(lastIndex, end).trim();
+      if (sentence) this._onSentence(sentence);
+      lastIndex = end;
+    }
+    if (lastIndex > 0) {
+      this._buffer = this._buffer.slice(lastIndex).trimStart();
+    }
+    if (this._buffer.length > 0) {
+      this._timer = setTimeout(() => {
+        this._timer = null;
+        this.flush();
+      }, 2000);
+    }
+  }
+  flush() {
+    if (this._timer) { clearTimeout(this._timer); this._timer = null; }
+    const sentence = this._buffer.trim();
+    this._buffer = '';
+    if (sentence) this._onSentence(sentence);
+  }
+  reset() {
+    if (this._timer) { clearTimeout(this._timer); this._timer = null; }
+    this._buffer = '';
+  }
+}
+
+class TTSPlayer {
+  constructor() {
+    this._queue = [];
+    this._playing = false;
+    this._stopped = false;
+    this._currentAudio = null;
+  }
+  enqueue(text, lang) {
+    if (this._stopped) return;
+    this._queue.push({ text, lang });
+    if (!this._playing) this._playNext();
+  }
+  stop() {
+    this._stopped = true;
+    this._queue = [];
+    if (this._currentAudio) {
+      try { this._currentAudio.pause(); this._currentAudio.src = ''; } catch (_) {}
+      this._currentAudio = null;
+    }
+    this._playing = false;
+    dismissSpeakingIndicator();
+  }
+  async _playNext() {
+    if (this._stopped || this._queue.length === 0) {
+      this._playing = false;
+      hideSpeakingIndicator();
+      return;
+    }
+    this._playing = true;
+    const { text, lang } = this._queue.shift();
+    const pos = getLastInputPosition();
+    hideIndicator();
+    showSpeakingIndicator(pos.x, pos.y);
+    try {
+      const resp = await fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, lang }),
+      });
+      if (this._stopped) return;
+      if (!resp.ok) {
+        console.warn('TTS fetch failed:', resp.status);
+        this._playNext();
+        return;
+      }
+      const blob = await resp.blob();
+      if (this._stopped) return;
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      this._currentAudio = audio;
+      await new Promise((resolve, reject) => {
+        audio.onended = () => { URL.revokeObjectURL(url); resolve(); };
+        audio.onerror = (e) => { URL.revokeObjectURL(url); reject(e); };
+        audio.play().catch(reject);
+      });
+      this._currentAudio = null;
+    } catch (err) {
+      console.warn('TTS playback error:', err);
+      this._currentAudio = null;
+    }
+    if (!this._stopped) this._playNext();
+  }
+}
+
+let ttsPlayer = null;
+let ttsSentenceChunker = null;
+let ttsEnabled = false;
+let ttsSpeakAccumulator = '';
+let ttsLastSpeakText = '';
 
 const renderer = new marked.Renderer();
 renderer.code = ({ text, lang }) => {
@@ -412,6 +552,9 @@ function stopChatVoiceMediaAndFlush(capture) {
 async function beginZenVoiceCapture(x, y, anchor) {
   if (state.chatVoiceCapture) return;
   if (!canUseMicrophoneCapture()) return;
+  // Interrupt TTS playback when starting recording
+  if (ttsPlayer) { ttsPlayer.stop(); ttsPlayer = null; }
+  if (ttsSentenceChunker) { ttsSentenceChunker.reset(); ttsSentenceChunker = null; }
   const capture = {
     active: false,
     stopping: false,
@@ -422,9 +565,13 @@ async function beginZenVoiceCapture(x, y, anchor) {
     chunks: [],
   };
   state.chatVoiceCapture = capture;
+  state.lastInputOrigin = 'voice';
   setRecording(true);
   setInputAnchor(anchor || null);
   showIndicator(x, y);
+  const zenS = getZenState();
+  zenS.lastInputX = x;
+  zenS.lastInputY = y;
   showStatus('recording...');
   try {
     const stream = await acquireMicStream();
@@ -958,11 +1105,19 @@ function handleChatEvent(payload) {
     trackAssistantTurnStarted(payload.turn_id);
     ensurePendingForTurn(payload.turn_id);
     state.zenCanvasActionThisTurn = false;
-    // Show overlay for streaming response
+    // Reset TTS state for new turn
+    if (ttsPlayer) { ttsPlayer.stop(); ttsPlayer = null; }
+    ttsSpeakAccumulator = '';
+    ttsLastSpeakText = '';
+    if (ttsSentenceChunker) { ttsSentenceChunker.reset(); ttsSentenceChunker = null; }
     const pos = getLastInputPosition();
-    showOverlay(pos.x, pos.y + 24);
-    updateOverlay('_Thinking..._');
-    getZenState().overlayTurnId = payload.turn_id || null;
+    if (isVoiceTurn()) {
+      showThinkingIndicator(pos.x, pos.y);
+    } else {
+      showOverlay(pos.x, pos.y + 24);
+      updateOverlay('_Thinking..._');
+      getZenState().overlayTurnId = payload.turn_id || null;
+    }
     return;
   }
 
@@ -972,8 +1127,26 @@ function handleChatEvent(payload) {
     const row = ensurePendingForTurn(turnID);
     const md = String(payload.message || '');
     updateAssistantRow(row, md, true);
-    // Stream into overlay
-    updateOverlay(md);
+
+    if (isVoiceTurn() && ttsEnabled) {
+      const { speakText } = parseSpeakTags(md);
+      if (speakText && speakText !== ttsLastSpeakText) {
+        const newText = speakText.slice(ttsLastSpeakText.length);
+        ttsLastSpeakText = speakText;
+        if (newText.trim()) {
+          if (!ttsSentenceChunker) {
+            ttsPlayer = new TTSPlayer();
+            ttsSentenceChunker = new SentenceChunker((sentence) => {
+              const lang = detectLanguage(sentence);
+              ttsPlayer.enqueue(sentence, lang);
+            });
+          }
+          ttsSentenceChunker.add(newText);
+        }
+      }
+    } else if (!isVoiceTurn()) {
+      updateOverlay(md);
+    }
     return;
   }
 
@@ -992,16 +1165,18 @@ function handleChatEvent(payload) {
     showStatus('ready');
     updateAssistantActivityIndicator();
     void refreshAssistantActivity();
-    // Route response
-    if (state.zenCanvasActionThisTurn) {
-      // Canvas updated in-place, auto-dismiss overlay
-      hideOverlay();
-    } else if (isShortResponse(md)) {
-      // Keep in overlay, finalize it
-      updateOverlay(md);
+
+    if (isVoiceTurn()) {
+      if (ttsSentenceChunker) {
+        ttsSentenceChunker.flush();
+      }
+      hideIndicator();
     } else {
-      // Long standalone result - keep in overlay for now
-      updateOverlay(md);
+      if (state.zenCanvasActionThisTurn) {
+        hideOverlay();
+      } else {
+        updateOverlay(md);
+      }
     }
     state.zenCanvasActionThisTurn = false;
     return;
@@ -1121,6 +1296,9 @@ async function switchProject(projectID) {
 async function zenSubmitMessage(text) {
   const trimmed = String(text || '').trim();
   if (!trimmed || !state.chatSessionId) return;
+  // Interrupt TTS playback when sending a new message
+  if (ttsPlayer) { ttsPlayer.stop(); ttsPlayer = null; }
+  if (ttsSentenceChunker) { ttsSentenceChunker.reset(); ttsSentenceChunker = null; }
   let finalText = trimmed;
   const anchor = getInputAnchor();
   if (anchor) {
@@ -1439,6 +1617,7 @@ function bindUi() {
         ev.preventDefault();
         const text = zenInput.value.trim();
         if (text) {
+          state.lastInputOrigin = 'text';
           zenInput.value = '';
           hideTextInput();
           void zenSubmitMessage(text);
@@ -1673,6 +1852,14 @@ async function init() {
   hideCanvasColumn();
   showStatus('starting...');
 
+  // Check TTS availability from runtime
+  try {
+    const runtime = await fetchRuntimeMeta();
+    ttsEnabled = Boolean(runtime?.tts_enabled);
+  } catch (_) {
+    ttsEnabled = false;
+  }
+
   await fetchProjects();
   const initialProjectID = resolveInitialProjectID();
   if (!initialProjectID) throw new Error('no projects available');
@@ -1694,15 +1881,12 @@ async function authGate() {
   const loginBtn = document.getElementById('btn-login');
 
   if (!data.has_password) {
-    loginPrompt.textContent = 'No password set. Run "tabura set-password" on the server.';
-    loginBtn.style.display = 'none';
     loginPassword.style.display = 'none';
     loginView.style.display = '';
     mainView.style.display = 'none';
     return new Promise(() => {});
   }
 
-  loginPrompt.textContent = 'Enter your password.';
   loginView.style.display = '';
   mainView.style.display = 'none';
 

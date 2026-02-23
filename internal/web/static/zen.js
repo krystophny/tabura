@@ -101,7 +101,24 @@ export function hideIndicator() {
   const el = indicatorEl();
   if (!el) return;
   el.style.display = 'none';
+  const dot = el.querySelector('.zen-indicator-dot');
+  const dots = el.querySelector('.zen-indicator-dots');
+  if (dot) dot.style.display = '';
+  if (dots) dots.style.display = 'none';
   zenState.indicatorVisible = false;
+}
+
+export function showThinkingIndicator(x, y) {
+  const el = indicatorEl();
+  if (!el) return;
+  const dot = el.querySelector('.zen-indicator-dot');
+  const dots = el.querySelector('.zen-indicator-dots');
+  if (dot) dot.style.display = 'none';
+  if (dots) dots.style.display = 'inline';
+  el.style.display = '';
+  el.style.left = `${x}px`;
+  el.style.top = `${y}px`;
+  zenState.indicatorVisible = true;
 }
 
 export function showTextInput(x, y, anchor) {
@@ -209,4 +226,33 @@ export function buildContextPrefix(anchor) {
 
 export function getLastInputPosition() {
   return { x: zenState.lastInputX, y: zenState.lastInputY };
+}
+
+function speakingEl() {
+  return document.getElementById('zen-speaking');
+}
+
+export function showSpeakingIndicator(x, y) {
+  const el = speakingEl();
+  if (!el) return;
+  const icon = el.querySelector('.zen-speaking-icon');
+  if (icon) icon.classList.remove('is-done');
+  el.style.display = '';
+  el.style.left = `${x}px`;
+  el.style.top = `${y}px`;
+}
+
+export function hideSpeakingIndicator() {
+  const el = speakingEl();
+  if (!el) return;
+  const icon = el.querySelector('.zen-speaking-icon');
+  if (icon) icon.classList.add('is-done');
+}
+
+export function dismissSpeakingIndicator() {
+  const el = speakingEl();
+  if (!el) return;
+  el.style.display = 'none';
+  const icon = el.querySelector('.zen-speaking-icon');
+  if (icon) icon.classList.remove('is-done');
 }
