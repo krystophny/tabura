@@ -1194,7 +1194,7 @@ function handleChatEvent(payload) {
       updateAssistantRow(row, md, true);
     }
 
-    if (isVoiceTurn() && ttsEnabled) {
+    if (ttsEnabled) {
       const { speakText, speakLang } = parseSpeakTags(md);
       if (speakLang) ttsSpeakLang = speakLang;
       if (speakText && speakText !== ttsLastSpeakText) {
@@ -1213,7 +1213,8 @@ function handleChatEvent(payload) {
           ttsSentenceChunker.add(newText);
         }
       }
-    } else if (!isVoiceTurn()) {
+    }
+    if (!isVoiceTurn()) {
       updateOverlay(md);
     }
     return;
@@ -1240,10 +1241,10 @@ function handleChatEvent(payload) {
     updateAssistantActivityIndicator();
     void refreshAssistantActivity();
 
+    if (ttsSentenceChunker) {
+      ttsSentenceChunker.flush();
+    }
     if (isVoiceTurn()) {
-      if (ttsSentenceChunker) {
-        ttsSentenceChunker.flush();
-      }
       hideIndicator();
     } else {
       if (state.zenCanvasActionThisTurn) {

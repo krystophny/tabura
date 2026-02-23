@@ -37,6 +37,8 @@ const (
 	DaemonPort            = 9420
 	LocalSessionID        = "local"
 	defaultProducerMCPURL = "http://127.0.0.1:8090/mcp"
+		DefaultSparkReasoningEffort = "low"
+	SparkModel               = "gpt-5.3-codex-spark"
 	mcpToolsCallTimeout   = 45 * time.Second
 )
 
@@ -49,6 +51,7 @@ type App struct {
 	localMCPURL     string
 	appServerURL    string
 	appServerModel  string
+	appServerSparkReasoningEffort string
 	ttsURL          string
 	devRuntime      bool
 
@@ -79,7 +82,7 @@ type App struct {
 
 const DefaultModel = "gpt-5.3-codex-spark"
 
-func New(dataDir, localProjectDir, localMCPURL, appServerURL, model, ttsURL string, devRuntime bool) (*App, error) {
+func New(dataDir, localProjectDir, localMCPURL, appServerURL, model, ttsURL, sparkReasoningEffort string, devRuntime bool) (*App, error) {
 	s, err := store.New(filepath.Join(dataDir, "tabura.db"))
 	if err != nil {
 		return nil, err
@@ -100,6 +103,10 @@ func New(dataDir, localProjectDir, localMCPURL, appServerURL, model, ttsURL stri
 	if resolvedModel == "" {
 		resolvedModel = DefaultModel
 	}
+	if strings.TrimSpace(sparkReasoningEffort) == "" {
+		sparkReasoningEffort = strings.TrimSpace(os.Getenv("TABURA_APP_SERVER_SPARK_REASONING_EFFORT"))
+	}
+	resolvedSparkReasoningEffort := resolveSparkReasoningEffort(strings.TrimSpace(sparkReasoningEffort))
 	resolvedTTSURL := strings.TrimSpace(ttsURL)
 	if resolvedTTSURL == "" {
 		resolvedTTSURL = strings.TrimSpace(os.Getenv("TABURA_TTS_URL"))
@@ -110,6 +117,7 @@ func New(dataDir, localProjectDir, localMCPURL, appServerURL, model, ttsURL stri
 		localMCPURL:      localMCPURL,
 		appServerURL:     appServerURL,
 		appServerModel:   resolvedModel,
+		appServerSparkReasoningEffort: resolvedSparkReasoningEffort,
 		ttsURL:           resolvedTTSURL,
 		devRuntime:       devRuntime,
 		store:            s,
@@ -336,17 +344,48 @@ func (a *App) handleRuntime(w http.ResponseWriter, r *http.Request) {
 	if !a.requireAuth(w, r) {
 		return
 	}
+	sparkReasoningEffort := ""
+	if isSparkModel(a.appServerModel) {
+		sparkReasoningEffort = a.appServerSparkReasoningEffort
+	}
 	writeJSON(w, map[string]interface{}{
-		"boot_id":          a.bootID,
-		"started_at":       a.startedAt,
-		"version":          "0.0.9-dev",
-		"dev_mode":         a.devRuntime,
-		"local_mcp_url":    a.localMCPURL,
-		"app_server_url":   a.appServerURL,
-		"app_server_model": a.appServerModel,
+		"boot_id":                       a.bootID,
+		"started_at":                    a.startedAt,
+		"version":                       "0.0.9-dev",
+		"dev_mode":                      a.devRuntime,
+		"local_mcp_url":                 a.localMCPURL,
+		"app_server_url":                a.appServerURL,
+		"app_server_model":              a.appServerModel,
+		"app_server_reasoning_effort":    sparkReasoningEffort,
 		"available_models": []string{"gpt-5.3-codex-spark", "gpt-5.3-codex", "gpt-5.2"},
 		"tts_enabled":      a.ttsURL != "",
 	})
+}
+
+func resolveSparkReasoningEffort(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "low", "medium", "high":
+		return strings.ToLower(strings.TrimSpace(raw))
+	default:
+		return DefaultSparkReasoningEffort
+	}
+}
+
+func isSparkModel(model string) bool {
+	return strings.EqualFold(strings.TrimSpace(model), SparkModel)
+}
+
+func appServerReasoningParamsForModel(model, effort string) map[string]interface{} {
+	if !isSparkModel(model) {
+		return nil
+	}
+	effort = resolveSparkReasoningEffort(strings.TrimSpace(effort))
+	if strings.TrimSpace(effort) == "" {
+		return nil
+	}
+	return map[string]interface{}{
+		"model_reasoning_effort": effort,
+	}
 }
 
 func intFromAny(v interface{}, d int) int {

@@ -213,6 +213,16 @@ func resolveModelAlias(raw string) string {
 	return raw
 }
 
+// delegateReasoningParams returns high reasoning effort for non-spark models
+// (gpt-5.3-codex, gpt-5.2) so delegated tasks get full reasoning budget.
+func delegateReasoningParams(model string) map[string]interface{} {
+	m := strings.TrimSpace(strings.ToLower(model))
+	if m == "" || strings.Contains(m, "spark") {
+		return nil
+	}
+	return map[string]interface{}{"model_reasoning_effort": "high"}
+}
+
 func assembleDelegatePrompt(systemPrompt, taskContext, prompt string) string {
 	var b strings.Builder
 	if systemPrompt = strings.TrimSpace(systemPrompt); systemPrompt != "" {
@@ -256,11 +266,14 @@ func (s *Server) delegateToModel(args map[string]interface{}) (map[string]interf
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
+	reasoningParams := delegateReasoningParams(model)
 	resp, err := s.appServerClient.SendPrompt(ctx, appserver.PromptRequest{
-		CWD:     cwd,
-		Prompt:  fullPrompt,
-		Model:   model,
-		Timeout: timeout,
+		CWD:          cwd,
+		Prompt:       fullPrompt,
+		Model:        model,
+		ThreadParams: reasoningParams,
+		TurnParams:   reasoningParams,
+		Timeout:      timeout,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("app-server inference failed: %w", err)
