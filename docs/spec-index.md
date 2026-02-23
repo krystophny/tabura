@@ -16,8 +16,8 @@ Integrated protocol reference:
 
 Release notes:
 
-- Published release: `release-v0.0.8.md`
-- Previous release: `release-v0.0.7.md`
+- Published release: `release-v0.0.9.md`
+- Previous release: `release-v0.0.8.md`
 - Published baseline: `release-v0.0.1.md`
 
 ## Source Code Anchors

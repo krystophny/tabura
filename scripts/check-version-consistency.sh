@@ -16,6 +16,7 @@ v_citation="$(extract CITATION.cff '^version:')"
 v_mcp="$(extract internal/mcp/server.go 'ServerVersion')"
 v_web="$(extract internal/web/server.go '"version":')"
 v_appserver="$(extract internal/appserver/client.go '"version":')"
+v_appserver_session="$(extract internal/appserver/session.go '"version":')"
 v_voxtype="$(extract internal/voxtypemcp/server.go '"version":')"
 
 files=(
@@ -24,6 +25,7 @@ files=(
   "internal/mcp/server.go"
   "internal/web/server.go"
   "internal/appserver/client.go"
+  "internal/appserver/session.go"
   "internal/voxtypemcp/server.go"
 )
 versions=(
@@ -32,6 +34,7 @@ versions=(
   "$v_mcp"
   "$v_web"
   "$v_appserver"
+  "$v_appserver_session"
   "$v_voxtype"
 )
 

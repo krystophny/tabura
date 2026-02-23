@@ -23,9 +23,10 @@ sed -i "s/^version: v.*/version: ${prefixed}/" CITATION.cff
 sed -i "s/^date-released: .*/date-released: ${today}/" CITATION.cff
 
 # Go source (bare version without v prefix)
-sed -i "s/ServerVersion         = \"[^\"]*\"/ServerVersion         = \"${bare}\"/" internal/mcp/server.go
-sed -i "s/\"version\":          \"[^\"]*\"/\"version\":          \"${bare}\"/" internal/web/server.go
+sed -E -i "s/(ServerVersion[[:space:]]*=[[:space:]]*\")[^\"]*(\")/\\1${bare}\\2/" internal/mcp/server.go
+sed -E -i "s/(\"version\":[[:space:]]*\")[^\"]*(\")/\\1${bare}\\2/" internal/web/server.go
 sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"${bare}\"/" internal/appserver/client.go
+sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"${bare}\"/" internal/appserver/session.go
 sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"${bare}\"/" internal/voxtypemcp/server.go
 
 echo "Bumped to ${prefixed} (${today})"
@@ -36,6 +37,7 @@ echo "  CITATION.cff"
 echo "  internal/mcp/server.go"
 echo "  internal/web/server.go"
 echo "  internal/appserver/client.go"
+echo "  internal/appserver/session.go"
 echo "  internal/voxtypemcp/server.go"
 echo ""
 echo "Still manual:"
