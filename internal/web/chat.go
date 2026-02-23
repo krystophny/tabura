@@ -1213,13 +1213,10 @@ func (a *App) handleChatWS(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) broadcastChatEvent(sessionID string, payload map[string]interface{}) {
-	if payload == nil {
-		return
-	}
 	payload["session_id"] = sessionID
 	encoded, _ := json.Marshal(payload)
-	turnID := strings.TrimSpace(fmt.Sprint(payload["turn_id"]))
-	eventType := strings.TrimSpace(fmt.Sprint(payload["type"]))
+	turnID, _ := payload["turn_id"].(string)
+	eventType, _ := payload["type"].(string)
 	_ = a.store.AddChatEvent(sessionID, turnID, eventType, string(encoded))
 
 	a.mu.Lock()
@@ -1233,22 +1230,3 @@ func (a *App) broadcastChatEvent(sessionID string, payload map[string]interface{
 	}
 }
 
-// injectChatMessage stores a message in the chat session, broadcasts it to
-// WebSocket clients, and optionally enqueues an assistant turn so the LLM
-// processes it. Returns the stored message ID.
-func (a *App) injectChatMessage(chatSessionID, role, text string, triggerAssistant bool) (int64, error) {
-	stored, err := a.store.AddChatMessage(chatSessionID, role, text, text, "text")
-	if err != nil {
-		return 0, err
-	}
-	a.broadcastChatEvent(chatSessionID, map[string]interface{}{
-		"type":    "message_accepted",
-		"role":    role,
-		"content": text,
-		"id":      stored.ID,
-	})
-	if triggerAssistant {
-		a.enqueueAssistantTurn(chatSessionID)
-	}
-	return stored.ID, nil
-}

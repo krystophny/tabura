@@ -42,26 +42,20 @@ func parseCanvasBlocks(text string) ([]canvasBlock, string) {
 		return nil, text
 	}
 	var blocks []canvasBlock
-	cleaned := text
-	for i := len(matches) - 1; i >= 0; i-- {
-		m := matches[i]
-		fullStart, fullEnd := m[0], m[1]
-		attrsStart, attrsEnd := m[2], m[3]
-		contentStart, contentEnd := m[4], m[5]
-
-		attrs := text[attrsStart:attrsEnd]
-		content := strings.TrimSpace(text[contentStart:contentEnd])
-		title := extractAttr(attrs, "title")
-
-		blocks = append([]canvasBlock{{
+	var cleaned strings.Builder
+	lastEnd := 0
+	for _, m := range matches {
+		title := extractAttr(text[m[2]:m[3]], "title")
+		blocks = append(blocks, canvasBlock{
 			Title:   title,
-			Content: content,
-		}}, blocks...)
-
-		ref := fmt.Sprintf("[canvas: %s]", title)
-		cleaned = cleaned[:fullStart] + ref + cleaned[fullEnd:]
+			Content: strings.TrimSpace(text[m[4]:m[5]]),
+		})
+		cleaned.WriteString(text[lastEnd:m[0]])
+		fmt.Fprintf(&cleaned, "[canvas: %s]", title)
+		lastEnd = m[1]
 	}
-	return blocks, strings.TrimSpace(cleaned)
+	cleaned.WriteString(text[lastEnd:])
+	return blocks, strings.TrimSpace(cleaned.String())
 }
 
 func parseFileBlocks(text string) ([]fileBlock, string) {
@@ -70,26 +64,20 @@ func parseFileBlocks(text string) ([]fileBlock, string) {
 		return nil, text
 	}
 	var blocks []fileBlock
-	cleaned := text
-	for i := len(matches) - 1; i >= 0; i-- {
-		m := matches[i]
-		fullStart, fullEnd := m[0], m[1]
-		attrsStart, attrsEnd := m[2], m[3]
-		contentStart, contentEnd := m[4], m[5]
-
-		attrs := text[attrsStart:attrsEnd]
-		content := strings.TrimSpace(text[contentStart:contentEnd])
-		path := extractAttr(attrs, "path")
-
-		blocks = append([]fileBlock{{
+	var cleaned strings.Builder
+	lastEnd := 0
+	for _, m := range matches {
+		path := extractAttr(text[m[2]:m[3]], "path")
+		blocks = append(blocks, fileBlock{
 			Path:    path,
-			Content: content,
-		}}, blocks...)
-
-		ref := fmt.Sprintf("[file: %s]", path)
-		cleaned = cleaned[:fullStart] + ref + cleaned[fullEnd:]
+			Content: strings.TrimSpace(text[m[4]:m[5]]),
+		})
+		cleaned.WriteString(text[lastEnd:m[0]])
+		fmt.Fprintf(&cleaned, "[file: %s]", path)
+		lastEnd = m[1]
 	}
-	return blocks, strings.TrimSpace(cleaned)
+	cleaned.WriteString(text[lastEnd:])
+	return blocks, strings.TrimSpace(cleaned.String())
 }
 
 func stripSpeakTags(text string) string {
@@ -209,12 +197,13 @@ func (a *App) resolveCanvasFileTarget(projectKey string) *canvasFileTarget {
 	if active == nil {
 		return nil
 	}
-	kind := strings.TrimSpace(fmt.Sprint(active["kind"]))
+	kind, _ := active["kind"].(string)
 	if kind != "text_artifact" && kind != "text" {
 		return nil
 	}
-	title := strings.TrimSpace(fmt.Sprint(active["title"]))
-	if title == "" || title == "<nil>" {
+	title, _ := active["title"].(string)
+	title = strings.TrimSpace(title)
+	if title == "" {
 		return nil
 	}
 	cwd := a.cwdForProjectKey(key)

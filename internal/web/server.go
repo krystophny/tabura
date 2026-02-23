@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -79,7 +80,7 @@ type App struct {
 const DefaultModel = "gpt-5.3-codex-spark"
 
 func New(dataDir, localProjectDir, localMCPURL, appServerURL, model, ttsURL string, devRuntime bool) (*App, error) {
-	s, err := store.New(pathJoin(dataDir, "tabura.db"))
+	s, err := store.New(filepath.Join(dataDir, "tabura.db"))
 	if err != nil {
 		return nil, err
 	}
@@ -133,10 +134,6 @@ func New(dataDir, localProjectDir, localMCPURL, appServerURL, model, ttsURL stri
 		return nil, err
 	}
 	return app, nil
-}
-
-func pathJoin(parts ...string) string {
-	return strings.Join(parts, "/")
 }
 
 func randomToken() string {
@@ -218,7 +215,7 @@ func (a *App) Router() http.Handler {
 	r.Get("/", a.serveIndex)
 	r.Get("/canvas", a.serveCanvas)
 	if a.devRuntime {
-		diskDir := pathJoin(a.localProjectDir, "internal", "web", "static")
+		diskDir := filepath.Join(a.localProjectDir, "internal", "web", "static")
 		r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.Dir(diskDir))))
 	} else {
 		r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.FS(staticSubFS()))))
@@ -229,7 +226,7 @@ func (a *App) Router() http.Handler {
 func staticSubFS() fs.FS {
 	sub, err := fs.Sub(staticFiles, "static")
 	if err != nil {
-		return staticFiles
+		panic("embedded static/ directory missing: " + err.Error())
 	}
 	return sub
 }
@@ -257,7 +254,7 @@ func (a *App) serveIndex(w http.ResponseWriter, r *http.Request) {
 	var data []byte
 	var err error
 	if a.devRuntime {
-		data, err = os.ReadFile(pathJoin(a.localProjectDir, "internal", "web", "static", "index.html"))
+		data, err = os.ReadFile(filepath.Join(a.localProjectDir, "internal", "web", "static", "index.html"))
 	} else {
 		data, err = staticFiles.ReadFile("static/index.html")
 	}
@@ -344,19 +341,12 @@ func (a *App) handleRuntime(w http.ResponseWriter, r *http.Request) {
 		"started_at":       a.startedAt,
 		"version":          "0.0.9-dev",
 		"dev_mode":         a.devRuntime,
-		"local_mcp_url":    emptyToNil(a.localMCPURL),
-		"app_server_url":   emptyToNil(a.appServerURL),
-		"app_server_model": emptyToNil(a.appServerModel),
-		"available_models":  []string{"gpt-5.3-codex-spark", "gpt-5.3-codex", "gpt-5.2"},
-		"tts_enabled":       strings.TrimSpace(a.ttsURL) != "",
+		"local_mcp_url":    a.localMCPURL,
+		"app_server_url":   a.appServerURL,
+		"app_server_model": a.appServerModel,
+		"available_models": []string{"gpt-5.3-codex-spark", "gpt-5.3-codex", "gpt-5.2"},
+		"tts_enabled":      a.ttsURL != "",
 	})
-}
-
-func emptyToNil(v string) interface{} {
-	if strings.TrimSpace(v) == "" {
-		return nil
-	}
-	return v
 }
 
 func intFromAny(v interface{}, d int) int {

@@ -95,9 +95,10 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 
 #canvas-viewport {
   flex: 1;
-  overflow: auto;
+  overflow: hidden;
   min-height: 0;
   position: relative;
+  overscroll-behavior: contain;
 }
 
 .canvas-pane {
@@ -105,6 +106,10 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   flex-direction: column;
   min-height: 0;
   height: 100%;
+  overflow: auto;
+  overflow-x: hidden;
+  position: relative;
+  touch-action: pan-y;
 }
 
 .canvas-pane.is-active {
@@ -116,6 +121,8 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 #canvas-image,
 #canvas-pdf {
   padding: 1rem;
+  height: 100%;
+  min-height: 0;
   overflow: auto;
 }
 
