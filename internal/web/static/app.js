@@ -1,5 +1,5 @@
 import { marked } from './vendor/marked.esm.js';
-import { renderCanvas, clearCanvas, getLocationFromPoint, getLocationFromSelection, showLineHighlight, clearLineHighlight, escapeHtml, sanitizeHtml, getActiveTextEventId } from './canvas.js';
+import { renderCanvas, clearCanvas, getLocationFromSelection, clearLineHighlight, escapeHtml, sanitizeHtml } from './canvas.js';
 import {
   getZenState, setZenMode,
   showIndicatorMode, hideIndicator,
@@ -1876,9 +1876,6 @@ function bindUi() {
       let anchor = null;
       if (state.hasArtifact && canvasText) {
         anchor = getAnchorFromPoint(x, y);
-        if (anchor) {
-          showLineHighlight(x, y);
-        }
       }
 
       void beginZenVoiceCapture(x, y, anchor);
@@ -1893,9 +1890,6 @@ function bindUi() {
       let anchor = null;
       if (state.hasArtifact && canvasText) {
         anchor = getAnchorFromPoint(ev.clientX, ev.clientY);
-        if (anchor) {
-          showLineHighlight(ev.clientX, ev.clientY);
-        }
       }
       showTextInput(ev.clientX, ev.clientY, anchor);
     });
@@ -2082,9 +2076,6 @@ function bindUi() {
         artHoldTimer = null;
         artHoldActive = true;
         const anchor = getAnchorFromPoint(artHoldX, artHoldY);
-        if (anchor) {
-          showLineHighlight(artHoldX, artHoldY);
-        }
         void beginZenVoiceCapture(artHoldX, artHoldY, anchor);
       }, CHAT_SEND_HOLD_MS);
     }, { passive: true });

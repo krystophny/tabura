@@ -2,8 +2,6 @@ import { marked } from './vendor/marked.esm.js';
 import {
   getLocationFromPoint,
   getLocationFromSelection,
-  showLineHighlight,
-  clearLineHighlight,
   escapeHtml,
   sanitizeHtml,
   getActiveTextEventId,
