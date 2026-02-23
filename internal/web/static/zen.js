@@ -22,6 +22,9 @@ const zenState = {
   indicatorMode: '',
   lastInputX: 0,
   lastInputY: 0,
+  lastInputPaneId: '',
+  lastInputPaneLocalX: 0,
+  lastInputPaneLocalY: 0,
 };
 
 const renderer = new marked.Renderer();
@@ -80,6 +83,38 @@ function inputEl() {
   return document.getElementById('zen-input');
 }
 
+function activeCanvasPaneEl() {
+  return document.querySelector('#canvas-viewport .canvas-pane.is-active');
+}
+
+function setPaneAnchor(x, y) {
+  const pane = activeCanvasPaneEl();
+  if (!(pane instanceof HTMLElement)) {
+    zenState.lastInputPaneId = '';
+    return;
+  }
+  const rect = pane.getBoundingClientRect();
+  if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+    zenState.lastInputPaneId = '';
+    return;
+  }
+  zenState.lastInputPaneId = pane.id || '';
+  zenState.lastInputPaneLocalX = x - rect.left + pane.scrollLeft;
+  zenState.lastInputPaneLocalY = y - rect.top + pane.scrollTop;
+}
+
+function paneAnchoredPosition() {
+  const paneID = String(zenState.lastInputPaneId || '').trim();
+  if (!paneID) return null;
+  const pane = document.getElementById(paneID);
+  if (!(pane instanceof HTMLElement)) return null;
+  const rect = pane.getBoundingClientRect();
+  return {
+    x: rect.left + zenState.lastInputPaneLocalX - pane.scrollLeft,
+    y: rect.top + zenState.lastInputPaneLocalY - pane.scrollTop,
+  };
+}
+
 function overlayEl() {
   return document.getElementById('zen-overlay');
 }
@@ -116,8 +151,7 @@ export function showTextInput(x, y, anchor) {
   if (!el) return;
   zenState.inputAnchor = anchor || null;
   zenState.inputVisible = true;
-  zenState.lastInputX = x;
-  zenState.lastInputY = y;
+  setLastInputPosition(x, y);
   el.style.display = '';
   el.style.left = `${Math.min(x, window.innerWidth - 280)}px`;
   el.style.top = `${Math.min(y, window.innerHeight - 60)}px`;
@@ -215,5 +249,13 @@ export function buildContextPrefix(anchor) {
 }
 
 export function getLastInputPosition() {
+  const anchored = paneAnchoredPosition();
+  if (anchored) return anchored;
   return { x: zenState.lastInputX, y: zenState.lastInputY };
+}
+
+export function setLastInputPosition(x, y) {
+  zenState.lastInputX = x;
+  zenState.lastInputY = y;
+  setPaneAnchor(x, y);
 }

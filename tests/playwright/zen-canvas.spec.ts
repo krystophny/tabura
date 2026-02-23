@@ -241,8 +241,7 @@ test.describe('zen canvas - response overlay', () => {
     await expect(page.locator('#canvas-text')).toBeVisible();
     await expect(page.locator('#canvas-text')).toContainText('Drawn content');
     await expect(page.locator('#zen-overlay')).toBeHidden();
-    await expect(page.locator('#zen-indicator')).toBeVisible();
-    await expect(page.locator('.zen-stop-square')).toBeVisible();
+    await expect(page.locator('#zen-indicator')).toBeHidden();
 
     const hasArtifact = await page.evaluate(() => Boolean((window as any)._taburaApp?.getState?.().hasArtifact));
     expect(hasArtifact).toBe(true);
@@ -443,6 +442,7 @@ test.describe('zen canvas - TTS voice output', () => {
       message: '',
       delta: '',
     });
+    await expect(page.locator('#zen-indicator')).toBeHidden();
     await page.waitForTimeout(450);
 
     const log = await getLog(page);
