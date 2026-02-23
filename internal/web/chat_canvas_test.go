@@ -105,7 +105,7 @@ func TestStripLangTags_NoTags(t *testing.T) {
 
 func TestAssistantFinalChatContent_StructuredWithCompanion(t *testing.T) {
 	input := "Review ready. [file: .tabura/artifacts/tmp/diff.md] Let's discuss."
-	markdown, plain, format := assistantFinalChatContent(input, true)
+	markdown, plain, format := assistantFinalChatContent(input, true, false)
 	normalized := strings.Join(strings.Fields(markdown), " ")
 	if normalized != "Review ready. Let's discuss." {
 		t.Fatalf("markdown = %q", markdown)
@@ -120,7 +120,7 @@ func TestAssistantFinalChatContent_StructuredWithCompanion(t *testing.T) {
 
 func TestAssistantFinalChatContent_StructuredMarkersOnly(t *testing.T) {
 	input := "[file: .tabura/artifacts/tmp/diff.md]"
-	markdown, plain, format := assistantFinalChatContent(input, true)
+	markdown, plain, format := assistantFinalChatContent(input, true, false)
 	if markdown != "Canvas file updated." {
 		t.Fatalf("markdown = %q, want fallback", markdown)
 	}
@@ -134,7 +134,7 @@ func TestAssistantFinalChatContent_StructuredMarkersOnly(t *testing.T) {
 
 func TestAssistantFinalChatContent_RegularChatResponse(t *testing.T) {
 	input := "Short spoken response."
-	markdown, plain, format := assistantFinalChatContent(input, false)
+	markdown, plain, format := assistantFinalChatContent(input, false, false)
 	if markdown != input {
 		t.Fatalf("markdown = %q, want %q", markdown, input)
 	}
@@ -160,6 +160,12 @@ func TestBuildPromptFromHistory_IncludesSystemPrompt(t *testing.T) {
 	if !strings.Contains(prompt, "Do not use :::canvas blocks.") {
 		t.Error("prompt should explicitly disallow :::canvas blocks")
 	}
+	if !strings.Contains(prompt, "Spoken chat must be one paragraph max.") {
+		t.Error("prompt should enforce one-paragraph spoken chat limit")
+	}
+	if !strings.Contains(prompt, "respond with :::file block content (no chat prose)") {
+		t.Error("prompt should enforce file-only mode for long responses")
+	}
 	if !strings.Contains(prompt, "[lang:") {
 		t.Error("prompt should mention [lang:] markers")
 	}
@@ -180,6 +186,48 @@ func TestBuildPromptFromHistory_WithCanvasContext(t *testing.T) {
 	prompt := buildPromptFromHistory("chat", nil, ctx)
 	if !strings.Contains(prompt, "Report.md") {
 		t.Error("prompt should include artifact title")
+	}
+}
+
+func TestAssistantFinalChatContent_AutoCanvasSuppressesChat(t *testing.T) {
+	markdown, plain, format := assistantFinalChatContent("Long answer", true, true)
+	if markdown != "" || plain != "" {
+		t.Fatalf("expected empty chat for auto canvas, got markdown=%q plain=%q", markdown, plain)
+	}
+	if format != "text" {
+		t.Fatalf("format = %q, want text", format)
+	}
+}
+
+func TestAssistantRenderPlan_AutoCanvasForMultiParagraph(t *testing.T) {
+	text := "Paragraph one.\n\nParagraph two."
+	plan := assistantRenderPlan(text)
+	if !plan.RenderOnCanvas {
+		t.Fatal("expected renderOnCanvas=true")
+	}
+	if !plan.AutoCanvas {
+		t.Fatal("expected autoCanvas=true")
+	}
+}
+
+func TestAssistantRenderPlan_NoAutoCanvasForSingleParagraph(t *testing.T) {
+	text := "Single paragraph response."
+	plan := assistantRenderPlan(text)
+	if plan.RenderOnCanvas {
+		t.Fatal("expected renderOnCanvas=false")
+	}
+	if plan.AutoCanvas {
+		t.Fatal("expected autoCanvas=false")
+	}
+}
+
+func TestAssistantSnapshotContent_AutoCanvasSuppressesChat(t *testing.T) {
+	markdown, plain, format := assistantSnapshotContent("Paragraph one.\n\nParagraph two.", true, true)
+	if markdown != "" || plain != "" {
+		t.Fatalf("expected empty snapshot for auto canvas, got markdown=%q plain=%q", markdown, plain)
+	}
+	if format != "text" {
+		t.Fatalf("format = %q, want text", format)
 	}
 }
 

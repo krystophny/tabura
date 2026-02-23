@@ -257,7 +257,6 @@ class TTSPlayer {
 let ttsPlayer = null;
 let ttsSentenceChunker = null;
 let ttsEnabled = false;
-let ttsSpeakAccumulator = '';
 let ttsLastSpeakText = '';
 let ttsSpeakLang = 'en';
 
@@ -274,6 +273,13 @@ function unlockAudioContext() {
 ['touchstart', 'touchend', 'mousedown', 'keydown'].forEach(evt =>
   document.body.addEventListener(evt, unlockAudioContext, { once: false })
 );
+
+function stopTTSPlayback() {
+  if (ttsPlayer) { ttsPlayer.stop(); ttsPlayer = null; }
+  if (ttsSentenceChunker) { ttsSentenceChunker.reset(); ttsSentenceChunker = null; }
+  ttsLastSpeakText = '';
+  ttsSpeakLang = 'en';
+}
 
 const renderer = new marked.Renderer();
 renderer.code = ({ text, lang }) => {
@@ -628,8 +634,7 @@ async function beginZenVoiceCapture(x, y, anchor) {
   if (state.chatVoiceCapture) return;
   if (!canUseMicrophoneCapture()) return;
   // Interrupt TTS playback when starting recording
-  if (ttsPlayer) { ttsPlayer.stop(); ttsPlayer = null; }
-  if (ttsSentenceChunker) { ttsSentenceChunker.reset(); ttsSentenceChunker = null; }
+  stopTTSPlayback();
   const capture = {
     active: false,
     stopping: false,
@@ -1234,11 +1239,7 @@ function handleChatEvent(payload) {
     }
     state.zenCanvasActionThisTurn = false;
     // Reset TTS state for new turn
-    if (ttsPlayer) { ttsPlayer.stop(); ttsPlayer = null; }
-    ttsSpeakAccumulator = '';
-    ttsLastSpeakText = '';
-    ttsSpeakLang = 'en';
-    if (ttsSentenceChunker) { ttsSentenceChunker.reset(); ttsSentenceChunker = null; }
+    stopTTSPlayback();
     const pos = getLastInputPosition();
     if (isVoiceTurn()) {
       showThinkingIndicator(pos.x, pos.y);
@@ -1254,7 +1255,8 @@ function handleChatEvent(payload) {
     const turnID = String(payload.turn_id || '').trim();
     trackAssistantTurnStarted(turnID);
     const md = String(payload.message || '');
-    const renderOnCanvas = Boolean(payload.render_on_canvas) || assistantMessageUsesCanvasBlocks(md);
+    const autoCanvas = Boolean(payload.auto_canvas);
+    const renderOnCanvas = Boolean(payload.render_on_canvas) || autoCanvas || assistantMessageUsesCanvasBlocks(md);
     if (isVoiceTurn()) {
       const row = ensurePendingForTurn(turnID);
       if (renderOnCanvas) {
@@ -1262,6 +1264,14 @@ function handleChatEvent(payload) {
       } else {
         updateAssistantRow(row, md, true);
       }
+    }
+
+    if (autoCanvas) {
+      stopTTSPlayback();
+      if (!isVoiceTurn()) {
+        hideOverlay();
+      }
+      return;
     }
 
     if (ttsEnabled) {
@@ -1295,14 +1305,15 @@ function handleChatEvent(payload) {
     if (String(payload.role || '') !== 'assistant') return;
     const turnID = String(payload.turn_id || '').trim();
     const md = String(payload.message || '');
+    const autoCanvas = Boolean(payload.auto_canvas);
     const inferredText = md || ttsLastSpeakText;
-    const renderOnCanvas = Boolean(payload.render_on_canvas) || assistantMessageUsesCanvasBlocks(inferredText);
+    const renderOnCanvas = Boolean(payload.render_on_canvas) || autoCanvas || assistantMessageUsesCanvasBlocks(inferredText);
     // Persisted text may be empty for voice-only responses; fall back to TTS text.
     const displayMd = md || (ttsLastSpeakText ? `_${ttsLastSpeakText}_` : '');
     const hasDisplayMd = Boolean(String(displayMd || '').trim());
     if (isVoiceTurn()) {
       const row = takePendingRow(turnID);
-      if (renderOnCanvas && !hasDisplayMd) {
+      if (autoCanvas || (renderOnCanvas && !hasDisplayMd)) {
         row?.remove();
       } else if (row) {
         updateAssistantRow(row, displayMd, false);
@@ -1316,7 +1327,9 @@ function handleChatEvent(payload) {
     updateAssistantActivityIndicator();
     void refreshAssistantActivity();
 
-    if (ttsEnabled && md.trim()) {
+    if (autoCanvas) {
+      stopTTSPlayback();
+    } else if (ttsEnabled && md.trim()) {
       const { ttsText, ttsLang } = extractTTSText(md);
       if (ttsLang) ttsSpeakLang = ttsLang;
       if (ttsText && ttsText !== ttsLastSpeakText) {
@@ -1339,12 +1352,17 @@ function handleChatEvent(payload) {
       }
     }
 
-    if (ttsSentenceChunker) {
+    if (!autoCanvas && ttsSentenceChunker) {
       ttsSentenceChunker.flush();
     }
     if (isVoiceTurn()) {
       hideIndicator();
     } else {
+      if (autoCanvas) {
+        hideOverlay();
+        state.zenCanvasActionThisTurn = false;
+        return;
+      }
       const cleaned = cleanForOverlay(md);
       if (state.zenCanvasActionThisTurn && !cleaned) {
         hideOverlay();
@@ -1401,6 +1419,7 @@ function handleChatEvent(payload) {
   }
 
   if (type === 'chat_cleared') {
+    stopTTSPlayback();
     clearChatHistory();
     resetAssistantTurnTracking({ clearError: true });
     appendPlainMessage('system', 'Chat cleared.');

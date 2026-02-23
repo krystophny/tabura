@@ -2,11 +2,15 @@ package web
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -20,7 +24,8 @@ import (
 const assistantTurnTimeout = 2 * time.Hour
 
 const (
-	turnOutputModeVoice = "voice"
+	turnOutputModeVoice    = "voice"
+	promptContractStateKey = "chat_prompt_contract_sha256"
 )
 
 type chatMessageRequest struct {
@@ -346,20 +351,19 @@ func (a *App) executeChatCommand(sessionID, raw string) (map[string]interface{},
 			"queued_canceled": queuedCanceled,
 			"message":         message,
 		}, nil
-	case "clear":
-		if err := a.store.ClearChatMessages(sessionID); err != nil {
+	case "clear", "clearall", "reset":
+		report, err := a.clearAllAgentsAndContexts(session.ID)
+		if err != nil {
 			return nil, err
 		}
-		if err := a.store.ResetChatSessionThread(sessionID); err != nil {
-			return nil, err
-		}
-		a.closeAppSession(sessionID)
-		a.broadcastChatEvent(sessionID, map[string]interface{}{
-			"type": "chat_cleared",
-		})
 		return map[string]interface{}{
-			"name":    "clear",
-			"message": "Chat history cleared.",
+			"name":              name,
+			"message":           "All agents and contexts cleared.",
+			"active_canceled":   report.ActiveCanceled,
+			"queued_canceled":   report.QueuedCanceled,
+			"delegate_canceled": report.DelegateCanceled,
+			"sessions_closed":   report.SessionsClosed,
+			"tmp_files_cleared": report.TempFilesCleared,
 		}, nil
 	case "compact":
 		// Close the current app-server session, forcing a fresh thread on
@@ -443,6 +447,96 @@ func (a *App) cancelChatWork(sessionID string) (int, int) {
 		})
 	}
 	return activeCanceled, queuedCanceled
+}
+
+type clearAllReport struct {
+	ActiveCanceled   int
+	QueuedCanceled   int
+	DelegateCanceled int
+	SessionsClosed   int
+	TempFilesCleared int
+}
+
+func (a *App) clearCanvasForProject(projectKey string) {
+	canvasSessionID := strings.TrimSpace(a.resolveCanvasSessionID(projectKey))
+	if canvasSessionID == "" {
+		return
+	}
+	a.mu.Lock()
+	port, ok := a.tunnelPorts[canvasSessionID]
+	a.mu.Unlock()
+	if !ok {
+		return
+	}
+	_, _ = a.mcpToolsCall(port, "canvas_clear", map[string]interface{}{
+		"session_id": canvasSessionID,
+		"reason":     "context reset",
+	})
+}
+
+func (a *App) clearProjectTempCanvasFiles(projectKey string) int {
+	cwd := strings.TrimSpace(a.cwdForProjectKey(projectKey))
+	if cwd == "" {
+		return 0
+	}
+	tmpDir := filepath.Join(cwd, ".tabura", "artifacts", "tmp")
+	entries, err := os.ReadDir(tmpDir)
+	if err != nil {
+		return 0
+	}
+	cleared := 0
+	for _, entry := range entries {
+		target := filepath.Join(tmpDir, entry.Name())
+		if err := os.RemoveAll(target); err == nil {
+			cleared++
+		}
+	}
+	return cleared
+}
+
+func (a *App) clearAllAgentsAndContexts(currentSessionID string) (clearAllReport, error) {
+	report := clearAllReport{}
+	sessions, err := a.store.ListChatSessions()
+	if err != nil {
+		return report, err
+	}
+	for _, session := range sessions {
+		activeCanceled, queuedCanceled := a.cancelChatWork(session.ID)
+		report.ActiveCanceled += activeCanceled
+		report.QueuedCanceled += queuedCanceled
+		report.DelegateCanceled += a.cancelDelegatedJobsForProject(session.ProjectKey)
+		report.TempFilesCleared += a.clearProjectTempCanvasFiles(session.ProjectKey)
+		a.clearCanvasForProject(session.ProjectKey)
+		a.broadcastChatEvent(session.ID, map[string]interface{}{
+			"type": "chat_cleared",
+		})
+	}
+	closed := 0
+	a.mu.Lock()
+	appSessions := a.chatAppSessions
+	a.chatAppSessions = map[string]*appserver.Session{}
+	a.mu.Unlock()
+	for _, s := range appSessions {
+		if s == nil {
+			continue
+		}
+		_ = s.Close()
+		closed++
+	}
+	report.SessionsClosed = closed
+	if err := a.store.ClearAllChatMessages(); err != nil {
+		return report, err
+	}
+	if err := a.store.ClearAllChatEvents(); err != nil {
+		return report, err
+	}
+	if err := a.store.ResetAllChatSessionThreads(); err != nil {
+		return report, err
+	}
+	if strings.TrimSpace(currentSessionID) != "" {
+		a.closeAppSession(currentSessionID)
+	}
+	return report, nil
 }
 
 func (a *App) delegateActiveJobsForProject(projectKey string) int {
@@ -657,8 +751,27 @@ func (a *App) runAssistantTurn(sessionID string, outputMode string) {
 	persistedAssistantFormat := ""
 	persistWriteFailed := false
 
-	persistAssistantSnapshot := func(text string) {
-		candidateMarkdown, candidatePlain, candidateFormat := assistantSnapshotContent(text)
+	persistAssistantSnapshot := func(text string, renderOnCanvas bool, autoCanvas bool) {
+		if autoCanvas && persistedAssistantID != 0 {
+			if persistedAssistantText == "" && persistedAssistantPlain == "" && persistedAssistantFormat == "text" {
+				return
+			}
+			if storeErr := a.store.UpdateChatMessageContent(persistedAssistantID, "", "", "text"); storeErr != nil {
+				if !persistWriteFailed {
+					persistWriteFailed = true
+					a.broadcastChatEvent(sessionID, map[string]interface{}{
+						"type":  "error",
+						"error": storeErr.Error(),
+					})
+				}
+				return
+			}
+			persistedAssistantText = ""
+			persistedAssistantPlain = ""
+			persistedAssistantFormat = "text"
+			return
+		}
+		candidateMarkdown, candidatePlain, candidateFormat := assistantSnapshotContent(text, renderOnCanvas, autoCanvas)
 		if candidateMarkdown == "" && candidatePlain == "" {
 			return
 		}
@@ -717,23 +830,29 @@ func (a *App) runAssistantTurn(sessionID string, outputMode string) {
 		case "assistant_message":
 			latestMessage = ev.Message
 			latestTurnID = ev.TurnID
-			renderOnCanvas := assistantMessageUsesCanvasBlocks(ev.Message)
-			persistAssistantSnapshot(ev.Message)
+			renderPlan := assistantRenderPlan(ev.Message)
+			persistAssistantSnapshot(ev.Message, renderPlan.RenderOnCanvas, renderPlan.AutoCanvas)
 			payload["message"] = ev.Message
 			payload["delta"] = ev.Delta
-			if renderOnCanvas {
+			if renderPlan.RenderOnCanvas {
 				payload["render_on_canvas"] = true
+			}
+			if renderPlan.AutoCanvas {
+				payload["auto_canvas"] = true
 			}
 		case "turn_completed":
 			if strings.TrimSpace(ev.Message) != "" {
 				latestMessage = ev.Message
 			}
 			latestTurnID = ev.TurnID
-			renderOnCanvas := assistantMessageUsesCanvasBlocks(latestMessage)
-			persistAssistantSnapshot(latestMessage)
+			renderPlan := assistantRenderPlan(latestMessage)
+			persistAssistantSnapshot(latestMessage, renderPlan.RenderOnCanvas, renderPlan.AutoCanvas)
 			payload["message"] = latestMessage
-			if renderOnCanvas {
+			if renderPlan.RenderOnCanvas {
 				payload["render_on_canvas"] = true
+			}
+			if renderPlan.AutoCanvas {
+				payload["auto_canvas"] = true
 			}
 		case "context_usage":
 			payload["context_used"] = ev.ContextUsed
@@ -825,8 +944,27 @@ func (a *App) runAssistantTurnLegacy(sessionID string, session store.ChatSession
 	persistedAssistantPlain := ""
 	persistedAssistantFormat := ""
 	persistWriteFailed := false
-	persistAssistantSnapshot := func(text string) {
-		candidateMarkdown, candidatePlain, candidateFormat := assistantSnapshotContent(text)
+	persistAssistantSnapshot := func(text string, renderOnCanvas bool, autoCanvas bool) {
+		if autoCanvas && persistedAssistantID != 0 {
+			if persistedAssistantText == "" && persistedAssistantPlain == "" && persistedAssistantFormat == "text" {
+				return
+			}
+			if storeErr := a.store.UpdateChatMessageContent(persistedAssistantID, "", "", "text"); storeErr != nil {
+				if !persistWriteFailed {
+					persistWriteFailed = true
+					a.broadcastChatEvent(sessionID, map[string]interface{}{
+						"type":  "error",
+						"error": storeErr.Error(),
+					})
+				}
+				return
+			}
+			persistedAssistantText = ""
+			persistedAssistantPlain = ""
+			persistedAssistantFormat = "text"
+			return
+		}
+		candidateMarkdown, candidatePlain, candidateFormat := assistantSnapshotContent(text, renderOnCanvas, autoCanvas)
 		if candidateMarkdown == "" && candidatePlain == "" {
 			return
 		}
@@ -894,23 +1032,29 @@ func (a *App) runAssistantTurnLegacy(sessionID string, session store.ChatSession
 		case "assistant_message":
 			latestMessage = ev.Message
 			latestTurnID = ev.TurnID
-			renderOnCanvas := assistantMessageUsesCanvasBlocks(ev.Message)
-			persistAssistantSnapshot(ev.Message)
+			renderPlan := assistantRenderPlan(ev.Message)
+			persistAssistantSnapshot(ev.Message, renderPlan.RenderOnCanvas, renderPlan.AutoCanvas)
 			payload["message"] = ev.Message
 			payload["delta"] = ev.Delta
-			if renderOnCanvas {
+			if renderPlan.RenderOnCanvas {
 				payload["render_on_canvas"] = true
+			}
+			if renderPlan.AutoCanvas {
+				payload["auto_canvas"] = true
 			}
 		case "turn_completed":
 			if strings.TrimSpace(ev.Message) != "" {
 				latestMessage = ev.Message
 			}
 			latestTurnID = ev.TurnID
-			renderOnCanvas := assistantMessageUsesCanvasBlocks(latestMessage)
-			persistAssistantSnapshot(latestMessage)
+			renderPlan := assistantRenderPlan(latestMessage)
+			persistAssistantSnapshot(latestMessage, renderPlan.RenderOnCanvas, renderPlan.AutoCanvas)
 			payload["message"] = latestMessage
-			if renderOnCanvas {
+			if renderPlan.RenderOnCanvas {
 				payload["render_on_canvas"] = true
+			}
+			if renderPlan.AutoCanvas {
+				payload["auto_canvas"] = true
 			}
 		case "error":
 			if strings.TrimSpace(ev.TurnID) != "" {
@@ -972,12 +1116,22 @@ func (a *App) finalizeAssistantResponse(
 		fileBlocks = append(fileBlocks, fBlocks...)
 		text = cleaned
 	}
-	renderOnCanvas := len(fileBlocks) > 0
-	if renderOnCanvas && canvasSessionID != "" {
+	autoCanvas := false
+	if len(fileBlocks) == 0 && canvasSessionID != "" {
+		longForm := strings.TrimSpace(stripCanvasFileMarkers(stripLangTags(text)))
+		if assistantNeedsAutoCanvas(longForm) {
+			autoCanvas = a.writeCanvasFileBlock(projectKey, canvasSessionID, fileBlock{
+				Path:    "",
+				Content: longForm,
+			})
+		}
+	}
+	renderOnCanvas := len(fileBlocks) > 0 || autoCanvas
+	if len(fileBlocks) > 0 && canvasSessionID != "" {
 		a.executeFileBlocks(projectKey, canvasSessionID, fileBlocks)
 	}
 	text = stripLangTags(text)
-	chatMarkdown, chatPlain, renderFormat := assistantFinalChatContent(text, renderOnCanvas)
+	chatMarkdown, chatPlain, renderFormat := assistantFinalChatContent(text, renderOnCanvas, autoCanvas)
 
 	a.refreshCanvasFromDisk(projectKey)
 
@@ -1009,11 +1163,17 @@ func (a *App) finalizeAssistantResponse(
 		"message":          chatMarkdown,
 		"render_on_canvas": renderOnCanvas,
 	}
+	if autoCanvas {
+		payload["auto_canvas"] = true
+	}
 	a.broadcastChatEvent(sessionID, payload)
 	return chatMarkdown
 }
 
-func assistantFinalChatContent(text string, renderOnCanvas bool) (string, string, string) {
+func assistantFinalChatContent(text string, renderOnCanvas bool, autoCanvas bool) (string, string, string) {
+	if autoCanvas {
+		return "", "", "text"
+	}
 	trimmed := strings.TrimSpace(text)
 	companion := strings.TrimSpace(stripCanvasFileMarkers(trimmed))
 	if companion == "" && renderOnCanvas {
@@ -1030,13 +1190,55 @@ func assistantMessageUsesCanvasBlocks(text string) bool {
 	return strings.Contains(lower, ":::file{")
 }
 
-func assistantSnapshotContent(text string) (string, string, string) {
+type assistantRenderDecision struct {
+	RenderOnCanvas bool
+	AutoCanvas     bool
+}
+
+var assistantParagraphSplitRe = regexp.MustCompile(`\n\s*\n+`)
+
+func assistantParagraphCount(text string) int {
+	cleaned := strings.TrimSpace(stripCanvasFileMarkers(stripLangTags(text)))
+	if cleaned == "" {
+		return 0
+	}
+	cleaned = strings.ReplaceAll(cleaned, "\r\n", "\n")
+	parts := assistantParagraphSplitRe.Split(cleaned, -1)
+	count := 0
+	for _, part := range parts {
+		if strings.TrimSpace(part) != "" {
+			count++
+		}
+	}
+	return count
+}
+
+func assistantNeedsAutoCanvas(text string) bool {
+	return assistantParagraphCount(text) > 1
+}
+
+func assistantRenderPlan(text string) assistantRenderDecision {
+	hasFileBlocks := assistantMessageUsesCanvasBlocks(text)
+	autoCanvas := !hasFileBlocks && assistantNeedsAutoCanvas(text)
+	return assistantRenderDecision{
+		RenderOnCanvas: hasFileBlocks || autoCanvas,
+		AutoCanvas:     autoCanvas,
+	}
+}
+
+func assistantSnapshotContent(text string, renderOnCanvas bool, autoCanvas bool) (string, string, string) {
+	if autoCanvas {
+		return "", "", "text"
+	}
 	candidate := stripLangTags(strings.TrimSpace(text))
 	if candidate == "" {
 		return "", "", "markdown"
 	}
 	chat := strings.TrimSpace(stripCanvasFileMarkers(candidate))
 	if chat == "" {
+		if renderOnCanvas {
+			return "", "", "text"
+		}
 		return "", "", "markdown"
 	}
 	return chat, chat, "markdown"
@@ -1154,6 +1356,9 @@ func buildPromptFromHistory(mode string, messages []store.ChatMessage, canvas *c
 	b.WriteString("Write naturally. Your text is read aloud, so avoid raw paths, URLs, or code in prose.\n")
 	b.WriteString("Use [lang:de] at the start of your answer when responding in German. Default is English.\n\n")
 	b.WriteString("Canvas/file rules:\n")
+	b.WriteString("- Spoken chat must be one paragraph max.\n")
+	b.WriteString("- If your response needs more than one paragraph, write that long content to a temp file and respond with :::file block content (no chat prose).\n")
+	b.WriteString("- Canvas content must appear only inside :::file blocks; do not duplicate it in chat prose.\n")
 	b.WriteString("- Use :::file{path=\"relative/or/absolute/path\"}...::: for all canvas content.\n")
 	b.WriteString("- For temporary canvas files, create/remove paths via temp_file_create and temp_file_remove tools.\n")
 	b.WriteString("- Do not use :::canvas blocks.\n")
@@ -1227,12 +1432,42 @@ func buildTurnPrompt(messages []store.ChatMessage, canvas *canvasContext) string
 	b.WriteString("Use one response shape only:\n")
 	b.WriteString("- Chat-only (spoken text only), or\n")
 	b.WriteString("- Chat + file-canvas: short spoken chat text plus :::file blocks for canvas content.\n")
-	b.WriteString("Use temp_file_create/temp_file_remove for temporary canvas files. Do not use :::canvas blocks.\n\n")
+	b.WriteString("Spoken chat must be one paragraph max.\n")
+	b.WriteString("If output needs more than one paragraph, put it in a temp file with temp_file_create and respond with :::file block(s) only (no chat prose).\n")
+	b.WriteString("Canvas content must be in :::file blocks only. Use temp_file_create/temp_file_remove for temporary files. Do not use :::canvas blocks.\n\n")
 	if canvas != nil && canvas.HasArtifact {
 		fmt.Fprintf(&b, "[Active artifact tab: %q (kind: %s)]\n\n", canvas.ArtifactTitle, canvas.ArtifactKind)
 	}
 	b.WriteString(applyDelegationHints(lastUserMsg))
 	return b.String()
+}
+
+func currentPromptContractDigest() string {
+	historyPrompt := buildPromptFromHistory("chat", nil, nil)
+	turnPrompt := buildTurnPrompt([]store.ChatMessage{{
+		Role:         "user",
+		ContentPlain: "prompt-contract-sentinel",
+	}}, nil)
+	sum := sha256.Sum256([]byte(historyPrompt + "\n---\n" + turnPrompt))
+	return hex.EncodeToString(sum[:])
+}
+
+func (a *App) ensurePromptContractFresh() error {
+	currentDigest := strings.TrimSpace(currentPromptContractDigest())
+	if currentDigest == "" {
+		return nil
+	}
+	storedDigest, err := a.store.AppState(promptContractStateKey)
+	if err != nil {
+		return err
+	}
+	if storedDigest == currentDigest {
+		return nil
+	}
+	if _, err := a.clearAllAgentsAndContexts(""); err != nil {
+		return err
+	}
+	return a.store.SetAppState(promptContractStateKey, currentDigest)
 }
 
 type delegationHint struct {

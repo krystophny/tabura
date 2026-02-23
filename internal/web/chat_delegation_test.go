@@ -105,6 +105,12 @@ func TestBuildTurnPromptNoHintPassthrough(t *testing.T) {
 	if strings.Contains(prompt, "[Delegation hint") {
 		t.Error("should not inject hint for non-delegation message")
 	}
+	if !strings.Contains(prompt, "Spoken chat must be one paragraph max.") {
+		t.Error("turn prompt should enforce one-paragraph spoken chat limit")
+	}
+	if !strings.Contains(prompt, "respond with :::file block(s) only (no chat prose)") {
+		t.Error("turn prompt should enforce file-only mode for long responses")
+	}
 	if !strings.Contains(prompt, "explain this function") {
 		t.Error("original message should be present")
 	}

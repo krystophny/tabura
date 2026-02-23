@@ -143,6 +143,10 @@ func New(dataDir, localProjectDir, localMCPURL, appServerURL, model, ttsURL, spa
 		_ = s.Close()
 		return nil, err
 	}
+	if err := app.ensurePromptContractFresh(); err != nil {
+		_ = s.Close()
+		return nil, err
+	}
 	return app, nil
 }
 

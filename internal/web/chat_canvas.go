@@ -115,31 +115,38 @@ func resolveCanvasFilePath(cwd, requested string) (absolutePath, canvasTitle str
 }
 
 func (a *App) executeFileBlocks(projectKey, canvasSessionID string, blocks []fileBlock) {
+	for _, block := range blocks {
+		_ = a.writeCanvasFileBlock(projectKey, canvasSessionID, block)
+	}
+}
+
+func (a *App) writeCanvasFileBlock(projectKey, canvasSessionID string, block fileBlock) bool {
 	cwd := a.cwdForProjectKey(projectKey)
 	a.mu.Lock()
 	port, ok := a.tunnelPorts[canvasSessionID]
 	a.mu.Unlock()
 	if !ok {
-		return
+		return false
 	}
-	for _, block := range blocks {
-		absPath, title, err := resolveCanvasFilePath(cwd, block.Path)
-		if err != nil {
-			continue
-		}
-		if err := os.MkdirAll(filepath.Dir(absPath), 0755); err != nil {
-			continue
-		}
-		if err := os.WriteFile(absPath, []byte(block.Content), 0644); err != nil {
-			continue
-		}
-		_, _ = a.mcpToolsCall(port, "canvas_artifact_show", map[string]interface{}{
-			"session_id":       canvasSessionID,
-			"kind":             "text",
-			"title":            title,
-			"markdown_or_text": block.Content,
-		})
+	absPath, title, err := resolveCanvasFilePath(cwd, block.Path)
+	if err != nil {
+		return false
 	}
+	if err := os.MkdirAll(filepath.Dir(absPath), 0755); err != nil {
+		return false
+	}
+	if err := os.WriteFile(absPath, []byte(block.Content), 0644); err != nil {
+		return false
+	}
+	if _, err := a.mcpToolsCall(port, "canvas_artifact_show", map[string]interface{}{
+		"session_id":       canvasSessionID,
+		"kind":             "text",
+		"title":            title,
+		"markdown_or_text": block.Content,
+	}); err != nil {
+		return false
+	}
+	return true
 }
 
 // resolveArtifactFilePath maps an artifact title to an absolute file path.
