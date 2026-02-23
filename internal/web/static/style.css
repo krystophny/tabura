@@ -880,3 +880,26 @@ button[data-mail-record-action="stop"] {
     white-space: nowrap;
   }
 }
+#canvas-text ul,
+#canvas-text ol {
+  margin: 0.4rem 0 0.4rem 1.25rem;
+  padding-left: 1.25rem;
+  list-style-position: outside;
+}
+
+#canvas-text li {
+  margin: 0.15rem 0;
+  padding-left: 0.35rem;
+}
+
+.chat-bubble.markdown ul,
+.chat-bubble.markdown ol {
+  margin: 0.4rem 0 0.4rem 1.25rem;
+  padding-left: 1.25rem;
+  list-style-position: outside;
+}
+
+.chat-bubble.markdown li {
+  margin: 0.15rem 0;
+  padding-left: 0.35rem;
+}
