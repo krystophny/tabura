@@ -17,6 +17,7 @@ Risk notice: see [`DISCLAIMER.md`](DISCLAIMER.md)
 - **HTTP/MCP interface inventory**: [`docs/interfaces.md`](docs/interfaces.md)
 - **UI paradigm**: [`docs/object-scoped-intent-ui.md`](docs/object-scoped-intent-ui.md)
 - **Current release notes (v0.1.0)**: [`docs/release-v0.1.0.md`](docs/release-v0.1.0.md)
+- **Current release notes (v0.1.1)**: [`docs/release-v0.1.1.md`](docs/release-v0.1.1.md)
 
 ## Install
 
