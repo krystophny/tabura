@@ -50,6 +50,7 @@ tabura canvas
 - Codex app-server websocket: `ws://127.0.0.1:8787`
 - VoxType MCP bridge: `http://127.0.0.1:8091/mcp`
 - Local canvas session id: `local`
+- Spark thinking budget for Spark model (fast path): `TABURA_APP_SERVER_SPARK_REASONING_EFFORT=low` (low|medium|high)
 
 Zen canvas behavior:
 - Browser opens to tabula rasa (blank white screen) or last artifact.

@@ -488,7 +488,7 @@ func (a *App) getOrCreateAppSession(sessionID string, cwd string) (*appserver.Se
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	s, err := a.appServerClient.OpenSession(ctx, cwd, a.appServerModel)
+	s, err := a.appServerClient.OpenSessionWithParams(ctx, cwd, a.appServerModel, appServerReasoningParamsForModel(a.appServerModel, a.appServerSparkReasoningEffort))
 	if err != nil {
 		return nil, false, err
 	}
@@ -602,7 +602,7 @@ func (a *App) runAssistantTurn(sessionID string) {
 		persistedAssistantText = candidate
 	}
 
-	appResp, err := appSess.SendTurn(ctx, prompt, "", func(ev appserver.StreamEvent) {
+	appResp, err := appSess.SendTurnWithParams(ctx, prompt, "", appServerReasoningParamsForModel(a.appServerModel, a.appServerSparkReasoningEffort), func(ev appserver.StreamEvent) {
 		payload := map[string]interface{}{
 			"type":      ev.Type,
 			"thread_id": ev.ThreadID,
@@ -810,6 +810,8 @@ func (a *App) runAssistantTurnLegacy(sessionID string, session store.ChatSession
 		CWD:     a.cwdForProjectKey(session.ProjectKey),
 		Prompt:  prompt,
 		Model:   a.appServerModel,
+		ThreadParams: appServerReasoningParamsForModel(a.appServerModel, a.appServerSparkReasoningEffort),
+		TurnParams:   appServerReasoningParamsForModel(a.appServerModel, a.appServerSparkReasoningEffort),
 		Timeout: assistantTurnTimeout,
 	}, func(ev appserver.StreamEvent) {
 		payload := map[string]interface{}{
@@ -1229,4 +1231,3 @@ func (a *App) broadcastChatEvent(sessionID string, payload map[string]interface{
 		_ = conn.writeText(encoded)
 	}
 }
-

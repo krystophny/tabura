@@ -18,6 +18,7 @@ type Session struct {
 	conn     *websocket.Conn
 	threadID string
 	model    string
+	threadParams map[string]interface{}
 	cwd      string
 	mu       sync.Mutex
 	closed   bool
@@ -31,6 +32,12 @@ type Session struct {
 // OpenSession connects to the app server, performs the initialize handshake,
 // and starts a new thread. The returned Session can be used for multiple turns.
 func (c *Client) OpenSession(ctx context.Context, cwd, model string) (*Session, error) {
+	return c.OpenSessionWithParams(ctx, cwd, model, nil)
+}
+
+// OpenSessionWithParams connects to the app server, performs the initialize handshake,
+// and starts a new thread with additional thread-level params.
+func (c *Client) OpenSessionWithParams(ctx context.Context, cwd, model string, threadParams map[string]interface{}) (*Session, error) {
 	if c == nil {
 		return nil, errors.New("app-server client is nil")
 	}
@@ -48,11 +55,12 @@ func (c *Client) OpenSession(ctx context.Context, cwd, model string) (*Session, 
 	}
 
 	s := &Session{
-		client: c,
-		conn:   conn,
-		model:  strings.TrimSpace(model),
-		cwd:    strings.TrimSpace(cwd),
-		nextID: 1,
+		client:       c,
+		conn:         conn,
+		model:        strings.TrimSpace(model),
+		threadParams: cloneStringInterfaceMap(threadParams),
+		cwd:          strings.TrimSpace(cwd),
+		nextID:       1,
 	}
 
 	if err := s.handshake(ctx); err != nil {
@@ -110,6 +118,7 @@ func (s *Session) startThread(ctx context.Context) (string, error) {
 		"persistExtendedHistory": true,
 		"ephemeral":              false,
 	}
+	params = mergeStringInterfaceParams(params, s.threadParams)
 	if s.model != "" {
 		params["model"] = s.model
 	}
@@ -157,6 +166,13 @@ func (s *Session) Close() error {
 // turn/completed. The onEvent callback receives streaming events including
 // context_usage for token tracking.
 func (s *Session) SendTurn(ctx context.Context, prompt, turnModel string, onEvent func(StreamEvent)) (*PromptResponse, error) {
+	return s.SendTurnWithParams(ctx, prompt, turnModel, nil, onEvent)
+}
+
+// SendTurnWithParams sends a single turn on the persistent thread and reads events until
+// turn/completed. The onEvent callback receives streaming events including
+// context_usage for token tracking.
+func (s *Session) SendTurnWithParams(ctx context.Context, prompt, turnModel string, turnParams map[string]interface{}, onEvent func(StreamEvent)) (*PromptResponse, error) {
 	s.mu.Lock()
 	if s.closed || s.conn == nil {
 		s.mu.Unlock()
@@ -165,7 +181,7 @@ func (s *Session) SendTurn(ctx context.Context, prompt, turnModel string, onEven
 	s.mu.Unlock()
 
 	turnRPCID := s.allocID()
-	turnParams := map[string]interface{}{
+	baseTurnParams := map[string]interface{}{
 		"threadId": s.threadID,
 		"input": []map[string]interface{}{{
 			"type":          "text",
@@ -173,6 +189,7 @@ func (s *Session) SendTurn(ctx context.Context, prompt, turnModel string, onEven
 			"text_elements": []interface{}{},
 		}},
 	}
+	turnParams = mergeStringInterfaceParams(baseTurnParams, turnParams)
 	if strings.TrimSpace(turnModel) != "" {
 		turnParams["model"] = strings.TrimSpace(turnModel)
 	}
@@ -420,6 +437,36 @@ func (s *Session) markClosed() {
 	s.mu.Lock()
 	s.closed = true
 	s.mu.Unlock()
+}
+
+func cloneStringInterfaceMap(src map[string]interface{}) map[string]interface{} {
+	if len(src) == 0 {
+		return nil
+	}
+	out := make(map[string]interface{}, len(src))
+	for key, value := range src {
+		if strings.TrimSpace(key) == "" {
+			continue
+		}
+		out[key] = value
+	}
+	return out
+}
+
+func mergeStringInterfaceParams(dst map[string]interface{}, extra map[string]interface{}) map[string]interface{} {
+	if len(extra) == 0 {
+		return dst
+	}
+	if dst == nil {
+		dst = make(map[string]interface{}, len(extra))
+	}
+	for key, value := range extra {
+		if strings.TrimSpace(key) == "" {
+			continue
+		}
+		dst[key] = value
+	}
+	return dst
 }
 
 // defaultTurnTimeout is the per-turn read timeout when no ctx deadline is set.

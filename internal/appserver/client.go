@@ -25,6 +25,8 @@ type PromptRequest struct {
 	Prompt    string
 	Model     string        // thread-level default model
 	TurnModel string        // per-turn model override (sent in turn/start if set)
+	ThreadParams map[string]interface{} // additional params for thread/start
+	TurnParams  map[string]interface{} // additional params for turn/start
 	Timeout   time.Duration
 }
 
@@ -182,6 +184,13 @@ func (c *Client) SendPromptStream(ctx context.Context, req PromptRequest, onEven
 	if strings.TrimSpace(req.Model) != "" {
 		threadParams["model"] = strings.TrimSpace(req.Model)
 	}
+	if len(req.ThreadParams) > 0 {
+		for key, value := range req.ThreadParams {
+			if strings.TrimSpace(key) != "" {
+				threadParams[key] = value
+			}
+		}
+	}
 	if err := c.writeJSON(ctx, conn, map[string]interface{}{
 		"jsonrpc": "2.0",
 		"id":      2,
@@ -212,6 +221,13 @@ func (c *Client) SendPromptStream(ctx context.Context, req PromptRequest, onEven
 	}
 	if strings.TrimSpace(req.TurnModel) != "" {
 		turnParams["model"] = strings.TrimSpace(req.TurnModel)
+	}
+	if len(req.TurnParams) > 0 {
+		for key, value := range req.TurnParams {
+			if strings.TrimSpace(key) != "" {
+				turnParams[key] = value
+			}
+		}
 	}
 	if err := c.writeJSON(ctx, conn, map[string]interface{}{
 		"jsonrpc": "2.0",
