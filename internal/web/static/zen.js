@@ -19,6 +19,7 @@ const zenState = {
   inputAnchor: null,
   inputVisible: false,
   indicatorVisible: false,
+  indicatorMode: '',
   lastInputX: 0,
   lastInputY: 0,
 };
@@ -88,20 +89,26 @@ function overlayContentEl() {
   return ol ? ol.querySelector('.zen-overlay-content') : null;
 }
 
-export function showStopIndicator(x, y) {
+export function showIndicatorMode(mode, x, y) {
   const el = indicatorEl();
   if (!el) return;
+  const nextMode = mode === 'recording' ? 'recording' : 'stop';
+  el.classList.remove('is-recording', 'is-stop');
+  el.classList.add(nextMode === 'recording' ? 'is-recording' : 'is-stop');
   el.style.display = '';
   el.style.left = `${x}px`;
   el.style.top = `${y}px`;
   zenState.indicatorVisible = true;
+  zenState.indicatorMode = nextMode;
 }
 
-export function hideStopIndicator() {
+export function hideIndicator() {
   const el = indicatorEl();
   if (!el) return;
+  el.classList.remove('is-recording', 'is-stop');
   el.style.display = 'none';
   zenState.indicatorVisible = false;
+  zenState.indicatorMode = '';
 }
 
 export function showTextInput(x, y, anchor) {

@@ -132,12 +132,14 @@ test('recording indicator shows symbol', async ({ page }) => {
 
   const indicator = page.locator('#zen-indicator');
   await expect(indicator).toBeVisible();
-  await expect(page.locator('.zen-stop-icon')).toBeVisible();
+  await expect(page.locator('.zen-record-dot')).toBeVisible();
+  await expect(page.locator('.zen-stop-square')).toBeHidden();
 
-  // Stop recording while keeping the unified stop indicator visible
+  // Stop recording and transition to stop square
   await page.mouse.click(400, 400);
   await waitForSTTAction(page, 'stop');
   await page.waitForTimeout(200);
   await expect(indicator).toBeVisible();
-  await expect(page.locator('.zen-stop-icon')).toBeVisible();
+  await expect(page.locator('.zen-stop-square')).toBeVisible();
+  await expect(page.locator('.zen-record-dot')).toBeHidden();
 });

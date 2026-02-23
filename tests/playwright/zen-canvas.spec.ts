@@ -138,7 +138,8 @@ test.describe('zen canvas - tabula rasa', () => {
     // Recording indicator should be visible
     const indicator = page.locator('#zen-indicator');
     await expect(indicator).toBeVisible();
-    await expect(indicator).toBeVisible();
+    await expect(page.locator('.zen-record-dot')).toBeVisible();
+    await expect(page.locator('.zen-stop-square')).toBeHidden();
 
     // Wait for recorder to start
     await waitForLogEntry(page, 'recorder', 'start');
@@ -147,7 +148,8 @@ test.describe('zen canvas - tabula rasa', () => {
     await page.mouse.click(400, 400);
     await waitForLogEntry(page, 'stt', 'stop');
     await expect(indicator).toBeVisible();
-    await expect(page.locator('.zen-stop-icon')).toBeVisible();
+    await expect(page.locator('.zen-stop-square')).toBeVisible();
+    await expect(page.locator('.zen-record-dot')).toBeHidden();
   });
 
   test('right-click opens text input at position', async ({ page }) => {
@@ -240,7 +242,7 @@ test.describe('zen canvas - response overlay', () => {
     await expect(page.locator('#canvas-text')).toContainText('Drawn content');
     await expect(page.locator('#zen-overlay')).toBeHidden();
     await expect(page.locator('#zen-indicator')).toBeVisible();
-    await expect(page.locator('.zen-stop-icon')).toBeVisible();
+    await expect(page.locator('.zen-stop-square')).toBeVisible();
 
     const hasArtifact = await page.evaluate(() => Boolean((window as any)._taburaApp?.getState?.().hasArtifact));
     expect(hasArtifact).toBe(true);
@@ -359,7 +361,7 @@ test.describe('zen canvas - TTS voice output', () => {
     // Stop indicator visible, overlay hidden
     const indicator = page.locator('#zen-indicator');
     await expect(indicator).toBeVisible();
-    await expect(page.locator('.zen-stop-icon')).toBeVisible();
+    await expect(page.locator('.zen-stop-square')).toBeVisible();
 
     const overlay = page.locator('#zen-overlay');
     await expect(overlay).toBeHidden();
@@ -383,7 +385,7 @@ test.describe('zen canvas - TTS voice output', () => {
     // Indicator stays visible while work is active
     const indicator = page.locator('#zen-indicator');
     await expect(indicator).toBeVisible();
-    await expect(page.locator('.zen-stop-icon')).toBeVisible();
+    await expect(page.locator('.zen-stop-square')).toBeVisible();
   });
 
   test('voice response triggers TTS, no overlay', async ({ page }) => {
@@ -417,6 +419,35 @@ test.describe('zen canvas - TTS voice output', () => {
     // Overlay should NOT be visible for voice turns
     const overlay = page.locator('#zen-overlay');
     await expect(overlay).toBeHidden();
+  });
+
+  test('auto canvas event does not interrupt queued TTS speech', async ({ page }) => {
+    await clearLog(page);
+    await setVoiceOrigin(page);
+
+    await injectChatEvent(page, { type: 'turn_started', turn_id: 'tts-canvas-keep' });
+    await page.waitForTimeout(80);
+
+    await injectChatEvent(page, {
+      type: 'assistant_message',
+      turn_id: 'tts-canvas-keep',
+      message: 'I will open readme and place it there',
+      delta: 'I will open readme and place it there',
+    });
+    await page.waitForTimeout(80);
+
+    await injectChatEvent(page, {
+      type: 'assistant_message',
+      turn_id: 'tts-canvas-keep',
+      auto_canvas: true,
+      message: '',
+      delta: '',
+    });
+    await page.waitForTimeout(450);
+
+    const log = await getLog(page);
+    const spoken = log.filter((e) => e.type === 'tts').map((e) => String(e.text || '').toLowerCase());
+    expect(spoken.some((t) => t.includes('open readme') || t.includes('place it there'))).toBe(true);
   });
 
   test('voice TTS queues rewritten streaming snapshots', async ({ page }) => {

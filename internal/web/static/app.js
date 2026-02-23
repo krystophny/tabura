@@ -2,7 +2,7 @@ import { marked } from './vendor/marked.esm.js';
 import { renderCanvas, clearCanvas, getLocationFromPoint, getLocationFromSelection, showLineHighlight, clearLineHighlight, escapeHtml, sanitizeHtml, getActiveTextEventId } from './canvas.js';
 import {
   getZenState, setZenMode,
-  showStopIndicator, hideStopIndicator,
+  showIndicatorMode, hideIndicator,
   showTextInput, hideTextInput,
   showOverlay, hideOverlay, updateOverlay,
   isOverlayVisible, isTextInputVisible, isRecording, setRecording,
@@ -879,8 +879,10 @@ function isTTSSpeaking() {
   return state.ttsPlaying;
 }
 
-function shouldShowStopIndicator() {
-  return isRecording() || isAssistantWorking() || isTTSSpeaking();
+function currentIndicatorMode() {
+  if (isRecording()) return 'recording';
+  if (isAssistantWorking() || isTTSSpeaking()) return 'stop';
+  return '';
 }
 
 function updateAssistantActivityIndicator() {
@@ -891,10 +893,11 @@ function updateAssistantActivityIndicator() {
   const pos = getLastInputPosition();
   const px = Number.isFinite(pos?.x) && pos.x > 0 ? pos.x : Math.floor(window.innerWidth / 2);
   const py = Number.isFinite(pos?.y) && pos.y > 0 ? pos.y : Math.floor(window.innerHeight / 2);
-  if (shouldShowStopIndicator()) {
-    showStopIndicator(px, py);
+  const mode = currentIndicatorMode();
+  if (mode) {
+    showIndicatorMode(mode, px, py);
   } else {
-    hideStopIndicator();
+    hideIndicator();
   }
 }
 
@@ -1325,7 +1328,6 @@ function handleChatEvent(payload) {
     }
 
     if (autoCanvas) {
-      stopTTSPlayback();
       if (!isVoiceTurn()) {
         hideOverlay();
       }
@@ -1374,9 +1376,7 @@ function handleChatEvent(payload) {
     updateAssistantActivityIndicator();
     void refreshAssistantActivity();
 
-    if (autoCanvas) {
-      stopTTSPlayback();
-    } else if (ttsEnabled && md.trim()) {
+    if (!autoCanvas && ttsEnabled && md.trim()) {
       const { ttsText, ttsLang } = extractTTSText(md);
       const { ttsText: deltaText } = extractTTSText(String(payload.delta || ''));
       if (ttsLang) ttsSpeakLang = ttsLang;
@@ -1384,7 +1384,7 @@ function handleChatEvent(payload) {
       queueTTSDiff(diff);
     }
 
-    if (!autoCanvas && ttsSentenceChunker) {
+    if (ttsSentenceChunker) {
       ttsSentenceChunker.flush();
     }
     if (!isVoiceTurn()) {
@@ -1798,6 +1798,8 @@ function bindUi() {
 
   if (zenIndicator) {
     zenIndicator.addEventListener('pointerdown', (ev) => {
+      if (!(ev.currentTarget instanceof HTMLElement)) return;
+      if (!ev.currentTarget.classList.contains('is-stop')) return;
       ev.preventDefault();
       ev.stopPropagation();
       void handleZenStopAction();
