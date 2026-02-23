@@ -141,7 +141,7 @@ class TTSPlayer {
   }
   _ensureCtx() {
     if (!this._ctx) {
-      this._ctx = new (window.AudioContext || window.webkitAudioContext)();
+      this._ctx = ensureSharedAudioCtx();
     }
     return this._ctx;
   }
@@ -204,6 +204,23 @@ let ttsEnabled = false;
 let ttsSpeakAccumulator = '';
 let ttsLastSpeakText = '';
 let ttsSpeakLang = 'en';
+
+// Shared AudioContext, created/resumed on first user gesture so Safari iOS
+// does not block playback. TTSPlayer reuses this instead of creating its own.
+let _sharedAudioCtx = null;
+function ensureSharedAudioCtx() {
+  if (!_sharedAudioCtx) {
+    _sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (_sharedAudioCtx.state === 'suspended') {
+    _sharedAudioCtx.resume().catch(() => {});
+  }
+  return _sharedAudioCtx;
+}
+// Warm up on first user interaction (click, touch, key).
+['click', 'touchstart', 'keydown'].forEach(evt =>
+  document.addEventListener(evt, () => ensureSharedAudioCtx(), { once: true, capture: true })
+);
 
 const renderer = new marked.Renderer();
 renderer.code = ({ text, lang }) => {
