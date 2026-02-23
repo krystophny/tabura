@@ -23,7 +23,7 @@ Removed selectors (no longer exist): `#prompt-bar`, `#prompt-input`, `#prompt-se
 - **Escape** dismisses overlay/input. If nothing open and artifact showing, clears to tabula rasa.
 - On artifact: tap/right-click sets line context (`[Line N of "title"]`) prepended to message.
 
-Response routing: `turn_started` shows overlay, `assistant_message` streams into overlay, canvas actions update in place with diff highlight, short text stays in overlay, errors auto-dismiss after 2s.
+Response routing: LLM responses use three channels — `<speak>` tags are spoken via TTS (Chatterbox), `:::canvas{title="..."}` shows ephemeral visual content, `:::file{path="..."}` shows file-bound artifacts. Overlay is shown only when visual content exists; speak-only responses produce audio without overlay. `turn_started` shows overlay, `assistant_message` streams into overlay and feeds TTS chunker, canvas/file actions update in place with diff highlight, errors auto-dismiss after 2s. User tap/message interrupts TTS playback.
 
 ## Edge Panels
 
@@ -45,18 +45,19 @@ Main units:
 - `tabura-mcp.service`
 - `tabura-codex-app-server.service`
 - `tabura-voxtype-mcp.service`
+- `tabura-tts.service` (Chatterbox Multilingual on `127.0.0.1:8423`)
 - `helpy-mcp.service`
 
 Status:
 
 ```bash
-systemctl --user status tabura-web.service tabura-mcp.service tabura-codex-app-server.service tabura-voxtype-mcp.service helpy-mcp.service --no-pager -n 40
+systemctl --user status tabura-web.service tabura-mcp.service tabura-codex-app-server.service tabura-voxtype-mcp.service tabura-tts.service helpy-mcp.service --no-pager -n 40
 ```
 
 Restart all integration services:
 
 ```bash
-systemctl --user restart helpy-mcp.service tabura-codex-app-server.service tabura-mcp.service tabura-voxtype-mcp.service tabura-web.service
+systemctl --user restart helpy-mcp.service tabura-codex-app-server.service tabura-mcp.service tabura-voxtype-mcp.service tabura-tts.service tabura-web.service
 ```
 
 ## Handoff-First UI Testing Rule
@@ -73,7 +74,26 @@ Default local session and URLs:
 - Tabura MCP: `http://127.0.0.1:9420/mcp`
 - Helpy MCP: `http://127.0.0.1:8090/mcp`
 - Codex App Server: `ws://127.0.0.1:8787`
+- Chatterbox TTS: `http://127.0.0.1:8423`
 - Tabura session id: `local`
+
+## TTS API
+
+`POST /api/tts` — proxied to Chatterbox TTS Server (`/v1/audio/speech`).
+
+Request: `{"text": "...", "lang": "en"}` (lang: "en" or "de")
+Response: `audio/wav` binary.
+
+Frontend detects language from German word heuristic. Sentences are chunked via `SentenceChunker` and played sequentially via `TTSPlayer`.
+
+## Canvas Action Syntax
+
+Two explicit actions replace the old `:::canvas_show{...}`:
+
+- `:::canvas{title="Title"}...:::` — ephemeral visual display (analysis, reports)
+- `:::file{path="filename.go"}...:::` — file-bound artifact (code, config)
+
+Backend parses both, executes via MCP `canvas_artifact_show`, strips `<speak>` tags before persisting.
 
 ## Handoff Example: Archive Folder (20 Headers)
 

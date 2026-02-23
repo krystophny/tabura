@@ -133,12 +133,17 @@ test.describe('zen canvas - tabula rasa', () => {
     // Wait for recorder to start
     await waitForLogEntry(page, 'recorder', 'start');
 
-    // Click again to stop
+    // Click again to stop — transitions to thinking dots
     await page.mouse.click(400, 400);
     await waitForLogEntry(page, 'stt', 'stop');
 
-    // Indicator should disappear
-    await expect(indicator).toBeHidden();
+    // Recording dot should be hidden, thinking dots visible
+    const dot = page.locator('.zen-indicator-dot');
+    const dotDisplay = await dot.evaluate(el => (el as HTMLElement).style.display);
+    expect(dotDisplay).toBe('none');
+    const dots = page.locator('.zen-indicator-dots');
+    const dotsDisplay = await dots.evaluate(el => getComputedStyle(el).display);
+    expect(dotsDisplay).not.toBe('none');
   });
 
   test('right-click opens text input at position', async ({ page }) => {

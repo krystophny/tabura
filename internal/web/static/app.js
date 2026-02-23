@@ -139,62 +139,65 @@ class TTSPlayer {
     this._queue = [];
     this._playing = false;
     this._stopped = false;
-    this._currentAudio = null;
+    this._ctx = null;
+    this._currentSource = null;
+    this._nextStartTime = 0;
   }
-  enqueue(text, lang) {
+  _ensureCtx() {
+    if (!this._ctx) {
+      this._ctx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    return this._ctx;
+  }
+  enqueue(wavArrayBuffer) {
     if (this._stopped) return;
-    this._queue.push({ text, lang });
+    this._queue.push(wavArrayBuffer);
     if (!this._playing) this._playNext();
   }
   stop() {
     this._stopped = true;
     this._queue = [];
-    if (this._currentAudio) {
-      try { this._currentAudio.pause(); this._currentAudio.src = ''; } catch (_) {}
-      this._currentAudio = null;
+    if (this._currentSource) {
+      try { this._currentSource.stop(); } catch (_) {}
+      this._currentSource = null;
     }
     this._playing = false;
+    this._nextStartTime = 0;
     dismissSpeakingIndicator();
   }
   async _playNext() {
     if (this._stopped || this._queue.length === 0) {
       this._playing = false;
+      this._nextStartTime = 0;
       hideSpeakingIndicator();
       return;
     }
     this._playing = true;
-    const { text, lang } = this._queue.shift();
+    const wavData = this._queue.shift();
     const pos = getLastInputPosition();
     hideIndicator();
     showSpeakingIndicator(pos.x, pos.y);
     try {
-      const resp = await fetch('/api/tts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, lang }),
-      });
+      const ctx = this._ensureCtx();
+      const audioBuffer = await ctx.decodeAudioData(wavData.slice(0));
       if (this._stopped) return;
-      if (!resp.ok) {
-        console.warn('TTS fetch failed:', resp.status);
-        this._playNext();
-        return;
-      }
-      const blob = await resp.blob();
-      if (this._stopped) return;
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      this._currentAudio = audio;
-      await new Promise((resolve, reject) => {
-        audio.onended = () => { URL.revokeObjectURL(url); resolve(); };
-        audio.onerror = (e) => { URL.revokeObjectURL(url); reject(e); };
-        audio.play().catch(reject);
-      });
-      this._currentAudio = null;
+      const source = ctx.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(ctx.destination);
+      this._currentSource = source;
+      const now = ctx.currentTime;
+      const startAt = this._nextStartTime > now ? this._nextStartTime : now;
+      this._nextStartTime = startAt + audioBuffer.duration;
+      source.start(startAt);
+      source.onended = () => {
+        this._currentSource = null;
+        if (!this._stopped) this._playNext();
+      };
     } catch (err) {
       console.warn('TTS playback error:', err);
-      this._currentAudio = null;
+      this._currentSource = null;
+      if (!this._stopped) this._playNext();
     }
-    if (!this._stopped) this._playNext();
   }
 }
 
@@ -498,6 +501,10 @@ function handleSTTWSMessage(payload) {
   if (type === 'stt_started' || type === 'stt_cancelled') {
     return true;
   }
+  if (type === 'tts_error') {
+    console.warn('TTS error:', payload.error);
+    return true;
+  }
   return false;
 }
 
@@ -609,6 +616,11 @@ async function stopZenVoiceCaptureAndSend() {
   capture.stopRequested = true;
   if (!capture.active) return;
   capture.stopping = true;
+  // Transition immediately: recording dot -> thinking dots (before network latency)
+  const pos = getLastInputPosition();
+  hideIndicator();
+  showThinkingIndicator(pos.x, pos.y);
+  showStatus('transcribing...');
   let remoteStopped = false;
   try {
     await stopChatVoiceMediaAndFlush(capture);
@@ -628,11 +640,11 @@ async function stopZenVoiceCaptureAndSend() {
     showStatus('sending...');
     void zenSubmitMessage(transcript);
   } catch (err) {
+    hideIndicator();
     const message = String(err?.message || err || 'voice capture failed');
     showStatus(`voice capture failed: ${message}`);
   } finally {
     setRecording(false);
-    hideIndicator();
     if (!remoteStopped) {
       sttCancel();
     }
@@ -1028,6 +1040,7 @@ function openChatWs() {
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
   const wsUrl = `${proto}//${location.host}/ws/chat/${encodeURIComponent(targetSessionID)}`;
   const ws = new WebSocket(wsUrl);
+  ws.binaryType = 'arraybuffer';
   state.chatWs = ws;
 
   ws.onopen = () => {
@@ -1046,6 +1059,10 @@ function openChatWs() {
 
   ws.onmessage = (event) => {
     if (turnToken !== state.chatWsToken || targetSessionID !== state.chatSessionId) return;
+    if (event.data instanceof ArrayBuffer) {
+      if (ttsPlayer) ttsPlayer.enqueue(event.data);
+      return;
+    }
     if (typeof event.data !== 'string') return;
     let payload = null;
     try { payload = JSON.parse(event.data); } catch (_) { return; }
@@ -1138,7 +1155,10 @@ function handleChatEvent(payload) {
             ttsPlayer = new TTSPlayer();
             ttsSentenceChunker = new SentenceChunker((sentence) => {
               const lang = detectLanguage(sentence);
-              ttsPlayer.enqueue(sentence, lang);
+              const ws = state.chatWs;
+              if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'tts_speak', text: sentence, lang }));
+              }
             });
           }
           ttsSentenceChunker.add(newText);
@@ -1154,11 +1174,14 @@ function handleChatEvent(payload) {
     if (String(payload.role || '') !== 'assistant') return;
     const turnID = String(payload.turn_id || '').trim();
     const md = String(payload.message || '');
+    // Backend strips <speak> tags before persisting, so voice-only responses
+    // arrive with empty md. Use the accumulated speak text for the chat log.
+    const displayMd = md || (ttsLastSpeakText ? `_${ttsLastSpeakText}_` : '');
     const row = takePendingRow(turnID);
     if (row) {
-      updateAssistantRow(row, md, false);
+      updateAssistantRow(row, displayMd, false);
     } else {
-      appendRenderedAssistant(md);
+      appendRenderedAssistant(displayMd);
     }
     trackAssistantTurnFinished(turnID);
     state.assistantLastError = '';

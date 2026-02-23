@@ -11,47 +11,19 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
-type canvasAction struct {
+type canvasBlock struct {
 	Title   string
-	Kind    string
 	Content string
 }
 
-var canvasShowRe = regexp.MustCompile(`(?s):::canvas_show\{([^}]*)\}\n?(.*?):::`)
-
-func parseCanvasActions(text string) ([]canvasAction, string) {
-	matches := canvasShowRe.FindAllStringSubmatchIndex(text, -1)
-	if len(matches) == 0 {
-		return nil, text
-	}
-	var actions []canvasAction
-	cleaned := text
-	for i := len(matches) - 1; i >= 0; i-- {
-		m := matches[i]
-		fullStart, fullEnd := m[0], m[1]
-		attrsStart, attrsEnd := m[2], m[3]
-		contentStart, contentEnd := m[4], m[5]
-
-		attrs := text[attrsStart:attrsEnd]
-		content := strings.TrimSpace(text[contentStart:contentEnd])
-
-		title := extractAttr(attrs, "title")
-		kind := extractAttr(attrs, "kind")
-		if kind == "" {
-			kind = "text"
-		}
-
-		actions = append([]canvasAction{{
-			Title:   title,
-			Kind:    kind,
-			Content: content,
-		}}, actions...)
-
-		ref := fmt.Sprintf("[canvas: %s]", title)
-		cleaned = cleaned[:fullStart] + ref + cleaned[fullEnd:]
-	}
-	return actions, strings.TrimSpace(cleaned)
+type fileBlock struct {
+	Path    string
+	Content string
 }
+
+var canvasBlockRe = regexp.MustCompile(`(?s):::canvas\{([^}]*)\}\n?(.*?):::`)
+var fileBlockRe = regexp.MustCompile(`(?s):::file\{([^}]*)\}\n?(.*?):::`)
+var speakTagRe = regexp.MustCompile(`(?s)<speak>.*?</speak>`)
 
 var attrRe = regexp.MustCompile(`(\w+)="([^"]*)"`)
 
@@ -64,19 +36,96 @@ func extractAttr(attrs, name string) string {
 	return ""
 }
 
-func (a *App) executeCanvasActions(canvasSessionID string, actions []canvasAction) {
+func parseCanvasBlocks(text string) ([]canvasBlock, string) {
+	matches := canvasBlockRe.FindAllStringSubmatchIndex(text, -1)
+	if len(matches) == 0 {
+		return nil, text
+	}
+	var blocks []canvasBlock
+	cleaned := text
+	for i := len(matches) - 1; i >= 0; i-- {
+		m := matches[i]
+		fullStart, fullEnd := m[0], m[1]
+		attrsStart, attrsEnd := m[2], m[3]
+		contentStart, contentEnd := m[4], m[5]
+
+		attrs := text[attrsStart:attrsEnd]
+		content := strings.TrimSpace(text[contentStart:contentEnd])
+		title := extractAttr(attrs, "title")
+
+		blocks = append([]canvasBlock{{
+			Title:   title,
+			Content: content,
+		}}, blocks...)
+
+		ref := fmt.Sprintf("[canvas: %s]", title)
+		cleaned = cleaned[:fullStart] + ref + cleaned[fullEnd:]
+	}
+	return blocks, strings.TrimSpace(cleaned)
+}
+
+func parseFileBlocks(text string) ([]fileBlock, string) {
+	matches := fileBlockRe.FindAllStringSubmatchIndex(text, -1)
+	if len(matches) == 0 {
+		return nil, text
+	}
+	var blocks []fileBlock
+	cleaned := text
+	for i := len(matches) - 1; i >= 0; i-- {
+		m := matches[i]
+		fullStart, fullEnd := m[0], m[1]
+		attrsStart, attrsEnd := m[2], m[3]
+		contentStart, contentEnd := m[4], m[5]
+
+		attrs := text[attrsStart:attrsEnd]
+		content := strings.TrimSpace(text[contentStart:contentEnd])
+		path := extractAttr(attrs, "path")
+
+		blocks = append([]fileBlock{{
+			Path:    path,
+			Content: content,
+		}}, blocks...)
+
+		ref := fmt.Sprintf("[file: %s]", path)
+		cleaned = cleaned[:fullStart] + ref + cleaned[fullEnd:]
+	}
+	return blocks, strings.TrimSpace(cleaned)
+}
+
+func stripSpeakTags(text string) string {
+	return strings.TrimSpace(speakTagRe.ReplaceAllString(text, ""))
+}
+
+func (a *App) executeCanvasBlocks(canvasSessionID string, blocks []canvasBlock) {
 	a.mu.Lock()
 	port, ok := a.tunnelPorts[canvasSessionID]
 	a.mu.Unlock()
 	if !ok {
 		return
 	}
-	for _, action := range actions {
+	for _, block := range blocks {
 		_, _ = a.mcpToolsCall(port, "canvas_artifact_show", map[string]interface{}{
 			"session_id":       canvasSessionID,
 			"kind":             "text",
-			"title":            action.Title,
-			"markdown_or_text": action.Content,
+			"title":            block.Title,
+			"markdown_or_text": block.Content,
+		})
+	}
+}
+
+func (a *App) executeFileBlocks(canvasSessionID string, blocks []fileBlock) {
+	a.mu.Lock()
+	port, ok := a.tunnelPorts[canvasSessionID]
+	a.mu.Unlock()
+	if !ok {
+		return
+	}
+	for _, block := range blocks {
+		_, _ = a.mcpToolsCall(port, "canvas_artifact_show", map[string]interface{}{
+			"session_id":       canvasSessionID,
+			"kind":             "text",
+			"title":            block.Path,
+			"markdown_or_text": block.Content,
 		})
 	}
 }

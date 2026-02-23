@@ -48,6 +48,7 @@ type App struct {
 	localMCPURL     string
 	appServerURL    string
 	appServerModel  string
+	ttsURL          string
 	devRuntime      bool
 
 	store *store.Store
@@ -77,7 +78,7 @@ type App struct {
 
 const DefaultModel = "gpt-5.3-codex-spark"
 
-func New(dataDir, localProjectDir, localMCPURL, appServerURL, model string, devRuntime bool) (*App, error) {
+func New(dataDir, localProjectDir, localMCPURL, appServerURL, model, ttsURL string, devRuntime bool) (*App, error) {
 	s, err := store.New(pathJoin(dataDir, "tabura.db"))
 	if err != nil {
 		return nil, err
@@ -98,12 +99,17 @@ func New(dataDir, localProjectDir, localMCPURL, appServerURL, model string, devR
 	if resolvedModel == "" {
 		resolvedModel = DefaultModel
 	}
+	resolvedTTSURL := strings.TrimSpace(ttsURL)
+	if resolvedTTSURL == "" {
+		resolvedTTSURL = strings.TrimSpace(os.Getenv("TABURA_TTS_URL"))
+	}
 	app := &App{
 		dataDir:          dataDir,
 		localProjectDir:  localProjectDir,
 		localMCPURL:      localMCPURL,
 		appServerURL:     appServerURL,
 		appServerModel:   resolvedModel,
+		ttsURL:           resolvedTTSURL,
 		devRuntime:       devRuntime,
 		store:            s,
 		appServerClient:  appServerClient,
@@ -342,6 +348,7 @@ func (a *App) handleRuntime(w http.ResponseWriter, r *http.Request) {
 		"app_server_url":   emptyToNil(a.appServerURL),
 		"app_server_model": emptyToNil(a.appServerModel),
 		"available_models":  []string{"gpt-5.3-codex-spark", "gpt-5.3-codex", "gpt-5.2"},
+		"tts_enabled":       strings.TrimSpace(a.ttsURL) != "",
 	})
 }
 

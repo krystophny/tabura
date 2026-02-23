@@ -143,6 +143,7 @@ func cmdWeb(args []string) int {
 	localMCPURL := fs.String("local-mcp-url", "", "external local MCP URL")
 	appServerURL := fs.String("app-server-url", web.DefaultAppServerURL, "Codex app-server websocket URL")
 	model := fs.String("model", "", "LLM model for chat (default: env TABURA_APP_SERVER_MODEL or "+web.DefaultModel+")")
+	ttsURL := fs.String("tts-url", "", "Chatterbox TTS server URL (default: env TABURA_TTS_URL or "+web.DefaultTTSURL+")")
 	devRuntime := fs.Bool("dev-runtime", false, "dev runtime endpoint")
 	if err := fs.Parse(args); err != nil {
 		return 2
@@ -152,7 +153,7 @@ func cmdWeb(args []string) int {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
-	app, err := web.New(*dataDir, res.Paths.ProjectDir, *localMCPURL, *appServerURL, *model, *devRuntime)
+	app, err := web.New(*dataDir, res.Paths.ProjectDir, *localMCPURL, *appServerURL, *model, *ttsURL, *devRuntime)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
@@ -194,7 +195,7 @@ func cmdCanvas(args []string) int {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
-	app, err := web.New(*dataDir, res.Paths.ProjectDir, "", web.DefaultAppServerURL, "", false)
+	app, err := web.New(*dataDir, res.Paths.ProjectDir, "", web.DefaultAppServerURL, "", "", false)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
