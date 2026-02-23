@@ -7,10 +7,17 @@ const (
 	ProtocolBlockEndMarker   = "<!-- TABURA_PROTOCOL:END -->"
 )
 
+type ToolProperty struct {
+	Type        string
+	Description string
+	Enum        []string
+}
+
 type Tool struct {
 	Name        string
 	Description string
 	Required    []string
+	Properties  map[string]ToolProperty
 }
 
 type RouteSection struct {
@@ -38,6 +45,38 @@ var MCPTools = []Tool{
 		Name:        "canvas_import_handoff",
 		Description: "Consume a generic producer handoff and render it in canvas.",
 		Required:    []string{"session_id", "handoff_id"},
+	},
+	{
+		Name: "delegate_to_model",
+		Description: "Delegate a task to another model via the Codex app-server. " +
+			"Use this when the task benefits from a different model's strengths: " +
+			"complex multi-file coding (codex), deep analysis or architecture (codex), " +
+			"or general-purpose reasoning (gpt). " +
+			"Also use when the user explicitly asks to route to a model " +
+			"(e.g. 'let codex handle this', 'ask gpt'). " +
+			"Always provide context (conversation summary) and system_prompt (task-specific instructions) " +
+			"so the delegate model has enough information. " +
+			"Do NOT delegate simple conversational replies or short factual answers.",
+		Required: []string{"prompt"},
+		Properties: map[string]ToolProperty{
+			"prompt": {
+				Type:        "string",
+				Description: "The task or question for the delegate model.",
+			},
+			"model": {
+				Type:        "string",
+				Description: "Model to use. Aliases: 'spark' (gpt-5.3-codex-spark), 'codex' (gpt-5.3-codex), 'gpt' (gpt-5.2). Defaults to 'codex'.",
+				Enum:        []string{"spark", "codex", "gpt"},
+			},
+			"context": {
+				Type:        "string",
+				Description: "Summary of the conversation so far, giving the delegate model background.",
+			},
+			"system_prompt": {
+				Type:        "string",
+				Description: "Task-specific instructions for the delegate model (e.g. 'You are a code reviewer. Be thorough.').",
+			},
+		},
 	},
 }
 

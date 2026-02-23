@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/krystophny/tabura/internal/canvas"
@@ -224,4 +225,119 @@ func stringHex(b []byte) string {
 		out[i*2+1] = hextable[v&0x0f]
 	}
 	return string(out)
+}
+
+func TestResolveModelAlias(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"codex", "gpt-5.3-codex"},
+		{"CODEX", "gpt-5.3-codex"},
+		{"spark", "gpt-5.3-codex-spark"},
+		{"gpt", "gpt-5.2"},
+		{"", "gpt-5.3-codex"},
+		{"  ", "gpt-5.3-codex"},
+		{"gpt-5.2", "gpt-5.2"},
+		{"some-custom-model", "some-custom-model"},
+	}
+	for _, tc := range tests {
+		got := resolveModelAlias(tc.input)
+		if got != tc.want {
+			t.Errorf("resolveModelAlias(%q) = %q, want %q", tc.input, got, tc.want)
+		}
+	}
+}
+
+func TestAssembleDelegatePrompt(t *testing.T) {
+	t.Run("all fields", func(t *testing.T) {
+		got := assembleDelegatePrompt("Be thorough.", "User asked about X.", "Analyze the code.")
+		if !strings.Contains(got, "## Instructions") {
+			t.Error("missing Instructions section")
+		}
+		if !strings.Contains(got, "Be thorough.") {
+			t.Error("missing system_prompt content")
+		}
+		if !strings.Contains(got, "## Context") {
+			t.Error("missing Context section")
+		}
+		if !strings.Contains(got, "User asked about X.") {
+			t.Error("missing context content")
+		}
+		if !strings.Contains(got, "## Task") {
+			t.Error("missing Task section")
+		}
+		if !strings.Contains(got, "Analyze the code.") {
+			t.Error("missing prompt content")
+		}
+	})
+
+	t.Run("prompt only", func(t *testing.T) {
+		got := assembleDelegatePrompt("", "", "Do something.")
+		if strings.Contains(got, "## Instructions") {
+			t.Error("should not have Instructions section when empty")
+		}
+		if strings.Contains(got, "## Context") {
+			t.Error("should not have Context section when empty")
+		}
+		if !strings.Contains(got, "## Task") {
+			t.Error("missing Task section")
+		}
+		if !strings.Contains(got, "Do something.") {
+			t.Error("missing prompt content")
+		}
+	})
+}
+
+func TestToolDefinitionsEmitsProperties(t *testing.T) {
+	defs := toolDefinitions()
+	var delegateDef map[string]interface{}
+	for _, d := range defs {
+		if d["name"] == "delegate_to_model" {
+			delegateDef = d
+			break
+		}
+	}
+	if delegateDef == nil {
+		t.Fatal("delegate_to_model not found in tool definitions")
+	}
+	schema, _ := delegateDef["inputSchema"].(map[string]interface{})
+	if schema == nil {
+		t.Fatal("missing inputSchema")
+	}
+	props, _ := schema["properties"].(map[string]interface{})
+	if props == nil {
+		t.Fatal("missing properties in inputSchema")
+	}
+	for _, key := range []string{"prompt", "model", "context", "system_prompt"} {
+		if props[key] == nil {
+			t.Errorf("missing property %q", key)
+		}
+	}
+	modelProp, _ := props["model"].(map[string]interface{})
+	if modelProp == nil {
+		t.Fatal("model property is not a map")
+	}
+	if modelProp["enum"] == nil {
+		t.Error("model property missing enum")
+	}
+}
+
+func TestDelegateToModelRequiresAppServer(t *testing.T) {
+	adapter := canvas.NewAdapter(t.TempDir(), nil)
+	s := NewServer(adapter)
+	_, err := s.callTool("delegate_to_model", map[string]interface{}{"prompt": "test"})
+	if err == nil {
+		t.Fatal("expected error for missing app-server client")
+	}
+	if !strings.Contains(err.Error(), "app-server client is not configured") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestDelegateToModelDefaultsToCodex(t *testing.T) {
+	got := resolveModelAlias("")
+	if got != "gpt-5.3-codex" {
+		t.Errorf("empty model should default to codex, got %q", got)
+	}
 }

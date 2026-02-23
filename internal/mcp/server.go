@@ -3,6 +3,7 @@ package mcp
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
@@ -18,6 +19,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/krystophny/tabura/internal/appserver"
 	"github.com/krystophny/tabura/internal/canvas"
 	"github.com/krystophny/tabura/internal/surface"
 )
@@ -29,6 +31,7 @@ const (
 	defaultProducerMCPURL = "http://127.0.0.1:8090/mcp"
 	handoffKindFile       = "file"
 	handoffKindMailHeader = "mail_headers"
+	delegateDefaultTimeout = 120 * time.Second
 )
 
 var supportedProtocolVersions = map[string]struct{}{
@@ -42,7 +45,8 @@ type RPCError struct {
 }
 
 type Server struct {
-	adapter *canvas.Adapter
+	adapter         *canvas.Adapter
+	appServerClient *appserver.Client
 }
 
 type handoffEnvelope struct {
@@ -54,8 +58,12 @@ type handoffEnvelope struct {
 	Payload     map[string]interface{} `json:"payload"`
 }
 
-func NewServer(adapter *canvas.Adapter) *Server {
-	return &Server{adapter: adapter}
+func NewServer(adapter *canvas.Adapter, appServerClient ...*appserver.Client) *Server {
+	var client *appserver.Client
+	if len(appServerClient) > 0 {
+		client = appServerClient[0]
+	}
+	return &Server{adapter: adapter, appServerClient: client}
 }
 
 func (s *Server) DispatchMessage(message map[string]interface{}) map[string]interface{} {
@@ -181,9 +189,89 @@ func (s *Server) callTool(name string, args map[string]interface{}) (map[string]
 		return s.adapter.CanvasHistory(sid, intArg(args, "limit", 20)), nil
 	case "canvas_import_handoff":
 		return s.canvasImportHandoff(sid, args)
+	case "delegate_to_model":
+		return s.delegateToModel(args)
 	default:
 		return nil, errors.New("unknown tool: " + name)
 	}
+}
+
+var modelAliases = map[string]string{
+	"spark": "gpt-5.3-codex-spark",
+	"codex": "gpt-5.3-codex",
+	"gpt":   "gpt-5.2",
+}
+
+func resolveModelAlias(raw string) string {
+	key := strings.TrimSpace(strings.ToLower(raw))
+	if key == "" {
+		return modelAliases["codex"]
+	}
+	if full, ok := modelAliases[key]; ok {
+		return full
+	}
+	return raw
+}
+
+func assembleDelegatePrompt(systemPrompt, taskContext, prompt string) string {
+	var b strings.Builder
+	if systemPrompt = strings.TrimSpace(systemPrompt); systemPrompt != "" {
+		b.WriteString("## Instructions\n\n")
+		b.WriteString(systemPrompt)
+		b.WriteString("\n\n")
+	}
+	if taskContext = strings.TrimSpace(taskContext); taskContext != "" {
+		b.WriteString("## Context\n\n")
+		b.WriteString(taskContext)
+		b.WriteString("\n\n")
+	}
+	b.WriteString("## Task\n\n")
+	b.WriteString(strings.TrimSpace(prompt))
+	return b.String()
+}
+
+func (s *Server) delegateToModel(args map[string]interface{}) (map[string]interface{}, error) {
+	if s.appServerClient == nil {
+		return nil, errors.New("delegate_to_model is unavailable: app-server client is not configured")
+	}
+	prompt := strings.TrimSpace(strArg(args, "prompt"))
+	if prompt == "" {
+		return nil, errors.New("prompt is required")
+	}
+	model := resolveModelAlias(strArg(args, "model"))
+	fullPrompt := assembleDelegatePrompt(
+		strArg(args, "system_prompt"),
+		strArg(args, "context"),
+		prompt,
+	)
+	cwd := strings.TrimSpace(strArg(args, "cwd"))
+	if cwd == "" {
+		cwd = s.adapter.ProjectDir()
+	}
+	timeoutSeconds := intArg(args, "timeout_seconds", 0)
+	if timeoutSeconds <= 0 {
+		timeoutSeconds = int(delegateDefaultTimeout.Seconds())
+	}
+	timeout := time.Duration(timeoutSeconds) * time.Second
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	resp, err := s.appServerClient.SendPrompt(ctx, appserver.PromptRequest{
+		CWD:     cwd,
+		Prompt:  fullPrompt,
+		Model:   model,
+		Timeout: timeout,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("app-server inference failed: %w", err)
+	}
+	return map[string]interface{}{
+		"ok":        true,
+		"model":     model,
+		"thread_id": resp.ThreadID,
+		"turn_id":   resp.TurnID,
+		"message":   resp.Message,
+	}, nil
 }
 
 func (s *Server) canvasImportHandoff(sessionID string, args map[string]interface{}) (map[string]interface{}, error) {
@@ -575,6 +663,20 @@ func toolDefinitions() []map[string]interface{} {
 		schema := map[string]interface{}{"type": "object"}
 		if len(tool.Required) > 0 {
 			schema["required"] = append([]string(nil), tool.Required...)
+		}
+		if len(tool.Properties) > 0 {
+			props := make(map[string]interface{}, len(tool.Properties))
+			for k, v := range tool.Properties {
+				prop := map[string]interface{}{
+					"type":        v.Type,
+					"description": v.Description,
+				}
+				if len(v.Enum) > 0 {
+					prop["enum"] = v.Enum
+				}
+				props[k] = prop
+			}
+			schema["properties"] = props
 		}
 		out = append(out, map[string]interface{}{
 			"name":        tool.Name,
