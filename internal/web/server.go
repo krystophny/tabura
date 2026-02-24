@@ -75,6 +75,7 @@ type App struct {
 	localServeCancel   context.CancelFunc
 	projectServes      map[string]*serve.App
 	projectServeStop   map[string]context.CancelFunc
+	ghCommandRunner    ghCommandRunner
 
 	bootID    string
 	startedAt string
@@ -143,6 +144,7 @@ func New(dataDir, localProjectDir, localMCPURL, appServerURL, model, ttsURL, spa
 		relayCancel:                   map[string]context.CancelFunc{},
 		projectServes:                 map[string]*serve.App{},
 		projectServeStop:              map[string]context.CancelFunc{},
+		ghCommandRunner:               runGitHubCLI,
 		bootID:                        strconv.FormatInt(time.Now().UnixNano(), 16),
 		startedAt:                     time.Now().UTC().Format(time.RFC3339Nano),
 	}

@@ -86,10 +86,101 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 #workspace {
   flex: 1;
   display: flex;
-  flex-direction: column;
   overflow: hidden;
   min-height: 0;
   min-width: 0;
+}
+
+#pr-file-pane {
+  display: none;
+  flex-direction: column;
+  width: 260px;
+  min-width: 220px;
+  max-width: 320px;
+  border-right: 1px solid var(--border);
+  background: var(--bg-surface);
+  min-height: 0;
+}
+
+body.pr-review-mode #pr-file-pane {
+  display: flex;
+}
+
+.pr-file-pane-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+#pr-file-pane-title {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+#pr-file-pane-close {
+  display: none;
+}
+
+.pr-file-list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.pr-file-item {
+  width: 100%;
+  margin: 0;
+  border: 0;
+  border-bottom: 1px solid #d1d5db;
+  border-radius: 0;
+  text-align: left;
+  padding: 0.42rem 0.6rem;
+  color: #111827;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.82rem;
+  line-height: 1.3;
+}
+
+.pr-file-item:hover {
+  background: #f3f4f6;
+}
+
+.pr-file-item.is-active {
+  background: #111827;
+  color: #f9fafb;
+}
+
+.pr-file-status {
+  width: 1.15rem;
+  flex: 0 0 auto;
+  font-size: 0.74rem;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.pr-file-item.is-active .pr-file-status {
+  color: #f9fafb;
+}
+
+.pr-file-status.status-added { color: #047857; }
+.pr-file-status.status-modified { color: #1d4ed8; }
+.pr-file-status.status-deleted { color: #b91c1c; }
+.pr-file-status.status-renamed { color: #92400e; }
+
+.pr-file-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 #canvas-column {
@@ -98,6 +189,25 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   min-height: 0;
   display: flex;
   flex-direction: column;
+  position: relative;
+}
+
+#pr-file-drawer-toggle {
+  display: none;
+  position: absolute;
+  top: 0.6rem;
+  left: 0.6rem;
+  z-index: 115;
+  padding: 0.28rem 0.58rem;
+  font-size: 0.74rem;
+  border-radius: 999px;
+  background: #111827;
+  color: #f9fafb;
+  border: 1px solid #111827;
+}
+
+#pr-file-drawer-backdrop {
+  display: none;
 }
 
 #canvas-viewport {
@@ -450,10 +560,10 @@ body.keyboard-open .zen-indicator.is-working {
 /* Edge panels */
 .edge-left-tap {
   position: fixed;
-  top: 0;
   left: 0;
+  right: 0;
   bottom: 0;
-  width: 20px;
+  height: calc(16px + var(--zen-safe-area-bottom, 0px));
   z-index: 150;
   margin: 0;
   border: 0;
@@ -471,7 +581,7 @@ body.keyboard-open .zen-indicator.is-working {
 
 @media (max-width: 768px) {
   .edge-left-tap {
-    width: 30px;
+    height: calc(24px + var(--zen-safe-area-bottom, 0px));
   }
 }
 
@@ -771,6 +881,61 @@ body.keyboard-open .zen-indicator.is-working {
 
   .edge-top {
     height: 200px;
+  }
+}
+
+@media (min-width: 768px) {
+  body.pr-review-mode #canvas-text,
+  body.pr-review-mode #canvas-image,
+  body.pr-review-mode #canvas-pdf {
+    padding-left: 0.85rem;
+    padding-right: 0.85rem;
+  }
+}
+
+@media (max-width: 767px) {
+  body.pr-review-mode #pr-file-drawer-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #pr-file-pane-close {
+    display: inline-block;
+  }
+
+  #pr-file-pane {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: min(84vw, 340px);
+    max-width: min(84vw, 340px);
+    transform: translateX(-102%);
+    transition: transform 0.2s ease;
+    z-index: 420;
+    border-right: 1px solid var(--border);
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.24);
+  }
+
+  #pr-file-pane.is-open {
+    transform: translateX(0);
+  }
+
+  #pr-file-drawer-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 410;
+    background: rgba(0, 0, 0, 0.3);
+  }
+
+  body.pr-review-mode #pr-file-drawer-backdrop.is-open {
+    display: block;
+  }
+
+  body.pr-review-mode #pr-file-pane {
+    display: flex;
   }
 }
 #canvas-text ul,

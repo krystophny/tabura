@@ -56,6 +56,12 @@ const state = {
   lastInputOrigin: 'text',
   pendingSubmitController: null,
   pendingSubmitKind: '',
+  prReviewMode: false,
+  prReviewFiles: [],
+  prReviewActiveIndex: 0,
+  prReviewTitle: '',
+  prReviewPRNumber: '',
+  prReviewDrawerOpen: false,
 };
 
 export function getState() {
@@ -1312,6 +1318,9 @@ function cancelChatVoiceCapture() {
 function showCanvasColumn(paneId) {
   const col = document.getElementById('canvas-column');
   if (!col) return;
+  if (paneId !== 'canvas-text') {
+    exitPrReviewMode();
+  }
   const viewport = col.querySelector('#canvas-viewport');
   if (viewport) {
     viewport.querySelectorAll('.canvas-pane').forEach((p) => {
@@ -1334,6 +1343,7 @@ function showCanvasColumn(paneId) {
 }
 
 function hideCanvasColumn() {
+  exitPrReviewMode();
   state.hasArtifact = false;
   setZenMode('rasa');
   clearLineHighlight();
@@ -1461,6 +1471,249 @@ function isRealCanvasArtifactEvent(payload) {
   const title = String(payload?.title || '').trim();
   if (!title) return false;
   return !isTemporaryCanvasArtifactTitle(title);
+}
+
+function isMobileViewport() {
+  return window.matchMedia('(max-width: 767px)').matches;
+}
+
+function statusBadgeForDiffFile(statusRaw) {
+  const normalized = String(statusRaw || '').trim().toLowerCase();
+  if (normalized === 'added') return 'A';
+  if (normalized === 'deleted') return 'D';
+  if (normalized === 'renamed') return 'R';
+  return 'M';
+}
+
+function parseUnifiedDiffFiles(diffText) {
+  const text = String(diffText || '').replaceAll('\r\n', '\n');
+  if (!text.trim()) return [];
+  const lines = text.split('\n');
+  const files = [];
+  let current = null;
+
+  const pushCurrent = () => {
+    if (!current) return;
+    const diff = current.lines.join('\n').trimEnd();
+    if (!diff) return;
+    files.push({
+      path: String(current.path || '(patch)'),
+      status: String(current.status || 'modified'),
+      diff,
+    });
+  };
+
+  const parsePathFromHeader = (line) => {
+    const match = /^diff --git a\/(.+?) b\/(.+)$/.exec(line);
+    if (!match) return '';
+    const right = String(match[2] || '').trim();
+    const left = String(match[1] || '').trim();
+    if (right && right !== '/dev/null') return right;
+    return left;
+  };
+
+  const parsePathFromMarker = (line, marker) => {
+    if (!line.startsWith(marker)) return '';
+    const raw = String(line.slice(marker.length)).trim();
+    if (!raw || raw === '/dev/null') return '';
+    return raw.startsWith('a/') || raw.startsWith('b/') ? raw.slice(2) : raw;
+  };
+
+  for (const line of lines) {
+    if (line.startsWith('diff --git ')) {
+      pushCurrent();
+      current = {
+        path: parsePathFromHeader(line) || '(patch)',
+        status: 'modified',
+        lines: [line],
+      };
+      continue;
+    }
+
+    if (!current) {
+      continue;
+    }
+
+    current.lines.push(line);
+    if (line.startsWith('new file mode ')) {
+      current.status = 'added';
+      continue;
+    }
+    if (line.startsWith('deleted file mode ')) {
+      current.status = 'deleted';
+      continue;
+    }
+    if (line.startsWith('rename from ')) {
+      current.status = 'renamed';
+      continue;
+    }
+    if (line.startsWith('rename to ')) {
+      const renamedTo = String(line.slice('rename to '.length)).trim();
+      if (renamedTo) current.path = renamedTo;
+      current.status = 'renamed';
+      continue;
+    }
+    const plusPath = parsePathFromMarker(line, '+++ ');
+    if (plusPath && current.path === '(patch)') {
+      current.path = plusPath;
+      continue;
+    }
+    const minusPath = parsePathFromMarker(line, '--- ');
+    if (minusPath && current.path === '(patch)') {
+      current.path = minusPath;
+    }
+  }
+  pushCurrent();
+
+  if (files.length > 0) return files;
+  return [{
+    path: '(patch)',
+    status: 'modified',
+    diff: text.trimEnd(),
+  }];
+}
+
+function setPrReviewDrawerOpen(open) {
+  const shouldOpen = Boolean(open);
+  state.prReviewDrawerOpen = shouldOpen;
+  const pane = document.getElementById('pr-file-pane');
+  const backdrop = document.getElementById('pr-file-drawer-backdrop');
+  if (pane) pane.classList.toggle('is-open', shouldOpen);
+  if (backdrop) backdrop.classList.toggle('is-open', shouldOpen);
+}
+
+function resetPrReviewUi() {
+  document.body.classList.remove('pr-review-mode');
+  setPrReviewDrawerOpen(false);
+  const title = document.getElementById('pr-file-pane-title');
+  if (title) title.textContent = 'Files';
+  const list = document.getElementById('pr-file-list');
+  if (list) list.innerHTML = '';
+}
+
+function renderPrReviewFileList() {
+  const list = document.getElementById('pr-file-list');
+  if (!(list instanceof HTMLElement)) return;
+  const title = document.getElementById('pr-file-pane-title');
+  const files = Array.isArray(state.prReviewFiles) ? state.prReviewFiles : [];
+  if (title) {
+    if (files.length > 0) {
+      const prefix = state.prReviewPRNumber ? `PR #${state.prReviewPRNumber}` : 'PR Review';
+      title.textContent = `${prefix} (${state.prReviewActiveIndex + 1}/${files.length})`;
+    } else {
+      title.textContent = 'Files';
+    }
+  }
+  list.innerHTML = '';
+  files.forEach((file, index) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'pr-file-item';
+    if (index === state.prReviewActiveIndex) {
+      button.classList.add('is-active');
+    }
+    button.setAttribute('aria-label', String(file?.path || `File ${index + 1}`));
+    button.dataset.index = String(index);
+
+    const status = document.createElement('span');
+    const statusName = String(file?.status || 'modified').toLowerCase();
+    status.className = `pr-file-status status-${statusName}`;
+    status.textContent = statusBadgeForDiffFile(statusName);
+
+    const label = document.createElement('span');
+    label.className = 'pr-file-name';
+    label.textContent = String(file?.path || `(file ${index + 1})`);
+
+    button.appendChild(status);
+    button.appendChild(label);
+    button.addEventListener('click', () => {
+      setPrReviewActiveFile(index);
+      if (isMobileViewport()) {
+        setPrReviewDrawerOpen(false);
+      }
+    });
+    list.appendChild(button);
+  });
+}
+
+function renderActivePrReviewFile() {
+  const files = Array.isArray(state.prReviewFiles) ? state.prReviewFiles : [];
+  if (!state.prReviewMode || files.length === 0) return false;
+  if (state.prReviewActiveIndex < 0 || state.prReviewActiveIndex >= files.length) {
+    state.prReviewActiveIndex = 0;
+  }
+  const file = files[state.prReviewActiveIndex];
+  if (!file) return false;
+  renderCanvas({
+    kind: 'text_artifact',
+    event_id: `pr-review-${Date.now()}-${state.prReviewActiveIndex}`,
+    title: String(file.path || ''),
+    text: String(file.diff || ''),
+  });
+  showCanvasColumn('canvas-text');
+  renderPrReviewFileList();
+  return true;
+}
+
+function setPrReviewActiveFile(index) {
+  const files = Array.isArray(state.prReviewFiles) ? state.prReviewFiles : [];
+  if (!state.prReviewMode || files.length === 0) return false;
+  const total = files.length;
+  let next = Number(index);
+  if (!Number.isFinite(next)) return false;
+  next = ((Math.trunc(next) % total) + total) % total;
+  if (next === state.prReviewActiveIndex) {
+    renderPrReviewFileList();
+    return false;
+  }
+  state.prReviewActiveIndex = next;
+  return renderActivePrReviewFile();
+}
+
+function stepPrReviewFile(delta) {
+  if (!state.prReviewMode) return false;
+  const files = Array.isArray(state.prReviewFiles) ? state.prReviewFiles : [];
+  if (files.length <= 1) return false;
+  const shift = Number(delta);
+  if (!Number.isFinite(shift) || shift === 0) return false;
+  return setPrReviewActiveFile(state.prReviewActiveIndex + shift);
+}
+
+function exitPrReviewMode() {
+  if (!state.prReviewMode && (!state.prReviewFiles || state.prReviewFiles.length === 0)) {
+    return;
+  }
+  state.prReviewMode = false;
+  state.prReviewFiles = [];
+  state.prReviewActiveIndex = 0;
+  state.prReviewTitle = '';
+  state.prReviewPRNumber = '';
+  resetPrReviewUi();
+}
+
+function maybeEnterPrReviewModeFromTextArtifact(payload) {
+  const kind = String(payload?.kind || '').trim().toLowerCase();
+  if (kind !== 'text_artifact' && kind !== 'text') return false;
+  const title = String(payload?.title || '').trim();
+  const text = String(payload?.text || '');
+  if (!text.trim()) return false;
+  const titleHint = /\.diff$|\.patch$/i.test(title);
+  const hasDiffHeader = text.includes('\ndiff --git ') || text.startsWith('diff --git ');
+  if (!titleHint && !hasDiffHeader) return false;
+  const files = parseUnifiedDiffFiles(text);
+  if (files.length === 0) return false;
+  if (!titleHint && files.length < 2) return false;
+
+  state.prReviewMode = true;
+  state.prReviewFiles = files;
+  state.prReviewActiveIndex = 0;
+  state.prReviewTitle = title;
+  const numberMatch = /(?:^|[^0-9])pr[-_]?(\d+)(?:[^0-9]|$)/i.exec(title);
+  state.prReviewPRNumber = numberMatch ? String(numberMatch[1]) : '';
+  document.body.classList.add('pr-review-mode');
+  setPrReviewDrawerOpen(false);
+  renderPrReviewFileList();
+  return renderActivePrReviewFile();
 }
 
 function trackAssistantTurnStarted(turnID) {
@@ -2531,6 +2784,46 @@ async function handleZenStopAction() {
   }
 }
 
+function applyCanvasArtifactEvent(payload) {
+  const kind = String(payload?.kind || '').trim().toLowerCase();
+  if (kind === 'clear_canvas') {
+    exitPrReviewMode();
+    renderCanvas(payload);
+    hideCanvasColumn();
+    return;
+  }
+
+  let handledByPrReview = false;
+  if (kind === 'text_artifact' || kind === 'text') {
+    handledByPrReview = maybeEnterPrReviewModeFromTextArtifact(payload);
+  } else {
+    exitPrReviewMode();
+  }
+
+  if (!handledByPrReview && state.prReviewMode) {
+    exitPrReviewMode();
+  }
+
+  if (!handledByPrReview) {
+    renderCanvas(payload);
+  }
+
+  if (kind) {
+    state.indicatorSuppressedByCanvasUpdate = true;
+    updateAssistantActivityIndicator();
+  }
+
+  const paneId = paneIdForCanvasKind(payload.kind);
+  if (!paneId) return;
+  const realCanvasArtifact = isRealCanvasArtifactEvent(payload);
+  showCanvasColumn(paneId);
+  state.zenCanvasActionThisTurn = state.zenCanvasActionThisTurn || realCanvasArtifact;
+  if (isMobileSilent() && realCanvasArtifact) {
+    const edgeRight = document.getElementById('edge-right');
+    if (edgeRight) edgeRight.classList.remove('edge-active', 'edge-pinned');
+  }
+}
+
 function openCanvasWs() {
   const turnToken = state.canvasWsToken + 1;
   state.canvasWsToken = turnToken;
@@ -2549,25 +2842,7 @@ function openCanvasWs() {
     if (turnToken !== state.canvasWsToken || targetSessionID !== state.sessionId) return;
     try {
       const payload = JSON.parse(event.data);
-      renderCanvas(payload);
-      const kind = String(payload?.kind || '').trim().toLowerCase();
-      if (kind && kind !== 'clear_canvas') {
-        state.indicatorSuppressedByCanvasUpdate = true;
-        updateAssistantActivityIndicator();
-      }
-      const paneId = paneIdForCanvasKind(payload.kind);
-      if (paneId) {
-        const realCanvasArtifact = isRealCanvasArtifactEvent(payload);
-        showCanvasColumn(paneId);
-        state.zenCanvasActionThisTurn = state.zenCanvasActionThisTurn || realCanvasArtifact;
-        if (isMobileSilent() && realCanvasArtifact) {
-          const edgeRight = document.getElementById('edge-right');
-          if (edgeRight) edgeRight.classList.remove('edge-active', 'edge-pinned');
-        }
-      }
-      if (kind === 'clear_canvas') {
-        hideCanvasColumn();
-      }
+      applyCanvasArtifactEvent(payload);
     } catch (_) {}
   };
 
@@ -2584,20 +2859,27 @@ function openCanvasWs() {
 async function loadCanvasSnapshot(sessionID = state.sessionId) {
   try {
     const resp = await fetch(`/api/canvas/${encodeURIComponent(sessionID)}/snapshot`);
-    if (!resp.ok) { clearCanvas(); return; }
-    const payload = await resp.json();
-    if (payload?.event) {
-      renderCanvas(payload.event);
-      const ev = payload.event;
-      const paneId = paneIdForCanvasKind(ev.kind);
-      if (paneId) {
-        showCanvasColumn(paneId);
+    if (!resp.ok) {
+      if (!state.hasArtifact) {
+        exitPrReviewMode();
+        clearCanvas();
       }
       return;
     }
-    clearCanvas();
+    const payload = await resp.json();
+    if (payload?.event) {
+      applyCanvasArtifactEvent(payload.event);
+      return;
+    }
+    if (!state.hasArtifact) {
+      exitPrReviewMode();
+      clearCanvas();
+    }
   } catch (_) {
-    clearCanvas();
+    if (!state.hasArtifact) {
+      exitPrReviewMode();
+      clearCanvas();
+    }
   }
 }
 
@@ -2630,7 +2912,7 @@ function edgePanelsAreOpen() {
   return topOpen || rightOpen;
 }
 
-function handleLeftEdgeTap() {
+function handleRasaEdgeTap() {
   const hadOpenPanels = edgePanelsAreOpen();
   closeEdgePanels();
   if (hadOpenPanels) return;
@@ -2717,7 +2999,7 @@ function initEdgePanels() {
   if (edgeLeftTap) {
     edgeLeftTap.addEventListener('click', (ev) => {
       ev.preventDefault();
-      handleLeftEdgeTap();
+      handleRasaEdgeTap();
     });
   }
 
@@ -2736,6 +3018,27 @@ function initEdgePanels() {
     }, { passive: false });
   }
 
+  const prDrawerToggle = document.getElementById('pr-file-drawer-toggle');
+  if (prDrawerToggle) {
+    prDrawerToggle.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      if (!state.prReviewMode) return;
+      setPrReviewDrawerOpen(!state.prReviewDrawerOpen);
+    });
+  }
+  const prDrawerBackdrop = document.getElementById('pr-file-drawer-backdrop');
+  if (prDrawerBackdrop) {
+    prDrawerBackdrop.addEventListener('click', () => {
+      setPrReviewDrawerOpen(false);
+    });
+  }
+  const prPaneClose = document.getElementById('pr-file-pane-close');
+  if (prPaneClose) {
+    prPaneClose.addEventListener('click', () => {
+      setPrReviewDrawerOpen(false);
+    });
+  }
+
   // Mobile: touch tap and swipe from edges.
   // Buttons don't reliably fire click on iOS, so handle everything here.
   let edgeTouchHandled = false;
@@ -2744,12 +3047,12 @@ function initEdgePanels() {
     const t = ev.touches[0];
     const edgeTapSize = getEdgeTapSizePx();
     edgeTouchHandled = false;
-    if (t.clientX < edgeTapSize) {
-      edgeTouchStart = { x: t.clientX, y: t.clientY, edge: 'left' };
-    } else if (t.clientX > window.innerWidth - edgeTapSize) {
+    if (t.clientX > window.innerWidth - edgeTapSize) {
       edgeTouchStart = { x: t.clientX, y: t.clientY, edge: 'right' };
     } else if (t.clientY < edgeTapSize) {
       edgeTouchStart = { x: t.clientX, y: t.clientY, edge: 'top' };
+    } else if (t.clientY > window.innerHeight - edgeTapSize) {
+      edgeTouchStart = { x: t.clientX, y: t.clientY, edge: 'bottom' };
     } else {
       edgeTouchStart = null;
     }
@@ -2781,7 +3084,7 @@ function initEdgePanels() {
       const dy = Math.abs(touch.clientY - edgeTouchStart.y);
       if (dx < 20 && dy < 20) {
         switch (edgeTouchStart.edge) {
-          case 'left': handleLeftEdgeTap(); break;
+          case 'bottom': handleRasaEdgeTap(); break;
           case 'right': if (edgeRight) edgeRight.classList.add('edge-pinned'); break;
           case 'top': if (edgeTop) edgeTop.classList.add('edge-pinned'); break;
         }
@@ -2872,6 +3175,9 @@ function closeEdgePanels() {
   const edgeRight = document.getElementById('edge-right');
   if (edgeTop) edgeTop.classList.remove('edge-active', 'edge-pinned');
   if (edgeRight) edgeRight.classList.remove('edge-active', 'edge-pinned');
+  if (state.prReviewDrawerOpen) {
+    setPrReviewDrawerOpen(false);
+  }
 }
 
 function bindUi() {
@@ -2886,7 +3192,7 @@ function bindUi() {
   let hasLastMousePosition = false;
   const isInEdgeZone = (x, y) => {
     const s = getEdgeTapSizePx();
-    return x < s || x > window.innerWidth - s || y < s || y > window.innerHeight - s;
+    return x > window.innerWidth - s || y < s || y > window.innerHeight - s;
   };
   const isVoiceInteractionTarget = (target, x, y) => (
     isInEdgeZone(x, y)
@@ -2970,6 +3276,33 @@ function bindUi() {
   };
   if (canvasViewport instanceof HTMLElement) {
     canvasViewport.addEventListener('scroll', syncIndicatorOnViewportChange, { passive: true, capture: true });
+    let prSwipeStart = null;
+    let prSwipeHandled = false;
+    const resetPrSwipe = () => {
+      prSwipeStart = null;
+      prSwipeHandled = false;
+    };
+    canvasViewport.addEventListener('touchstart', (ev) => {
+      if (!state.prReviewMode || !isMobileViewport()) return;
+      if (state.prReviewDrawerOpen || ev.touches.length !== 1) return;
+      const touch = ev.touches[0];
+      prSwipeStart = { x: touch.clientX, y: touch.clientY };
+      prSwipeHandled = false;
+    }, { passive: true });
+    canvasViewport.addEventListener('touchmove', (ev) => {
+      if (!prSwipeStart || prSwipeHandled || !state.prReviewMode || ev.touches.length !== 1) return;
+      const touch = ev.touches[0];
+      const dx = touch.clientX - prSwipeStart.x;
+      const dy = touch.clientY - prSwipeStart.y;
+      if (Math.abs(dx) < 48) return;
+      if (Math.abs(dx) <= Math.abs(dy) * 1.25) return;
+      const moved = stepPrReviewFile(dx < 0 ? 1 : -1);
+      if (!moved) return;
+      prSwipeHandled = true;
+      ev.preventDefault();
+    }, { passive: false });
+    canvasViewport.addEventListener('touchend', resetPrSwipe, { passive: true });
+    canvasViewport.addEventListener('touchcancel', resetPrSwipe, { passive: true });
   }
   window.addEventListener('scroll', syncIndicatorOnViewportChange, { passive: true });
   window.addEventListener('resize', syncIndicatorOnViewportChange);
@@ -3253,6 +3586,10 @@ function bindUi() {
         hideTextInput();
         return;
       }
+      if (state.prReviewMode && state.prReviewDrawerOpen) {
+        setPrReviewDrawerOpen(false);
+        return;
+      }
       closeEdgePanels();
       if (state.hasArtifact) {
         clearCanvas();
@@ -3295,6 +3632,19 @@ function bindUi() {
 
     if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
     if (isEditableTarget(ev.target)) return;
+
+    if (state.prReviewMode) {
+      if (ev.key === 'ArrowRight' || ev.key === 'j' || ev.key === 'J') {
+        ev.preventDefault();
+        stepPrReviewFile(1);
+        return;
+      }
+      if (ev.key === 'ArrowLeft' || ev.key === 'k' || ev.key === 'K') {
+        ev.preventDefault();
+        stepPrReviewFile(-1);
+        return;
+      }
+    }
 
     // Auto-activate text input on printable key
     if (ev.key.length === 1 && !isTextInputVisible()) {

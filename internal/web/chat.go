@@ -389,12 +389,12 @@ func (a *App) executeChatCommand(sessionID, raw string) (map[string]interface{},
 			message = "Stopping assistant work and clearing queued prompts."
 		}
 		return map[string]interface{}{
-			"name":            name,
-			"canceled":        canceled,
-			"active_canceled": activeCanceled,
-			"queued_canceled": queuedCanceled,
+			"name":              name,
+			"canceled":          canceled,
+			"active_canceled":   activeCanceled,
+			"queued_canceled":   queuedCanceled,
 			"delegate_canceled": delegateCanceled,
-			"message":         message,
+			"message":           message,
 		}, nil
 	case "status":
 		message, err := a.fetchCodexStatusMessage(session.ProjectKey)
@@ -404,6 +404,52 @@ func (a *App) executeChatCommand(sessionID, raw string) (map[string]interface{},
 		return map[string]interface{}{
 			"name":    "status",
 			"message": message,
+		}, nil
+	case "pr":
+		selector := ""
+		if len(parts) > 1 {
+			selector = strings.TrimSpace(strings.Join(parts[1:], " "))
+		}
+		review, err := a.loadGitHubPRReview(session.ProjectKey, selector)
+		if err != nil {
+			return nil, err
+		}
+		canvasSessionID := strings.TrimSpace(a.resolveCanvasSessionID(session.ProjectKey))
+		if canvasSessionID == "" {
+			return nil, errors.New("canvas session is not available")
+		}
+		artifactPath := filepath.ToSlash(filepath.Join(".tabura", "artifacts", "pr", fmt.Sprintf("pr-%d.diff", review.View.Number)))
+		if !a.writeCanvasFileBlock(session.ProjectKey, canvasSessionID, fileBlock{
+			Path:    artifactPath,
+			Content: review.Diff,
+		}) {
+			return nil, errors.New("failed to publish PR diff to canvas")
+		}
+		title := strings.TrimSpace(review.View.Title)
+		if title == "" {
+			title = fmt.Sprintf("PR #%d", review.View.Number)
+		}
+		baseRef := strings.TrimSpace(review.View.BaseRefName)
+		headRef := strings.TrimSpace(review.View.HeadRefName)
+		if baseRef == "" || headRef == "" {
+			return map[string]interface{}{
+				"name":          "pr",
+				"pr_number":     review.View.Number,
+				"pr_title":      title,
+				"pr_url":        strings.TrimSpace(review.View.URL),
+				"files_changed": review.FileCount,
+				"message":       fmt.Sprintf("Loaded %s (%d files).", title, review.FileCount),
+			}, nil
+		}
+		return map[string]interface{}{
+			"name":          "pr",
+			"pr_number":     review.View.Number,
+			"pr_title":      title,
+			"pr_url":        strings.TrimSpace(review.View.URL),
+			"base_ref":      baseRef,
+			"head_ref":      headRef,
+			"files_changed": review.FileCount,
+			"message":       fmt.Sprintf("Loaded PR #%d: %s (%s -> %s, %d files).", review.View.Number, title, headRef, baseRef, review.FileCount),
 		}, nil
 	case "clear", "clearall", "reset":
 		report, err := a.clearAllAgentsAndContexts(session.ID)

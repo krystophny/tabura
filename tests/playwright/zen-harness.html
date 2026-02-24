@@ -14,7 +14,16 @@
     <div id="view-main" class="view">
 
       <div id="workspace">
+        <aside id="pr-file-pane" aria-label="Pull request files">
+          <div class="pr-file-pane-head">
+            <span id="pr-file-pane-title">Files</span>
+            <button id="pr-file-pane-close" type="button" class="edge-btn">Close</button>
+          </div>
+          <div id="pr-file-list" class="pr-file-list"></div>
+        </aside>
         <div id="canvas-column">
+          <button id="pr-file-drawer-toggle" type="button" aria-label="Open pull request file list">Files</button>
+          <div id="pr-file-drawer-backdrop" aria-hidden="true"></div>
           <div id="canvas-viewport">
             <section id="canvas-text" class="canvas-pane" aria-label="Text artifact"></section>
             <section id="canvas-image" class="canvas-pane" aria-label="Image artifact"><img id="canvas-img" alt="artifact"></section>
@@ -34,6 +43,7 @@
         <div class="zen-overlay-content"></div>
       </div>
 
+      <button id="edge-left-tap" type="button" class="edge-left-tap" aria-label="Tabula Rasa"></button>
       <button id="edge-right-tap" type="button" class="edge-right-tap" aria-label="Open chat panel"></button>
 
       <div id="edge-top" class="edge-panel edge-top">
