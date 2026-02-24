@@ -281,20 +281,30 @@ func (s *Session) readTurnUntilComplete(ctx context.Context, turnRPCID int, onEv
 		case "item/completed":
 			if item, _ := params["item"].(map[string]interface{}); item != nil {
 				typ, _ := item["type"].(string)
+				detail := extractItemDetail(item)
 				if typ == "agentMessage" {
 					if text, _ := item["text"].(string); strings.TrimSpace(text) != "" {
 						message = text
 					}
-				} else if typ == "fileChange" {
+					continue
+				}
+				if typ == "fileChange" {
 					p := extractFileChangePath(item)
 					if p != "" {
 						fileChanges = append(fileChanges, p)
 					}
-					if onEvent != nil {
-						onEvent(StreamEvent{Type: "item_completed", ThreadID: s.threadID, TurnID: turnID, Message: typ, Detail: p})
+					if detail == "" {
+						detail = p
 					}
-				} else if typ != "" && onEvent != nil {
-					onEvent(StreamEvent{Type: "item_completed", ThreadID: s.threadID, TurnID: turnID, Message: typ})
+				}
+				if typ != "" && onEvent != nil {
+					onEvent(StreamEvent{
+						Type:     "item_completed",
+						ThreadID: s.threadID,
+						TurnID:   turnID,
+						Message:  typ,
+						Detail:   detail,
+					})
 				}
 			}
 		case "turn/completed":

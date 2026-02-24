@@ -211,6 +211,48 @@ test.describe('zen canvas - response overlay', () => {
     await expect(overlay).toBeHidden();
   });
 
+  test('item progress stays in the active assistant row through final output', async ({ page }) => {
+    await page.keyboard.type('run checks');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(120);
+
+    await injectChatEvent(page, { type: 'turn_started', turn_id: 'turn-progress-1' });
+    await page.waitForTimeout(80);
+
+    await injectChatEvent(page, {
+      type: 'item_completed',
+      turn_id: 'turn-progress-1',
+      item_type: 'exec_command',
+      detail: 'go test ./internal/web -run TestStop',
+    });
+    await injectChatEvent(page, {
+      type: 'item_completed',
+      turn_id: 'turn-progress-1',
+      item_type: 'reasoning',
+      detail: 'Validating stop handling and cancellation paths',
+    });
+    await page.waitForTimeout(80);
+
+    const assistantRow = page.locator('#chat-history .chat-message.chat-assistant').first();
+    await expect(assistantRow).toContainText('exec command');
+    await expect(assistantRow).toContainText('go test ./internal/web -run TestStop');
+    await expect(assistantRow).toContainText('reasoning');
+
+    await injectChatEvent(page, {
+      type: 'assistant_output',
+      role: 'assistant',
+      turn_id: 'turn-progress-1',
+      message: 'Stop flow is now stable.',
+      auto_canvas: false,
+    });
+    await page.waitForTimeout(100);
+
+    await expect(assistantRow).toContainText('Stop flow is now stable.');
+    await expect(assistantRow).toContainText('exec command');
+    await expect(page.locator('#chat-history .chat-message.chat-system')).toHaveCount(0);
+    await expect(page.locator('#chat-history .chat-message.chat-assistant.is-pending')).toHaveCount(0);
+  });
+
   test('empty canvas switches from text overlay to symbol on first artifact event', async ({ page }) => {
     await page.evaluate(() => {
       const zenMod = (window as any).__zenModule;

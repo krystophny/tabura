@@ -653,6 +653,31 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   font-size: 0.82rem;
 }
 
+.chat-bubble-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin-bottom: 0.35rem;
+}
+
+.chat-bubble-progress:empty {
+  display: none;
+}
+
+.chat-bubble-progress-line {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: #374151;
+  border-left: 2px solid #d1d5db;
+  padding-left: 0.45rem;
+  white-space: pre-wrap;
+}
+
+.chat-bubble-body {
+  min-width: 0;
+}
+
 .chat-message.chat-user {
   margin-left: auto;
   align-items: flex-end;
@@ -770,4 +795,3 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 body.silent-mode .edge-left-tap { z-index: 250; }
 body.silent-mode .edge-top { z-index: 250; }
 body.silent-mode .zen-indicator { z-index: 1000; }
-

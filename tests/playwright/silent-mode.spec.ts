@@ -103,6 +103,7 @@ test.describe('silent mode mobile', () => {
     // Chat row should be updated with streaming text
     const chatBubble = page.locator('#chat-history .chat-message.chat-assistant .chat-bubble');
     await expect(chatBubble.first()).toContainText('Streaming response');
+    await expect(edgeRight).toHaveClass(/edge-pinned/);
 
     // Inject canvas event (simulating autoCanvas file write)
     await injectCanvasEvent(page, {
@@ -112,6 +113,7 @@ test.describe('silent mode mobile', () => {
       text: 'Full final response on canvas.',
     });
     await page.waitForTimeout(100);
+    await expect(edgeRight).not.toHaveClass(/edge-pinned/);
 
     // Inject final assistant_output with auto_canvas
     await injectChatEvent(page, {
@@ -127,7 +129,7 @@ test.describe('silent mode mobile', () => {
     await expect(edgeRight).not.toHaveClass(/edge-pinned/);
   });
 
-  test('non-autoCanvas response renders on canvas and closes panel', async ({ page }) => {
+  test('non-autoCanvas response mirrors to canvas and keeps chat panel focused', async ({ page }) => {
     const edgeRight = page.locator('#edge-right');
     await expect(edgeRight).toHaveClass(/edge-pinned/);
 
@@ -148,8 +150,8 @@ test.describe('silent mode mobile', () => {
     });
     await page.waitForTimeout(200);
 
-    // Chat pane should be closed
-    await expect(edgeRight).not.toHaveClass(/edge-pinned/);
+    // Chat pane should remain open/focused for mirrored text responses
+    await expect(edgeRight).toHaveClass(/edge-pinned/);
 
     // Canvas should show the response
     const canvasText = page.locator('#canvas-text');

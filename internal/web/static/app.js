@@ -1479,28 +1479,117 @@ function appendRenderedAssistant(markdownText, options = {}) {
 
   const bubble = document.createElement('div');
   bubble.className = 'chat-bubble markdown';
+  const progress = document.createElement('div');
+  progress.className = 'chat-bubble-progress';
+  const body = document.createElement('div');
+  body.className = 'chat-bubble-body';
   const { text: markdownBody, stash: mathSegments } = extractMathSegments(markdownText);
   const rendered = marked.parse(markdownBody || '');
-  bubble.innerHTML = restoreMathSegments(sanitizeHtml(rendered), mathSegments);
+  body.innerHTML = restoreMathSegments(sanitizeHtml(rendered), mathSegments);
+  bubble.appendChild(progress);
+  bubble.appendChild(body);
   row.appendChild(meta);
   row.appendChild(bubble);
   host.appendChild(row);
   syncChatScroll(host);
-  void typesetMath(bubble).finally(() => syncChatScroll(host));
+  void typesetMath(body).finally(() => syncChatScroll(host));
   return row;
+}
+
+function assistantRowBodyEl(row) {
+  if (!(row instanceof HTMLElement)) return null;
+  const body = row.querySelector('.chat-bubble-body');
+  if (body instanceof HTMLElement) return body;
+  const bubble = row.querySelector('.chat-bubble');
+  return bubble instanceof HTMLElement ? bubble : null;
+}
+
+function ensureAssistantProgressEl(row) {
+  if (!(row instanceof HTMLElement)) return null;
+  const bubble = row.querySelector('.chat-bubble');
+  if (!(bubble instanceof HTMLElement)) return null;
+  let progress = bubble.querySelector('.chat-bubble-progress');
+  if (progress instanceof HTMLElement) return progress;
+  progress = document.createElement('div');
+  progress.className = 'chat-bubble-progress';
+  const body = assistantRowBodyEl(row);
+  if (body && body !== bubble && body.parentElement === bubble) {
+    bubble.insertBefore(progress, body);
+  } else {
+    bubble.prepend(progress);
+  }
+  return progress;
+}
+
+function appendAssistantProgressLine(row, text) {
+  if (!(row instanceof HTMLElement)) return;
+  const lineText = String(text || '').trim();
+  if (!lineText) return;
+  const progress = ensureAssistantProgressEl(row);
+  if (!(progress instanceof HTMLElement)) return;
+  const line = document.createElement('div');
+  line.className = 'chat-bubble-progress-line';
+  line.textContent = lineText;
+  progress.appendChild(line);
+  const host = chatHistoryEl();
+  syncChatScroll(host);
+}
+
+function findAssistantRowForTurn(turnID) {
+  const key = String(turnID || '').trim();
+  if (key && state.pendingByTurn.has(key)) {
+    return state.pendingByTurn.get(key);
+  }
+  const host = chatHistoryEl();
+  if (!host) return null;
+  const rows = host.querySelectorAll('.chat-message.chat-assistant');
+  for (let i = rows.length - 1; i >= 0; i -= 1) {
+    const row = rows[i];
+    if (!(row instanceof HTMLElement)) continue;
+    if (key && row.dataset.turnId === key) return row;
+    if (!key && row.classList.contains('is-pending')) return row;
+  }
+  return null;
+}
+
+function humanizeItemTypeLabel(raw) {
+  const value = String(raw || '').trim();
+  if (!value) return '';
+  return value
+    .replace(/[._-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function formatItemCompletedLabel(payload) {
+  const label = humanizeItemTypeLabel(payload?.item_type);
+  const detail = String(payload?.detail || '').trim();
+  if (!label && !detail) return '';
+  if (!label) return detail;
+  if (!detail) return label;
+  return `${label}: ${detail}`;
+}
+
+function appendAssistantProgressForTurn(turnID, text) {
+  const line = String(text || '').trim();
+  if (!line) return;
+  const existing = findAssistantRowForTurn(turnID);
+  const row = existing || ensurePendingForTurn(turnID);
+  if (!(row instanceof HTMLElement)) return;
+  appendAssistantProgressLine(row, line);
 }
 
 function updateAssistantRow(row, markdownText, pending = true) {
   if (!row) return;
   const host = chatHistoryEl();
   row.classList.toggle('is-pending', pending);
-  const bubble = row.querySelector('.chat-bubble');
-  if (!(bubble instanceof HTMLElement)) return;
+  const body = assistantRowBodyEl(row);
+  if (!(body instanceof HTMLElement)) return;
   const { text: markdownBody, stash: mathSegments } = extractMathSegments(markdownText);
   const rendered = marked.parse(markdownBody || '');
-  bubble.innerHTML = restoreMathSegments(sanitizeHtml(rendered), mathSegments);
+  body.innerHTML = restoreMathSegments(sanitizeHtml(rendered), mathSegments);
   syncChatScroll(host);
-  void typesetMath(bubble).finally(() => syncChatScroll(host));
+  void typesetMath(body).finally(() => syncChatScroll(host));
 }
 
 function ensurePendingForTurn(turnID) {
@@ -1970,7 +2059,6 @@ function handleChatEvent(payload) {
       state.turnFirstResponseShown = true;
       if (isMobileSilent()) {
         renderCanvas({ kind: 'text_artifact', title: '', text: md });
-        showCanvasColumn('canvas-text');
       }
       if (isVoiceTurn() && canSpeakTTS()) {
         const { ttsText, ttsLang } = extractTTSText(md);
@@ -2029,20 +2117,17 @@ function handleChatEvent(payload) {
       ttsSentenceChunker.flush();
     }
     if (mobileSilent) {
-      if (state.zenCanvasActionThisTurn || autoCanvas) {
+      if (state.zenCanvasActionThisTurn) {
         // LLM touched the canvas this turn — keep showing the document.
         const edgeRight = document.getElementById('edge-right');
         if (edgeRight) edgeRight.classList.remove('edge-active', 'edge-pinned');
       } else if (hasDisplayMd) {
-        // No canvas changes — show final message on canvas.
+        // Mirror final answer on canvas while keeping chat in focus.
         renderCanvas({
           kind: 'text_artifact',
           title: '',
           text: displayMd,
         });
-        showCanvasColumn('canvas-text');
-        const edgeRight = document.getElementById('edge-right');
-        if (edgeRight) edgeRight.classList.remove('edge-active', 'edge-pinned');
       }
       hideOverlay();
       state.zenCanvasActionThisTurn = false;
@@ -2068,12 +2153,9 @@ function handleChatEvent(payload) {
   }
 
   if (type === 'item_completed') {
-    const itemType = String(payload.item_type || '').trim();
-    const detail = String(payload.detail || '').trim();
-    if (itemType) {
-      const label = detail ? `${itemType}: ${detail}` : itemType;
-      appendPlainMessage('system', label);
-    }
+    const turnID = String(payload.turn_id || '').trim();
+    const line = formatItemCompletedLabel(payload);
+    appendAssistantProgressForTurn(turnID, line);
     return;
   }
 
@@ -2369,6 +2451,10 @@ function openCanvasWs() {
       if (paneId) {
         showCanvasColumn(paneId);
         state.zenCanvasActionThisTurn = true;
+        if (isMobileSilent()) {
+          const edgeRight = document.getElementById('edge-right');
+          if (edgeRight) edgeRight.classList.remove('edge-active', 'edge-pinned');
+        }
       }
       if (kind === 'clear_canvas') {
         hideCanvasColumn();
