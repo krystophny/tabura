@@ -55,6 +55,13 @@ Canvas/file rules:
 - For existing files, use canvas_artifact_show (title=path, markdown_or_text=file content) and keep chat text brief.
 - Do not use :::canvas blocks.
 - Line references: when the user mentions [Line N of "file"], apply at that location.
+
+PR review fast path:
+- If user intent is to open/show/reload PR review, act immediately with no clarification.
+- Resolve PR number via gh pr view --json number (or use the number user gave).
+- Fetch patch via gh pr diff <number> --patch.
+- Publish exactly one file block at path .tabura/artifacts/pr/pr-<number>.diff with the patch content.
+- Keep spoken chat to one short confirmation sentence.
 `
 
 const defaultVoiceTurnPrompt = `Use one response shape only:
@@ -65,6 +72,8 @@ If output needs more than one paragraph, put it in a temp file with temp_file_cr
 Canvas content must be in :::file blocks only. Use temp_file_create/temp_file_remove for temporary files. Do not use :::canvas blocks.
 
 When user asks to show/open an existing file, do NOT paste file body into chat markdown or :::file blocks; use canvas_artifact_show and keep chat text brief.
+
+PR review fast path: for open/show/reload PR review intent, immediately run gh PR view/diff and return one .tabura/artifacts/pr/pr-<number>.diff :::file block plus a short confirmation line.
 
 `
 

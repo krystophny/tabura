@@ -1727,6 +1727,15 @@ function maybeEnterPrReviewModeFromTextArtifact(payload) {
   return renderActivePrReviewFile();
 }
 
+function isLikelyPrReviewArtifact(payload) {
+  const kind = String(payload?.kind || '').trim().toLowerCase();
+  if (kind !== 'text_artifact' && kind !== 'text') return false;
+  const title = String(payload?.title || '').trim().toLowerCase();
+  if (!title) return false;
+  return /(?:^|\/)\.tabura\/artifacts\/pr\/pr-\d+\.(?:diff|patch)$/.test(title)
+    || /(?:^|\/)artifacts\/pr\/pr-\d+\.(?:diff|patch)$/.test(title);
+}
+
 function trackAssistantTurnStarted(turnID) {
   state.assistantLastError = '';
   const key = String(turnID || '').trim();
@@ -2812,10 +2821,14 @@ function applyCanvasArtifactEvent(payload) {
   }
 
   let handledByPrReview = false;
-  if (state.prReviewAwaitingArtifact && (kind === 'text_artifact' || kind === 'text')) {
+  const textArtifact = kind === 'text_artifact' || kind === 'text';
+  if (textArtifact && (state.prReviewAwaitingArtifact || state.prReviewMode || isLikelyPrReviewArtifact(payload))) {
     handledByPrReview = maybeEnterPrReviewModeFromTextArtifact(payload);
+  }
+  if (state.prReviewAwaitingArtifact) {
     state.prReviewAwaitingArtifact = false;
-  } else {
+  }
+  if (!handledByPrReview) {
     exitPrReviewMode();
   }
 
