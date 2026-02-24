@@ -189,7 +189,7 @@ func TestBuildPromptFromHistory_PlanMode(t *testing.T) {
 	}
 }
 
-func TestBuildPromptFromHistoryForMode_SilentUsesAssistantReplyShape(t *testing.T) {
+func TestBuildPromptFromHistoryForMode_SilentUsesToolOnlyPreamble(t *testing.T) {
 	prompt := buildPromptFromHistoryForMode("chat", nil, nil, turnOutputModeSilent)
 	if strings.Contains(prompt, "You are Tabura") {
 		t.Error("silent prompt should not include identity preamble")
@@ -206,8 +206,8 @@ func TestBuildPromptFromHistoryForMode_SilentUsesAssistantReplyShape(t *testing.
 	if !strings.Contains(prompt, "delegate_to_model") {
 		t.Error("silent prompt should include delegation section")
 	}
-	if !strings.Contains(prompt, "Reply as ASSISTANT.") {
-		t.Error("silent prompt should end with Reply as ASSISTANT")
+	if strings.Contains(prompt, "Reply as ASSISTANT.") {
+		t.Error("silent prompt should not include assistant-style reply directive")
 	}
 }
 
@@ -339,13 +339,16 @@ File body line 2.
 	}
 }
 
-func TestBuildTurnPromptForMode_SilentUsesAssistantReplyShape(t *testing.T) {
+func TestBuildTurnPromptForMode_SilentUsesToolOnlyPreamble(t *testing.T) {
 	prompt := buildTurnPromptForMode([]store.ChatMessage{{
 		Role:         "user",
 		ContentPlain: "Please summarize this module.",
 	}}, nil, turnOutputModeSilent)
-	if !strings.Contains(prompt, "Reply as ASSISTANT.") {
-		t.Error("silent turn prompt should request assistant reply style")
+	if strings.Contains(prompt, "Reply as ASSISTANT.") {
+		t.Error("silent turn prompt should not include assistant reply style")
+	}
+	if !strings.Contains(prompt, "delegate_to_model") {
+		t.Error("silent turn prompt should include delegation section")
 	}
 	if strings.Contains(prompt, "Spoken chat must be one paragraph max.") {
 		t.Error("silent turn prompt should not include spoken paragraph limits")
