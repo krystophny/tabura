@@ -43,6 +43,7 @@ type StreamEvent struct {
 	TurnID      string
 	Message     string
 	Delta       string
+	Detail      string
 	Error       string
 	ContextUsed int64
 	ContextMax  int64
@@ -338,11 +339,12 @@ func (c *Client) readTurnUntilComplete(ctx context.Context, conn *websocket.Conn
 						message = text
 					}
 				} else if typ == "fileChange" {
-					if p := extractFileChangePath(item); p != "" {
+					p := extractFileChangePath(item)
+					if p != "" {
 						fileChanges = append(fileChanges, p)
 					}
 					if onEvent != nil {
-						onEvent(StreamEvent{Type: "item_completed", ThreadID: threadID, TurnID: turnID, Message: typ})
+						onEvent(StreamEvent{Type: "item_completed", ThreadID: threadID, TurnID: turnID, Message: typ, Detail: p})
 					}
 				} else if typ != "" && onEvent != nil {
 					onEvent(StreamEvent{Type: "item_completed", ThreadID: threadID, TurnID: turnID, Message: typ})

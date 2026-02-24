@@ -1919,12 +1919,10 @@ function handleChatEvent(payload) {
     trackAssistantTurnStarted(turnID);
     state.voiceAwaitingTurn = false;
     state.indicatorSuppressedByCanvasUpdate = false;
-    if (turnIsVoice) {
-      ensurePendingForTurn(turnID);
-    } else if (isMobileSilent()) {
+    ensurePendingForTurn(turnID);
+    if (isMobileSilent()) {
       const edgeRight = document.getElementById('edge-right');
       if (edgeRight) edgeRight.classList.add('edge-pinned');
-      ensurePendingForTurn(turnID);
     }
     state.zenCanvasActionThisTurn = false;
     // Reset TTS state for new turn
@@ -1948,20 +1946,11 @@ function handleChatEvent(payload) {
     const md = String(payload.message || '');
     const autoCanvas = Boolean(payload.auto_canvas);
     const renderOnCanvas = Boolean(payload.render_on_canvas) || autoCanvas || assistantMessageUsesCanvasBlocks(md);
-    if (isVoiceTurn()) {
-      const row = ensurePendingForTurn(turnID);
-      if (String(md || '').trim()) {
-        updateAssistantRow(row, md, true);
-      } else if (!renderOnCanvas) {
-        updateAssistantRow(row, '_Thinking..._', true);
-      }
-    } else if (isMobileSilent()) {
-      const row = ensurePendingForTurn(turnID);
-      if (String(md || '').trim()) {
-        updateAssistantRow(row, md, true);
-      } else if (!renderOnCanvas) {
-        updateAssistantRow(row, '_Thinking..._', true);
-      }
+    const row = ensurePendingForTurn(turnID);
+    if (String(md || '').trim()) {
+      updateAssistantRow(row, md, true);
+    } else if (!renderOnCanvas) {
+      updateAssistantRow(row, '_Thinking..._', true);
     }
 
     if (autoCanvas) {
@@ -1993,15 +1982,13 @@ function handleChatEvent(payload) {
     const displayMd = md || (ttsLastSpeakText ? `_${ttsLastSpeakText}_` : '');
     const hasDisplayMd = Boolean(String(displayMd || '').trim());
     const mobileSilent = isMobileSilent();
-    if (isVoiceTurn() || mobileSilent) {
-      const row = takePendingRow(turnID);
-      if (row && hasDisplayMd) {
-        updateAssistantRow(row, displayMd, false);
-      } else if (row) {
-        row.classList.remove('is-pending');
-      } else if (hasDisplayMd) {
-        appendRenderedAssistant(displayMd);
-      }
+    const row = takePendingRow(turnID);
+    if (row && hasDisplayMd) {
+      updateAssistantRow(row, displayMd, false);
+    } else if (row) {
+      row.classList.remove('is-pending');
+    } else if (hasDisplayMd) {
+      appendRenderedAssistant(displayMd);
     }
     const shouldSpeakTurn = turnID ? state.voiceTurns.has(turnID) : false;
     trackAssistantTurnFinished(turnID);
@@ -2059,6 +2046,16 @@ function handleChatEvent(payload) {
       }
     }
     state.zenCanvasActionThisTurn = false;
+    return;
+  }
+
+  if (type === 'item_completed') {
+    const itemType = String(payload.item_type || '').trim();
+    const detail = String(payload.detail || '').trim();
+    if (itemType) {
+      const label = detail ? `${itemType}: ${detail}` : itemType;
+      appendPlainMessage('system', label);
+    }
     return;
   }
 

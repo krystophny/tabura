@@ -286,11 +286,12 @@ func (s *Session) readTurnUntilComplete(ctx context.Context, turnRPCID int, onEv
 						message = text
 					}
 				} else if typ == "fileChange" {
-					if p := extractFileChangePath(item); p != "" {
+					p := extractFileChangePath(item)
+					if p != "" {
 						fileChanges = append(fileChanges, p)
 					}
 					if onEvent != nil {
-						onEvent(StreamEvent{Type: "item_completed", ThreadID: s.threadID, TurnID: turnID, Message: typ})
+						onEvent(StreamEvent{Type: "item_completed", ThreadID: s.threadID, TurnID: turnID, Message: typ, Detail: p})
 					}
 				} else if typ != "" && onEvent != nil {
 					onEvent(StreamEvent{Type: "item_completed", ThreadID: s.threadID, TurnID: turnID, Message: typ})

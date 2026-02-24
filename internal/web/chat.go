@@ -917,6 +917,11 @@ func (a *App) runAssistantTurn(sessionID string, outputMode string) {
 			if renderPlan.AutoCanvas {
 				payload["auto_canvas"] = true
 			}
+		case "item_completed":
+			payload["item_type"] = ev.Message
+			if ev.Detail != "" {
+				payload["detail"] = ev.Detail
+			}
 		case "context_usage":
 			payload["context_used"] = ev.ContextUsed
 			payload["context_max"] = ev.ContextMax
