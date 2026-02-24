@@ -651,12 +651,9 @@ const els = {};
 let activeTextEventId = null;
 let activeArtifactTitle = '';
 let activePdfEvent = null;
-let activePdfCleanup = null;
-let activePdfRenderToken = 0;
 let previousArtifactText = '';
 let previousBlockTexts = [];
 let previousArtifactTitle = '';
-let pdfJsModulePromise = null;
 
 const MATH_SEGMENT_TOKEN_PREFIX = '@@TABURA_MATH_SEGMENT_';
 const PDF_MIN_RENDER_WIDTH_PX = 240;
