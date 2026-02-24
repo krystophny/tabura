@@ -17,7 +17,6 @@
   --terminal-text: #ffffff;
   --terminal-border: #ffffff;
   --zen-cue-corner-radius: 0 0 44px 44px;
-  --zen-cue-frame-inset: 0px;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -242,7 +241,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   --cue-chip-size: 22px;
   --cue-frame-border: 5px;
   --cue-frame-radius: var(--zen-cue-corner-radius);
-  --cue-frame-inset: var(--zen-cue-frame-inset);
+  --cue-frame-inset: 0px;
   display: block;
   position: fixed;
   inset: 0;

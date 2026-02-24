@@ -413,16 +413,13 @@ function applyIPhoneStandaloneCueHints() {
   const cueBorderWidth = Number.parseFloat(getComputedStyle(root).getPropertyValue('--cue-frame-border')) || 5;
   const cueHalfBorder = Math.max(0, cueBorderWidth / 2);
   const modeRadius = Math.max(0, Math.round(radius - cueHalfBorder));
-  const cueInset = `${cueHalfBorder}px`;
   body.classList.toggle('ios-cue-fullscreen', isStandaloneLike);
   if (isIPhoneDevice) {
-    root.style.setProperty('--zen-cue-frame-inset', cueInset);
     const cornerRadius = `0 0 ${modeRadius}px ${modeRadius}px`;
     root.style.setProperty('--zen-cue-corner-radius', cornerRadius);
     return;
   }
   root.style.removeProperty('--zen-cue-corner-radius');
-  root.style.removeProperty('--zen-cue-frame-inset');
 }
 
 window.addEventListener('resize', applyIPhoneStandaloneCueHints);
