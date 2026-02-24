@@ -368,6 +368,12 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   background: transparent;
 }
 
+@media (max-width: 768px) {
+  .edge-left-tap {
+    width: 30px;
+  }
+}
+
 .edge-panel {
   position: fixed;
   z-index: 200;

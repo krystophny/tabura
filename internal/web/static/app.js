@@ -2121,6 +2121,22 @@ async function loadCanvasSnapshot(sessionID = state.sessionId) {
 let edgeTopTimer = null;
 let edgeRightTimer = null;
 let edgeTouchStart = null;
+const EDGE_TAP_SIZE_PX = 20;
+const EDGE_TAP_SIZE_SMALL_PX = 30;
+const EDGE_TAP_SIZE_SMALL_MEDIA_QUERY = '(max-width: 768px)';
+
+function getEdgeTapSizePx() {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+    return EDGE_TAP_SIZE_PX;
+  }
+  try {
+    return window.matchMedia(EDGE_TAP_SIZE_SMALL_MEDIA_QUERY).matches
+      ? EDGE_TAP_SIZE_SMALL_PX
+      : EDGE_TAP_SIZE_PX;
+  } catch (_) {
+    return EDGE_TAP_SIZE_PX;
+  }
+}
 
 function edgePanelsAreOpen() {
   const edgeTop = document.getElementById('edge-top');
@@ -2147,13 +2163,14 @@ function initEdgePanels() {
 
   // Desktop: hover near edge
   document.addEventListener('mousemove', (ev) => {
+    const edgeTapSize = getEdgeTapSizePx();
     // Top edge
-    if (ev.clientY < 20 && edgeTop && !edgeTop.classList.contains('edge-pinned')) {
+    if (ev.clientY < edgeTapSize && edgeTop && !edgeTop.classList.contains('edge-pinned')) {
       edgeTop.classList.add('edge-active');
       if (edgeTopTimer) { clearTimeout(edgeTopTimer); edgeTopTimer = null; }
     }
     // Right edge
-    if (ev.clientX > window.innerWidth - 20 && edgeRight && !edgeRight.classList.contains('edge-pinned')) {
+    if (ev.clientX > window.innerWidth - edgeTapSize && edgeRight && !edgeRight.classList.contains('edge-pinned')) {
       edgeRight.classList.add('edge-active');
       if (edgeRightTimer) { clearTimeout(edgeRightTimer); edgeRightTimer = null; }
     }
@@ -2223,10 +2240,11 @@ function initEdgePanels() {
   document.addEventListener('touchstart', (ev) => {
     if (ev.touches.length !== 1) return;
     const t = ev.touches[0];
-    if (t.clientX > window.innerWidth - 20 || t.clientY < 20 || t.clientX < 20) {
+    const edgeTapSize = getEdgeTapSizePx();
+    if (t.clientX > window.innerWidth - edgeTapSize || t.clientY < edgeTapSize || t.clientX < edgeTapSize) {
       edgeTouchStart = { x: t.clientX, y: t.clientY, edge: null };
-      if (t.clientX > window.innerWidth - 20) edgeTouchStart.edge = 'right';
-      else if (t.clientY < 20) edgeTouchStart.edge = 'top';
+      if (t.clientX > window.innerWidth - edgeTapSize) edgeTouchStart.edge = 'right';
+      else if (t.clientY < edgeTapSize) edgeTouchStart.edge = 'top';
     }
   }, { passive: true });
 
