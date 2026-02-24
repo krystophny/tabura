@@ -56,6 +56,7 @@ The browser UI is a full-viewport canvas with no visible chrome:
 ## Interaction Model
 
 - **Tap/left-click** toggles voice recording. A red dot appears at the tap position.
+- Pure VAD detects end-of-utterance and commits speech input.
 - **Right-click** opens a floating text input at the cursor position.
 - **Keyboard typing** (when nothing is focused) auto-activates text input.
 - **Enter** sends the message; input is cleared.

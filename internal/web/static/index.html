@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>tabura</title>
   <link rel="stylesheet" href="/static/style.css">
   <link rel="stylesheet" href="/static/vendor/highlight-github.min.css">
@@ -44,12 +46,15 @@
         <div class="zen-overlay-content"></div>
       </div>
 
+      <button id="edge-left-tap" type="button" class="edge-left-tap" aria-label="Canvas focus"></button>
+
       <div id="edge-top" class="edge-panel edge-top">
         <div class="edge-panel-inner">
           <div class="edge-panel-head">
             <span class="edge-panel-title">Projects</span>
             <button id="btn-edge-rasa" type="button" class="edge-btn">Tabula Rasa</button>
           </div>
+          <div id="edge-top-models" aria-label="Project chat model"></div>
           <div id="edge-top-projects"></div>
         </div>
       </div>
@@ -61,6 +66,9 @@
             <span id="zen-status" class="zen-status"></span>
           </div>
           <div id="chat-history" aria-live="polite"></div>
+          <div class="chat-pane-input-row">
+            <textarea id="chat-pane-input" rows="1" placeholder="Message..."></textarea>
+          </div>
         </div>
       </div>
 

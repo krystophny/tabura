@@ -15,6 +15,8 @@ type projectsListResponse struct {
 		ID              string `json:"id"`
 		Name            string `json:"name"`
 		ChatSessionID   string `json:"chat_session_id"`
+		ChatModel       string `json:"chat_model"`
+		ReasoningEffort string `json:"chat_model_reasoning_effort"`
 		CanvasSessionID string `json:"canvas_session_id"`
 	} `json:"projects"`
 }
@@ -48,6 +50,9 @@ func TestProjectsListIncludesActiveAndSessions(t *testing.T) {
 	}
 	if first.CanvasSessionID == "" {
 		t.Fatalf("expected project canvas session id")
+	}
+	if first.ChatModel == "" {
+		t.Fatalf("expected project chat model")
 	}
 }
 
@@ -120,5 +125,100 @@ func TestCreateActivateProjectAffectsChatSessionCreation(t *testing.T) {
 	}
 	if sessionPayload.ProjectID != createPayload.Project.ID {
 		t.Fatalf("expected chat session project %q, got %q", createPayload.Project.ID, sessionPayload.ProjectID)
+	}
+}
+
+func TestProjectChatModelUpdate(t *testing.T) {
+	app := newAuthedTestApp(t)
+
+	rrList := doAuthedJSONRequest(t, app.Router(), http.MethodGet, "/api/projects", map[string]any{})
+	if rrList.Code != http.StatusOK {
+		t.Fatalf("expected list 200, got %d: %s", rrList.Code, rrList.Body.String())
+	}
+	var listPayload projectsListResponse
+	if err := json.Unmarshal(rrList.Body.Bytes(), &listPayload); err != nil {
+		t.Fatalf("decode projects response: %v", err)
+	}
+	if len(listPayload.Projects) == 0 {
+		t.Fatalf("expected at least one project")
+	}
+	projectID := listPayload.Projects[0].ID
+	if projectID == "" {
+		t.Fatalf("expected project id")
+	}
+
+	rrUpdate := doAuthedJSONRequest(
+		t,
+		app.Router(),
+		http.MethodPost,
+		"/api/projects/"+projectID+"/chat-model",
+		map[string]any{"model": "gpt"},
+	)
+	if rrUpdate.Code != http.StatusOK {
+		t.Fatalf("expected update 200, got %d: %s", rrUpdate.Code, rrUpdate.Body.String())
+	}
+	var updatePayload struct {
+		OK      bool `json:"ok"`
+		Project struct {
+			ID                       string `json:"id"`
+			ChatModel                string `json:"chat_model"`
+			ChatModelReasoningEffort string `json:"chat_model_reasoning_effort"`
+		} `json:"project"`
+	}
+	if err := json.Unmarshal(rrUpdate.Body.Bytes(), &updatePayload); err != nil {
+		t.Fatalf("decode update response: %v", err)
+	}
+	if !updatePayload.OK {
+		t.Fatalf("expected update ok=true")
+	}
+	if updatePayload.Project.ID != projectID {
+		t.Fatalf("expected updated project id %q, got %q", projectID, updatePayload.Project.ID)
+	}
+	if updatePayload.Project.ChatModel != "gpt" {
+		t.Fatalf("expected chat model gpt, got %q", updatePayload.Project.ChatModel)
+	}
+	if updatePayload.Project.ChatModelReasoningEffort != "high" {
+		t.Fatalf("expected gpt reasoning effort high, got %q", updatePayload.Project.ChatModelReasoningEffort)
+	}
+
+	rrEffortUpdate := doAuthedJSONRequest(
+		t,
+		app.Router(),
+		http.MethodPost,
+		"/api/projects/"+projectID+"/chat-model",
+		map[string]any{
+			"model":            "gpt",
+			"reasoning_effort": "extra_high",
+		},
+	)
+	if rrEffortUpdate.Code != http.StatusOK {
+		t.Fatalf("expected effort update 200, got %d: %s", rrEffortUpdate.Code, rrEffortUpdate.Body.String())
+	}
+	var effortPayload struct {
+		OK      bool `json:"ok"`
+		Project struct {
+			ID                       string `json:"id"`
+			ChatModelReasoningEffort string `json:"chat_model_reasoning_effort"`
+		} `json:"project"`
+	}
+	if err := json.Unmarshal(rrEffortUpdate.Body.Bytes(), &effortPayload); err != nil {
+		t.Fatalf("decode effort update response: %v", err)
+	}
+	if !effortPayload.OK {
+		t.Fatalf("expected effort update ok=true")
+	}
+	if effortPayload.Project.ChatModelReasoningEffort != "extra_high" {
+		t.Fatalf("expected effort extra_high, got %q", effortPayload.Project.ChatModelReasoningEffort)
+	}
+
+	rrInvalid := doAuthedJSONRequest(
+		t,
+		app.Router(),
+		http.MethodPost,
+		"/api/projects/"+projectID+"/chat-model",
+		map[string]any{"model": "invalid"},
+	)
+	if rrInvalid.Code != http.StatusBadRequest {
+		t.Fatalf("expected invalid model 400, got %d: %s", rrInvalid.Code, rrInvalid.Body.String())
 	}
 }

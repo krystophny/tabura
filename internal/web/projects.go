@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/krystophny/tabura/internal/modelprofile"
 	"github.com/krystophny/tabura/internal/protocol"
 	"github.com/krystophny/tabura/internal/serve"
 	"github.com/krystophny/tabura/internal/store"
@@ -29,16 +30,23 @@ type projectCreateRequest struct {
 }
 
 type projectAPIModel struct {
-	ID              string `json:"id"`
-	Name            string `json:"name"`
-	Kind            string `json:"kind"`
-	RootPath        string `json:"root_path"`
-	ProjectKey      string `json:"project_key"`
-	MCPURL          string `json:"mcp_url,omitempty"`
-	IsDefault       bool   `json:"is_default"`
-	ChatSessionID   string `json:"chat_session_id"`
-	ChatMode        string `json:"chat_mode"`
-	CanvasSessionID string `json:"canvas_session_id"`
+	ID                       string `json:"id"`
+	Name                     string `json:"name"`
+	Kind                     string `json:"kind"`
+	RootPath                 string `json:"root_path"`
+	ProjectKey               string `json:"project_key"`
+	MCPURL                   string `json:"mcp_url,omitempty"`
+	IsDefault                bool   `json:"is_default"`
+	ChatSessionID            string `json:"chat_session_id"`
+	ChatMode                 string `json:"chat_mode"`
+	ChatModel                string `json:"chat_model"`
+	ChatModelReasoningEffort string `json:"chat_model_reasoning_effort"`
+	CanvasSessionID          string `json:"canvas_session_id"`
+}
+
+type projectChatModelRequest struct {
+	Model           string `json:"model"`
+	ReasoningEffort string `json:"reasoning_effort"`
 }
 
 func normalizeProjectKindInput(kind, path string) string {
@@ -256,16 +264,18 @@ func (a *App) buildProjectAPIModel(project store.Project) (projectAPIModel, erro
 		return projectAPIModel{}, err
 	}
 	return projectAPIModel{
-		ID:              project.ID,
-		Name:            project.Name,
-		Kind:            project.Kind,
-		RootPath:        project.RootPath,
-		ProjectKey:      project.ProjectKey,
-		MCPURL:          strings.TrimSpace(project.MCPURL),
-		IsDefault:       project.IsDefault,
-		ChatSessionID:   session.ID,
-		ChatMode:        session.Mode,
-		CanvasSessionID: a.canvasSessionIDForProject(project),
+		ID:                       project.ID,
+		Name:                     project.Name,
+		Kind:                     project.Kind,
+		RootPath:                 project.RootPath,
+		ProjectKey:               project.ProjectKey,
+		MCPURL:                   strings.TrimSpace(project.MCPURL),
+		IsDefault:                project.IsDefault,
+		ChatSessionID:            session.ID,
+		ChatMode:                 session.Mode,
+		ChatModel:                a.effectiveProjectChatModelAlias(project),
+		ChatModelReasoningEffort: strings.TrimSpace(project.ChatModelReasoningEffort),
+		CanvasSessionID:          a.canvasSessionIDForProject(project),
 	}, nil
 }
 
@@ -575,6 +585,68 @@ func (a *App) handleProjectActivate(w http.ResponseWriter, r *http.Request) {
 		"ok":                true,
 		"active_project_id": project.ID,
 		"project":           item,
+	})
+}
+
+func (a *App) updateProjectChatModel(projectID, rawModel, rawReasoningEffort string) (store.Project, error) {
+	project, err := a.store.GetProject(strings.TrimSpace(projectID))
+	if err != nil {
+		return store.Project{}, err
+	}
+	modelAlias := modelprofile.ResolveAlias(rawModel, "")
+	if modelAlias == "" {
+		return store.Project{}, errors.New("model must be one of: codex, gpt, spark")
+	}
+	reasoningEffort := strings.TrimSpace(modelprofile.NormalizeReasoningEffort(modelAlias, rawReasoningEffort))
+	if reasoningEffort == "" {
+		reasoningEffort = strings.TrimSpace(modelprofile.MainThreadReasoningEffort(modelAlias))
+	}
+	if err := a.store.UpdateProjectChatModel(project.ID, modelAlias); err != nil {
+		return store.Project{}, err
+	}
+	if err := a.store.UpdateProjectChatModelReasoningEffort(project.ID, reasoningEffort); err != nil {
+		return store.Project{}, err
+	}
+	_ = a.store.SetAppState(appStateDefaultChatModelKey, modelAlias)
+	updated, err := a.store.GetProject(project.ID)
+	if err != nil {
+		return store.Project{}, err
+	}
+	a.resetProjectChatAppSession(updated.ProjectKey)
+	return updated, nil
+}
+
+func (a *App) handleProjectChatModelUpdate(w http.ResponseWriter, r *http.Request) {
+	if !a.requireAuth(w, r) {
+		return
+	}
+	projectID := strings.TrimSpace(chi.URLParam(r, "project_id"))
+	if projectID == "" {
+		http.Error(w, "project_id is required", http.StatusBadRequest)
+		return
+	}
+	var req projectChatModelRequest
+	if err := decodeJSON(r, &req); err != nil {
+		http.Error(w, "invalid JSON", http.StatusBadRequest)
+		return
+	}
+	project, err := a.updateProjectChatModel(projectID, req.Model, req.ReasoningEffort)
+	if err != nil {
+		if isNoRows(err) {
+			http.Error(w, "project not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	item, err := a.buildProjectAPIModel(project)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, map[string]interface{}{
+		"ok":      true,
+		"project": item,
 	})
 }
 

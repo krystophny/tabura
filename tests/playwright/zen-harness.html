@@ -51,6 +51,9 @@
             <span id="zen-status" class="zen-status"></span>
           </div>
           <div id="chat-history" aria-live="polite"></div>
+          <div class="chat-pane-input-row">
+            <textarea id="chat-pane-input" rows="1" placeholder="Message..."></textarea>
+          </div>
         </div>
       </div>
 
@@ -70,7 +73,6 @@
   <script>
     // Harness log for test assertions
     window.__harnessLog = [];
-
     // Mock fetch for /api/setup etc.
     const _realFetch = window.fetch;
     window.fetch = async function(url, opts) {
@@ -273,6 +275,7 @@
         this.state = 'inactive';
         this.mimeType = 'audio/webm;codecs=opus';
         this._handlers = {};
+        this._chunkTimer = null;
       }
       static isTypeSupported() { return true; }
       addEventListener(type, fn, opts) {
@@ -296,8 +299,18 @@
         this.state = 'recording';
         this._timeslice = timeslice;
         window.__harnessLog.push({ type: 'recorder', action: 'start', timeslice });
+        const intervalMs = Math.max(20, Number(timeslice) || 100);
+        this._chunkTimer = setInterval(() => {
+          if (this.state !== 'recording') return;
+          const blob = new Blob([new Uint8Array([1, 2, 3, 4, 5])], { type: this.mimeType });
+          this._emit('dataavailable', { data: blob });
+        }, intervalMs);
       }
       stop() {
+        if (this._chunkTimer) {
+          clearInterval(this._chunkTimer);
+          this._chunkTimer = null;
+        }
         this.state = 'inactive';
         window.__harnessLog.push({ type: 'recorder', action: 'stop' });
         const blob = new Blob([new Uint8Array([1, 2, 3, 4, 5])], { type: this.mimeType });
