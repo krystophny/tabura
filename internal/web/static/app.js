@@ -62,6 +62,7 @@ const state = {
   prReviewTitle: '',
   prReviewPRNumber: '',
   prReviewDrawerOpen: false,
+  prReviewAwaitingArtifact: false,
 };
 
 export function getState() {
@@ -2679,8 +2680,14 @@ async function zenSubmitMessage(text, options = {}) {
       return;
     }
     const payload = await resp.json();
-    if (payload?.kind === 'command' && payload?.result?.message) {
-      appendPlainMessage('system', String(payload.result.message));
+    if (payload?.kind === 'command') {
+      const commandName = String(payload?.result?.name || '').trim().toLowerCase();
+      if (commandName === 'pr') {
+        state.prReviewAwaitingArtifact = true;
+      }
+      if (payload?.result?.message) {
+        appendPlainMessage('system', String(payload.result.message));
+      }
     }
   } catch (err) {
     if (err && (err.name === 'AbortError' || String(err?.message || '').toLowerCase().includes('aborted'))) {
@@ -2797,6 +2804,7 @@ async function handleZenStopAction() {
 function applyCanvasArtifactEvent(payload) {
   const kind = String(payload?.kind || '').trim().toLowerCase();
   if (kind === 'clear_canvas') {
+    state.prReviewAwaitingArtifact = false;
     exitPrReviewMode();
     renderCanvas(payload);
     hideCanvasColumn();
@@ -2804,8 +2812,9 @@ function applyCanvasArtifactEvent(payload) {
   }
 
   let handledByPrReview = false;
-  if (kind === 'text_artifact' || kind === 'text') {
+  if (state.prReviewAwaitingArtifact && (kind === 'text_artifact' || kind === 'text')) {
     handledByPrReview = maybeEnterPrReviewModeFromTextArtifact(payload);
+    state.prReviewAwaitingArtifact = false;
   } else {
     exitPrReviewMode();
   }
