@@ -172,8 +172,8 @@ func TestProjectChatModelUpdate(t *testing.T) {
 	if updatePayload.Project.ID != projectID {
 		t.Fatalf("expected updated project id %q, got %q", projectID, updatePayload.Project.ID)
 	}
-	if updatePayload.Project.ChatModel != "gpt" {
-		t.Fatalf("expected chat model gpt, got %q", updatePayload.Project.ChatModel)
+	if updatePayload.Project.ChatModel != "spark" {
+		t.Fatalf("expected chat model spark, got %q", updatePayload.Project.ChatModel)
 	}
 
 	rrInvalid := doAuthedJSONRequest(

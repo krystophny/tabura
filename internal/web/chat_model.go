@@ -15,7 +15,7 @@ type appServerModelProfile struct {
 }
 
 func (a *App) effectiveProjectChatModelAlias(project store.Project) string {
-	if alias := modelprofile.ResolveAlias(project.ChatModel, ""); alias != "" {
+	if alias := modelprofile.ResolveAlias(project.ChatModel, ""); alias == modelprofile.AliasSpark {
 		return alias
 	}
 	if alias := modelprofile.AliasForModel(a.appServerModel); alias != "" {
@@ -25,7 +25,7 @@ func (a *App) effectiveProjectChatModelAlias(project store.Project) string {
 }
 
 func (a *App) appServerModelProfileForProject(project store.Project) appServerModelProfile {
-	if alias := modelprofile.ResolveAlias(project.ChatModel, ""); alias != "" {
+	if alias := modelprofile.ResolveAlias(project.ChatModel, ""); alias == modelprofile.AliasSpark {
 		model := modelprofile.ModelForAlias(alias)
 		reasoning := modelprofile.MainThreadReasoningParams(alias)
 		return appServerModelProfile{

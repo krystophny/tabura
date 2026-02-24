@@ -106,6 +106,7 @@ func New(dataDir, localProjectDir, localMCPURL, appServerURL, model, ttsURL, spa
 	if resolvedModel == "" {
 		resolvedModel = DefaultModel
 	}
+	resolvedModel = enforceSparkModel(resolvedModel)
 	if strings.TrimSpace(sparkReasoningEffort) == "" {
 		sparkReasoningEffort = strings.TrimSpace(os.Getenv("TABURA_APP_SERVER_SPARK_REASONING_EFFORT"))
 	}
@@ -113,6 +114,10 @@ func New(dataDir, localProjectDir, localMCPURL, appServerURL, model, ttsURL, spa
 	resolvedTTSURL := strings.TrimSpace(ttsURL)
 	if resolvedTTSURL == "" {
 		resolvedTTSURL = strings.TrimSpace(os.Getenv("TABURA_TTS_URL"))
+	}
+	if err := s.SetAppState(appStateDefaultChatModelKey, modelprofile.AliasSpark); err != nil {
+		_ = s.Close()
+		return nil, err
 	}
 	app := &App{
 		dataDir:                       dataDir,
@@ -372,6 +377,13 @@ func (a *App) handleRuntime(w http.ResponseWriter, r *http.Request) {
 		"available_models":            modelprofile.SupportedModels(),
 		"tts_enabled":                 a.ttsURL != "",
 	})
+}
+
+func enforceSparkModel(rawModel string) string {
+	if isSparkModel(strings.TrimSpace(rawModel)) {
+		return strings.TrimSpace(rawModel)
+	}
+	return DefaultModel
 }
 
 func resolveSparkReasoningEffort(raw string) string {

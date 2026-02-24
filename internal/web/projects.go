@@ -594,6 +594,9 @@ func (a *App) updateProjectChatModel(projectID, rawModel string) (store.Project,
 	if modelAlias == "" {
 		return store.Project{}, errors.New("model must be one of: codex, gpt, spark")
 	}
+	if modelAlias != modelprofile.AliasSpark {
+		modelAlias = modelprofile.AliasSpark
+	}
 	if err := a.store.UpdateProjectChatModel(project.ID, modelAlias); err != nil {
 		return store.Project{}, err
 	}
