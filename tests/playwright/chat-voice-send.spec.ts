@@ -1,6 +1,14 @@
 import { expect, test, type Page } from '@playwright/test';
 
-type HarnessLogEntry = { type: string; action: string; [key: string]: unknown };
+type HarnessLogEntry = {
+  type: string;
+  action?: string;
+  text?: string;
+  url?: string;
+  method?: string;
+  payload?: Record<string, unknown>;
+  [key: string]: unknown;
+};
 
 async function getLog(page: Page): Promise<HarnessLogEntry[]> {
   return page.evaluate(() => (window as any).__harnessLog.slice());
@@ -8,6 +16,48 @@ async function getLog(page: Page): Promise<HarnessLogEntry[]> {
 
 async function clearLog(page: Page) {
   await page.evaluate(() => { (window as any).__harnessLog.splice(0); });
+}
+
+async function injectChatEvent(page: Page, payload: Record<string, unknown>) {
+  await page.evaluate((payloadData) => {
+    const sessions = (window as any).__mockWsSessions || [];
+    const chatWs = sessions.find((ws: any) => typeof ws.url === 'string' && ws.url.includes('/ws/chat/'));
+    if (chatWs?.injectEvent) {
+      chatWs.injectEvent(payloadData);
+    }
+  }, payload);
+}
+
+async function tapElement(page: Page, selector: string) {
+  await page.evaluate((sel) => {
+    const target = document.querySelector(sel);
+    if (!target) return;
+    const rect = target.getBoundingClientRect();
+    const x = Math.round(rect.left + rect.width / 2);
+    const y = Math.round(rect.top + rect.height / 2);
+    const touchInit = {
+      clientX: x,
+      clientY: y,
+      pageX: x,
+      pageY: y,
+      identifier: 0,
+      target,
+    };
+    if (typeof Touch === 'undefined') {
+      target.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: x, clientY: y }));
+      return;
+    }
+    const touch = new Touch(touchInit);
+    target.dispatchEvent(new TouchEvent('touchstart', { touches: [touch], changedTouches: [touch], bubbles: true }));
+    target.dispatchEvent(new TouchEvent('touchend', { touches: [], changedTouches: [touch], bubbles: true, cancelable: true }));
+  }, selector);
+}
+
+async function waitForApiCancel(page: Page) {
+  await expect.poll(async () => {
+    const log = await getLog(page);
+    return log.some((entry) => entry.type === 'api_fetch' && entry.action === 'cancel');
+  }, { timeout: 5_000 }).toBe(true);
 }
 
 async function injectCanvasModuleRef(page: Page) {
@@ -86,6 +136,31 @@ test('click on canvas starts voice recording', async ({ page }) => {
   const sttActions = log.filter(e => e.type === 'stt').map(e => e.action);
   expect(sttActions).toContain('start');
   expect(sttActions).toContain('stop');
+});
+
+test('touch stop indicator routes through shared cancel endpoint', async ({ page }) => {
+  await clearLog(page);
+
+  await injectChatEvent(page, {
+    type: 'turn_started',
+    turn_id: 'stop-turn-test',
+    content: 'delegate work',
+  });
+  await page.waitForTimeout(100);
+
+  const playIcon = page.locator('.zen-play-icon');
+  await expect(playIcon).toBeVisible();
+
+  await tapElement(page, '.zen-play-icon');
+  await waitForApiCancel(page);
+
+  const log = await getLog(page);
+  const cancelEntry = log.find((entry) => entry.type === 'api_fetch' && entry.action === 'cancel');
+  expect(cancelEntry).toBeTruthy();
+  expect(cancelEntry!.method).toBe('POST');
+  expect(typeof cancelEntry!.payload?.canceled).toBe('number');
+  expect(Number(cancelEntry!.payload?.canceled)).toBeGreaterThan(0);
+  expect(Number(cancelEntry!.payload?.delegate_canceled)).toBeGreaterThan(0);
 });
 
 test('mouse hold push-to-talk starts on hold and stops on release', async ({ page }) => {

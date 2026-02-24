@@ -101,6 +101,27 @@
           active_project_id: 'test',
         }), { status: 200 });
       }
+      if (u.includes('/api/chat/sessions') && u.includes('/cancel-delegates')) {
+        window.__harnessLog.push({
+          type: 'api_fetch',
+          action: 'cancel-delegates',
+          method: opts?.method || 'GET',
+          url: u,
+          payload: { ok: true, canceled: 0 },
+        });
+        return new Response(JSON.stringify({ ok: true, canceled: 0 }), { status: 200 });
+      }
+      if (u.includes('/api/chat/sessions') && u.includes('/cancel') && !u.includes('/cancel-delegates')) {
+        const response = { ok: true, canceled: 3, active_canceled: 1, queued_canceled: 1, delegate_canceled: 1 };
+        window.__harnessLog.push({
+          type: 'api_fetch',
+          action: 'cancel',
+          method: opts?.method || 'GET',
+          url: u,
+          payload: response,
+        });
+        return new Response(JSON.stringify(response), { status: 200 });
+      }
       if (u.includes('/api/chat/') && u.includes('/messages') && opts?.method === 'POST') {
         try {
           const body = JSON.parse(opts.body);

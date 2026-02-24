@@ -382,7 +382,8 @@ func (a *App) executeChatCommand(sessionID, raw string) (map[string]interface{},
 		}, nil
 	case "stop", "cancel":
 		activeCanceled, queuedCanceled := a.cancelChatWork(sessionID)
-		canceled := activeCanceled + queuedCanceled
+		delegateCanceled := a.cancelDelegatedJobsForProject(session.ProjectKey)
+		canceled := activeCanceled + queuedCanceled + delegateCanceled
 		message := "No assistant turn is currently running."
 		if canceled > 0 {
 			message = "Stopping assistant work and clearing queued prompts."
@@ -392,6 +393,7 @@ func (a *App) executeChatCommand(sessionID, raw string) (map[string]interface{},
 			"canceled":        canceled,
 			"active_canceled": activeCanceled,
 			"queued_canceled": queuedCanceled,
+			"delegate_canceled": delegateCanceled,
 			"message":         message,
 		}, nil
 	case "clear", "clearall", "reset":
