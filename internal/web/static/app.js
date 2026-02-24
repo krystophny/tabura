@@ -332,172 +332,6 @@ function isMobileSilent() {
   return state.ttsSilent && window.matchMedia('(max-width: 767px)').matches;
 }
 
-function isDisplayMode(mode) {
-  try {
-    return window.matchMedia(`(display-mode: ${mode})`).matches;
-  } catch (_) {
-    return false;
-  }
-}
-
-function isHomeScreenStandaloneLike() {
-  const standalone = typeof navigator !== 'undefined'
-    && 'standalone' in navigator
-    && navigator.standalone === true;
-  return standalone || isDisplayMode('standalone') || isDisplayMode('fullscreen');
-}
-
-function isIPhone() {
-  const userAgent = String(navigator.userAgent || '').toLowerCase();
-  const platform = String(navigator.platform || '').toLowerCase();
-  return /iphone/.test(userAgent) || platform === 'iphone' || (platform === 'macintel' && navigator.maxTouchPoints > 1);
-}
-
-function getIPhoneDisplayCandidatesPx() {
-  const candidates = [];
-  if (Number.isFinite(window.screen?.width) && Number.isFinite(window.screen?.height)) {
-    candidates.push({
-      shortSide: Math.round(Math.min(window.screen.width, window.screen.height)),
-      longSide: Math.round(Math.max(window.screen.width, window.screen.height)),
-      source: 'screen',
-    });
-  }
-  if (Number.isFinite(window.innerWidth) && Number.isFinite(window.innerHeight)) {
-    candidates.push({
-      shortSide: Math.round(Math.min(window.innerWidth, window.innerHeight)),
-      longSide: Math.round(Math.max(window.innerWidth, window.innerHeight)),
-      source: 'viewport',
-    });
-  }
-  return candidates;
-}
-
-const IPHONE_CORNER_RADIUS_PROFILES = [
-  { shortSide: 375, longSide: 812, dpr: 2, radius: 41.5 },
-  { shortSide: 375, longSide: 812, dpr: 3, radius: 44 },
-  { shortSide: 390, longSide: 844, dpr: 3, radius: 47 },
-  { shortSide: 393, longSide: 852, dpr: 3, radius: 55 },
-  // iPhone 16 Pro: 1206x2622 physical at 3x => 402x874 CSS pixels.
-  { shortSide: 402, longSide: 874, dpr: 3, radius: 62, safeAreaTopPortrait: 59 },
-  { shortSide: 414, longSide: 896, dpr: 2, radius: 41 },
-  { shortSide: 428, longSide: 926, dpr: 3, radius: 53 },
-  { shortSide: 430, longSide: 932, dpr: 3, radius: 55, safeAreaTopPortrait: 62 },
-  { shortSide: 440, longSide: 956, dpr: 3, radius: 62 },
-];
-
-function readNumericCssVar(name) {
-  const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-  const parsed = Number.parseFloat(value);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function iPhoneRoundedCornerRadiusPx() {
-  if (!isIPhone()) return null;
-
-  const shortSide = Math.min(
-    Math.round(window.innerWidth),
-    Math.round(window.innerHeight),
-  );
-  const longSide = Math.max(
-    Math.round(window.innerWidth),
-    Math.round(window.innerHeight),
-  );
-  if (!Number.isFinite(shortSide) || !Number.isFinite(longSide) || shortSide <= 0 || longSide <= 0) {
-    return null;
-  }
-
-  const dpr = Math.max(1, Math.round(window.devicePixelRatio || 1));
-  const exactMatch = getIPhoneDisplayCandidatesPx()
-    .find((candidate) => IPHONE_CORNER_RADIUS_PROFILES.some(
-      (entry) => entry.shortSide === candidate.shortSide && entry.longSide === candidate.longSide && entry.dpr === dpr,
-    ));
-  if (exactMatch) {
-    const profile = IPHONE_CORNER_RADIUS_PROFILES.find((entry) => (
-      entry.shortSide === exactMatch.shortSide
-      && entry.longSide === exactMatch.longSide
-      && entry.dpr === dpr
-    ));
-    if (profile?.radius) return profile.radius;
-  }
-
-  // Fallback by family/scale; keep values conservative so UI stays inside the visible radius.
-  if (dpr >= 3) {
-    if (shortSide >= 440) return 62;
-    if (shortSide >= 430) return 55;
-    if (shortSide === 402 && longSide === 874) return 62;
-    if (shortSide >= 410) return 55;
-    if (shortSide >= 393) return 55;
-    if (shortSide >= 390) return 47;
-    return 44;
-  }
-
-  if (dpr === 2) {
-    if (shortSide >= 414) return 41;
-    if (shortSide >= 375) return 39;
-  }
-
-  return 44;
-}
-
-function iPhoneProfileForCurrentDisplay() {
-  if (!isIPhone()) return null;
-
-  const shortSide = Math.min(
-    Math.round(window.innerWidth),
-    Math.round(window.innerHeight),
-  );
-  const longSide = Math.max(
-    Math.round(window.innerWidth),
-    Math.round(window.innerHeight),
-  );
-  if (!Number.isFinite(shortSide) || !Number.isFinite(longSide) || shortSide <= 0 || longSide <= 0) {
-    return null;
-  }
-
-  const dpr = Math.max(1, Math.round(window.devicePixelRatio || 1));
-  return IPHONE_CORNER_RADIUS_PROFILES.find((entry) => (
-    entry.shortSide === shortSide
-    && entry.longSide === longSide
-    && entry.dpr === dpr
-  )) || null;
-}
-
-function iPhoneStatusBarInsetPx() {
-  if (!isIPhone()) return 0;
-  if (window.innerWidth > window.innerHeight) return 0;
-
-  const envInset = readNumericCssVar('--zen-safe-area-top');
-  if (envInset > 0) return envInset;
-
-  const profile = iPhoneProfileForCurrentDisplay();
-  return Number.isFinite(profile?.safeAreaTopPortrait) && profile.safeAreaTopPortrait > 0
-    ? profile.safeAreaTopPortrait
-    : 0;
-}
-
-function applyIPhoneStandaloneCueHints() {
-  const body = document.body;
-  const root = document.documentElement;
-  if (!body || !root) return;
-  const isIPhoneDevice = isIPhone();
-  const isStandaloneLike = isHomeScreenStandaloneLike() && isIPhoneDevice;
-  const roundedRadius = iPhoneRoundedCornerRadiusPx();
-  const radius = Number.isFinite(roundedRadius) && roundedRadius > 0 ? roundedRadius : null;
-  const modeRadius = Number.isFinite(radius) ? Math.max(0, Math.round(radius)) : 0;
-  const cueTopInset = isStandaloneLike ? iPhoneStatusBarInsetPx() : 0;
-  body.classList.toggle('ios-cue-fullscreen', isStandaloneLike);
-  root.style.setProperty('--zen-cue-top-offset', `${Math.max(0, cueTopInset)}px`);
-  if (isStandaloneLike && modeRadius > 0) {
-    const cornerRadius = `0 0 ${modeRadius}px ${modeRadius}px`;
-    root.style.setProperty('--zen-cue-corner-radius', cornerRadius);
-    return;
-  }
-  root.style.removeProperty('--zen-cue-corner-radius');
-}
-
-window.addEventListener('resize', applyIPhoneStandaloneCueHints);
-window.addEventListener('orientationchange', applyIPhoneStandaloneCueHints);
-
 function setTTSSilentMode(silent, { persist = true } = {}) {
   const next = Boolean(silent);
   if (state.ttsSilent === next) return;
@@ -1486,8 +1320,9 @@ function isTTSSpeaking() {
 
 function currentIndicatorMode() {
   if (isRecording()) return 'recording';
-  if (state.voiceAwaitingTurn) return 'stop';
-  if (isAssistantWorking() || isTTSSpeaking()) return 'stop';
+  if (state.voiceAwaitingTurn) return 'play';
+  if (state.indicatorSuppressedByCanvasUpdate) return '';
+  if (isAssistantWorking() || isTTSSpeaking()) return 'play';
   return '';
 }
 
@@ -2624,15 +2459,24 @@ function initEdgePanels() {
     });
   }
 
+  const edgeBottomTap = document.getElementById('edge-bottom-tap');
+  if (edgeBottomTap) {
+    edgeBottomTap.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      openChatPaneWithInput();
+    });
+  }
+
   // Mobile: swipe from edge
   document.addEventListener('touchstart', (ev) => {
     if (ev.touches.length !== 1) return;
     const t = ev.touches[0];
     const edgeTapSize = getEdgeTapSizePx();
-    if (t.clientX > window.innerWidth - edgeTapSize || t.clientY < edgeTapSize || t.clientX < edgeTapSize) {
+    if (t.clientX > window.innerWidth - edgeTapSize || t.clientY < edgeTapSize || t.clientX < edgeTapSize || t.clientY > window.innerHeight - edgeTapSize) {
       edgeTouchStart = { x: t.clientX, y: t.clientY, edge: null };
       if (t.clientX > window.innerWidth - edgeTapSize) edgeTouchStart.edge = 'right';
       else if (t.clientY < edgeTapSize) edgeTouchStart.edge = 'top';
+      else if (t.clientY > window.innerHeight - edgeTapSize) edgeTouchStart.edge = 'bottom';
     }
   }, { passive: true });
 
@@ -2645,12 +2489,30 @@ function initEdgePanels() {
       edgeRight.classList.add('edge-active');
     } else if (edgeTouchStart.edge === 'top' && dy > 30 && edgeTop) {
       edgeTop.classList.add('edge-active');
+    } else if (edgeTouchStart.edge === 'bottom' && dy < -30) {
+      openChatPaneWithInput();
     }
   }, { passive: true });
 
   document.addEventListener('touchend', () => {
     edgeTouchStart = null;
   }, { passive: true });
+
+  // Keyboard dismiss detection: close chat panel when virtual keyboard closes
+  if (window.visualViewport) {
+    let prevViewportHeight = window.visualViewport.height;
+    window.visualViewport.addEventListener('resize', () => {
+      const currentHeight = window.visualViewport.height;
+      if (currentHeight > prevViewportHeight) {
+        const cpInput = document.getElementById('chat-pane-input');
+        if (cpInput && document.activeElement === cpInput) {
+          cpInput.blur();
+          closeEdgePanels();
+        }
+      }
+      prevViewportHeight = currentHeight;
+    });
+  }
 }
 
 function closeEdgePanels() {
@@ -2658,6 +2520,18 @@ function closeEdgePanels() {
   const edgeRight = document.getElementById('edge-right');
   if (edgeTop) edgeTop.classList.remove('edge-active', 'edge-pinned');
   if (edgeRight) edgeRight.classList.remove('edge-active', 'edge-pinned');
+}
+
+function openChatPaneWithInput() {
+  const edgeRight = document.getElementById('edge-right');
+  if (!edgeRight) return;
+  edgeRight.classList.add('edge-pinned');
+  const chatHistory = document.getElementById('chat-history');
+  if (chatHistory) scrollChatToBottom(chatHistory);
+  const cpInput = document.getElementById('chat-pane-input');
+  if (cpInput instanceof HTMLTextAreaElement) {
+    requestAnimationFrame(() => cpInput.focus());
+  }
 }
 
 function bindUi() {
@@ -3210,7 +3084,6 @@ function warmMicStream() {
 }
 
 async function init() {
-  applyIPhoneStandaloneCueHints();
   bindUi();
   warmMicStream();
   updateAssistantActivityIndicator();

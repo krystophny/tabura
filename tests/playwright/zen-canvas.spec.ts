@@ -636,4 +636,20 @@ test.describe('zen canvas - edge panels', () => {
     const chatText = await chatHistory.textContent();
     expect(chatText).toContain('test msg');
   });
+
+  test('bottom tap opens chat pane with focused input', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 720 });
+
+    const edgeRight = page.locator('#edge-right');
+    const initialClasses = await edgeRight.getAttribute('class');
+    expect(initialClasses).not.toContain('edge-pinned');
+
+    // Click the bottom tap area
+    await page.click('#edge-bottom-tap');
+    await page.waitForTimeout(200);
+
+    await expect(edgeRight).toHaveClass(/edge-pinned/);
+    const cpInput = page.locator('#chat-pane-input');
+    await expect(cpInput).toBeFocused();
+  });
 });

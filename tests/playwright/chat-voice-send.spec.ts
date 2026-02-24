@@ -253,17 +253,17 @@ test('Control long-press starts at mouse location and sends artifact line contex
   await page.waitForTimeout(300);
   await waitForLogEntry(page, 'recorder', 'start');
 
-  const indicatorPos = await page.evaluate(() => {
-    const indicator = document.getElementById('zen-indicator');
-    if (!(indicator instanceof HTMLElement)) return null;
+  const dotPos = await page.evaluate(() => {
+    const dot = document.querySelector('#zen-indicator .zen-record-dot');
+    if (!(dot instanceof HTMLElement)) return null;
     return {
-      x: Number.parseFloat(indicator.style.left || '0'),
-      y: Number.parseFloat(indicator.style.top || '0'),
+      x: Number.parseFloat(dot.style.left || '0'),
+      y: Number.parseFloat(dot.style.top || '0'),
     };
   });
-  expect(indicatorPos).toBeTruthy();
-  expect(Math.abs(indicatorPos!.x - x)).toBeLessThanOrEqual(1);
-  expect(Math.abs(indicatorPos!.y - y)).toBeLessThanOrEqual(1);
+  expect(dotPos).toBeTruthy();
+  expect(Math.abs(dotPos!.x - x)).toBeLessThanOrEqual(1);
+  expect(Math.abs(dotPos!.y - y)).toBeLessThanOrEqual(1);
 
   await page.keyboard.up('Control');
   await waitForSTTAction(page, 'stop');
