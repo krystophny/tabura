@@ -240,6 +240,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .zen-indicator.is-recording,
 .zen-indicator.is-working {
   --cue-chip-size: 14px;
+  --cue-frame-color: #000000;
   display: block;
   position: fixed;
   inset: 0;
@@ -256,6 +257,20 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   max-height: none;
   transition: none;
   animation: none;
+}
+
+.zen-indicator.is-recording { --cue-frame-color: #d92d20; }
+.zen-indicator.is-working  { --cue-frame-color: #22a846; }
+
+.zen-indicator.is-recording::before,
+.zen-indicator.is-working::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  box-sizing: border-box;
+  border: 4px solid var(--cue-frame-color);
+  background: transparent;
 }
 
 .zen-indicator .zen-record-dot,
@@ -304,6 +319,10 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 }
 
 @media (monochrome) {
+  .zen-indicator.is-recording,
+  .zen-indicator.is-working {
+    --cue-frame-color: #111111;
+  }
   .zen-indicator .zen-record-dot,
   .zen-indicator .zen-play-icon {
     background: #111111;
