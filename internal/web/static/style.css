@@ -280,6 +280,20 @@ body.ios-cue-fullscreen .zen-indicator.is-stop::before {
   --cue-frame-border-top: 0px;
 }
 
+body.ios-cue-fullscreen .zen-indicator.is-recording::after,
+body.ios-cue-fullscreen .zen-indicator.is-stop::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  top: 0;
+  bottom: auto;
+  height: var(--zen-cue-top-offset);
+  pointer-events: none;
+  z-index: 1001;
+  box-sizing: border-box;
+  background: var(--cue-frame-color);
+}
+
 .zen-indicator.is-recording::before,
 .zen-indicator.is-stop::before {
   content: '';
