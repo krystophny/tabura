@@ -130,8 +130,19 @@ export function showIndicatorMode(mode, x, y) {
   el.classList.remove('is-recording', 'is-stop');
   el.classList.add(nextMode === 'recording' ? 'is-recording' : 'is-stop');
   el.style.display = '';
-  el.style.left = `${x}px`;
-  el.style.top = `${y}px`;
+  // Always reset geometry so stale inline styles can't shrink/offset the cue.
+  el.style.position = 'fixed';
+  el.style.inset = '0';
+  el.style.width = '';
+  el.style.height = '';
+  el.style.left = '';
+  el.style.top = '';
+  el.style.right = '';
+  el.style.bottom = '';
+  el.style.maxWidth = '';
+  el.style.maxHeight = '';
+  el.style.transform = '';
+  el.style.translate = '';
   if (body) {
     const isCueVisible = nextMode === 'recording' || nextMode === 'stop';
     body.classList.toggle('zen-recording', isCueVisible);

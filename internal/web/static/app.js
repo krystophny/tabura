@@ -1307,7 +1307,6 @@ function isTTSSpeaking() {
 
 function currentIndicatorMode() {
   if (isRecording()) return 'recording';
-  if (state.indicatorSuppressedByCanvasUpdate) return '';
   if (state.voiceAwaitingTurn) return 'stop';
   if (isAssistantWorking() || isTTSSpeaking()) return 'stop';
   return '';
@@ -2158,26 +2157,30 @@ async function zenSubmitMessage(text) {
   }
 }
 
-async function cancelActiveAssistantTurn() {
-  if (!state.chatSessionId || state.assistantCancelInFlight) return;
-  await refreshAssistantActivity();
-  if (!isAssistantWorking()) {
-    showStatus(state.assistantLastError ? state.assistantLastError : 'idle');
-    updateAssistantActivityIndicator();
-    return;
+async function cancelActiveAssistantTurn(options = null) {
+  const force = Boolean(options && options.force);
+  if (!state.chatSessionId || state.assistantCancelInFlight) return false;
+  if (!force) {
+    await refreshAssistantActivity();
+    if (!isAssistantWorking()) {
+      showStatus(state.assistantLastError ? state.assistantLastError : 'idle');
+      updateAssistantActivityIndicator();
+      return false;
+    }
   }
   state.assistantCancelInFlight = true;
   updateAssistantActivityIndicator();
   showStatus('stopping...');
+  let canceled = 0;
   try {
     const resp = await fetch(`/api/chat/sessions/${encodeURIComponent(state.chatSessionId)}/cancel`, { method: 'POST' });
     if (!resp.ok) {
       const detail = (await resp.text()).trim() || `HTTP ${resp.status}`;
       showStatus(`stop failed: ${detail}`);
-      return;
+      return false;
     }
     const payload = await resp.json();
-    const canceled = Number(payload?.canceled || 0);
+    canceled = Number(payload?.canceled || 0);
     if (canceled <= 0) {
       await refreshAssistantActivity();
       if (!isAssistantWorking()) {
@@ -2186,11 +2189,13 @@ async function cancelActiveAssistantTurn() {
     }
   } catch (err) {
     showStatus(`stop failed: ${String(err?.message || err)}`);
+    return false;
   } finally {
     state.assistantCancelInFlight = false;
     updateAssistantActivityIndicator();
     window.setTimeout(() => { void refreshAssistantActivity(); }, 120);
   }
+  return canceled > 0;
 }
 
 async function handleZenStopAction() {
@@ -2201,18 +2206,12 @@ async function handleZenStopAction() {
     return;
   }
 
-  if (isAssistantWorking()) {
-    if (isTTSSpeaking()) {
-      stopTTSPlayback();
-    }
-    await cancelActiveAssistantTurn();
-    return;
-  }
-
   if (isTTSSpeaking()) {
     stopTTSPlayback();
-    return;
   }
+
+  const canceled = await cancelActiveAssistantTurn({ force: true });
+  if (canceled) return;
 
   if (state.voiceAwaitingTurn) {
     state.voiceAwaitingTurn = false;
@@ -2494,24 +2493,28 @@ function bindUi() {
   }, true);
 
   if (zenIndicator) {
+    let lastIndicatorTouchAt = 0;
     const handleZenIndicatorTap = () => {
-      if (!isRecording() && !shouldStopInUiClick()) return;
+      if (!(zenIndicator instanceof HTMLElement)) return;
+      if (!zenIndicator.classList.contains('is-stop') && !zenIndicator.classList.contains('is-recording')) return;
       void handleZenStopAction();
     };
-    zenIndicator.addEventListener('pointerdown', (ev) => {
-      if (!(ev.currentTarget instanceof HTMLElement)) return;
-      if (!ev.currentTarget.classList.contains('is-stop') && !ev.currentTarget.classList.contains('is-recording')) return;
-      ev.preventDefault();
-      ev.stopPropagation();
-      handleZenIndicatorTap();
-    });
     zenIndicator.addEventListener('click', (ev) => {
       if (!(ev.currentTarget instanceof HTMLElement)) return;
       if (!ev.currentTarget.classList.contains('is-stop') && !ev.currentTarget.classList.contains('is-recording')) return;
+      if (Date.now() - lastIndicatorTouchAt < 600) return;
       ev.preventDefault();
       ev.stopPropagation();
       handleZenIndicatorTap();
     });
+    zenIndicator.addEventListener('touchend', (ev) => {
+      if (!(ev.currentTarget instanceof HTMLElement)) return;
+      if (!ev.currentTarget.classList.contains('is-stop') && !ev.currentTarget.classList.contains('is-recording')) return;
+      lastIndicatorTouchAt = Date.now();
+      ev.preventDefault();
+      ev.stopPropagation();
+      handleZenIndicatorTap();
+    }, { passive: false });
   }
 
   // Zen: Left-click/tap on canvas -> toggle voice recording
