@@ -366,6 +366,17 @@ function isIPhoneStandalone() {
   }
 }
 
+function isFirefoxLinuxDesktop() {
+  const ua = String(navigator.userAgent || '').toLowerCase();
+  const platform = String(navigator.userAgentData?.platform || navigator.platform || '').toLowerCase();
+  const isFirefox = ua.includes('firefox/') && !ua.includes('android');
+  if (!isFirefox) return false;
+  const isLinux = platform.includes('linux') || ua.includes('linux');
+  if (!isLinux) return false;
+  const isMobile = /mobile|tablet|android|iphone|ipad/.test(ua);
+  return !isMobile;
+}
+
 function applyIPhoneFrameCorners() {
   const root = document.documentElement;
   if (!isIPhoneStandalone()) {
@@ -3223,7 +3234,11 @@ function bindUi() {
     if (state.hasArtifact && canvasText) {
       anchor = getAnchorFromPoint(x, y);
     }
-    return beginZenVoiceCapture(x, y, anchor, options);
+    const captureOptions = options && typeof options === 'object' ? { ...options } : {};
+    if (!Object.prototype.hasOwnProperty.call(captureOptions, 'manualStopOnly') && isFirefoxLinuxDesktop()) {
+      captureOptions.manualStopOnly = true;
+    }
+    return beginZenVoiceCapture(x, y, anchor, captureOptions);
   };
 
   document.addEventListener('mousemove', (ev) => {
@@ -3613,7 +3628,7 @@ function bindUi() {
       state.chatCtrlHoldTimer = window.setTimeout(() => {
         state.chatCtrlHoldTimer = null;
         const point = getCtrlVoiceCapturePoint();
-        void beginVoiceCaptureFromPoint(point.x, point.y);
+        void beginVoiceCaptureFromPoint(point.x, point.y, { manualStopOnly: true });
       }, CHAT_CTRL_LONG_PRESS_MS);
       return;
     }
@@ -3699,7 +3714,9 @@ function bindUi() {
       clearTimeout(state.chatCtrlHoldTimer);
       state.chatCtrlHoldTimer = null;
     }
-    if (state.chatVoiceCapture) {
+    // Keep active capture alive on transient browser blur; hard stop is
+    // handled by visibilitychange when the page is actually hidden.
+    if (state.chatVoiceCapture && document.hidden) {
       cancelChatVoiceCapture();
       showStatus('ready');
     }
