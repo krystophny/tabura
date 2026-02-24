@@ -2770,17 +2770,54 @@ function initEdgePanels() {
     }
   });
 
-  // Toggle safe-area bottom padding on the input row when the virtual
-  // keyboard opens/closes.  When the keyboard is up the extra spacing
-  // is unnecessary; restore it once the keyboard is dismissed.
+  // Toggle safe-area bottom padding and keyboard state on mobile.
+  // iOS can report changing viewport metrics while the keyboard opens;
+  // keep a baseline "fully open" viewport and restore frame corners
+  // once the keyboard is dismissed.
   if (window.visualViewport) {
     const inputRow = document.querySelector('.chat-pane-input-row');
     if (inputRow) {
-      const fullHeight = window.innerHeight;
-      window.visualViewport.addEventListener('resize', () => {
-        const keyboardOpen = window.visualViewport.height < fullHeight - 100;
+      const root = document.documentElement;
+      let baselineHeight = Math.max(
+        window.innerHeight,
+        window.visualViewport.height + window.visualViewport.offsetTop,
+      );
+      const syncKeyboardState = () => {
+        const vv = window.visualViewport;
+        if (!vv) return;
+        const viewportHeight = vv.height + vv.offsetTop;
+        if (viewportHeight > baselineHeight) baselineHeight = viewportHeight;
+        const keyboardOpen = viewportHeight < baselineHeight - 100;
         inputRow.classList.toggle('keyboard-open', keyboardOpen);
+        document.body.classList.toggle('keyboard-open', keyboardOpen);
+        if (isIPhoneStandalone()) {
+          if (keyboardOpen) {
+            root.style.setProperty('--zen-cue-corner-radius', '0 0 0 0');
+          } else {
+            applyIPhoneFrameCorners();
+          }
+        }
+      };
+
+      window.visualViewport.addEventListener('resize', syncKeyboardState);
+      window.visualViewport.addEventListener('scroll', syncKeyboardState);
+      window.addEventListener('orientationchange', () => {
+        baselineHeight = Math.max(
+          window.innerHeight,
+          window.visualViewport
+            ? (window.visualViewport.height + window.visualViewport.offsetTop)
+            : window.innerHeight,
+        );
+        window.setTimeout(syncKeyboardState, 80);
       });
+      const chatPaneInput = document.getElementById('chat-pane-input');
+      if (chatPaneInput) {
+        chatPaneInput.addEventListener('focus', syncKeyboardState);
+        chatPaneInput.addEventListener('blur', () => {
+          window.setTimeout(syncKeyboardState, 80);
+        });
+      }
+      syncKeyboardState();
     }
   }
 }
@@ -3349,7 +3386,10 @@ function warmMicStream() {
 
 async function init() {
   applyIPhoneFrameCorners();
-  window.addEventListener('resize', applyIPhoneFrameCorners);
+  window.addEventListener('resize', () => {
+    if (document.body.classList.contains('keyboard-open')) return;
+    applyIPhoneFrameCorners();
+  });
   bindUi();
   warmMicStream();
   updateAssistantActivityIndicator();
