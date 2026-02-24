@@ -210,6 +210,93 @@ function inferDiffPath(diffTextRaw) {
   return path;
 }
 
+function tokenizeInlineDiffWords(textRaw) {
+  return String(textRaw || '').match(/(\s+|[A-Za-z0-9_]+|[^A-Za-z0-9_\s])/g) || [];
+}
+
+function renderInlineMarkdownDiff(oldLineRaw, newLineRaw) {
+  const oldLine = String(oldLineRaw || '');
+  const newLine = String(newLineRaw || '');
+  if (!oldLine || !newLine || oldLine === newLine) {
+    return escapeHtml(newLine);
+  }
+  if (oldLine.length > 2000 || newLine.length > 2000) {
+    return escapeHtml(newLine);
+  }
+
+  const oldTokens = tokenizeInlineDiffWords(oldLine);
+  const newTokens = tokenizeInlineDiffWords(newLine);
+  if (oldTokens.length === 0 || newTokens.length === 0) {
+    return escapeHtml(newLine);
+  }
+  if (oldTokens.length > 320 || newTokens.length > 320) {
+    return escapeHtml(newLine);
+  }
+
+  const lcs = Array.from({ length: oldTokens.length + 1 }, () => new Uint16Array(newTokens.length + 1));
+  for (let i = 1; i <= oldTokens.length; i += 1) {
+    for (let j = 1; j <= newTokens.length; j += 1) {
+      if (oldTokens[i - 1] === newTokens[j - 1]) {
+        lcs[i][j] = lcs[i - 1][j - 1] + 1;
+      } else {
+        lcs[i][j] = Math.max(lcs[i - 1][j], lcs[i][j - 1]);
+      }
+    }
+  }
+
+  const opsReversed = [];
+  let i = oldTokens.length;
+  let j = newTokens.length;
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && oldTokens[i - 1] === newTokens[j - 1]) {
+      opsReversed.push({ type: 'equal', text: oldTokens[i - 1] });
+      i -= 1;
+      j -= 1;
+      continue;
+    }
+    if (j > 0 && (i === 0 || lcs[i][j - 1] >= lcs[i - 1][j])) {
+      opsReversed.push({ type: 'add', text: newTokens[j - 1] });
+      j -= 1;
+      continue;
+    }
+    if (i > 0) {
+      opsReversed.push({ type: 'del', text: oldTokens[i - 1] });
+      i -= 1;
+      continue;
+    }
+  }
+
+  const ops = opsReversed.reverse();
+  const merged = [];
+  for (const op of ops) {
+    if (merged.length > 0 && merged[merged.length - 1].type === op.type) {
+      merged[merged.length - 1].text += op.text;
+    } else {
+      merged.push({ type: op.type, text: op.text });
+    }
+  }
+  if (!merged.some((op) => op.type !== 'equal')) {
+    return escapeHtml(newLine);
+  }
+
+  return merged.map((op) => {
+    const safe = escapeHtml(op.text);
+    if (op.type === 'add') {
+      return `<ins class="md-diff-ins">${safe}</ins>`;
+    }
+    if (op.type === 'del') {
+      return `<del class="md-diff-del-inline">${safe}</del>`;
+    }
+    return safe;
+  }).join('');
+}
+
+function renderRemovedMarkdownLine(lineRaw) {
+  const text = String(lineRaw || '');
+  const safe = text ? escapeHtml(text) : '&nbsp;';
+  return `<div class="md-diff-del-line"><del>${safe}</del></div>`;
+}
+
 function buildMarkdownDiffPreview(diffTextRaw, artifactTitleRaw) {
   const diffText = String(diffTextRaw || '').replaceAll('\r\n', '\n');
   if (!diffText.trim()) return null;
@@ -228,7 +315,7 @@ function buildMarkdownDiffPreview(diffTextRaw, artifactTitleRaw) {
   const changedMap = [];
   let sawHunk = false;
   let inHunk = false;
-  let pendingDeletion = false;
+  let pendingDeletionLines = [];
   let newLine = null;
   let lastMappedLine = null;
 
@@ -244,12 +331,26 @@ function buildMarkdownDiffPreview(diffTextRaw, artifactTitleRaw) {
     changedMap.push(Boolean(changed));
   };
 
+  const flushPendingDeletions = () => {
+    if (pendingDeletionLines.length === 0) return;
+    for (const deletedLine of pendingDeletionLines) {
+      appendLine(renderRemovedMarkdownLine(deletedLine), null, true);
+    }
+    pendingDeletionLines = [];
+  };
+
   for (const line of lines) {
+    if (line.startsWith('diff --git ')) {
+      flushPendingDeletions();
+      inHunk = false;
+      continue;
+    }
+
     const hunk = parseDiffHunkHeader(line);
     if (hunk) {
       sawHunk = true;
       inHunk = true;
-      pendingDeletion = false;
+      flushPendingDeletions();
       const hunkStart = Number.isFinite(hunk.newStart) ? hunk.newStart : null;
       if (
         Number.isFinite(lastMappedLine)
@@ -269,24 +370,30 @@ function buildMarkdownDiffPreview(diffTextRaw, artifactTitleRaw) {
     if (line.startsWith('\\ No newline at end of file')) continue;
 
     if (line.startsWith('+') && !line.startsWith('+++')) {
-      appendLine(line.slice(1), newLine, true);
+      const nextText = line.slice(1);
+      if (pendingDeletionLines.length > 0) {
+        const deletedText = pendingDeletionLines.shift() || '';
+        appendLine(renderInlineMarkdownDiff(deletedText, nextText), newLine, true);
+      } else {
+        appendLine(nextText, newLine, true);
+      }
       if (Number.isFinite(newLine)) newLine += 1;
-      pendingDeletion = false;
       continue;
     }
 
     if (line.startsWith('-') && !line.startsWith('---')) {
-      pendingDeletion = true;
+      pendingDeletionLines.push(line.slice(1));
       continue;
     }
 
     if (line.startsWith(' ')) {
-      appendLine(line.slice(1), newLine, pendingDeletion);
+      flushPendingDeletions();
+      appendLine(line.slice(1), newLine, false);
       if (Number.isFinite(newLine)) newLine += 1;
-      pendingDeletion = false;
       continue;
     }
   }
+  flushPendingDeletions();
 
   if (!sawHunk || previewLines.length === 0) return null;
   if (!lineMap.some((line) => Number.isFinite(line) && line > 0)) return null;

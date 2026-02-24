@@ -359,6 +359,26 @@ body.pr-review-mode #pr-file-pane {
   padding-right: 0.2rem;
 }
 
+#canvas-text ins.md-diff-ins {
+  font-weight: 700;
+  text-decoration: none;
+}
+
+#canvas-text del.md-diff-del-inline {
+  text-decoration: line-through;
+}
+
+#canvas-text .md-diff-del-line {
+  border-left: 2px solid #000000;
+  margin: 0.14rem 0;
+  padding: 0.05rem 0.5rem;
+  white-space: pre-wrap;
+}
+
+#canvas-text .md-diff-del-line del {
+  text-decoration: line-through;
+}
+
 /* Zen: Full-screen recording state indicator */
 .zen-indicator {
   display: none;
