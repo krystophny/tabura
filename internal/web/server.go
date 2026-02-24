@@ -38,7 +38,7 @@ const (
 	DefaultSparkReasoningEffort = "low"
 	SparkModel                  = modelprofile.ModelSpark
 	mcpToolsCallTimeout         = 45 * time.Second
-	appStateDefaultChatModelKey  = "default_chat_model"
+	appStateDefaultChatModelKey = "default_chat_model"
 )
 
 //go:embed static/* static/vendor/*
@@ -375,6 +375,7 @@ func (a *App) handleRuntime(w http.ResponseWriter, r *http.Request) {
 		"app_server_model":            a.appServerModel,
 		"app_server_reasoning_effort": sparkReasoningEffort,
 		"available_models":            modelprofile.SupportedModels(),
+		"available_reasoning_efforts": modelprofile.AvailableReasoningEffortsByAlias(),
 		"tts_enabled":                 a.ttsURL != "",
 	})
 }

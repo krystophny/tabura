@@ -43,6 +43,11 @@ const state = {
   indicatorSuppressedByCanvasUpdate: false,
   chatCtrlHoldTimer: null,
   chatVoiceCapture: null,
+  reasoningEffortsByAlias: {
+    codex: ['low', 'medium', 'high', 'extra_high'],
+    gpt: ['low', 'medium', 'high', 'extra_high'],
+    spark: ['low', 'medium', 'high'],
+  },
   contextUsed: 0,
   contextMax: 0,
   // Zen-specific: track if a canvas action happened during this turn
@@ -101,6 +106,11 @@ let assistantActivityInFlight = false;
 const ACTIVE_PROJECT_STORAGE_KEY = 'tabura.activeProjectId';
 const LAST_VIEW_STORAGE_KEY = 'tabura.lastView';
 const PROJECT_CHAT_MODEL_ALIASES = ['codex', 'gpt', 'spark'];
+const PROJECT_CHAT_MODEL_REASONING_EFFORTS = {
+  codex: ['low', 'medium', 'high', 'extra_high'],
+  gpt: ['low', 'medium', 'high', 'extra_high'],
+  spark: ['low', 'medium', 'high'],
+};
 const TTS_SILENT_STORAGE_KEY = 'tabura.ttsSilent';
 
 // --- Block stripping & TTS infrastructure ---
@@ -547,6 +557,38 @@ function activeProject() {
   return state.projects.find((project) => project.id === state.activeProjectId) || null;
 }
 
+function normalizeReasoningEffortOptions(rawEfforts) {
+  const raw = Array.isArray(rawEfforts) ? rawEfforts : [];
+  const clean = [];
+  const seen = new Set();
+  for (const rawEffort of raw) {
+    const effort = String(rawEffort || '').trim().toLowerCase();
+    if (!effort || seen.has(effort)) continue;
+    seen.add(effort);
+    clean.push(effort);
+  }
+  return clean;
+}
+
+function normalizeReasoningEffortOptionsByAlias(rawEfforts) {
+  const source = rawEfforts && typeof rawEfforts === 'object' ? rawEfforts : {};
+  const out = {};
+  for (const alias of PROJECT_CHAT_MODEL_ALIASES) {
+    const configured = normalizeReasoningEffortOptions(source[alias]);
+    if (configured.length > 0) {
+      out[alias] = configured;
+      continue;
+    }
+    const defaults = PROJECT_CHAT_MODEL_REASONING_EFFORTS[alias];
+    out[alias] = Array.isArray(defaults) && defaults.length > 0 ? defaults.slice() : ['low', 'medium', 'high'];
+  }
+  return out;
+}
+
+function applyRuntimeReasoningEffortOptions(rawEfforts) {
+  state.reasoningEffortsByAlias = normalizeReasoningEffortOptionsByAlias(rawEfforts);
+}
+
 function normalizeProjectChatModelAlias(value) {
   const clean = String(value || '').trim().toLowerCase();
   if (PROJECT_CHAT_MODEL_ALIASES.includes(clean)) {
@@ -555,9 +597,38 @@ function normalizeProjectChatModelAlias(value) {
   return '';
 }
 
+function reasoningEffortOptionsForAlias(alias) {
+  const cleanAlias = normalizeProjectChatModelAlias(alias);
+  const configured = Array.isArray(state.reasoningEffortsByAlias?.[cleanAlias]) ? state.reasoningEffortsByAlias[cleanAlias] : [];
+  if (configured.length > 0) {
+    return configured.slice();
+  }
+  const defaults = PROJECT_CHAT_MODEL_REASONING_EFFORTS[cleanAlias];
+  return Array.isArray(defaults) && defaults.length > 0 ? defaults.slice() : ['low', 'medium', 'high'];
+}
+
+function defaultReasoningEffortForAlias(alias) {
+  const options = reasoningEffortOptionsForAlias(alias);
+  return options.length > 0 ? options[0] : 'low';
+}
+
+function normalizeProjectChatModelReasoningEffort(value, alias) {
+  const effort = String(value || '').trim().toLowerCase();
+  const options = reasoningEffortOptionsForAlias(alias);
+  if (options.includes(effort)) {
+    return effort;
+  }
+  return defaultReasoningEffortForAlias(alias);
+}
+
 function activeProjectChatModelAlias() {
   const alias = normalizeProjectChatModelAlias(activeProject()?.chat_model);
   return alias || 'spark';
+}
+
+function activeProjectChatModelReasoningEffort() {
+  const alias = activeProjectChatModelAlias();
+  return normalizeProjectChatModelReasoningEffort(activeProject()?.chat_model_reasoning_effort, alias);
 }
 
 function persistActiveProjectID(projectID) {
@@ -1426,6 +1497,7 @@ async function fetchProjects() {
   state.projects = projects.map((project) => ({
     ...project,
     id: String(project?.id || ''),
+    chat_model_reasoning_effort: String(project?.chat_model_reasoning_effort || '').trim().toLowerCase(),
   })).filter((project) => project.id);
   state.defaultProjectId = String(payload?.default_project_id || '').trim();
   state.serverActiveProjectId = String(payload?.active_project_id || '').trim();
@@ -1435,6 +1507,9 @@ async function fetchProjects() {
 
 function upsertProject(project) {
   if (!project || !project.id) return;
+  if (project.chat_model_reasoning_effort !== undefined) {
+    project.chat_model_reasoning_effort = String(project.chat_model_reasoning_effort || '').trim().toLowerCase();
+  }
   const index = state.projects.findIndex((item) => item.id === project.id);
   if (index >= 0) {
     state.projects[index] = project;
@@ -1485,6 +1560,8 @@ function renderEdgeTopModelButtons() {
   host.innerHTML = '';
   const project = activeProject();
   const selectedAlias = activeProjectChatModelAlias();
+  const selectedEffort = activeProjectChatModelReasoningEffort();
+  const effortOptions = reasoningEffortOptionsForAlias(selectedAlias);
   for (const alias of PROJECT_CHAT_MODEL_ALIASES) {
     const button = document.createElement('button');
     button.type = 'button';
@@ -1499,6 +1576,26 @@ function renderEdgeTopModelButtons() {
     });
     host.appendChild(button);
   }
+
+  const effortWrap = document.createElement('div');
+  effortWrap.className = 'edge-model-effort-wrap';
+  const effortSelect = document.createElement('select');
+  effortSelect.className = 'edge-model-select edge-reasoning-effort-select';
+  effortSelect.setAttribute('aria-label', 'Reasoning effort');
+  for (const effort of effortOptions) {
+    const option = document.createElement('option');
+    option.value = effort;
+    option.textContent = effort.replace(/_/g, ' ');
+    effortSelect.appendChild(option);
+  }
+  effortSelect.value = effortOptions.includes(selectedEffort) ? selectedEffort : (effortOptions[0] || '');
+  effortSelect.disabled = !project || state.projectSwitchInFlight || state.projectModelSwitchInFlight;
+  effortSelect.addEventListener('change', () => {
+    const nextEffort = normalizeProjectChatModelReasoningEffort(effortSelect.value, selectedAlias);
+    void switchProjectChatModel(selectedAlias, nextEffort);
+  });
+  effortWrap.appendChild(effortSelect);
+  host.appendChild(effortWrap);
 
   const silentButton = document.createElement('button');
   silentButton.type = 'button';
@@ -1515,30 +1612,38 @@ function renderEdgeTopModelButtons() {
   host.appendChild(silentButton);
 }
 
-async function switchProjectChatModel(modelAlias) {
+async function switchProjectChatModel(modelAlias, reasoningEffort = '') {
   const project = activeProject();
   if (!project || !project.id) return;
   const nextAlias = normalizeProjectChatModelAlias(modelAlias);
   if (!nextAlias) return;
   const currentAlias = activeProjectChatModelAlias();
-  if (nextAlias === currentAlias) return;
+  const rawEffort = String(reasoningEffort || '').trim().toLowerCase();
+  const includeEffort = rawEffort !== '';
+  const nextEffort = includeEffort ? normalizeProjectChatModelReasoningEffort(rawEffort, nextAlias) : '';
+  const currentEffort = activeProjectChatModelReasoningEffort();
+  if (nextAlias === currentAlias && (!includeEffort || nextEffort === currentEffort)) return;
   if (state.projectModelSwitchInFlight || state.projectSwitchInFlight) return;
 
   state.projectModelSwitchInFlight = true;
   renderEdgeTopModelButtons();
   showStatus(`switching model to ${nextAlias}...`);
   try {
+    const payload = { model: nextAlias };
+    if (includeEffort) {
+      payload.reasoning_effort = nextEffort;
+    }
     const resp = await fetch(`/api/projects/${encodeURIComponent(project.id)}/chat-model`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: nextAlias }),
+      body: JSON.stringify(payload),
     });
     if (!resp.ok) {
       const detail = (await resp.text()).trim() || `HTTP ${resp.status}`;
       throw new Error(detail);
     }
-    const payload = await resp.json();
-    const updatedProject = payload?.project || {};
+    const responsePayload = await resp.json();
+    const updatedProject = responsePayload?.project || {};
     upsertProject(updatedProject);
     renderEdgeTopProjects();
     renderEdgeTopModelButtons();
@@ -2888,6 +2993,7 @@ async function init() {
   try {
     const runtime = await fetchRuntimeMeta();
     ttsEnabled = Boolean(runtime?.tts_enabled);
+    applyRuntimeReasoningEffortOptions(runtime?.available_reasoning_efforts);
   } catch (_) {
     ttsEnabled = false;
   }

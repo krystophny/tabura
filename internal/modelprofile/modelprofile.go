@@ -11,9 +11,10 @@ const (
 	ModelCodex = "gpt-5.3-codex"
 	ModelGPT   = "gpt-5.2"
 
-	ReasoningLow    = "low"
-	ReasoningMedium = "medium"
-	ReasoningHigh   = "high"
+	ReasoningLow       = "low"
+	ReasoningMedium    = "medium"
+	ReasoningHigh      = "high"
+	ReasoningExtraHigh = "extra_high"
 )
 
 var aliasToModel = map[string]string{
@@ -26,6 +27,12 @@ var modelToAlias = map[string]string{
 	strings.ToLower(ModelSpark): AliasSpark,
 	strings.ToLower(ModelCodex): AliasCodex,
 	strings.ToLower(ModelGPT):   AliasGPT,
+}
+
+var modelReasoningEfforts = map[string][]string{
+	AliasSpark: {ReasoningLow, ReasoningMedium, ReasoningHigh},
+	AliasCodex: {ReasoningLow, ReasoningMedium, ReasoningHigh, ReasoningExtraHigh},
+	AliasGPT:   {ReasoningLow, ReasoningMedium, ReasoningHigh, ReasoningExtraHigh},
 }
 
 func SupportedAliases() []string {
@@ -100,13 +107,48 @@ func MainThreadReasoningEffort(alias string) string {
 	case AliasCodex, AliasGPT:
 		return ReasoningHigh
 	default:
+		return ReasoningLow
+	}
+}
+
+func AvailableReasoningEffortsByAlias() map[string][]string {
+	out := map[string][]string{}
+	for alias, options := range modelReasoningEfforts {
+		copied := append([]string(nil), options...)
+		out[alias] = copied
+	}
+	return out
+}
+
+func ReasoningEffortsForAlias(alias string) []string {
+	if options, ok := modelReasoningEfforts[NormalizeAlias(alias)]; ok {
+		return append([]string(nil), options...)
+	}
+	return append([]string(nil), modelReasoningEfforts[AliasSpark]...)
+}
+
+func NormalizeReasoningEffort(alias, rawEffort string) string {
+	effort := strings.TrimSpace(strings.ToLower(rawEffort))
+	for _, candidate := range ReasoningEffortsForAlias(alias) {
+		if candidate == effort {
+			return effort
+		}
+	}
+	defaultEffort := MainThreadReasoningEffort(alias)
+	if defaultEffort == "" {
 		return ""
 	}
+	return defaultEffort
+}
+
+func MainThreadReasoningParamsForEffort(alias, effort string) map[string]interface{} {
+	effort = NormalizeReasoningEffort(alias, effort)
+	return ReasoningParamsForEffort(effort)
 }
 
 func ReasoningParamsForEffort(effort string) map[string]interface{} {
 	switch strings.TrimSpace(strings.ToLower(effort)) {
-	case ReasoningLow, ReasoningMedium, ReasoningHigh:
+	case ReasoningLow, ReasoningMedium, ReasoningHigh, ReasoningExtraHigh:
 		return map[string]interface{}{"model_reasoning_effort": strings.TrimSpace(strings.ToLower(effort))}
 	default:
 		return nil
@@ -114,7 +156,7 @@ func ReasoningParamsForEffort(effort string) map[string]interface{} {
 }
 
 func MainThreadReasoningParams(alias string) map[string]interface{} {
-	return ReasoningParamsForEffort(MainThreadReasoningEffort(alias))
+	return MainThreadReasoningParamsForEffort(alias, "")
 }
 
 func DelegateReasoningParams(model string) map[string]interface{} {

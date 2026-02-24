@@ -15,7 +15,7 @@ type appServerModelProfile struct {
 }
 
 func (a *App) effectiveProjectChatModelAlias(project store.Project) string {
-	if alias := modelprofile.ResolveAlias(project.ChatModel, ""); alias == modelprofile.AliasSpark {
+	if alias := modelprofile.ResolveAlias(project.ChatModel, ""); alias != "" {
 		return alias
 	}
 	if alias := modelprofile.AliasForModel(a.appServerModel); alias != "" {
@@ -24,26 +24,38 @@ func (a *App) effectiveProjectChatModelAlias(project store.Project) string {
 	return modelprofile.AliasSpark
 }
 
+func (a *App) effectiveProjectChatModelReasoningEffort(project store.Project) string {
+	alias := a.effectiveProjectChatModelAlias(project)
+	effort := modelprofile.NormalizeReasoningEffort(alias, project.ChatModelReasoningEffort)
+	if effort == "" {
+		return modelprofile.MainThreadReasoningEffort(alias)
+	}
+	return effort
+}
+
 func (a *App) appServerModelProfileForProject(project store.Project) appServerModelProfile {
-	if alias := modelprofile.ResolveAlias(project.ChatModel, ""); alias == modelprofile.AliasSpark {
-		model := modelprofile.ModelForAlias(alias)
-		reasoning := modelprofile.MainThreadReasoningParams(alias)
-		return appServerModelProfile{
-			Alias:        alias,
-			Model:        model,
-			ThreadParams: reasoning,
-			TurnParams:   reasoning,
-		}
+	alias := a.effectiveProjectChatModelAlias(project)
+	effort := a.effectiveProjectChatModelReasoningEffort(project)
+	model := modelprofile.ModelForAlias(alias)
+	if model == "" {
+		model = strings.TrimSpace(a.appServerModel)
+	}
+	if model == "" {
+		model = modelprofile.ModelForAlias(modelprofile.AliasSpark)
+	}
+	var reasoning map[string]interface{}
+	if alias == modelprofile.AliasSpark {
+		reasoning = appServerReasoningParamsForModel(model, a.appServerSparkReasoningEffort)
+	} else {
+		reasoning = modelprofile.MainThreadReasoningParamsForEffort(alias, effort)
+	}
+	return appServerModelProfile{
+		Alias:        alias,
+		Model:        model,
+		ThreadParams: reasoning,
+		TurnParams:   reasoning,
 	}
 
-	legacyModel := strings.TrimSpace(a.appServerModel)
-	legacyReasoning := appServerReasoningParamsForModel(legacyModel, a.appServerSparkReasoningEffort)
-	return appServerModelProfile{
-		Alias:        a.effectiveProjectChatModelAlias(project),
-		Model:        legacyModel,
-		ThreadParams: legacyReasoning,
-		TurnParams:   legacyReasoning,
-	}
 }
 
 func (a *App) appServerModelProfileForProjectKey(projectKey string) appServerModelProfile {
@@ -57,8 +69,17 @@ func (a *App) appServerModelProfileForProjectKey(projectKey string) appServerMod
 	if alias == "" {
 		alias = modelprofile.AliasSpark
 	}
-	legacyModel := strings.TrimSpace(a.appServerModel)
-	legacyReasoning := appServerReasoningParamsForModel(legacyModel, a.appServerSparkReasoningEffort)
+	legacyModel := modelprofile.ModelForAlias(alias)
+	if legacyModel == "" {
+		legacyModel = strings.TrimSpace(a.appServerModel)
+	}
+	if legacyModel == "" {
+		legacyModel = modelprofile.ModelForAlias(modelprofile.AliasSpark)
+	}
+	legacyReasoning := modelprofile.MainThreadReasoningParamsForEffort(alias, modelprofile.MainThreadReasoningEffort(alias))
+	if alias == modelprofile.AliasSpark {
+		legacyReasoning = appServerReasoningParamsForModel(legacyModel, a.appServerSparkReasoningEffort)
+	}
 	return appServerModelProfile{
 		Alias:        alias,
 		Model:        legacyModel,

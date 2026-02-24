@@ -16,6 +16,7 @@ type projectsListResponse struct {
 		Name            string `json:"name"`
 		ChatSessionID   string `json:"chat_session_id"`
 		ChatModel       string `json:"chat_model"`
+		ReasoningEffort string `json:"chat_model_reasoning_effort"`
 		CanvasSessionID string `json:"canvas_session_id"`
 	} `json:"projects"`
 }
@@ -159,8 +160,9 @@ func TestProjectChatModelUpdate(t *testing.T) {
 	var updatePayload struct {
 		OK      bool `json:"ok"`
 		Project struct {
-			ID        string `json:"id"`
-			ChatModel string `json:"chat_model"`
+			ID                       string `json:"id"`
+			ChatModel                string `json:"chat_model"`
+			ChatModelReasoningEffort string `json:"chat_model_reasoning_effort"`
 		} `json:"project"`
 	}
 	if err := json.Unmarshal(rrUpdate.Body.Bytes(), &updatePayload); err != nil {
@@ -172,8 +174,41 @@ func TestProjectChatModelUpdate(t *testing.T) {
 	if updatePayload.Project.ID != projectID {
 		t.Fatalf("expected updated project id %q, got %q", projectID, updatePayload.Project.ID)
 	}
-	if updatePayload.Project.ChatModel != "spark" {
-		t.Fatalf("expected chat model spark, got %q", updatePayload.Project.ChatModel)
+	if updatePayload.Project.ChatModel != "gpt" {
+		t.Fatalf("expected chat model gpt, got %q", updatePayload.Project.ChatModel)
+	}
+	if updatePayload.Project.ChatModelReasoningEffort != "high" {
+		t.Fatalf("expected gpt reasoning effort high, got %q", updatePayload.Project.ChatModelReasoningEffort)
+	}
+
+	rrEffortUpdate := doAuthedJSONRequest(
+		t,
+		app.Router(),
+		http.MethodPost,
+		"/api/projects/"+projectID+"/chat-model",
+		map[string]any{
+			"model":            "gpt",
+			"reasoning_effort": "extra_high",
+		},
+	)
+	if rrEffortUpdate.Code != http.StatusOK {
+		t.Fatalf("expected effort update 200, got %d: %s", rrEffortUpdate.Code, rrEffortUpdate.Body.String())
+	}
+	var effortPayload struct {
+		OK      bool `json:"ok"`
+		Project struct {
+			ID                       string `json:"id"`
+			ChatModelReasoningEffort string `json:"chat_model_reasoning_effort"`
+		} `json:"project"`
+	}
+	if err := json.Unmarshal(rrEffortUpdate.Body.Bytes(), &effortPayload); err != nil {
+		t.Fatalf("decode effort update response: %v", err)
+	}
+	if !effortPayload.OK {
+		t.Fatalf("expected effort update ok=true")
+	}
+	if effortPayload.Project.ChatModelReasoningEffort != "extra_high" {
+		t.Fatalf("expected effort extra_high, got %q", effortPayload.Project.ChatModelReasoningEffort)
 	}
 
 	rrInvalid := doAuthedJSONRequest(

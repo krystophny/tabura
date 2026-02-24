@@ -30,21 +30,23 @@ type projectCreateRequest struct {
 }
 
 type projectAPIModel struct {
-	ID              string `json:"id"`
-	Name            string `json:"name"`
-	Kind            string `json:"kind"`
-	RootPath        string `json:"root_path"`
-	ProjectKey      string `json:"project_key"`
-	MCPURL          string `json:"mcp_url,omitempty"`
-	IsDefault       bool   `json:"is_default"`
-	ChatSessionID   string `json:"chat_session_id"`
-	ChatMode        string `json:"chat_mode"`
-	ChatModel       string `json:"chat_model"`
-	CanvasSessionID string `json:"canvas_session_id"`
+	ID                       string `json:"id"`
+	Name                     string `json:"name"`
+	Kind                     string `json:"kind"`
+	RootPath                 string `json:"root_path"`
+	ProjectKey               string `json:"project_key"`
+	MCPURL                   string `json:"mcp_url,omitempty"`
+	IsDefault                bool   `json:"is_default"`
+	ChatSessionID            string `json:"chat_session_id"`
+	ChatMode                 string `json:"chat_mode"`
+	ChatModel                string `json:"chat_model"`
+	ChatModelReasoningEffort string `json:"chat_model_reasoning_effort"`
+	CanvasSessionID          string `json:"canvas_session_id"`
 }
 
 type projectChatModelRequest struct {
-	Model string `json:"model"`
+	Model           string `json:"model"`
+	ReasoningEffort string `json:"reasoning_effort"`
 }
 
 func normalizeProjectKindInput(kind, path string) string {
@@ -262,17 +264,18 @@ func (a *App) buildProjectAPIModel(project store.Project) (projectAPIModel, erro
 		return projectAPIModel{}, err
 	}
 	return projectAPIModel{
-		ID:              project.ID,
-		Name:            project.Name,
-		Kind:            project.Kind,
-		RootPath:        project.RootPath,
-		ProjectKey:      project.ProjectKey,
-		MCPURL:          strings.TrimSpace(project.MCPURL),
-		IsDefault:       project.IsDefault,
-		ChatSessionID:   session.ID,
-		ChatMode:        session.Mode,
-		ChatModel:       a.effectiveProjectChatModelAlias(project),
-		CanvasSessionID: a.canvasSessionIDForProject(project),
+		ID:                       project.ID,
+		Name:                     project.Name,
+		Kind:                     project.Kind,
+		RootPath:                 project.RootPath,
+		ProjectKey:               project.ProjectKey,
+		MCPURL:                   strings.TrimSpace(project.MCPURL),
+		IsDefault:                project.IsDefault,
+		ChatSessionID:            session.ID,
+		ChatMode:                 session.Mode,
+		ChatModel:                a.effectiveProjectChatModelAlias(project),
+		ChatModelReasoningEffort: strings.TrimSpace(project.ChatModelReasoningEffort),
+		CanvasSessionID:          a.canvasSessionIDForProject(project),
 	}, nil
 }
 
@@ -585,7 +588,7 @@ func (a *App) handleProjectActivate(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (a *App) updateProjectChatModel(projectID, rawModel string) (store.Project, error) {
+func (a *App) updateProjectChatModel(projectID, rawModel, rawReasoningEffort string) (store.Project, error) {
 	project, err := a.store.GetProject(strings.TrimSpace(projectID))
 	if err != nil {
 		return store.Project{}, err
@@ -594,10 +597,14 @@ func (a *App) updateProjectChatModel(projectID, rawModel string) (store.Project,
 	if modelAlias == "" {
 		return store.Project{}, errors.New("model must be one of: codex, gpt, spark")
 	}
-	if modelAlias != modelprofile.AliasSpark {
-		modelAlias = modelprofile.AliasSpark
+	reasoningEffort := strings.TrimSpace(modelprofile.NormalizeReasoningEffort(modelAlias, rawReasoningEffort))
+	if reasoningEffort == "" {
+		reasoningEffort = strings.TrimSpace(modelprofile.MainThreadReasoningEffort(modelAlias))
 	}
 	if err := a.store.UpdateProjectChatModel(project.ID, modelAlias); err != nil {
+		return store.Project{}, err
+	}
+	if err := a.store.UpdateProjectChatModelReasoningEffort(project.ID, reasoningEffort); err != nil {
 		return store.Project{}, err
 	}
 	_ = a.store.SetAppState(appStateDefaultChatModelKey, modelAlias)
@@ -623,7 +630,7 @@ func (a *App) handleProjectChatModelUpdate(w http.ResponseWriter, r *http.Reques
 		http.Error(w, "invalid JSON", http.StatusBadRequest)
 		return
 	}
-	project, err := a.updateProjectChatModel(projectID, req.Model)
+	project, err := a.updateProjectChatModel(projectID, req.Model, req.ReasoningEffort)
 	if err != nil {
 		if isNoRows(err) {
 			http.Error(w, "project not found", http.StatusNotFound)

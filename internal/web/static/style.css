@@ -243,7 +243,8 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   touch-action: manipulation;
 }
 
-.zen-indicator.is-stop {
+.zen-indicator.is-stop,
+.zen-indicator.is-recording {
   pointer-events: auto;
 }
 
@@ -455,14 +456,33 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   display: flex;
   gap: 0.35rem;
   align-items: center;
+  flex-wrap: nowrap;
+  overflow-x: auto;
 }
 
 .edge-model-btn {
   text-transform: lowercase;
 }
 
-.edge-silent-btn {
+.edge-model-effort-wrap {
+  display: flex;
+  align-items: center;
   margin-left: auto;
+}
+
+.edge-model-select {
+  height: 1.9rem;
+  border-radius: 999px;
+  padding: 0.2rem 0.62rem;
+  background: #f3f4f6;
+  border: 1px solid #111827;
+  color: #111827;
+  font-size: 0.78rem;
+  line-height: 1;
+}
+
+.edge-silent-btn {
+  margin-left: 0.35rem;
 }
 
 #edge-top-projects {

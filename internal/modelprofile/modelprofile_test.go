@@ -40,6 +40,31 @@ func TestMainThreadReasoningEffort(t *testing.T) {
 	}
 }
 
+func TestAvailableReasoningEffortsByAlias(t *testing.T) {
+	efforts := AvailableReasoningEffortsByAlias()
+	if len(efforts) == 0 {
+		t.Fatalf("expected efforts map")
+	}
+	for alias, expectation := range map[string][]string{
+		AliasSpark: {ReasoningLow, ReasoningMedium, ReasoningHigh},
+		AliasCodex: {ReasoningLow, ReasoningMedium, ReasoningHigh, ReasoningExtraHigh},
+		AliasGPT:   {ReasoningLow, ReasoningMedium, ReasoningHigh, ReasoningExtraHigh},
+	} {
+		options, ok := efforts[alias]
+		if !ok {
+			t.Fatalf("missing alias %q", alias)
+		}
+		if len(options) != len(expectation) {
+			t.Fatalf("alias %q option count = %d, want %d", alias, len(options), len(expectation))
+		}
+		for i := range expectation {
+			if options[i] != expectation[i] {
+				t.Fatalf("alias %q option[%d] = %q, want %q", alias, i, options[i], expectation[i])
+			}
+		}
+	}
+}
+
 func TestDelegateReasoningParams(t *testing.T) {
 	if got := DelegateReasoningParams(ModelSpark); got != nil {
 		t.Fatalf("spark delegate reasoning should be nil, got %#v", got)
