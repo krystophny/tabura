@@ -349,6 +349,25 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 }
 
 /* Edge panels */
+.edge-left-tap {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 20px;
+  z-index: 150;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.edge-left-tap:hover,
+.edge-left-tap:active {
+  background: transparent;
+}
+
 .edge-panel {
   position: fixed;
   z-index: 200;

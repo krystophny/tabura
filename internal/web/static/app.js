@@ -2122,9 +2122,28 @@ let edgeTopTimer = null;
 let edgeRightTimer = null;
 let edgeTouchStart = null;
 
+function edgePanelsAreOpen() {
+  const edgeTop = document.getElementById('edge-top');
+  const edgeRight = document.getElementById('edge-right');
+  const topOpen = Boolean(edgeTop && (edgeTop.classList.contains('edge-active') || edgeTop.classList.contains('edge-pinned')));
+  const rightOpen = Boolean(edgeRight && (edgeRight.classList.contains('edge-active') || edgeRight.classList.contains('edge-pinned')));
+  return topOpen || rightOpen;
+}
+
+function handleLeftEdgeTap() {
+  const hadOpenPanels = edgePanelsAreOpen();
+  closeEdgePanels();
+  if (hadOpenPanels) return;
+  if (state.hasArtifact) {
+    clearCanvas();
+    hideCanvasColumn();
+  }
+}
+
 function initEdgePanels() {
   const edgeTop = document.getElementById('edge-top');
   const edgeRight = document.getElementById('edge-right');
+  const edgeLeftTap = document.getElementById('edge-left-tap');
 
   // Desktop: hover near edge
   document.addEventListener('mousemove', (ev) => {
@@ -2190,6 +2209,13 @@ function initEdgePanels() {
       if (edgeTop) {
         edgeTop.classList.remove('edge-active', 'edge-pinned');
       }
+    });
+  }
+
+  if (edgeLeftTap) {
+    edgeLeftTap.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      handleLeftEdgeTap();
     });
   }
 
