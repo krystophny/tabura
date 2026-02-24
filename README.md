@@ -73,7 +73,7 @@ Zen canvas behavior:
 - Multi-paragraph assistant output is auto-promoted to a temp canvas file and not shown/spoken in chat.
 - Responses stream as ephemeral overlays. Click outside to dismiss.
 - Edge panels: hover near top edge for projects, right edge for chat log.
-- Slash commands: `/plan`, `/plan on`, `/plan off`, `/clear`, `/compact`.
+- Slash commands: `/plan`, `/plan on`, `/plan off`, `/pr [selector]`, `/status`, `/stop`, `/clear`, `/compact`.
 - Artifacts render Markdown + LaTeX.
 
 ## Markdown LaTeX Rendering

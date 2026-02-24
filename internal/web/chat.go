@@ -29,8 +29,6 @@ const (
 	turnOutputModeVoice    = "voice"
 	turnOutputModeSilent   = "silent"
 	promptContractStateKey = "chat_prompt_contract_sha256"
-	voicePromptTemplate    = "system-prompt-voice.md"
-	silentPromptTemplate   = "system-prompt-silent.md"
 )
 
 const defaultVoiceHistoryPrompt = `You are Tabura, an AI assistant.
@@ -1628,36 +1626,24 @@ func appendDelegationSection(b *strings.Builder) {
 
 func loadModePromptTemplate(outputMode, defaultPrompt, fallback string) string {
 	fallback = strings.TrimSpace(fallback)
-	templatePath := ""
 	switch strings.TrimSpace(outputMode) {
 	case turnOutputModeVoice:
-		templatePath = filepath.Join(".tabura", voicePromptTemplate)
+		// Voice mode always uses the built-in Go prompt template.
+		return normalizePromptTemplate(firstNonEmptyPrompt(defaultPrompt, fallback))
 	case turnOutputModeSilent:
-		templatePath = filepath.Join(".tabura", silentPromptTemplate)
+		// Silent mode always uses the built-in Go prompt template.
+		return normalizePromptTemplate(firstNonEmptyPrompt(defaultPrompt, fallback))
 	default:
 		return normalizePromptTemplate(fallback)
 	}
-
-	content := readPromptTemplateFromFile(templatePath)
-	if content == "" {
-		content = defaultPrompt
-	}
-	if content == "" {
-		content = fallback
-	}
-	return normalizePromptTemplate(content)
 }
 
-func readPromptTemplateFromFile(path string) string {
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		return ""
+func firstNonEmptyPrompt(primary, fallback string) string {
+	primary = strings.TrimSpace(primary)
+	if primary != "" {
+		return primary
 	}
-	content := strings.TrimSpace(string(raw))
-	if content == "" {
-		return ""
-	}
-	return content
+	return strings.TrimSpace(fallback)
 }
 
 func normalizePromptTemplate(prompt string) string {
