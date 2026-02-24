@@ -352,20 +352,53 @@ function isIPhone() {
   return /iphone/.test(userAgent) || platform === 'iphone' || (platform === 'macintel' && navigator.maxTouchPoints > 1);
 }
 
+const IPHONE_CORNER_RADIUS_PROFILES = [
+  { shortSide: 375, longSide: 812, dpr: 2, radius: 41.5 },
+  { shortSide: 390, longSide: 844, dpr: 3, radius: 47 },
+  { shortSide: 393, longSide: 852, dpr: 3, radius: 55 },
+  { shortSide: 414, longSide: 896, dpr: 2, radius: 41 },
+  { shortSide: 428, longSide: 926, dpr: 3, radius: 53 },
+  { shortSide: 430, longSide: 932, dpr: 3, radius: 59 },
+  { shortSide: 440, longSide: 956, dpr: 3, radius: 62 },
+];
+
 function iPhoneRoundedCornerRadiusPx() {
   if (!isIPhone()) return null;
+
   const shortSide = Math.min(
     Math.round(window.innerWidth),
     Math.round(window.innerHeight),
-    Number.isFinite(window.screen?.width) ? Math.round(window.screen.width) : Number.POSITIVE_INFINITY,
-    Number.isFinite(window.screen?.height) ? Math.round(window.screen.height) : Number.POSITIVE_INFINITY,
   );
-  if (!Number.isFinite(shortSide) || shortSide <= 0) return null;
+  const longSide = Math.max(
+    Math.round(window.innerWidth),
+    Math.round(window.innerHeight),
+  );
+  if (!Number.isFinite(shortSide) || !Number.isFinite(longSide) || shortSide <= 0 || longSide <= 0) {
+    return null;
+  }
+
   const dpr = Math.max(1, Math.round(window.devicePixelRatio || 1));
-  if (dpr >= 3 && shortSide >= 392) return 55;
-  if (dpr >= 3 && shortSide >= 360) return 47;
-  if (dpr === 2 && shortSide >= 360) return 44;
-  return 43;
+  const directMatch = IPHONE_CORNER_RADIUS_PROFILES.find(
+    (entry) => entry.shortSide === shortSide && entry.longSide === longSide && entry.dpr === dpr,
+  );
+  if (directMatch) return directMatch.radius;
+
+  // Fallback by family/scale; keep values conservative so UI stays inside the visible radius.
+  if (dpr >= 3) {
+    if (shortSide >= 440) return 62;
+    if (shortSide >= 430) return 59;
+    if (shortSide >= 410) return 55;
+    if (shortSide >= 393) return 55;
+    if (shortSide >= 390) return 47;
+    return 44;
+  }
+
+  if (dpr === 2) {
+    if (shortSide >= 414) return 41;
+    if (shortSide >= 375) return 39;
+  }
+
+  return 44;
 }
 
 function applyIPhoneStandaloneCueHints() {
@@ -376,7 +409,10 @@ function applyIPhoneStandaloneCueHints() {
   const isStandaloneLike = isHomeScreenStandaloneLike() && isIPhoneDevice;
   const roundedRadius = iPhoneRoundedCornerRadiusPx();
   const radius = Number.isFinite(roundedRadius) && roundedRadius > 0 ? roundedRadius : 44;
-  const modeRadius = isStandaloneLike ? Math.max(24, Math.round(radius - 5)) : radius;
+  const cueBorderWidth = Number.parseFloat(getComputedStyle(root).getPropertyValue('--cue-frame-border')) || 5;
+  const modeRadius = isStandaloneLike
+    ? Math.max(24, Math.round(radius - Math.max(1, cueBorderWidth)))
+    : radius;
   body.classList.toggle('ios-cue-fullscreen', isStandaloneLike);
   if (isIPhoneDevice) {
     const cornerRadius = `0 0 ${modeRadius}px ${modeRadius}px`;
