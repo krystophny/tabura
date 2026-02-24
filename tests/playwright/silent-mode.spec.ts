@@ -127,7 +127,7 @@ test.describe('silent mode mobile', () => {
     await expect(edgeRight).not.toHaveClass(/edge-pinned/);
   });
 
-  test('non-autoCanvas response stays in chat pane', async ({ page }) => {
+  test('non-autoCanvas response renders on canvas and closes panel', async ({ page }) => {
     const edgeRight = page.locator('#edge-right');
     await expect(edgeRight).toHaveClass(/edge-pinned/);
 
@@ -138,22 +138,23 @@ test.describe('silent mode mobile', () => {
     });
     await page.waitForTimeout(100);
 
-    // Inject final output without auto_canvas (artifact already on canvas)
+    // Inject final output without auto_canvas and no canvas changes
     await injectChatEvent(page, {
       type: 'assistant_output',
       role: 'assistant',
       turn_id: 'silent-t2',
-      message: 'Short answer stays in chat.',
+      message: 'Short answer shown on canvas.',
       auto_canvas: false,
     });
     await page.waitForTimeout(200);
 
-    // Chat pane should remain open
-    await expect(edgeRight).toHaveClass(/edge-pinned/);
+    // Chat pane should be closed
+    await expect(edgeRight).not.toHaveClass(/edge-pinned/);
 
-    // Chat should contain the response
-    const chatBubble = page.locator('#chat-history .chat-message.chat-assistant .chat-bubble');
-    await expect(chatBubble.first()).toContainText('Short answer stays in chat');
+    // Canvas should show the response
+    const canvasText = page.locator('#canvas-text');
+    await expect(canvasText).toBeVisible();
+    await expect(canvasText).toContainText('Short answer shown on canvas');
   });
 });
 

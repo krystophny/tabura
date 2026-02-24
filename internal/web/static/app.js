@@ -2024,7 +2024,18 @@ function handleChatEvent(payload) {
       ttsSentenceChunker.flush();
     }
     if (mobileSilent) {
-      if (autoCanvas) {
+      if (state.zenCanvasActionThisTurn || autoCanvas) {
+        // LLM touched the canvas this turn — keep showing the document.
+        const edgeRight = document.getElementById('edge-right');
+        if (edgeRight) edgeRight.classList.remove('edge-active', 'edge-pinned');
+      } else if (hasDisplayMd) {
+        // No canvas changes — show final message on canvas.
+        renderCanvas({
+          kind: 'text_artifact',
+          title: '',
+          text: displayMd,
+        });
+        showCanvasColumn('canvas-text');
         const edgeRight = document.getElementById('edge-right');
         if (edgeRight) edgeRight.classList.remove('edge-active', 'edge-pinned');
       }
