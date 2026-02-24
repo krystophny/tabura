@@ -52,6 +52,7 @@ const state = {
   contextMax: 0,
   // Zen-specific: track if a canvas action happened during this turn
   zenCanvasActionThisTurn: false,
+  turnFirstResponseShown: false,
   lastInputOrigin: 'text',
 };
 
@@ -1925,6 +1926,7 @@ function handleChatEvent(payload) {
       if (edgeRight) edgeRight.classList.add('edge-pinned');
     }
     state.zenCanvasActionThisTurn = false;
+    state.turnFirstResponseShown = false;
     // Reset TTS state for new turn
     stopTTSPlayback();
     const pos = getLastInputPosition();
@@ -1960,6 +1962,22 @@ function handleChatEvent(payload) {
         hideOverlay();
       }
       return;
+    }
+
+    // First non-empty response: show on canvas (silent) / speak (voice)
+    const trimmedMd = String(md || '').trim();
+    if (trimmedMd && !state.turnFirstResponseShown) {
+      state.turnFirstResponseShown = true;
+      if (isMobileSilent()) {
+        renderCanvas({ kind: 'text_artifact', title: '', text: md });
+        showCanvasColumn('canvas-text');
+      }
+      if (isVoiceTurn() && canSpeakTTS()) {
+        const { ttsText, ttsLang } = extractTTSText(md);
+        if (ttsLang) ttsSpeakLang = ttsLang;
+        const diff = computeTTSDiff(ttsText);
+        queueTTSDiff(diff);
+      }
     }
 
     if (!isVoiceTurn() && !isMobileSilent() && !state.hasArtifact) {

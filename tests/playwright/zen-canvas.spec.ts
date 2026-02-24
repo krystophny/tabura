@@ -420,7 +420,7 @@ test.describe('zen canvas - TTS voice output', () => {
     await expect(overlay).toBeHidden();
   });
 
-  test('auto canvas stream events do not trigger TTS before final output', async ({ page }) => {
+  test('first voice response speaks immediately, auto_canvas does not add extra TTS', async ({ page }) => {
     await clearLog(page);
     await setVoiceOrigin(page);
 
@@ -433,7 +433,14 @@ test.describe('zen canvas - TTS voice output', () => {
       message: 'I will open readme and place it there',
       delta: 'I will open readme and place it there',
     });
-    await page.waitForTimeout(80);
+    await page.waitForTimeout(500);
+
+    // First response should be spoken immediately
+    let log = await getLog(page);
+    let spoken = log.filter((e) => e.type === 'tts').map((e) => String(e.text || '').toLowerCase());
+    expect(spoken.some((t) => t.includes('open readme') || t.includes('place it there'))).toBe(true);
+
+    await clearLog(page);
 
     await injectChatEvent(page, {
       type: 'assistant_message',
@@ -445,24 +452,13 @@ test.describe('zen canvas - TTS voice output', () => {
     await expect(page.locator('#zen-indicator')).toBeHidden();
     await page.waitForTimeout(250);
 
-    let log = await getLog(page);
-    let spoken = log.filter((e) => e.type === 'tts').map((e) => String(e.text || '').toLowerCase());
-    expect(spoken.length).toBe(0);
-
-    await injectChatEvent(page, {
-      type: 'message_persisted',
-      role: 'assistant',
-      turn_id: 'tts-canvas-keep',
-      message: 'I will open readme and place it there',
-    });
-    await page.waitForTimeout(450);
-
+    // auto_canvas empty message should not add extra TTS
     log = await getLog(page);
-    spoken = log.filter((e) => e.type === 'tts').map((e) => String(e.text || '').toLowerCase());
-    expect(spoken.some((t) => t.includes('open readme') || t.includes('place it there'))).toBe(true);
+    spoken = log.filter((e) => e.type === 'tts');
+    expect(spoken.length).toBe(0);
   });
 
-  test('voice TTS speaks only the finalized snapshot', async ({ page }) => {
+  test('voice TTS speaks first response immediately and final supersedes', async ({ page }) => {
     await clearLog(page);
     await setVoiceOrigin(page);
 
@@ -475,7 +471,12 @@ test.describe('zen canvas - TTS voice output', () => {
       message: 'I have a cleaned tree snapshot and will share it as canvas content.',
       delta: 'I have a cleaned tree snapshot and will share it as canvas content.',
     });
-    await page.waitForTimeout(250);
+    await page.waitForTimeout(500);
+
+    // First response should be spoken immediately
+    let log = await getLog(page);
+    let spoken = log.filter((e) => e.type === 'tts').map((e) => String(e.text || ''));
+    expect(spoken.some((t) => t.includes('cleaned tree snapshot'))).toBe(true);
 
     await injectChatEvent(page, {
       type: 'assistant_message',
@@ -493,11 +494,9 @@ test.describe('zen canvas - TTS voice output', () => {
     });
     await page.waitForTimeout(500);
 
-    const log = await getLog(page);
-    const spoken = log
-      .filter((e) => e.type === 'tts')
-      .map((e) => String(e.text || ''));
-    expect(spoken.some((t) => t.includes('cleaned tree snapshot'))).toBe(false);
+    log = await getLog(page);
+    spoken = log.filter((e) => e.type === 'tts').map((e) => String(e.text || ''));
+    // Final output should also be spoken
     expect(spoken.some((t) => t.includes('current repository snapshot'))).toBe(true);
   });
 
