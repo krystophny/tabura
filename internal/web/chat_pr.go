@@ -92,7 +92,9 @@ func (a *App) loadGitHubPRReview(projectKey, selector string) (ghPRReview, error
 		return ghPRReview{}, errors.New("github PR number is missing")
 	}
 
-	diffArgs := []string{"pr", "diff", strconv.Itoa(view.Number), "--patch"}
+	// Use cumulative PR diff (not per-commit mailbox patches) so each file
+	// appears as the current net change for review mode.
+	diffArgs := []string{"pr", "diff", strconv.Itoa(view.Number)}
 	diffRaw, err := runner(ctx, cwd, diffArgs...)
 	if err != nil {
 		return ghPRReview{}, err

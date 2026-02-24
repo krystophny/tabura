@@ -73,7 +73,7 @@ func TestLoadGitHubPRReview(t *testing.T) {
 	if got := strings.Join(calls[0], " "); !strings.Contains(got, "pr view 17") {
 		t.Fatalf("view call mismatch: %q", got)
 	}
-	if got := strings.Join(calls[1], " "); !strings.Contains(got, "pr diff 17 --patch") {
+	if got := strings.Join(calls[1], " "); !strings.Contains(got, "pr diff 17") || strings.Contains(got, "--patch") {
 		t.Fatalf("diff call mismatch: %q", got)
 	}
 }
