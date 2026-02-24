@@ -38,6 +38,7 @@ const (
 	DefaultSparkReasoningEffort = "low"
 	SparkModel                  = modelprofile.ModelSpark
 	mcpToolsCallTimeout         = 45 * time.Second
+	appStateDefaultChatModelKey  = "default_chat_model"
 )
 
 //go:embed static/* static/vendor/*
@@ -100,6 +101,9 @@ func New(dataDir, localProjectDir, localMCPURL, appServerURL, model, ttsURL, spa
 		resolvedModel = strings.TrimSpace(os.Getenv("TABURA_APP_SERVER_MODEL"))
 	}
 	if resolvedModel == "" {
+		resolvedModel = persistedDefaultChatModel(s)
+	}
+	if resolvedModel == "" {
 		resolvedModel = DefaultModel
 	}
 	if strings.TrimSpace(sparkReasoningEffort) == "" {
@@ -146,6 +150,17 @@ func New(dataDir, localProjectDir, localMCPURL, appServerURL, model, ttsURL, spa
 		return nil, err
 	}
 	return app, nil
+}
+
+func persistedDefaultChatModel(s *store.Store) string {
+	if s == nil {
+		return ""
+	}
+	modelValue, err := s.AppState(appStateDefaultChatModelKey)
+	if err != nil || strings.TrimSpace(modelValue) == "" {
+		return ""
+	}
+	return modelprofile.ResolveModel(modelValue, "")
 }
 
 func randomToken() string {

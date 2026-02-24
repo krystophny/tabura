@@ -597,6 +597,7 @@ func (a *App) updateProjectChatModel(projectID, rawModel string) (store.Project,
 	if err := a.store.UpdateProjectChatModel(project.ID, modelAlias); err != nil {
 		return store.Project{}, err
 	}
+	_ = a.store.SetAppState(appStateDefaultChatModelKey, modelAlias)
 	updated, err := a.store.GetProject(project.ID)
 	if err != nil {
 		return store.Project{}, err
