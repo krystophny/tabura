@@ -425,6 +425,8 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   border-radius: 0;
   padding: 0;
   background: transparent;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .edge-left-tap:hover,
@@ -450,6 +452,8 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   border-radius: 0;
   padding: 0;
   background: transparent;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .edge-bottom-tap:hover,

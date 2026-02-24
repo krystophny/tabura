@@ -2497,11 +2497,19 @@ function initEdgePanels() {
       ev.preventDefault();
       handleLeftEdgeTap();
     });
+    edgeLeftTap.addEventListener('touchend', (ev) => {
+      ev.preventDefault();
+      handleLeftEdgeTap();
+    });
   }
 
   const edgeBottomTap = document.getElementById('edge-bottom-tap');
   if (edgeBottomTap) {
     edgeBottomTap.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      openChatPaneWithInput();
+    });
+    edgeBottomTap.addEventListener('touchend', (ev) => {
       ev.preventDefault();
       openChatPaneWithInput();
     });
