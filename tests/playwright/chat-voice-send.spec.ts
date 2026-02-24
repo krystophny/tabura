@@ -10,6 +10,34 @@ async function clearLog(page: Page) {
   await page.evaluate(() => { (window as any).__harnessLog.splice(0); });
 }
 
+async function injectCanvasModuleRef(page: Page) {
+  await page.evaluate(async () => {
+    const mod = await import('../../internal/web/static/canvas.js');
+    (window as any).__canvasModule = mod;
+  });
+}
+
+async function renderTestArtifact(page: Page, text = 'Line one\nLine two\nLine three\nLine four\nLine five') {
+  await page.evaluate((content) => {
+    const mod = (window as any).__canvasModule;
+    mod.renderCanvas({
+      event_id: 'art-ctrl-ptt',
+      kind: 'text_artifact',
+      title: 'test.txt',
+      text: content,
+    });
+  }, text);
+  await page.evaluate(() => {
+    const ct = document.getElementById('canvas-text');
+    if (ct) {
+      ct.style.display = '';
+      ct.classList.add('is-active');
+    }
+    const app = (window as any)._taburaApp;
+    if (app?.getState) app.getState().hasArtifact = true;
+  });
+}
+
 async function waitForLogEntry(page: Page, type: string, action: string) {
   await expect.poll(async () => {
     const log = await getLog(page);
@@ -94,17 +122,16 @@ test('silence auto-stop sends transcript without manual stop click', async ({ pa
   await clearLog(page);
   await page.evaluate(() => {
     (window as any).__setVadDbFrames([
-      -80, -80, -80, -80, -80, -80, -80, -80,
-      -12, -12, -12, -12, -12, -12, -12, -12, -12, -12,
-      -80, -80, -80, -80, -80, -80, -80, -80, -80, -80,
-      -80, -80, -80, -80, -80, -80, -80, -80, -80, -80,
+      ...Array.from({ length: 8 }, () => -80),
+      ...Array.from({ length: 10 }, () => -12),
+      ...Array.from({ length: 40 }, () => -80),
     ]);
   });
 
   await page.mouse.click(400, 400);
   await waitForLogEntry(page, 'recorder', 'start');
   await waitForSTTAction(page, 'stop');
-  await page.waitForTimeout(200);
+  await page.waitForTimeout(250);
 
   const log = await getLog(page);
   const sent = log.find(e => e.type === 'message_sent');
@@ -119,17 +146,16 @@ test('silence auto-stop works with low-level speech near ambient floor', async (
     // Simulate hardware like a quiet webcam mic:
     // ambient ~ -41 dB, speech ~ -35 dB, then silence.
     (window as any).__setVadDbFrames([
-      -41, -41, -41, -41, -41, -41, -41, -41,
-      -35, -35, -35, -35, -35, -35, -35, -35,
-      -44, -44, -44, -44, -44, -44, -44, -44, -44, -44,
-      -44, -44, -44, -44, -44, -44, -44, -44, -44, -44,
+      ...Array.from({ length: 8 }, () => -41),
+      ...Array.from({ length: 10 }, () => -35),
+      ...Array.from({ length: 40 }, () => -44),
     ]);
   });
 
   await page.mouse.click(400, 400);
   await waitForLogEntry(page, 'recorder', 'start');
   await waitForSTTAction(page, 'stop');
-  await page.waitForTimeout(200);
+  await page.waitForTimeout(250);
 
   const log = await getLog(page);
   const sent = log.find(e => e.type === 'message_sent');
@@ -144,17 +170,16 @@ test('silence auto-stop works when speech is only slightly above noisy ambient b
     // High ambient noise (~-22 dB), speech only +4 dB above baseline.
     // Regression: this used to miss speech onset and fall into no-speech cancel.
     (window as any).__setVadDbFrames([
-      -22, -22, -22, -22, -22, -22, -22, -22,
-      -18, -18, -18, -18, -18, -18, -18, -18, -18, -18, -18, -18,
-      -22, -22, -22, -22, -22, -22, -22, -22, -22, -22,
-      -22, -22, -22, -22, -22, -22, -22, -22, -22, -22,
+      ...Array.from({ length: 8 }, () => -22),
+      ...Array.from({ length: 10 }, () => -18),
+      ...Array.from({ length: 40 }, () => -22),
     ]);
   });
 
   await page.mouse.click(400, 400);
   await waitForLogEntry(page, 'recorder', 'start');
   await waitForSTTAction(page, 'stop');
-  await page.waitForTimeout(200);
+  await page.waitForTimeout(250);
 
   const log = await getLog(page);
   const sent = log.find(e => e.type === 'message_sent');
@@ -210,6 +235,43 @@ test('short Control press does not start voice recording', async ({ page }) => {
   const log = await getLog(page);
   const sttActions = log.filter(e => e.type === 'stt');
   expect(sttActions).toHaveLength(0);
+});
+
+test('Control long-press starts at mouse location and sends artifact line context', async ({ page }) => {
+  await clearLog(page);
+  await injectCanvasModuleRef(page);
+  await renderTestArtifact(page);
+
+  const canvasText = page.locator('#canvas-text');
+  const box = await canvasText.boundingBox();
+  if (!box) throw new Error('canvas-text not visible');
+  const x = Math.floor(box.x + 40);
+  const y = Math.floor(box.y + 20);
+
+  await page.mouse.move(x, y);
+  await page.keyboard.down('Control');
+  await page.waitForTimeout(300);
+  await waitForLogEntry(page, 'recorder', 'start');
+
+  const indicatorPos = await page.evaluate(() => {
+    const indicator = document.getElementById('zen-indicator');
+    if (!(indicator instanceof HTMLElement)) return null;
+    return {
+      x: Number.parseFloat(indicator.style.left || '0'),
+      y: Number.parseFloat(indicator.style.top || '0'),
+    };
+  });
+  expect(indicatorPos).toBeTruthy();
+  expect(Math.abs(indicatorPos!.x - x)).toBeLessThanOrEqual(1);
+  expect(Math.abs(indicatorPos!.y - y)).toBeLessThanOrEqual(1);
+
+  await page.keyboard.up('Control');
+  await waitForSTTAction(page, 'stop');
+  await expect.poll(async () => {
+    const log = await getLog(page);
+    const sent = log.find((entry) => entry.type === 'message_sent');
+    return String(sent?.text || '');
+  }).toMatch(/\[Line \d+ of "test\.txt"\] hello world/);
 });
 
 test('Enter stops active recording', async ({ page }) => {

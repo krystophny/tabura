@@ -126,11 +126,27 @@ export function showIndicatorMode(mode, x, y) {
   const el = indicatorEl();
   if (!el) return;
   const nextMode = mode === 'recording' ? 'recording' : 'stop';
+  const body = document.body;
   el.classList.remove('is-recording', 'is-stop');
   el.classList.add(nextMode === 'recording' ? 'is-recording' : 'is-stop');
   el.style.display = '';
-  el.style.left = `${x}px`;
-  el.style.top = `${y}px`;
+  // Always reset geometry so stale inline styles can't shrink/offset the cue.
+  el.style.position = 'fixed';
+  el.style.inset = '';
+  el.style.width = '';
+  el.style.height = '';
+  el.style.left = '';
+  el.style.top = '';
+  el.style.right = '';
+  el.style.bottom = '';
+  el.style.maxWidth = '';
+  el.style.maxHeight = '';
+  el.style.transform = '';
+  el.style.translate = '';
+  if (body) {
+    const isCueVisible = nextMode === 'recording' || nextMode === 'stop';
+    body.classList.toggle('zen-recording', isCueVisible);
+  }
   zenState.indicatorVisible = true;
   zenState.indicatorMode = nextMode;
 }
@@ -140,6 +156,10 @@ export function hideIndicator() {
   if (!el) return;
   el.classList.remove('is-recording', 'is-stop');
   el.style.display = 'none';
+  const body = document.body;
+  if (body) {
+    body.classList.remove('zen-recording');
+  }
   zenState.indicatorVisible = false;
   zenState.indicatorMode = '';
 }
@@ -213,7 +233,12 @@ export function isRecording() {
 }
 
 export function setRecording(active) {
-  zenState.recording = Boolean(active);
+  const next = Boolean(active);
+  zenState.recording = next;
+  const body = document.body;
+  if (body) {
+    body.classList.toggle('zen-recording', next);
+  }
 }
 
 export function getInputAnchor() {

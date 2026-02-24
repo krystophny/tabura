@@ -22,6 +22,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/websocket"
 	"github.com/krystophny/tabura/internal/appserver"
+	"github.com/krystophny/tabura/internal/modelprofile"
 	"github.com/krystophny/tabura/internal/serve"
 	"github.com/krystophny/tabura/internal/store"
 )
@@ -35,8 +36,9 @@ const (
 	DaemonPort                  = 9420
 	LocalSessionID              = "local"
 	DefaultSparkReasoningEffort = "low"
-	SparkModel                  = "gpt-5.3-codex-spark"
+	SparkModel                  = modelprofile.ModelSpark
 	mcpToolsCallTimeout         = 45 * time.Second
+	appStateDefaultChatModelKey = "default_chat_model"
 )
 
 //go:embed static/* static/vendor/*
@@ -78,7 +80,7 @@ type App struct {
 	startedAt string
 }
 
-const DefaultModel = "gpt-5.3-codex-spark"
+const DefaultModel = modelprofile.ModelSpark
 
 func New(dataDir, localProjectDir, localMCPURL, appServerURL, model, ttsURL, sparkReasoningEffort string, devRuntime bool) (*App, error) {
 	s, err := store.New(filepath.Join(dataDir, "tabura.db"))
@@ -99,8 +101,12 @@ func New(dataDir, localProjectDir, localMCPURL, appServerURL, model, ttsURL, spa
 		resolvedModel = strings.TrimSpace(os.Getenv("TABURA_APP_SERVER_MODEL"))
 	}
 	if resolvedModel == "" {
+		resolvedModel = persistedDefaultChatModel(s)
+	}
+	if resolvedModel == "" {
 		resolvedModel = DefaultModel
 	}
+	resolvedModel = enforceSparkModel(resolvedModel)
 	if strings.TrimSpace(sparkReasoningEffort) == "" {
 		sparkReasoningEffort = strings.TrimSpace(os.Getenv("TABURA_APP_SERVER_SPARK_REASONING_EFFORT"))
 	}
@@ -108,6 +114,10 @@ func New(dataDir, localProjectDir, localMCPURL, appServerURL, model, ttsURL, spa
 	resolvedTTSURL := strings.TrimSpace(ttsURL)
 	if resolvedTTSURL == "" {
 		resolvedTTSURL = strings.TrimSpace(os.Getenv("TABURA_TTS_URL"))
+	}
+	if err := s.SetAppState(appStateDefaultChatModelKey, modelprofile.AliasSpark); err != nil {
+		_ = s.Close()
+		return nil, err
 	}
 	app := &App{
 		dataDir:                       dataDir,
@@ -145,6 +155,17 @@ func New(dataDir, localProjectDir, localMCPURL, appServerURL, model, ttsURL, spa
 		return nil, err
 	}
 	return app, nil
+}
+
+func persistedDefaultChatModel(s *store.Store) string {
+	if s == nil {
+		return ""
+	}
+	modelValue, err := s.AppState(appStateDefaultChatModelKey)
+	if err != nil || strings.TrimSpace(modelValue) == "" {
+		return ""
+	}
+	return modelprofile.ResolveModel(modelValue, "")
 }
 
 func randomToken() string {
@@ -199,6 +220,7 @@ func (a *App) Router() http.Handler {
 	r.Get("/api/projects", a.handleProjectsList)
 	r.Post("/api/projects", a.handleProjectCreate)
 	r.Post("/api/projects/{project_id}/activate", a.handleProjectActivate)
+	r.Post("/api/projects/{project_id}/chat-model", a.handleProjectChatModelUpdate)
 	r.Get("/api/projects/{project_id}/context", a.handleProjectContext)
 	r.Post("/api/chat/sessions", a.handleChatSessionCreate)
 	r.Get("/api/chat/sessions/{session_id}/history", a.handleChatSessionHistory)
@@ -352,22 +374,31 @@ func (a *App) handleRuntime(w http.ResponseWriter, r *http.Request) {
 		"app_server_url":              a.appServerURL,
 		"app_server_model":            a.appServerModel,
 		"app_server_reasoning_effort": sparkReasoningEffort,
-		"available_models":            []string{"gpt-5.3-codex-spark", "gpt-5.3-codex", "gpt-5.2"},
+		"available_models":            modelprofile.SupportedModels(),
+		"available_reasoning_efforts": modelprofile.AvailableReasoningEffortsByAlias(),
 		"tts_enabled":                 a.ttsURL != "",
 	})
 }
 
+func enforceSparkModel(rawModel string) string {
+	if isSparkModel(strings.TrimSpace(rawModel)) {
+		return strings.TrimSpace(rawModel)
+	}
+	return DefaultModel
+}
+
 func resolveSparkReasoningEffort(raw string) string {
-	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "low", "medium", "high":
-		return strings.ToLower(strings.TrimSpace(raw))
+	clean := strings.ToLower(strings.TrimSpace(raw))
+	switch clean {
+	case modelprofile.ReasoningLow, modelprofile.ReasoningMedium, modelprofile.ReasoningHigh, modelprofile.ReasoningExtraHigh:
+		return clean
 	default:
 		return DefaultSparkReasoningEffort
 	}
 }
 
 func isSparkModel(model string) bool {
-	return strings.EqualFold(strings.TrimSpace(model), SparkModel)
+	return modelprofile.AliasForModel(model) == modelprofile.AliasSpark
 }
 
 func appServerReasoningParamsForModel(model, effort string) map[string]interface{} {

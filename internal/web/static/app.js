@@ -26,6 +26,8 @@ const state = {
   activeProjectId: '',
   projectsOpen: false,
   projectSwitchInFlight: false,
+  projectModelSwitchInFlight: false,
+  ttsSilent: false,
   pendingByTurn: new Map(),
   pendingQueue: [],
   assistantActiveTurns: new Set(),
@@ -41,6 +43,11 @@ const state = {
   indicatorSuppressedByCanvasUpdate: false,
   chatCtrlHoldTimer: null,
   chatVoiceCapture: null,
+  reasoningEffortsByAlias: {
+    codex: ['low', 'medium', 'high', 'extra_high'],
+    gpt: ['low', 'medium', 'high', 'extra_high'],
+    spark: ['low', 'medium', 'high', 'extra_high'],
+  },
   contextUsed: 0,
   contextMax: 0,
   // Zen-specific: track if a canvas action happened during this turn
@@ -66,26 +73,30 @@ const CHAT_CTRL_LONG_PRESS_MS = 180;
 const CHAT_SEND_HOLD_MS = 300;
 // Frontend end-of-utterance policy:
 // - start/end speech from local mic energy
-// - auto-stop after sustained silence (~700ms)
+// - pure VAD commit (no semantic EOU sidecar)
 // - no-speech timeout + hard max to avoid hanging capture
-const VOICE_EOU_AUTO_SEND_DEFAULT = true;
-const VOICE_EOU_AUTO_SEND_STORAGE_KEY = 'tabura.voiceEouAutoSend';
-const VOICE_EOU_AUTO_SEND_QUERY_PARAM = 'voice_eou_auto_send';
-const VOICE_EOU_MIN_UTTERANCE_MS = 300;
-const VOICE_EOU_EOS_SILENCE_MS = 700;
-const VOICE_EOU_NO_SPEECH_MS = 4000;
-const VOICE_EOU_MAX_RECORDING_MS = 20000;
-const VOICE_EOU_FRAME_MS = 40;
-const VOICE_EOU_NOISE_FLOOR_SAMPLES = 8;
-const VOICE_EOU_NOISE_FLOOR_PERCENTILE = 0.35;
-const VOICE_EOU_NOISE_FLOOR_ADAPT_ALPHA = 0.12;
-const VOICE_EOU_SPEECH_START_OFFSET_DB = 3;
-const VOICE_EOU_SPEECH_END_OFFSET_DB = 1.5;
-const VOICE_EOU_SPEECH_START_THRESHOLD_MIN_DB = -42;
-const VOICE_EOU_SPEECH_END_THRESHOLD_MIN_DB = -45;
-const VOICE_EOU_SPEECH_START_FRAMES = 4;
-const VOICE_EOU_NOISE_FLOOR_MIN_DB = -60;
-const VOICE_EOU_NOISE_FLOOR_MAX_DB = -18;
+const VOICE_VAD_AUTO_SEND_DEFAULT = true;
+const VOICE_VAD_AUTO_SEND_STORAGE_KEY = 'tabura.voiceVadAutoSend';
+const VOICE_VAD_AUTO_SEND_QUERY_PARAM = 'voice_vad_auto_send';
+const VOICE_VAD_MIN_UTTERANCE_MS = 300;
+const VOICE_VAD_CANDIDATE_SILENCE_MS = 900;
+const VOICE_VAD_CANDIDATE_RECHECK_MS = 450;
+const VOICE_VAD_HARD_SILENCE_MS = 2500;
+const VOICE_VAD_NO_SPEECH_MS = 4000;
+const VOICE_VAD_MAX_RECORDING_MS = 20000;
+const VOICE_VAD_FRAME_MS = 40;
+const VOICE_VAD_RECORDER_CHUNK_MS = 250;
+const VOICE_VAD_NOISE_FLOOR_SAMPLES = 8;
+const VOICE_VAD_NOISE_FLOOR_PERCENTILE = 0.35;
+const VOICE_VAD_NOISE_FLOOR_ADAPT_ALPHA = 0.12;
+const VOICE_VAD_SPEECH_START_OFFSET_DB = 3;
+const VOICE_VAD_SPEECH_END_OFFSET_DB = 1.5;
+const VOICE_VAD_SPEECH_START_THRESHOLD_MIN_DB = -42;
+const VOICE_VAD_SPEECH_END_THRESHOLD_MIN_DB = -45;
+const VOICE_VAD_SPEECH_START_FRAMES = 4;
+const VOICE_VAD_NOISE_FLOOR_MIN_DB = -60;
+const VOICE_VAD_NOISE_FLOOR_MAX_DB = -18;
+const VOICE_CAPTURE_STOP_FLUSH_TIMEOUT_MS = 1500;
 let devReloadBootID = '';
 let devReloadTimer = null;
 let devReloadInFlight = false;
@@ -95,6 +106,13 @@ let assistantActivityInFlight = false;
 
 const ACTIVE_PROJECT_STORAGE_KEY = 'tabura.activeProjectId';
 const LAST_VIEW_STORAGE_KEY = 'tabura.lastView';
+const PROJECT_CHAT_MODEL_ALIASES = ['codex', 'gpt', 'spark'];
+const PROJECT_CHAT_MODEL_REASONING_EFFORTS = {
+  codex: ['low', 'medium', 'high', 'extra_high'],
+  gpt: ['low', 'medium', 'high', 'extra_high'],
+  spark: ['low', 'medium', 'high', 'extra_high'],
+};
+const TTS_SILENT_STORAGE_KEY = 'tabura.ttsSilent';
 
 // --- Block stripping & TTS infrastructure ---
 
@@ -290,6 +308,223 @@ let ttsEnabled = false;
 let ttsLastSpeakText = '';
 let ttsSpeakLang = 'en';
 
+function readTTSSilentPreference() {
+  try {
+    const value = window.localStorage.getItem(TTS_SILENT_STORAGE_KEY);
+    const parsed = parseOptionalBoolean(value);
+    return parsed === true;
+  } catch (_) {
+    return false;
+  }
+}
+
+function persistTTSSilentPreference(silent) {
+  try {
+    window.localStorage.setItem(TTS_SILENT_STORAGE_KEY, silent ? 'true' : 'false');
+  } catch (_) {}
+}
+
+function canSpeakTTS() {
+  return Boolean(ttsEnabled) && !Boolean(state.ttsSilent);
+}
+
+function isMobileSilent() {
+  return state.ttsSilent && window.matchMedia('(max-width: 767px)').matches;
+}
+
+function isDisplayMode(mode) {
+  try {
+    return window.matchMedia(`(display-mode: ${mode})`).matches;
+  } catch (_) {
+    return false;
+  }
+}
+
+function isHomeScreenStandaloneLike() {
+  const standalone = typeof navigator !== 'undefined'
+    && 'standalone' in navigator
+    && navigator.standalone === true;
+  return standalone || isDisplayMode('standalone') || isDisplayMode('fullscreen');
+}
+
+function isIPhone() {
+  const userAgent = String(navigator.userAgent || '').toLowerCase();
+  const platform = String(navigator.platform || '').toLowerCase();
+  return /iphone/.test(userAgent) || platform === 'iphone' || (platform === 'macintel' && navigator.maxTouchPoints > 1);
+}
+
+function getIPhoneDisplayCandidatesPx() {
+  const candidates = [];
+  if (Number.isFinite(window.screen?.width) && Number.isFinite(window.screen?.height)) {
+    candidates.push({
+      shortSide: Math.round(Math.min(window.screen.width, window.screen.height)),
+      longSide: Math.round(Math.max(window.screen.width, window.screen.height)),
+      source: 'screen',
+    });
+  }
+  if (Number.isFinite(window.innerWidth) && Number.isFinite(window.innerHeight)) {
+    candidates.push({
+      shortSide: Math.round(Math.min(window.innerWidth, window.innerHeight)),
+      longSide: Math.round(Math.max(window.innerWidth, window.innerHeight)),
+      source: 'viewport',
+    });
+  }
+  return candidates;
+}
+
+const IPHONE_CORNER_RADIUS_PROFILES = [
+  { shortSide: 375, longSide: 812, dpr: 2, radius: 41.5 },
+  { shortSide: 375, longSide: 812, dpr: 3, radius: 44 },
+  { shortSide: 390, longSide: 844, dpr: 3, radius: 47 },
+  { shortSide: 393, longSide: 852, dpr: 3, radius: 55 },
+  // iPhone 16 Pro: 1206x2622 physical at 3x => 402x874 CSS pixels.
+  { shortSide: 402, longSide: 874, dpr: 3, radius: 62, safeAreaTopPortrait: 59 },
+  { shortSide: 414, longSide: 896, dpr: 2, radius: 41 },
+  { shortSide: 428, longSide: 926, dpr: 3, radius: 53 },
+  { shortSide: 430, longSide: 932, dpr: 3, radius: 55, safeAreaTopPortrait: 62 },
+  { shortSide: 440, longSide: 956, dpr: 3, radius: 62 },
+];
+
+function readNumericCssVar(name) {
+  const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function iPhoneRoundedCornerRadiusPx() {
+  if (!isIPhone()) return null;
+
+  const shortSide = Math.min(
+    Math.round(window.innerWidth),
+    Math.round(window.innerHeight),
+  );
+  const longSide = Math.max(
+    Math.round(window.innerWidth),
+    Math.round(window.innerHeight),
+  );
+  if (!Number.isFinite(shortSide) || !Number.isFinite(longSide) || shortSide <= 0 || longSide <= 0) {
+    return null;
+  }
+
+  const dpr = Math.max(1, Math.round(window.devicePixelRatio || 1));
+  const exactMatch = getIPhoneDisplayCandidatesPx()
+    .find((candidate) => IPHONE_CORNER_RADIUS_PROFILES.some(
+      (entry) => entry.shortSide === candidate.shortSide && entry.longSide === candidate.longSide && entry.dpr === dpr,
+    ));
+  if (exactMatch) {
+    const profile = IPHONE_CORNER_RADIUS_PROFILES.find((entry) => (
+      entry.shortSide === exactMatch.shortSide
+      && entry.longSide === exactMatch.longSide
+      && entry.dpr === dpr
+    ));
+    if (profile?.radius) return profile.radius;
+  }
+
+  // Fallback by family/scale; keep values conservative so UI stays inside the visible radius.
+  if (dpr >= 3) {
+    if (shortSide >= 440) return 62;
+    if (shortSide >= 430) return 55;
+    if (shortSide === 402 && longSide === 874) return 62;
+    if (shortSide >= 410) return 55;
+    if (shortSide >= 393) return 55;
+    if (shortSide >= 390) return 47;
+    return 44;
+  }
+
+  if (dpr === 2) {
+    if (shortSide >= 414) return 41;
+    if (shortSide >= 375) return 39;
+  }
+
+  return 44;
+}
+
+function iPhoneProfileForCurrentDisplay() {
+  if (!isIPhone()) return null;
+
+  const shortSide = Math.min(
+    Math.round(window.innerWidth),
+    Math.round(window.innerHeight),
+  );
+  const longSide = Math.max(
+    Math.round(window.innerWidth),
+    Math.round(window.innerHeight),
+  );
+  if (!Number.isFinite(shortSide) || !Number.isFinite(longSide) || shortSide <= 0 || longSide <= 0) {
+    return null;
+  }
+
+  const dpr = Math.max(1, Math.round(window.devicePixelRatio || 1));
+  return IPHONE_CORNER_RADIUS_PROFILES.find((entry) => (
+    entry.shortSide === shortSide
+    && entry.longSide === longSide
+    && entry.dpr === dpr
+  )) || null;
+}
+
+function iPhoneStatusBarInsetPx() {
+  if (!isIPhone()) return 0;
+  if (window.innerWidth > window.innerHeight) return 0;
+
+  const envInset = readNumericCssVar('--zen-safe-area-top');
+  if (envInset > 0) return envInset;
+
+  const profile = iPhoneProfileForCurrentDisplay();
+  return Number.isFinite(profile?.safeAreaTopPortrait) && profile.safeAreaTopPortrait > 0
+    ? profile.safeAreaTopPortrait
+    : 0;
+}
+
+function applyIPhoneStandaloneCueHints() {
+  const body = document.body;
+  const root = document.documentElement;
+  if (!body || !root) return;
+  const isIPhoneDevice = isIPhone();
+  const isStandaloneLike = isHomeScreenStandaloneLike() && isIPhoneDevice;
+  const roundedRadius = iPhoneRoundedCornerRadiusPx();
+  const radius = Number.isFinite(roundedRadius) && roundedRadius > 0 ? roundedRadius : null;
+  const modeRadius = Number.isFinite(radius) ? Math.max(0, Math.round(radius)) : 0;
+  const cueTopInset = isStandaloneLike ? iPhoneStatusBarInsetPx() : 0;
+  body.classList.toggle('ios-cue-fullscreen', isStandaloneLike);
+  root.style.setProperty('--zen-cue-top-offset', `${Math.max(0, cueTopInset)}px`);
+  if (isStandaloneLike && modeRadius > 0) {
+    const cornerRadius = `0 0 ${modeRadius}px ${modeRadius}px`;
+    root.style.setProperty('--zen-cue-corner-radius', cornerRadius);
+    return;
+  }
+  root.style.removeProperty('--zen-cue-corner-radius');
+}
+
+window.addEventListener('resize', applyIPhoneStandaloneCueHints);
+window.addEventListener('orientationchange', applyIPhoneStandaloneCueHints);
+
+function setTTSSilentMode(silent, { persist = true } = {}) {
+  const next = Boolean(silent);
+  if (state.ttsSilent === next) return;
+  state.ttsSilent = next;
+  if (persist) {
+    persistTTSSilentPreference(next);
+  }
+  if (next) {
+    stopTTSPlayback();
+    document.body.classList.add('silent-mode');
+    if (window.matchMedia('(max-width: 767px)').matches) {
+      const edgeRight = document.getElementById('edge-right');
+      if (edgeRight) edgeRight.classList.add('edge-pinned');
+    }
+  } else {
+    document.body.classList.remove('silent-mode');
+  }
+  renderEdgeTopModelButtons();
+}
+
+function toggleTTSSilentMode() {
+  if (!ttsEnabled) return;
+  const next = !state.ttsSilent;
+  setTTSSilentMode(next);
+  showStatus(next ? 'silent mode on' : 'voice mode on');
+}
+
 // Single shared AudioContext — created once, unlocked via resume() on user
 // gesture per Web Audio API best practice (MDN). Safari iOS requires resume()
 // to be called from a user-initiated event; once resumed the context stays
@@ -327,6 +562,7 @@ function ensureTTSChunker() {
 }
 
 function queueTTSDiff(diffText) {
+  if (!canSpeakTTS()) return;
   const fragment = String(diffText || '').trim();
   if (!fragment) return;
   ensureTTSChunker();
@@ -488,6 +724,80 @@ function activeProject() {
   return state.projects.find((project) => project.id === state.activeProjectId) || null;
 }
 
+function normalizeReasoningEffortOptions(rawEfforts) {
+  const raw = Array.isArray(rawEfforts) ? rawEfforts : [];
+  const clean = [];
+  const seen = new Set();
+  for (const rawEffort of raw) {
+    const effort = String(rawEffort || '').trim().toLowerCase();
+    if (!effort || seen.has(effort)) continue;
+    seen.add(effort);
+    clean.push(effort);
+  }
+  return clean;
+}
+
+function normalizeReasoningEffortOptionsByAlias(rawEfforts) {
+  const source = rawEfforts && typeof rawEfforts === 'object' ? rawEfforts : {};
+  const out = {};
+  for (const alias of PROJECT_CHAT_MODEL_ALIASES) {
+    const configured = normalizeReasoningEffortOptions(source[alias]);
+    if (configured.length > 0) {
+      out[alias] = configured;
+      continue;
+    }
+    const defaults = PROJECT_CHAT_MODEL_REASONING_EFFORTS[alias];
+    out[alias] = Array.isArray(defaults) && defaults.length > 0 ? defaults.slice() : ['low', 'medium', 'high'];
+  }
+  return out;
+}
+
+function applyRuntimeReasoningEffortOptions(rawEfforts) {
+  state.reasoningEffortsByAlias = normalizeReasoningEffortOptionsByAlias(rawEfforts);
+}
+
+function normalizeProjectChatModelAlias(value) {
+  const clean = String(value || '').trim().toLowerCase();
+  if (PROJECT_CHAT_MODEL_ALIASES.includes(clean)) {
+    return clean;
+  }
+  return '';
+}
+
+function reasoningEffortOptionsForAlias(alias) {
+  const cleanAlias = normalizeProjectChatModelAlias(alias);
+  const configured = Array.isArray(state.reasoningEffortsByAlias?.[cleanAlias]) ? state.reasoningEffortsByAlias[cleanAlias] : [];
+  if (configured.length > 0) {
+    return configured.slice();
+  }
+  const defaults = PROJECT_CHAT_MODEL_REASONING_EFFORTS[cleanAlias];
+  return Array.isArray(defaults) && defaults.length > 0 ? defaults.slice() : ['low', 'medium', 'high'];
+}
+
+function defaultReasoningEffortForAlias(alias) {
+  const options = reasoningEffortOptionsForAlias(alias);
+  return options.length > 0 ? options[0] : 'low';
+}
+
+function normalizeProjectChatModelReasoningEffort(value, alias) {
+  const effort = String(value || '').trim().toLowerCase();
+  const options = reasoningEffortOptionsForAlias(alias);
+  if (options.includes(effort)) {
+    return effort;
+  }
+  return defaultReasoningEffortForAlias(alias);
+}
+
+function activeProjectChatModelAlias() {
+  const alias = normalizeProjectChatModelAlias(activeProject()?.chat_model);
+  return alias || 'spark';
+}
+
+function activeProjectChatModelReasoningEffort() {
+  const alias = activeProjectChatModelAlias();
+  return normalizeProjectChatModelReasoningEffort(activeProject()?.chat_model_reasoning_effort, alias);
+}
+
 function persistActiveProjectID(projectID) {
   if (!projectID) return;
   try {
@@ -523,6 +833,7 @@ function setActiveProjectID(projectID) {
     persistActiveProjectID(state.activeProjectId);
   }
   renderEdgeTopProjects();
+  renderEdgeTopModelButtons();
 }
 
 
@@ -590,18 +901,18 @@ function parseOptionalBoolean(value) {
   return null;
 }
 
-function isVoiceEOUAutoSendEnabled() {
+function isVoiceVADAutoSendEnabled() {
   try {
-    const queryValue = new URL(window.location.href).searchParams.get(VOICE_EOU_AUTO_SEND_QUERY_PARAM);
+    const queryValue = new URL(window.location.href).searchParams.get(VOICE_VAD_AUTO_SEND_QUERY_PARAM);
     const queryFlag = parseOptionalBoolean(queryValue);
     if (queryFlag !== null) return queryFlag;
   } catch (_) {}
   try {
-    const storedValue = window.localStorage.getItem(VOICE_EOU_AUTO_SEND_STORAGE_KEY);
+    const storedValue = window.localStorage.getItem(VOICE_VAD_AUTO_SEND_STORAGE_KEY);
     const storedFlag = parseOptionalBoolean(storedValue);
     if (storedFlag !== null) return storedFlag;
   } catch (_) {}
-  return VOICE_EOU_AUTO_SEND_DEFAULT;
+  return VOICE_VAD_AUTO_SEND_DEFAULT;
 }
 
 let _sttResolve = null;
@@ -648,6 +959,9 @@ function sttCancel() {
     _sttReject(new Error('STT cancelled'));
     _sttResolve = null;
     _sttReject = null;
+  }
+  if (_sttResolve) {
+    _sttResolve = null;
   }
   const ws = state.chatWs;
   if (ws && ws.readyState === WebSocket.OPEN) {
@@ -731,7 +1045,7 @@ function percentileValue(values, percentile) {
 }
 
 function startVADMonitor(capture) {
-  if (!isVoiceEOUAutoSendEnabled()) return;
+  if (!isVoiceVADAutoSendEnabled()) return;
   if (!capture || capture.vadState) return;
   if (!capture.mediaStream) return;
   if (!ttsAudioCtx || typeof ttsAudioCtx.createAnalyser !== 'function' || typeof ttsAudioCtx.createMediaStreamSource !== 'function') return;
@@ -763,6 +1077,7 @@ function startVADMonitor(capture) {
     speechMs: 0,
     silenceMs: 0,
     hasSpeech: false,
+    pendingCommitAtMs: 0,
     speechFrames: 0,
     noiseSamples: [],
     noiseFloorDb: null,
@@ -790,22 +1105,22 @@ function startVADMonitor(capture) {
       const now = performance.now();
       const elapsed = now - options.startAtMs;
 
-      if (options.noiseFloorDb == null && options.noiseSamples.length < VOICE_EOU_NOISE_FLOOR_SAMPLES) {
+      if (options.noiseFloorDb == null && options.noiseSamples.length < VOICE_VAD_NOISE_FLOOR_SAMPLES) {
         options.noiseSamples.push(db);
-        if (options.noiseSamples.length >= VOICE_EOU_NOISE_FLOOR_SAMPLES) {
-          const seededFloor = percentileValue(options.noiseSamples, VOICE_EOU_NOISE_FLOOR_PERCENTILE);
+        if (options.noiseSamples.length >= VOICE_VAD_NOISE_FLOOR_SAMPLES) {
+          const seededFloor = percentileValue(options.noiseSamples, VOICE_VAD_NOISE_FLOOR_PERCENTILE);
           if (seededFloor != null) {
             options.noiseFloorDb = clampNumber(
               seededFloor,
-              VOICE_EOU_NOISE_FLOOR_MIN_DB,
-              VOICE_EOU_NOISE_FLOOR_MAX_DB,
+              VOICE_VAD_NOISE_FLOOR_MIN_DB,
+              VOICE_VAD_NOISE_FLOOR_MAX_DB,
             );
           }
         }
       }
 
       if (options.noiseFloorDb == null) {
-        if (elapsed >= VOICE_EOU_NO_SPEECH_MS) {
+        if (elapsed >= VOICE_VAD_NO_SPEECH_MS) {
           handleNoSpeechTimeout();
           return;
         }
@@ -813,30 +1128,30 @@ function startVADMonitor(capture) {
       }
 
       const startThresholdBefore = Math.max(
-        VOICE_EOU_SPEECH_START_THRESHOLD_MIN_DB,
-        options.noiseFloorDb + VOICE_EOU_SPEECH_START_OFFSET_DB,
+        VOICE_VAD_SPEECH_START_THRESHOLD_MIN_DB,
+        options.noiseFloorDb + VOICE_VAD_SPEECH_START_OFFSET_DB,
       );
       const endThresholdBefore = Math.max(
-        VOICE_EOU_SPEECH_END_THRESHOLD_MIN_DB,
-        options.noiseFloorDb + VOICE_EOU_SPEECH_END_OFFSET_DB,
+        VOICE_VAD_SPEECH_END_THRESHOLD_MIN_DB,
+        options.noiseFloorDb + VOICE_VAD_SPEECH_END_OFFSET_DB,
       );
       const floorUpdateCeilDb = options.hasSpeech ? endThresholdBefore + 2 : startThresholdBefore;
       // Keep tracking ambient floor but avoid pulling it up while speech is active.
       if (db <= floorUpdateCeilDb) {
         options.noiseFloorDb = clampNumber(
-          ((1 - VOICE_EOU_NOISE_FLOOR_ADAPT_ALPHA) * options.noiseFloorDb) + (VOICE_EOU_NOISE_FLOOR_ADAPT_ALPHA * db),
-          VOICE_EOU_NOISE_FLOOR_MIN_DB,
-          VOICE_EOU_NOISE_FLOOR_MAX_DB,
+          ((1 - VOICE_VAD_NOISE_FLOOR_ADAPT_ALPHA) * options.noiseFloorDb) + (VOICE_VAD_NOISE_FLOOR_ADAPT_ALPHA * db),
+          VOICE_VAD_NOISE_FLOOR_MIN_DB,
+          VOICE_VAD_NOISE_FLOOR_MAX_DB,
         );
       }
 
       const startThresholdDb = Math.max(
-        VOICE_EOU_SPEECH_START_THRESHOLD_MIN_DB,
-        options.noiseFloorDb + VOICE_EOU_SPEECH_START_OFFSET_DB,
+        VOICE_VAD_SPEECH_START_THRESHOLD_MIN_DB,
+        options.noiseFloorDb + VOICE_VAD_SPEECH_START_OFFSET_DB,
       );
       const endThresholdDb = Math.max(
-        VOICE_EOU_SPEECH_END_THRESHOLD_MIN_DB,
-        options.noiseFloorDb + VOICE_EOU_SPEECH_END_OFFSET_DB,
+        VOICE_VAD_SPEECH_END_THRESHOLD_MIN_DB,
+        options.noiseFloorDb + VOICE_VAD_SPEECH_END_OFFSET_DB,
       );
 
       if (!options.hasSpeech) {
@@ -845,7 +1160,7 @@ function startVADMonitor(capture) {
         } else {
           options.speechFrames = 0;
         }
-        if (options.speechFrames >= VOICE_EOU_SPEECH_START_FRAMES) {
+        if (options.speechFrames >= VOICE_VAD_SPEECH_START_FRAMES) {
           options.hasSpeech = true;
           options.speechStartAt = now;
           options.silenceMs = 0;
@@ -854,7 +1169,7 @@ function startVADMonitor(capture) {
       }
 
       if (!options.hasSpeech) {
-        if (elapsed >= VOICE_EOU_NO_SPEECH_MS) {
+        if (elapsed >= VOICE_VAD_NO_SPEECH_MS) {
           handleNoSpeechTimeout();
           return;
         }
@@ -864,19 +1179,39 @@ function startVADMonitor(capture) {
       if (db >= endThresholdDb) {
         options.silenceMs = 0;
       } else {
-        options.silenceMs += VOICE_EOU_FRAME_MS;
+        options.silenceMs += VOICE_VAD_FRAME_MS;
       }
 
       options.speechMs = Math.max(0, now - options.speechStartAt);
-      if (options.speechMs < VOICE_EOU_MIN_UTTERANCE_MS) return;
-      if (options.silenceMs >= VOICE_EOU_EOS_SILENCE_MS || elapsed >= VOICE_EOU_MAX_RECORDING_MS) {
+      if (options.speechMs < VOICE_VAD_MIN_UTTERANCE_MS) return;
+      const hitCandidate = options.silenceMs >= VOICE_VAD_CANDIDATE_SILENCE_MS;
+      const hitHardSilence = options.silenceMs >= VOICE_VAD_HARD_SILENCE_MS;
+      const hitMaxDuration = elapsed >= VOICE_VAD_MAX_RECORDING_MS;
+
+      if (hitHardSilence || hitMaxDuration) {
         stopVADMonitor(capture);
         void stopZenVoiceCaptureAndSend();
         return;
       }
+
+      if (hitCandidate) {
+        if (!options.pendingCommitAtMs) {
+          options.pendingCommitAtMs = now + VOICE_VAD_CANDIDATE_RECHECK_MS;
+          return;
+        }
+        if (now >= options.pendingCommitAtMs) {
+          stopVADMonitor(capture);
+          void stopZenVoiceCaptureAndSend();
+        }
+        return;
+      }
+
+      if (options.pendingCommitAtMs) {
+        options.pendingCommitAtMs = 0;
+      }
     };
 
-    const timer = window.setInterval(update, VOICE_EOU_FRAME_MS);
+    const timer = window.setInterval(update, VOICE_VAD_FRAME_MS);
     capture.vadState = { source, analyser, timer, options, bins, isRunning: true };
   } catch (_) {
     if (source) {
@@ -912,26 +1247,35 @@ function stopChatVoiceMediaAndFlush(capture) {
     return Promise.resolve();
   }
   return new Promise((resolve) => {
-    const onStop = () => {
+    let done = false;
+    let timeoutId = null;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      recorder.removeEventListener('stop', onStop);
       recorder.removeEventListener('error', onError);
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+        timeoutId = null;
+      }
       stopChatVoiceMedia(capture);
       resolve();
     };
+    const onStop = () => {
+      finish();
+    };
     const onError = () => {
-      recorder.removeEventListener('stop', onStop);
-      stopChatVoiceMedia(capture);
-      resolve();
+      finish();
     };
     recorder.addEventListener('stop', onStop, { once: true });
     recorder.addEventListener('error', onError, { once: true });
     try {
       recorder.stop();
     } catch (_) {
-      recorder.removeEventListener('stop', onStop);
-      recorder.removeEventListener('error', onError);
-      stopChatVoiceMedia(capture);
-      resolve();
+      finish();
+      return;
     }
+    timeoutId = window.setTimeout(finish, VOICE_CAPTURE_STOP_FLUSH_TIMEOUT_MS);
   });
 }
 
@@ -973,7 +1317,7 @@ async function beginZenVoiceCapture(x, y, anchor, options = null) {
       if (!ev?.data || ev.data.size <= 0) return;
       capture.chunks.push(ev.data);
     });
-    recorder.start();
+    recorder.start(VOICE_VAD_RECORDER_CHUNK_MS);
     if (!capture.stopRequested && !capture.manualStopOnly) {
       startVADMonitor(capture);
     }
@@ -1142,7 +1486,6 @@ function isTTSSpeaking() {
 
 function currentIndicatorMode() {
   if (isRecording()) return 'recording';
-  if (state.indicatorSuppressedByCanvasUpdate) return '';
   if (state.voiceAwaitingTurn) return 'stop';
   if (isAssistantWorking() || isTTSSpeaking()) return 'stop';
   return '';
@@ -1332,20 +1675,26 @@ async function fetchProjects() {
   state.projects = projects.map((project) => ({
     ...project,
     id: String(project?.id || ''),
+    chat_model_reasoning_effort: String(project?.chat_model_reasoning_effort || '').trim().toLowerCase(),
   })).filter((project) => project.id);
   state.defaultProjectId = String(payload?.default_project_id || '').trim();
   state.serverActiveProjectId = String(payload?.active_project_id || '').trim();
   renderEdgeTopProjects();
+  renderEdgeTopModelButtons();
 }
 
 function upsertProject(project) {
   if (!project || !project.id) return;
+  if (project.chat_model_reasoning_effort !== undefined) {
+    project.chat_model_reasoning_effort = String(project.chat_model_reasoning_effort || '').trim().toLowerCase();
+  }
   const index = state.projects.findIndex((item) => item.id === project.id);
   if (index >= 0) {
     state.projects[index] = project;
   } else {
     state.projects.push(project);
   }
+  renderEdgeTopModelButtons();
 }
 
 function resolveInitialProjectID() {
@@ -1380,6 +1729,110 @@ function renderEdgeTopProjects() {
       void switchProject(project.id);
     });
     host.appendChild(button);
+  }
+}
+
+function renderEdgeTopModelButtons() {
+  const host = document.getElementById('edge-top-models');
+  if (!(host instanceof HTMLElement)) return;
+  host.innerHTML = '';
+  const project = activeProject();
+  const selectedAlias = activeProjectChatModelAlias();
+  const selectedEffort = activeProjectChatModelReasoningEffort();
+  const effortOptions = reasoningEffortOptionsForAlias(selectedAlias);
+  for (const alias of PROJECT_CHAT_MODEL_ALIASES) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'edge-project-btn edge-model-btn';
+    button.textContent = alias;
+    if (alias === selectedAlias) {
+      button.classList.add('is-active');
+    }
+    button.disabled = !project || state.projectSwitchInFlight || state.projectModelSwitchInFlight;
+    button.addEventListener('click', () => {
+      void switchProjectChatModel(alias);
+    });
+    host.appendChild(button);
+  }
+
+  const effortWrap = document.createElement('div');
+  effortWrap.className = 'edge-model-effort-wrap';
+  const effortSelect = document.createElement('select');
+  effortSelect.className = 'edge-model-select edge-reasoning-effort-select';
+  effortSelect.setAttribute('aria-label', 'Reasoning effort');
+  for (const effort of effortOptions) {
+    const option = document.createElement('option');
+    option.value = effort;
+    option.textContent = effort.replace(/_/g, ' ');
+    effortSelect.appendChild(option);
+  }
+  effortSelect.value = effortOptions.includes(selectedEffort) ? selectedEffort : (effortOptions[0] || '');
+  effortSelect.disabled = !project || state.projectSwitchInFlight || state.projectModelSwitchInFlight;
+  effortSelect.addEventListener('change', () => {
+    const nextEffort = normalizeProjectChatModelReasoningEffort(effortSelect.value, selectedAlias);
+    void switchProjectChatModel(selectedAlias, nextEffort);
+  });
+  effortWrap.appendChild(effortSelect);
+  host.appendChild(effortWrap);
+
+  const silentButton = document.createElement('button');
+  silentButton.type = 'button';
+  silentButton.className = 'edge-project-btn edge-model-btn edge-silent-btn';
+  silentButton.textContent = 'silent';
+  silentButton.setAttribute('aria-pressed', state.ttsSilent ? 'true' : 'false');
+  if (state.ttsSilent) {
+    silentButton.classList.add('is-active');
+  }
+  silentButton.disabled = !ttsEnabled || state.projectSwitchInFlight || state.projectModelSwitchInFlight;
+  silentButton.addEventListener('click', () => {
+    toggleTTSSilentMode();
+  });
+  host.appendChild(silentButton);
+}
+
+async function switchProjectChatModel(modelAlias, reasoningEffort = '') {
+  const project = activeProject();
+  if (!project || !project.id) return;
+  const nextAlias = normalizeProjectChatModelAlias(modelAlias);
+  if (!nextAlias) return;
+  const currentAlias = activeProjectChatModelAlias();
+  const rawEffort = String(reasoningEffort || '').trim().toLowerCase();
+  const includeEffort = rawEffort !== '';
+  const nextEffort = includeEffort ? normalizeProjectChatModelReasoningEffort(rawEffort, nextAlias) : '';
+  const currentEffort = activeProjectChatModelReasoningEffort();
+  if (nextAlias === currentAlias && (!includeEffort || nextEffort === currentEffort)) return;
+  if (state.projectModelSwitchInFlight || state.projectSwitchInFlight) return;
+
+  state.projectModelSwitchInFlight = true;
+  renderEdgeTopModelButtons();
+  showStatus(`switching model to ${nextAlias}...`);
+  try {
+    const payload = { model: nextAlias };
+    if (includeEffort) {
+      payload.reasoning_effort = nextEffort;
+    }
+    const resp = await fetch(`/api/projects/${encodeURIComponent(project.id)}/chat-model`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!resp.ok) {
+      const detail = (await resp.text()).trim() || `HTTP ${resp.status}`;
+      throw new Error(detail);
+    }
+    const responsePayload = await resp.json();
+    const updatedProject = responsePayload?.project || {};
+    upsertProject(updatedProject);
+    renderEdgeTopProjects();
+    renderEdgeTopModelButtons();
+    showStatus('ready');
+  } catch (err) {
+    const message = String(err?.message || err || 'model switch failed');
+    appendPlainMessage('system', `Model switch failed: ${message}`);
+    showStatus(`model switch failed: ${message}`);
+  } finally {
+    state.projectModelSwitchInFlight = false;
+    renderEdgeTopModelButtons();
   }
 }
 
@@ -1461,7 +1914,18 @@ function startAssistantActivityWatcher() {
   tick();
   window.addEventListener('focus', tick);
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) tick();
+    if (document.hidden) {
+      if (state.chatVoiceCapture) {
+        cancelChatVoiceCapture();
+      }
+      if (state.voiceAwaitingTurn) {
+        sttCancel();
+        state.voiceAwaitingTurn = false;
+        updateAssistantActivityIndicator();
+      }
+      return;
+    }
+    tick();
   });
 }
 
@@ -1501,6 +1965,7 @@ function openChatWs() {
   ws.onmessage = (event) => {
     if (turnToken !== state.chatWsToken || targetSessionID !== state.chatSessionId) return;
     if (event.data instanceof ArrayBuffer) {
+      if (!canSpeakTTS()) return;
       if (ttsPlayer) ttsPlayer.enqueue(event.data);
       return;
     }
@@ -1513,6 +1978,12 @@ function openChatWs() {
 
   ws.onclose = () => {
     if (turnToken !== state.chatWsToken || targetSessionID !== state.chatSessionId) return;
+    if (state.chatVoiceCapture || state.voiceAwaitingTurn) {
+      cancelChatVoiceCapture();
+      sttCancel();
+      state.voiceAwaitingTurn = false;
+      updateAssistantActivityIndicator();
+    }
     state.chatWs = null;
     showStatus('reconnecting...');
     window.setTimeout(() => {
@@ -1575,12 +2046,18 @@ function handleChatEvent(payload) {
     state.indicatorSuppressedByCanvasUpdate = false;
     if (turnIsVoice) {
       ensurePendingForTurn(turnID);
+    } else if (isMobileSilent()) {
+      const edgeRight = document.getElementById('edge-right');
+      if (edgeRight) edgeRight.classList.add('edge-pinned');
+      ensurePendingForTurn(turnID);
     }
     state.zenCanvasActionThisTurn = false;
     // Reset TTS state for new turn
     stopTTSPlayback();
     const pos = getLastInputPosition();
     if (isVoiceTurn() || state.hasArtifact) {
+      hideOverlay();
+    } else if (isMobileSilent()) {
       hideOverlay();
     } else {
       showOverlay(pos.x, pos.y + 24);
@@ -1603,6 +2080,13 @@ function handleChatEvent(payload) {
       } else if (!renderOnCanvas) {
         updateAssistantRow(row, '_Thinking..._', true);
       }
+    } else if (isMobileSilent()) {
+      const row = ensurePendingForTurn(turnID);
+      if (String(md || '').trim()) {
+        updateAssistantRow(row, md, true);
+      } else if (!renderOnCanvas) {
+        updateAssistantRow(row, '_Thinking..._', true);
+      }
     }
 
     if (autoCanvas) {
@@ -1614,7 +2098,7 @@ function handleChatEvent(payload) {
       return;
     }
 
-    if (!isVoiceTurn() && !state.hasArtifact) {
+    if (!isVoiceTurn() && !isMobileSilent() && !state.hasArtifact) {
       const cleaned = cleanForOverlay(md);
       if (cleaned) updateOverlay(cleaned);
     } else if (!isVoiceTurn()) {
@@ -1633,7 +2117,8 @@ function handleChatEvent(payload) {
     // Persisted text may be empty for voice-only responses; fall back to TTS text.
     const displayMd = md || (ttsLastSpeakText ? `_${ttsLastSpeakText}_` : '');
     const hasDisplayMd = Boolean(String(displayMd || '').trim());
-    if (isVoiceTurn()) {
+    const mobileSilent = isMobileSilent();
+    if (isVoiceTurn() || mobileSilent) {
       const row = takePendingRow(turnID);
       if (row && hasDisplayMd) {
         updateAssistantRow(row, displayMd, false);
@@ -1650,7 +2135,7 @@ function handleChatEvent(payload) {
     updateAssistantActivityIndicator();
     void refreshAssistantActivity();
 
-    if (shouldSpeakTurn && !autoCanvas && ttsEnabled && md.trim()) {
+    if (shouldSpeakTurn && !autoCanvas && canSpeakTTS() && md.trim()) {
       const { ttsText, ttsLang } = extractTTSText(md);
       if (ttsLang) ttsSpeakLang = ttsLang;
       const diff = computeTTSDiff(ttsText);
@@ -1662,6 +2147,15 @@ function handleChatEvent(payload) {
 
     if (ttsSentenceChunker) {
       ttsSentenceChunker.flush();
+    }
+    if (mobileSilent) {
+      if (autoCanvas) {
+        const edgeRight = document.getElementById('edge-right');
+        if (edgeRight) edgeRight.classList.remove('edge-active', 'edge-pinned');
+      }
+      hideOverlay();
+      state.zenCanvasActionThisTurn = false;
+      return;
     }
     if (!isVoiceTurn()) {
       if (autoCanvas || state.hasArtifact) {
@@ -1794,6 +2288,7 @@ async function switchProject(projectID) {
     showStatus(`project switch failed: ${message}`);
   } finally {
     state.projectSwitchInFlight = false;
+    renderEdgeTopModelButtons();
   }
 }
 
@@ -1816,7 +2311,7 @@ async function zenSubmitMessage(text) {
   updateAssistantActivityIndicator();
   appendPlainMessage('user', finalText);
 
-  if (!finalText.startsWith('/') && isVoiceTurn()) {
+  if (!finalText.startsWith('/') && (isVoiceTurn() || isMobileSilent())) {
     const pending = appendRenderedAssistant('_Thinking..._', { pending: true, localId: nextLocalMessageId() });
     state.pendingQueue.push(pending);
     updateAssistantActivityIndicator();
@@ -1824,7 +2319,7 @@ async function zenSubmitMessage(text) {
 
   const body = {
     text: finalText,
-    output_mode: 'voice',
+    output_mode: state.ttsSilent ? 'silent' : 'voice',
   };
   try {
     const resp = await fetch(`/api/chat/sessions/${encodeURIComponent(state.chatSessionId)}/messages`, {
@@ -1858,26 +2353,30 @@ async function zenSubmitMessage(text) {
   }
 }
 
-async function cancelActiveAssistantTurn() {
-  if (!state.chatSessionId || state.assistantCancelInFlight) return;
-  await refreshAssistantActivity();
-  if (!isAssistantWorking()) {
-    showStatus(state.assistantLastError ? state.assistantLastError : 'idle');
-    updateAssistantActivityIndicator();
-    return;
+async function cancelActiveAssistantTurn(options = null) {
+  const force = Boolean(options && options.force);
+  if (!state.chatSessionId || state.assistantCancelInFlight) return false;
+  if (!force) {
+    await refreshAssistantActivity();
+    if (!isAssistantWorking()) {
+      showStatus(state.assistantLastError ? state.assistantLastError : 'idle');
+      updateAssistantActivityIndicator();
+      return false;
+    }
   }
   state.assistantCancelInFlight = true;
   updateAssistantActivityIndicator();
   showStatus('stopping...');
+  let canceled = 0;
   try {
     const resp = await fetch(`/api/chat/sessions/${encodeURIComponent(state.chatSessionId)}/cancel`, { method: 'POST' });
     if (!resp.ok) {
       const detail = (await resp.text()).trim() || `HTTP ${resp.status}`;
       showStatus(`stop failed: ${detail}`);
-      return;
+      return false;
     }
     const payload = await resp.json();
-    const canceled = Number(payload?.canceled || 0);
+    canceled = Number(payload?.canceled || 0);
     if (canceled <= 0) {
       await refreshAssistantActivity();
       if (!isAssistantWorking()) {
@@ -1886,28 +2385,59 @@ async function cancelActiveAssistantTurn() {
     }
   } catch (err) {
     showStatus(`stop failed: ${String(err?.message || err)}`);
+    return false;
   } finally {
     state.assistantCancelInFlight = false;
     updateAssistantActivityIndicator();
     window.setTimeout(() => { void refreshAssistantActivity(); }, 120);
   }
+  return canceled > 0;
+}
+
+async function cancelActiveAssistantTurnWithRetry(maxAttempts = 3) {
+  const attempts = Number.isFinite(maxAttempts) ? Math.max(1, Math.floor(maxAttempts)) : 1;
+  for (let i = 0; i < attempts; i += 1) {
+    const canceled = await cancelActiveAssistantTurn({ force: true });
+    if (canceled) return true;
+    await refreshAssistantActivity();
+    if (!isAssistantWorking()) return false;
+    if (i + 1 < attempts) {
+      await new Promise((resolve) => window.setTimeout(resolve, 140));
+    }
+  }
+  return false;
 }
 
 async function handleZenStopAction() {
-  if (isRecording()) {
+  const capture = state.chatVoiceCapture;
+  if (capture && capture.stopping) {
+    cancelChatVoiceCapture();
+    return;
+  }
+  const isCaptureActive = Boolean(capture && !capture.stopping);
+  if (isCaptureActive) {
     await stopZenVoiceCaptureAndSend();
     return;
   }
+
+  if (isTTSSpeaking()) {
+    stopTTSPlayback();
+  }
+
+  const canceled = await cancelActiveAssistantTurnWithRetry(3);
+  if (canceled) return;
+
   if (state.voiceAwaitingTurn) {
     state.voiceAwaitingTurn = false;
     sttCancel();
     updateAssistantActivityIndicator();
     return;
   }
-  if (isTTSSpeaking()) {
-    stopTTSPlayback();
+
+  if (capture) {
+    sttCancel();
+    updateAssistantActivityIndicator();
   }
-  await cancelActiveAssistantTurn();
 }
 
 function openCanvasWs() {
@@ -1979,20 +2509,56 @@ async function loadCanvasSnapshot(sessionID = state.sessionId) {
 let edgeTopTimer = null;
 let edgeRightTimer = null;
 let edgeTouchStart = null;
+const EDGE_TAP_SIZE_PX = 20;
+const EDGE_TAP_SIZE_SMALL_PX = 30;
+const EDGE_TAP_SIZE_SMALL_MEDIA_QUERY = '(max-width: 768px)';
+
+function getEdgeTapSizePx() {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+    return EDGE_TAP_SIZE_PX;
+  }
+  try {
+    return window.matchMedia(EDGE_TAP_SIZE_SMALL_MEDIA_QUERY).matches
+      ? EDGE_TAP_SIZE_SMALL_PX
+      : EDGE_TAP_SIZE_PX;
+  } catch (_) {
+    return EDGE_TAP_SIZE_PX;
+  }
+}
+
+function edgePanelsAreOpen() {
+  const edgeTop = document.getElementById('edge-top');
+  const edgeRight = document.getElementById('edge-right');
+  const topOpen = Boolean(edgeTop && (edgeTop.classList.contains('edge-active') || edgeTop.classList.contains('edge-pinned')));
+  const rightOpen = Boolean(edgeRight && (edgeRight.classList.contains('edge-active') || edgeRight.classList.contains('edge-pinned')));
+  return topOpen || rightOpen;
+}
+
+function handleLeftEdgeTap() {
+  const hadOpenPanels = edgePanelsAreOpen();
+  closeEdgePanels();
+  if (hadOpenPanels) return;
+  if (state.hasArtifact) {
+    clearCanvas();
+    hideCanvasColumn();
+  }
+}
 
 function initEdgePanels() {
   const edgeTop = document.getElementById('edge-top');
   const edgeRight = document.getElementById('edge-right');
+  const edgeLeftTap = document.getElementById('edge-left-tap');
 
   // Desktop: hover near edge
   document.addEventListener('mousemove', (ev) => {
+    const edgeTapSize = getEdgeTapSizePx();
     // Top edge
-    if (ev.clientY < 20 && edgeTop && !edgeTop.classList.contains('edge-pinned')) {
+    if (ev.clientY < edgeTapSize && edgeTop && !edgeTop.classList.contains('edge-pinned')) {
       edgeTop.classList.add('edge-active');
       if (edgeTopTimer) { clearTimeout(edgeTopTimer); edgeTopTimer = null; }
     }
     // Right edge
-    if (ev.clientX > window.innerWidth - 20 && edgeRight && !edgeRight.classList.contains('edge-pinned')) {
+    if (ev.clientX > window.innerWidth - edgeTapSize && edgeRight && !edgeRight.classList.contains('edge-pinned')) {
       edgeRight.classList.add('edge-active');
       if (edgeRightTimer) { clearTimeout(edgeRightTimer); edgeRightTimer = null; }
     }
@@ -2051,14 +2617,22 @@ function initEdgePanels() {
     });
   }
 
+  if (edgeLeftTap) {
+    edgeLeftTap.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      handleLeftEdgeTap();
+    });
+  }
+
   // Mobile: swipe from edge
   document.addEventListener('touchstart', (ev) => {
     if (ev.touches.length !== 1) return;
     const t = ev.touches[0];
-    if (t.clientX > window.innerWidth - 20 || t.clientY < 20 || t.clientX < 20) {
+    const edgeTapSize = getEdgeTapSizePx();
+    if (t.clientX > window.innerWidth - edgeTapSize || t.clientY < edgeTapSize || t.clientX < edgeTapSize) {
       edgeTouchStart = { x: t.clientX, y: t.clientY, edge: null };
-      if (t.clientX > window.innerWidth - 20) edgeTouchStart.edge = 'right';
-      else if (t.clientY < 20) edgeTouchStart.edge = 'top';
+      if (t.clientX > window.innerWidth - edgeTapSize) edgeTouchStart.edge = 'right';
+      else if (t.clientY < edgeTapSize) edgeTouchStart.edge = 'top';
     }
   }, { passive: true });
 
@@ -2090,19 +2664,84 @@ function bindUi() {
   const canvasText = document.getElementById('canvas-text');
   const canvasViewport = document.getElementById('canvas-viewport');
   const zenIndicator = document.getElementById('zen-indicator');
+  if (zenIndicator && zenIndicator.parentElement !== document.body) {
+    document.body.appendChild(zenIndicator);
+  }
+  let lastMouseX = Math.floor(window.innerWidth / 2);
+  let lastMouseY = Math.floor(window.innerHeight / 2);
+  let hasLastMousePosition = false;
   const isVoiceInteractionTarget = (target) => (
     target instanceof Element
     && target.closest('button,a,input,textarea,select,[contenteditable="true"],.zen-overlay,.zen-input,.edge-panel')
   );
+  const rememberMousePosition = (x, y) => {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+    lastMouseX = Number(x);
+    lastMouseY = Number(y);
+    hasLastMousePosition = true;
+  };
+  const getCtrlVoiceCapturePoint = () => {
+    if (hasLastMousePosition) {
+      return { x: lastMouseX, y: lastMouseY };
+    }
+    const lastPos = getLastInputPosition();
+    if (Number.isFinite(lastPos?.x) && Number.isFinite(lastPos?.y)) {
+      return { x: Number(lastPos.x), y: Number(lastPos.y) };
+    }
+    return {
+      x: Math.floor(window.innerWidth / 2),
+      y: Math.floor(window.innerHeight / 2),
+    };
+  };
+  const beginVoiceCaptureFromPoint = (x, y, options = null) => {
+    let anchor = null;
+    if (state.hasArtifact && canvasText) {
+      anchor = getAnchorFromPoint(x, y);
+    }
+    return beginZenVoiceCapture(x, y, anchor, options);
+  };
+
+  document.addEventListener('mousemove', (ev) => {
+    rememberMousePosition(ev.clientX, ev.clientY);
+  }, { passive: true });
+  document.addEventListener('pointerdown', (ev) => {
+    if (ev.pointerType !== 'mouse') return;
+    rememberMousePosition(ev.clientX, ev.clientY);
+  }, true);
 
   if (zenIndicator) {
-    zenIndicator.addEventListener('pointerdown', (ev) => {
-      if (!(ev.currentTarget instanceof HTMLElement)) return;
-      if (!ev.currentTarget.classList.contains('is-stop')) return;
+    let lastIndicatorTouchAt = 0;
+    const isIndicatorArmed = () => zenIndicator.classList.contains('is-stop') || zenIndicator.classList.contains('is-recording');
+    const pointHitsIndicatorChip = (x, y) => {
+      const chips = zenIndicator.querySelectorAll('.zen-record-dot, .zen-stop-square');
+      for (const chip of chips) {
+        if (!(chip instanceof HTMLElement)) continue;
+        const style = window.getComputedStyle(chip);
+        if (style.display === 'none' || style.visibility === 'hidden') continue;
+        const rect = chip.getBoundingClientRect();
+        if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
+          return true;
+        }
+      }
+      return false;
+    };
+    const handleZenIndicatorTap = (ev, x, y, isTouch = false) => {
+      if (!isIndicatorArmed()) return;
+      if (!pointHitsIndicatorChip(x, y)) return;
+      if (!isTouch && Date.now() - lastIndicatorTouchAt < 600) return;
+      if (isTouch) lastIndicatorTouchAt = Date.now();
       ev.preventDefault();
       ev.stopPropagation();
       void handleZenStopAction();
-    });
+    };
+    document.addEventListener('click', (ev) => {
+      handleZenIndicatorTap(ev, ev.clientX, ev.clientY, false);
+    }, true);
+    document.addEventListener('touchend', (ev) => {
+      const touch = ev.changedTouches && ev.changedTouches.length > 0 ? ev.changedTouches[0] : null;
+      if (!touch) return;
+      handleZenIndicatorTap(ev, touch.clientX, touch.clientY, true);
+    }, { passive: false, capture: true });
   }
 
   // Zen: Left-click/tap on canvas -> toggle voice recording
@@ -2158,11 +2797,7 @@ function bindUi() {
         // Releasing a successful hold emits a click; ignore that click so we
         // do not immediately toggle/cancel after manual stop.
         mouseHoldSuppressClick = true;
-        let anchor = null;
-        if (state.hasArtifact && canvasText) {
-          anchor = getAnchorFromPoint(mouseHoldX, mouseHoldY);
-        }
-        void beginZenVoiceCapture(mouseHoldX, mouseHoldY, anchor, { manualStopOnly: true });
+        void beginVoiceCaptureFromPoint(mouseHoldX, mouseHoldY, { manualStopOnly: true });
       }, CHAT_SEND_HOLD_MS);
     }, true);
 
@@ -2222,19 +2857,14 @@ function bindUi() {
 
       const x = ev.clientX;
       const y = ev.clientY;
+      rememberMousePosition(x, y);
 
       if (isRecording()) {
         void stopZenVoiceCaptureAndSend();
         return;
       }
 
-      // Get anchor if on artifact
-      let anchor = null;
-      if (state.hasArtifact && canvasText) {
-        anchor = getAnchorFromPoint(x, y);
-      }
-
-      void beginZenVoiceCapture(x, y, anchor);
+      void beginVoiceCaptureFromPoint(x, y);
     });
   }
 
@@ -2273,6 +2903,93 @@ function bindUi() {
     zenInput.addEventListener('input', () => {
       zenInput.style.height = 'auto';
       zenInput.style.height = `${Math.min(zenInput.scrollHeight, 240)}px`;
+    });
+  }
+
+  // Chat pane input: Enter sends, Escape blurs, auto-resize
+  const chatPaneInput = document.getElementById('chat-pane-input');
+  if (chatPaneInput instanceof HTMLTextAreaElement) {
+    chatPaneInput.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter' && !ev.shiftKey) {
+        ev.preventDefault();
+        const text = chatPaneInput.value.trim();
+        if (text) {
+          state.lastInputOrigin = 'text';
+          chatPaneInput.value = '';
+          chatPaneInput.style.height = '';
+          chatPaneInput.blur();
+          void zenSubmitMessage(text);
+        }
+      }
+      if (ev.key === 'Escape') {
+        ev.preventDefault();
+        chatPaneInput.value = '';
+        chatPaneInput.style.height = '';
+        chatPaneInput.blur();
+      }
+    });
+    chatPaneInput.addEventListener('input', () => {
+      chatPaneInput.style.height = 'auto';
+      chatPaneInput.style.height = `${Math.min(chatPaneInput.scrollHeight, 240)}px`;
+    });
+
+    // Touch-hold PTT on chat pane input
+    let chatInputHoldTimer = null;
+    let chatInputHoldActive = false;
+    let chatInputHoldX = 0;
+    let chatInputHoldY = 0;
+    const CHAT_INPUT_HOLD_MOVE_THRESHOLD = 5;
+
+    chatPaneInput.addEventListener('touchstart', (ev) => {
+      if (ev.touches.length !== 1) return;
+      const t = ev.touches[0];
+      chatInputHoldActive = false;
+      chatInputHoldX = t.clientX;
+      chatInputHoldY = t.clientY;
+      chatInputHoldTimer = window.setTimeout(() => {
+        chatInputHoldTimer = null;
+        chatInputHoldActive = true;
+        chatPaneInput.blur();
+        void beginVoiceCaptureFromPoint(chatInputHoldX, chatInputHoldY, { manualStopOnly: true });
+      }, CHAT_SEND_HOLD_MS);
+    }, { passive: true });
+
+    chatPaneInput.addEventListener('touchmove', (ev) => {
+      if (!chatInputHoldTimer) return;
+      if (ev.touches.length !== 1) return;
+      const t = ev.touches[0];
+      const dx = t.clientX - chatInputHoldX;
+      const dy = t.clientY - chatInputHoldY;
+      if (Math.sqrt(dx * dx + dy * dy) > CHAT_INPUT_HOLD_MOVE_THRESHOLD) {
+        if (chatInputHoldTimer) { clearTimeout(chatInputHoldTimer); chatInputHoldTimer = null; }
+      }
+    }, { passive: true });
+
+    window.addEventListener('touchend', () => {
+      if (chatInputHoldTimer) { clearTimeout(chatInputHoldTimer); chatInputHoldTimer = null; return; }
+      if (chatInputHoldActive) {
+        chatInputHoldActive = false;
+        if (isRecording()) void stopZenVoiceCaptureAndSend();
+      }
+    }, { passive: true });
+
+    window.addEventListener('touchcancel', () => {
+      if (chatInputHoldTimer) { clearTimeout(chatInputHoldTimer); chatInputHoldTimer = null; }
+      chatInputHoldActive = false;
+    });
+  }
+
+  // Voice tap on chat history (only when panel is pinned, not just hover-active)
+  const chatHistory = document.getElementById('chat-history');
+  if (chatHistory) {
+    chatHistory.addEventListener('click', (ev) => {
+      if (ev.button !== 0) return;
+      if (ev.target instanceof Element && ev.target.closest('a,button,input,textarea,select,[contenteditable="true"]')) return;
+      const edgeR = chatHistory.closest('.edge-panel');
+      if (edgeR && !edgeR.classList.contains('edge-pinned')) return;
+      if (shouldStopInUiClick()) { void handleZenStopAction(); return; }
+      if (isRecording()) { void stopZenVoiceCaptureAndSend(); return; }
+      void beginVoiceCaptureFromPoint(ev.clientX, ev.clientY);
     });
   }
 
@@ -2334,9 +3051,8 @@ function bindUi() {
       if (state.chatCtrlHoldTimer || state.chatVoiceCapture) return;
       state.chatCtrlHoldTimer = window.setTimeout(() => {
         state.chatCtrlHoldTimer = null;
-        const cx = window.innerWidth / 2;
-        const cy = window.innerHeight / 2;
-        void beginZenVoiceCapture(cx, cy, null);
+        const point = getCtrlVoiceCapturePoint();
+        void beginVoiceCaptureFromPoint(point.x, point.y);
       }, CHAT_CTRL_LONG_PRESS_MS);
       return;
     }
@@ -2358,6 +3074,19 @@ function bindUi() {
 
     // Auto-activate text input on printable key
     if (ev.key.length === 1 && !isTextInputVisible()) {
+      // Route to chat pane input when chat pane is open (desktop only)
+      const edgeR = document.getElementById('edge-right');
+      const cpInput = document.getElementById('chat-pane-input');
+      const chatPaneOpen = edgeR && (edgeR.classList.contains('edge-active') || edgeR.classList.contains('edge-pinned'));
+      if (chatPaneOpen && cpInput instanceof HTMLTextAreaElement && !window.matchMedia('(max-width: 767px)').matches) {
+        cpInput.focus();
+        cpInput.value = ev.key;
+        const caret = ev.key.length;
+        cpInput.setSelectionRange(caret, caret);
+        cpInput.dispatchEvent(new Event('input', { bubbles: true }));
+        ev.preventDefault();
+        return;
+      }
       const cx = window.innerWidth / 2 - 130;
       const cy = window.innerHeight / 2;
       showTextInput(cx, cy, null);
@@ -2431,8 +3160,7 @@ function bindUi() {
       artHoldTimer = window.setTimeout(() => {
         artHoldTimer = null;
         artHoldActive = true;
-        const anchor = getAnchorFromPoint(artHoldX, artHoldY);
-        void beginZenVoiceCapture(artHoldX, artHoldY, anchor);
+        void beginVoiceCaptureFromPoint(artHoldX, artHoldY);
       }, CHAT_SEND_HOLD_MS);
     }, { passive: true });
 
@@ -2482,6 +3210,7 @@ function warmMicStream() {
 }
 
 async function init() {
+  applyIPhoneStandaloneCueHints();
   bindUi();
   warmMicStream();
   updateAssistantActivityIndicator();
@@ -2495,9 +3224,11 @@ async function init() {
   try {
     const runtime = await fetchRuntimeMeta();
     ttsEnabled = Boolean(runtime?.tts_enabled);
+    applyRuntimeReasoningEffortOptions(runtime?.available_reasoning_efforts);
   } catch (_) {
     ttsEnabled = false;
   }
+  setTTSSilentMode(readTTSSilentPreference(), { persist: false });
 
   await fetchProjects();
   const initialProjectID = resolveInitialProjectID();
