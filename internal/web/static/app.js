@@ -2559,13 +2559,19 @@ function closeEdgePanels() {
   const edgeTop = document.getElementById('edge-top');
   const edgeRight = document.getElementById('edge-right');
   if (edgeTop) edgeTop.classList.remove('edge-active', 'edge-pinned');
-  if (edgeRight) edgeRight.classList.remove('edge-active', 'edge-pinned');
+  if (edgeRight) {
+    edgeRight.classList.remove('edge-active', 'edge-pinned');
+    const inputRow = edgeRight.querySelector('.chat-pane-input-row');
+    if (inputRow) inputRow.classList.remove('is-active');
+  }
 }
 
 function openChatPaneWithInput() {
   const edgeRight = document.getElementById('edge-right');
   if (!edgeRight) return;
   edgeRight.classList.add('edge-pinned');
+  const inputRow = edgeRight.querySelector('.chat-pane-input-row');
+  if (inputRow) inputRow.classList.add('is-active');
   const chatHistory = document.getElementById('chat-history');
   if (chatHistory) scrollChatToBottom(chatHistory);
   const cpInput = document.getElementById('chat-pane-input');

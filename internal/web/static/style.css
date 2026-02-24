@@ -742,10 +742,15 @@ body.silent-mode .edge-left-tap { z-index: 250; }
 body.silent-mode .edge-top { z-index: 250; }
 body.silent-mode .zen-indicator { z-index: 1000; }
 
-/* Chat pane input */
+/* Chat pane input — hidden until bottom-tap activates it */
 .chat-pane-input-row {
+  display: none;
   flex-shrink: 0;
   padding: 0.4rem 0.6rem calc(0.4rem + var(--zen-safe-area-bottom, 0px));
+}
+
+.chat-pane-input-row.is-active {
+  display: block;
 }
 
 .chat-pane-input-row textarea {
