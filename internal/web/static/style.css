@@ -249,8 +249,8 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   left: 0;
   width: 100vw;
   height: 100vh;
-  width: 100svw;
-  height: 100svh;
+  width: 100lvw;
+  height: 100lvh;
   pointer-events: none;
   z-index: 1000;
   border: 0;
