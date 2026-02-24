@@ -388,9 +388,10 @@ func enforceSparkModel(rawModel string) string {
 }
 
 func resolveSparkReasoningEffort(raw string) string {
-	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "low", "medium", "high":
-		return strings.ToLower(strings.TrimSpace(raw))
+	clean := strings.ToLower(strings.TrimSpace(raw))
+	switch clean {
+	case modelprofile.ReasoningLow, modelprofile.ReasoningMedium, modelprofile.ReasoningHigh, modelprofile.ReasoningExtraHigh:
+		return clean
 	default:
 		return DefaultSparkReasoningEffort
 	}
