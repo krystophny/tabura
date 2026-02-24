@@ -96,6 +96,7 @@ const VOICE_VAD_SPEECH_END_THRESHOLD_MIN_DB = -45;
 const VOICE_VAD_SPEECH_START_FRAMES = 4;
 const VOICE_VAD_NOISE_FLOOR_MIN_DB = -60;
 const VOICE_VAD_NOISE_FLOOR_MAX_DB = -18;
+const VOICE_CAPTURE_STOP_FLUSH_TIMEOUT_MS = 1500;
 let devReloadBootID = '';
 let devReloadTimer = null;
 let devReloadInFlight = false;
@@ -959,6 +960,9 @@ function sttCancel() {
     _sttResolve = null;
     _sttReject = null;
   }
+  if (_sttResolve) {
+    _sttResolve = null;
+  }
   const ws = state.chatWs;
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({ type: 'stt_cancel' }));
@@ -1243,26 +1247,35 @@ function stopChatVoiceMediaAndFlush(capture) {
     return Promise.resolve();
   }
   return new Promise((resolve) => {
-    const onStop = () => {
+    let done = false;
+    let timeoutId = null;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      recorder.removeEventListener('stop', onStop);
       recorder.removeEventListener('error', onError);
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+        timeoutId = null;
+      }
       stopChatVoiceMedia(capture);
       resolve();
     };
+    const onStop = () => {
+      finish();
+    };
     const onError = () => {
-      recorder.removeEventListener('stop', onStop);
-      stopChatVoiceMedia(capture);
-      resolve();
+      finish();
     };
     recorder.addEventListener('stop', onStop, { once: true });
     recorder.addEventListener('error', onError, { once: true });
     try {
       recorder.stop();
     } catch (_) {
-      recorder.removeEventListener('stop', onStop);
-      recorder.removeEventListener('error', onError);
-      stopChatVoiceMedia(capture);
-      resolve();
+      finish();
+      return;
     }
+    timeoutId = window.setTimeout(finish, VOICE_CAPTURE_STOP_FLUSH_TIMEOUT_MS);
   });
 }
 
@@ -1901,7 +1914,18 @@ function startAssistantActivityWatcher() {
   tick();
   window.addEventListener('focus', tick);
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) tick();
+    if (document.hidden) {
+      if (state.chatVoiceCapture) {
+        cancelChatVoiceCapture();
+      }
+      if (state.voiceAwaitingTurn) {
+        sttCancel();
+        state.voiceAwaitingTurn = false;
+        updateAssistantActivityIndicator();
+      }
+      return;
+    }
+    tick();
   });
 }
 
@@ -1954,6 +1978,12 @@ function openChatWs() {
 
   ws.onclose = () => {
     if (turnToken !== state.chatWsToken || targetSessionID !== state.chatSessionId) return;
+    if (state.chatVoiceCapture || state.voiceAwaitingTurn) {
+      cancelChatVoiceCapture();
+      sttCancel();
+      state.voiceAwaitingTurn = false;
+      updateAssistantActivityIndicator();
+    }
     state.chatWs = null;
     showStatus('reconnecting...');
     window.setTimeout(() => {
@@ -2380,6 +2410,10 @@ async function cancelActiveAssistantTurnWithRetry(maxAttempts = 3) {
 
 async function handleZenStopAction() {
   const capture = state.chatVoiceCapture;
+  if (capture && capture.stopping) {
+    cancelChatVoiceCapture();
+    return;
+  }
   const isCaptureActive = Boolean(capture && !capture.stopping);
   if (isCaptureActive) {
     await stopZenVoiceCaptureAndSend();
