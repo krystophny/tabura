@@ -582,23 +582,8 @@ function unlockAudioContext() {
     ttsAudioCtx.resume();
   }
 }
-function prewarmMicStream() {
-  if (canUseMicrophoneCapture() && !_cachedMicStream && !_micStreamPromise) {
-    acquireMicStream().then(() => {
-      releaseMicStream();
-    }).catch(() => {});
-  }
-}
-let _micPrewarmed = false;
-function unlockAudioAndPrewarmMic() {
-  unlockAudioContext();
-  if (!_micPrewarmed) {
-    _micPrewarmed = true;
-    prewarmMicStream();
-  }
-}
 ['touchstart', 'touchend', 'mousedown', 'keydown'].forEach(evt =>
-  document.body.addEventListener(evt, unlockAudioAndPrewarmMic, { once: false })
+  document.body.addEventListener(evt, unlockAudioContext, { once: false })
 );
 
 function stopTTSPlayback() {
@@ -976,7 +961,7 @@ const MIC_CAPTURE_CONSTRAINTS = {
 let _cachedMicStream = null;
 let _micStreamPromise = null;
 let _micReleaseTimer = null;
-const MIC_RELEASE_COOLDOWN_MS = 60000;
+const MIC_RELEASE_COOLDOWN_MS = 5000;
 
 function acquireMicStream() {
   if (_micReleaseTimer) {
@@ -3763,6 +3748,16 @@ function bindUi() {
     window.addEventListener('pointerup', handleMousePointerRelease, true);
     window.addEventListener('pointercancel', handleMousePointerRelease, true);
     window.addEventListener('blur', clearMouseHoldState);
+
+    // Speculatively acquire the mic on touchstart so getUserMedia() overlaps
+    // with the touch-to-click delay (~50-100ms on iOS). If the tap completes,
+    // beginZenVoiceCapture gets the cached stream instantly. If not, the
+    // short cooldown auto-releases it.
+    zenClickTarget.addEventListener('touchstart', () => {
+      if (!state.chatVoiceCapture && canUseMicrophoneCapture() && !_cachedMicStream && !_micStreamPromise) {
+        acquireMicStream().catch(() => {});
+      }
+    }, { passive: true });
 
     zenClickTarget.addEventListener('click', (ev) => {
       if (mouseHoldSuppressClick) {
