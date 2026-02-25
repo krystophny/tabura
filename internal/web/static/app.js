@@ -582,8 +582,23 @@ function unlockAudioContext() {
     ttsAudioCtx.resume();
   }
 }
+function prewarmMicStream() {
+  if (canUseMicrophoneCapture() && !_cachedMicStream && !_micStreamPromise) {
+    acquireMicStream().then(() => {
+      releaseMicStream();
+    }).catch(() => {});
+  }
+}
+let _micPrewarmed = false;
+function unlockAudioAndPrewarmMic() {
+  unlockAudioContext();
+  if (!_micPrewarmed) {
+    _micPrewarmed = true;
+    prewarmMicStream();
+  }
+}
 ['touchstart', 'touchend', 'mousedown', 'keydown'].forEach(evt =>
-  document.body.addEventListener(evt, unlockAudioContext, { once: false })
+  document.body.addEventListener(evt, unlockAudioAndPrewarmMic, { once: false })
 );
 
 function stopTTSPlayback() {
