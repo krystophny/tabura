@@ -32,6 +32,24 @@ curl -fsSL https://github.com/krystophny/tabura/releases/latest/download/install
 irm https://github.com/krystophny/tabura/releases/latest/download/install.ps1 | iex
 ```
 
+Package managers:
+
+```bash
+brew install krystophny/tap/tabura
+```
+
+```bash
+paru -S tabura-bin
+# or
+yay -S tabura-bin
+```
+
+```powershell
+winget install krystophny.tabura
+```
+
+Package-manager installs provide the `tabura` binary only. For full local setup, run `tabura server` or the installer scripts above.
+
 Uninstall:
 
 ```bash
