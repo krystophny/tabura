@@ -68,6 +68,7 @@ run_install_ps1_static_checks() {
 main() {
     run_install_sh_dry_run
     run_install_ps1_static_checks
+    "${ROOT_DIR}/tests/installers/distribution_artifacts_test.sh"
     echo "installer tests passed"
 }
 

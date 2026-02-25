@@ -30,3 +30,17 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Generate package-manager metadata
+        run: |
+          scripts/generate-package-manager-artifacts.sh \
+            --version "${GITHUB_REF_NAME}" \
+            --checksums dist/checksums.txt \
+            --output-dir .tabura/artifacts/package-managers
+
+      - name: Upload package-manager metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-manager-metadata-${{ github.ref_name }}
+          path: .tabura/artifacts/package-managers/
