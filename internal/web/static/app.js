@@ -1193,6 +1193,15 @@ function startVADMonitor(capture) {
     analyser.smoothingTimeConstant = 0.25;
     const bins = new Uint8Array(analyser.frequencyBinCount);
     source.connect(analyser);
+    // iOS Safari requires the graph to terminate at destination for
+    // AnalyserNode to receive live data from a MediaStreamSource.
+    let silentGain = null;
+    if (typeof ttsAudioCtx.createGain === 'function') {
+      silentGain = ttsAudioCtx.createGain();
+      silentGain.gain.value = 0;
+      analyser.connect(silentGain);
+      silentGain.connect(ttsAudioCtx.destination);
+    }
 
     const update = () => {
       if (!options.isRunning || !capture || capture.stopping || state.chatVoiceCapture !== capture) {
@@ -1313,7 +1322,7 @@ function startVADMonitor(capture) {
     };
 
     const timer = window.setInterval(update, VOICE_VAD_FRAME_MS);
-    capture.vadState = { source, analyser, timer, options, bins, isRunning: true };
+    capture.vadState = { source, analyser, silentGain, timer, options, bins, isRunning: true };
   } catch (_) {
     if (source) {
       try { source.disconnect(); } catch (_) {}
@@ -1331,6 +1340,9 @@ function stopVADMonitor(capture) {
   if (state.timer) window.clearInterval(state.timer);
   if (state.source) {
     try { state.source.disconnect(); } catch (_) {}
+  }
+  if (state.silentGain) {
+    try { state.silentGain.disconnect(); } catch (_) {}
   }
   if (state.analyser) {
     try { state.analyser.disconnect(); } catch (_) {}
