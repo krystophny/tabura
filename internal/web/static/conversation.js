@@ -93,6 +93,7 @@ const state = {
   conversationListenMonitor: null,
   conversationListenSource: null,
   conversationListenAnalyser: null,
+  conversationListenSilentGain: null,
   conversationListenBins: null,
   conversationSessionToken: 0,
 };
@@ -115,6 +116,10 @@ function clearConversationAudioMonitor() {
   if (state.conversationListenSource) {
     try { state.conversationListenSource.disconnect(); } catch (_) {}
     state.conversationListenSource = null;
+  }
+  if (state.conversationListenSilentGain) {
+    try { state.conversationListenSilentGain.disconnect(); } catch (_) {}
+    state.conversationListenSilentGain = null;
   }
   if (state.conversationListenAnalyser) {
     try { state.conversationListenAnalyser.disconnect(); } catch (_) {}
@@ -233,9 +238,19 @@ function startConversationAudioMonitor(stream, token) {
     analyser.smoothingTimeConstant = 0.25;
     const bins = new Uint8Array(analyser.frequencyBinCount);
     source.connect(analyser);
+    // iOS Safari requires the graph to terminate at destination for
+    // AnalyserNode to receive live data from a MediaStreamSource.
+    let silentGain = null;
+    if (typeof audioCtx.createGain === 'function') {
+      silentGain = audioCtx.createGain();
+      silentGain.gain.value = 0;
+      analyser.connect(silentGain);
+      silentGain.connect(audioCtx.destination);
+    }
 
     state.conversationListenSource = source;
     state.conversationListenAnalyser = analyser;
+    state.conversationListenSilentGain = silentGain;
     state.conversationListenBins = bins;
   } catch (_) {
     if (source) {
