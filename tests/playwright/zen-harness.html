@@ -433,6 +433,13 @@
           disconnect() {},
         };
       }
+      createGain() {
+        return {
+          gain: { value: 1 },
+          connect() {},
+          disconnect() {},
+        };
+      }
       createAnalyser() {
         return {
           fftSize: 1024,

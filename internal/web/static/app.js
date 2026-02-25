@@ -961,6 +961,12 @@ const MIC_CAPTURE_CONSTRAINTS = {
 let _cachedMicStream = null;
 let _micStreamPromise = null;
 
+function speculativeAcquireMic() {
+  if (!state.chatVoiceCapture && canUseMicrophoneCapture() && !_cachedMicStream && !_micStreamPromise) {
+    acquireMicStream().catch(() => {});
+  }
+}
+
 function acquireMicStream() {
   if (_cachedMicStream) {
     const tracks = _cachedMicStream.getAudioTracks();
@@ -1193,6 +1199,15 @@ function startVADMonitor(capture) {
     analyser.smoothingTimeConstant = 0.25;
     const bins = new Uint8Array(analyser.frequencyBinCount);
     source.connect(analyser);
+    // iOS Safari requires the graph to terminate at destination for
+    // AnalyserNode to receive live data from a MediaStreamSource.
+    let silentGain = null;
+    if (typeof ttsAudioCtx.createGain === 'function') {
+      silentGain = ttsAudioCtx.createGain();
+      silentGain.gain.value = 0;
+      analyser.connect(silentGain);
+      silentGain.connect(ttsAudioCtx.destination);
+    }
 
     const update = () => {
       if (!options.isRunning || !capture || capture.stopping || state.chatVoiceCapture !== capture) {
@@ -1313,7 +1328,7 @@ function startVADMonitor(capture) {
     };
 
     const timer = window.setInterval(update, VOICE_VAD_FRAME_MS);
-    capture.vadState = { source, analyser, timer, options, bins, isRunning: true };
+    capture.vadState = { source, analyser, silentGain, timer, options, bins, isRunning: true };
   } catch (_) {
     if (source) {
       try { source.disconnect(); } catch (_) {}
@@ -1331,6 +1346,9 @@ function stopVADMonitor(capture) {
   if (state.timer) window.clearInterval(state.timer);
   if (state.source) {
     try { state.source.disconnect(); } catch (_) {}
+  }
+  if (state.silentGain) {
+    try { state.silentGain.disconnect(); } catch (_) {}
   }
   if (state.analyser) {
     try { state.analyser.disconnect(); } catch (_) {}
@@ -3718,6 +3736,12 @@ function bindUi() {
     window.addEventListener('pointercancel', handleMousePointerRelease, true);
     window.addEventListener('blur', clearMouseHoldState);
 
+    // Speculatively acquire the mic on touchstart so getUserMedia() overlaps
+    // with the touch-to-click delay (~50-100ms on iOS). If the tap completes,
+    // beginZenVoiceCapture gets the cached stream instantly. If not, the
+    // short cooldown auto-releases it.
+    zenClickTarget.addEventListener('touchstart', speculativeAcquireMic, { passive: true });
+
     zenClickTarget.addEventListener('click', (ev) => {
       if (mouseHoldSuppressClick) {
         mouseHoldSuppressClick = false;
@@ -3846,6 +3870,7 @@ function bindUi() {
 
     chatPaneInput.addEventListener('touchstart', (ev) => {
       if (ev.touches.length !== 1) return;
+      speculativeAcquireMic();
       const t = ev.touches[0];
       chatInputHoldActive = false;
       chatInputHoldX = t.clientX;
@@ -4087,6 +4112,7 @@ function bindUi() {
 
     canvasText.addEventListener('touchstart', (ev) => {
       if (ev.touches.length !== 1) return;
+      speculativeAcquireMic();
       const t = ev.touches[0];
       artHoldActive = false;
       artHoldX = t.clientX;
