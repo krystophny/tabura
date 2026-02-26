@@ -2014,7 +2014,14 @@ function renderSidebarRow({ icon, label, active = false, meta = '', onClick }) {
     button.appendChild(metaEl);
   }
   let lastTouchAt = 0;
+  let touchStartY = 0;
+  button.addEventListener('touchstart', (ev) => {
+    const t = ev.touches && ev.touches[0];
+    if (t) touchStartY = t.clientY;
+  }, { passive: true });
   button.addEventListener('touchend', (ev) => {
+    const t = ev.changedTouches && ev.changedTouches[0];
+    if (t && Math.abs(t.clientY - touchStartY) > 10) return;
     ev.preventDefault();
     ev.stopPropagation();
     lastTouchAt = Date.now();
