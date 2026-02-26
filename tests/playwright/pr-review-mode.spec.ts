@@ -60,6 +60,8 @@ test.describe('pr review canvas mode', () => {
     await expect(page.locator('#pr-file-list .pr-file-item')).toHaveCount(2);
     await expect(page.locator('#canvas-text')).toContainText('docs/one.md');
 
+    await page.locator('#pr-file-drawer-toggle').click();
+    await expect(page.locator('#pr-file-pane')).toHaveClass(/is-open/);
     await page.locator('#pr-file-list .pr-file-item').nth(1).click();
     await expect(page.locator('#pr-file-list .pr-file-item.is-active .pr-file-name')).toContainText('src/two.js');
     await expect(page.locator('#canvas-text')).toContainText('src/two.js');

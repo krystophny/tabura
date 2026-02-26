@@ -83,6 +83,11 @@ const state = {
   prReviewTitle: '',
   prReviewPRNumber: '',
   prReviewDrawerOpen: false,
+  fileSidebarMode: 'workspace',
+  workspaceBrowserPath: '',
+  workspaceBrowserEntries: [],
+  workspaceBrowserLoading: false,
+  workspaceBrowserError: '',
   prReviewAwaitingArtifact: false,
 };
 
@@ -145,6 +150,7 @@ const PROJECT_CHAT_MODEL_REASONING_EFFORTS = {
   spark: ['low', 'medium', 'high', 'extra_high'],
 };
 const TTS_SILENT_STORAGE_KEY = 'tabura.ttsSilent';
+const SIDEBAR_IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg', '.ico', '.avif']);
 
 // --- Block stripping & TTS infrastructure ---
 
@@ -922,6 +928,7 @@ function setActiveProjectID(projectID) {
   if (state.activeProjectId) {
     persistActiveProjectID(state.activeProjectId);
   }
+  setFileSidebarAvailability();
   renderEdgeTopProjects();
   renderEdgeTopModelButtons();
 }
@@ -1793,66 +1800,295 @@ function parseUnifiedDiffFiles(diffText) {
 }
 
 function setPrReviewDrawerOpen(open) {
-  const shouldOpen = Boolean(open);
+  const shouldOpen = Boolean(open) && (state.prReviewMode || Boolean(state.activeProjectId));
   state.prReviewDrawerOpen = shouldOpen;
+  document.body.classList.toggle('file-sidebar-open', shouldOpen);
   const pane = document.getElementById('pr-file-pane');
   const backdrop = document.getElementById('pr-file-drawer-backdrop');
   if (pane) pane.classList.toggle('is-open', shouldOpen);
   if (backdrop) backdrop.classList.toggle('is-open', shouldOpen);
 }
 
+function setFileSidebarAvailability() {
+  const enabled = state.prReviewMode || Boolean(state.activeProjectId);
+  document.body.classList.toggle('file-sidebar-enabled', enabled);
+  if (!enabled) {
+    setPrReviewDrawerOpen(false);
+  }
+}
+
+function normalizeWorkspaceBrowserPath(rawPath) {
+  const cleaned = String(rawPath || '').replaceAll('\\', '/').trim();
+  if (!cleaned) return '';
+  const pieces = cleaned.split('/').filter((piece) => piece && piece !== '.' && piece !== '..');
+  return pieces.join('/');
+}
+
+function parentWorkspaceBrowserPath(path) {
+  const cleaned = normalizeWorkspaceBrowserPath(path);
+  if (!cleaned) return '';
+  const pieces = cleaned.split('/');
+  pieces.pop();
+  return pieces.join('/');
+}
+
+function sidebarFileKindForPath(path) {
+  const lower = String(path || '').toLowerCase();
+  if (lower.endsWith('.pdf')) return 'pdf_artifact';
+  for (const ext of SIDEBAR_IMAGE_EXTENSIONS) {
+    if (lower.endsWith(ext)) return 'image_artifact';
+  }
+  return 'text_artifact';
+}
+
+function renderSidebarRow({ icon, label, active = false, meta = '', onClick }) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'pr-file-item';
+  if (active) {
+    button.classList.add('is-active');
+  }
+
+  const iconEl = document.createElement('span');
+  iconEl.className = `chooser-icon icon-${icon}`;
+
+  const labelEl = document.createElement('span');
+  labelEl.className = 'pr-file-name';
+  labelEl.textContent = String(label || '');
+
+  button.appendChild(iconEl);
+  button.appendChild(labelEl);
+  if (meta) {
+    const metaEl = document.createElement('span');
+    metaEl.className = 'pr-file-status';
+    metaEl.textContent = String(meta);
+    button.appendChild(metaEl);
+  }
+  button.addEventListener('click', onClick);
+  return button;
+}
+
+function renderWorkspaceFileList(list) {
+  if (state.workspaceBrowserLoading) {
+    list.appendChild(renderSidebarRow({
+      icon: 'folder',
+      label: 'Loading...',
+      onClick: () => {},
+    }));
+    return;
+  }
+  if (state.workspaceBrowserError) {
+    list.appendChild(renderSidebarRow({
+      icon: 'file',
+      label: `Error: ${state.workspaceBrowserError}`,
+      onClick: () => {},
+    }));
+    return;
+  }
+  const currentPath = normalizeWorkspaceBrowserPath(state.workspaceBrowserPath);
+  if (currentPath) {
+    list.appendChild(renderSidebarRow({
+      icon: 'parent',
+      label: '..',
+      onClick: () => {
+        void loadWorkspaceBrowserPath(parentWorkspaceBrowserPath(currentPath));
+      },
+    }));
+  }
+  const entries = Array.isArray(state.workspaceBrowserEntries) ? state.workspaceBrowserEntries : [];
+  entries.forEach((entry) => {
+    const isDir = Boolean(entry?.is_dir);
+    const entryPath = normalizeWorkspaceBrowserPath(entry?.path || '');
+    const entryName = String(entry?.name || entryPath || '(item)');
+    list.appendChild(renderSidebarRow({
+      icon: isDir ? 'folder' : 'file',
+      label: entryName,
+      onClick: () => {
+        if (isDir) {
+          void loadWorkspaceBrowserPath(entryPath);
+          return;
+        }
+        void openWorkspaceSidebarFile(entryPath);
+      },
+    }));
+  });
+}
+
 function resetPrReviewUi() {
   document.body.classList.remove('pr-review-mode');
-  setPrReviewDrawerOpen(false);
-  const title = document.getElementById('pr-file-pane-title');
-  if (title) title.textContent = 'Files';
-  const list = document.getElementById('pr-file-list');
-  if (list) list.innerHTML = '';
+  state.fileSidebarMode = 'workspace';
+  setFileSidebarAvailability();
+  renderPrReviewFileList();
 }
 
 function renderPrReviewFileList() {
   const list = document.getElementById('pr-file-list');
   if (!(list instanceof HTMLElement)) return;
   const title = document.getElementById('pr-file-pane-title');
-  const files = Array.isArray(state.prReviewFiles) ? state.prReviewFiles : [];
-  if (title) {
-    if (files.length > 0) {
-      const prefix = state.prReviewPRNumber ? `PR #${state.prReviewPRNumber}` : 'PR Review';
-      title.textContent = `${prefix} (${state.prReviewActiveIndex + 1}/${files.length})`;
-    } else {
-      title.textContent = 'Files';
-    }
+  setFileSidebarAvailability();
+  if (state.prReviewMode) {
+    state.fileSidebarMode = 'pr';
   }
+  const mode = state.fileSidebarMode === 'pr' && state.prReviewMode ? 'pr' : 'workspace';
   list.innerHTML = '';
-  files.forEach((file, index) => {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'pr-file-item';
-    if (index === state.prReviewActiveIndex) {
-      button.classList.add('is-active');
-    }
-    button.setAttribute('aria-label', String(file?.path || `File ${index + 1}`));
-    button.dataset.index = String(index);
-
-    const status = document.createElement('span');
-    const statusName = String(file?.status || 'modified').toLowerCase();
-    status.className = `pr-file-status status-${statusName}`;
-    status.textContent = statusBadgeForDiffFile(statusName);
-
-    const label = document.createElement('span');
-    label.className = 'pr-file-name';
-    label.textContent = String(file?.path || `(file ${index + 1})`);
-
-    button.appendChild(status);
-    button.appendChild(label);
-    button.addEventListener('click', () => {
-      setPrReviewActiveFile(index);
-      if (isMobileViewport()) {
-        setPrReviewDrawerOpen(false);
+  if (mode === 'pr') {
+    const files = Array.isArray(state.prReviewFiles) ? state.prReviewFiles : [];
+    if (title) {
+      if (files.length > 0) {
+        const prefix = state.prReviewPRNumber ? `PR #${state.prReviewPRNumber}` : 'PR Review';
+        title.textContent = `${prefix} (${state.prReviewActiveIndex + 1}/${files.length})`;
+      } else {
+        title.textContent = 'PR Review';
       }
+    }
+    files.forEach((file, index) => {
+      const statusName = String(file?.status || 'modified').toLowerCase();
+      list.appendChild(renderSidebarRow({
+        icon: 'file',
+        label: String(file?.path || `(file ${index + 1})`),
+        active: index === state.prReviewActiveIndex,
+        meta: statusBadgeForDiffFile(statusName),
+        onClick: () => {
+          setPrReviewActiveFile(index);
+          if (isMobileViewport()) {
+            setPrReviewDrawerOpen(false);
+          }
+        },
+      }));
     });
-    list.appendChild(button);
-  });
+    return;
+  }
+  if (title) {
+    const cleanedPath = normalizeWorkspaceBrowserPath(state.workspaceBrowserPath);
+    title.textContent = cleanedPath ? `Files /${cleanedPath}` : 'Files /';
+  }
+  renderWorkspaceFileList(list);
+}
+
+async function loadWorkspaceBrowserPath(path = '') {
+  const project = activeProject();
+  if (!project || !project.id) {
+    state.workspaceBrowserPath = '';
+    state.workspaceBrowserEntries = [];
+    state.workspaceBrowserLoading = false;
+    state.workspaceBrowserError = '';
+    renderPrReviewFileList();
+    return false;
+  }
+  const requestedPath = normalizeWorkspaceBrowserPath(path);
+  const projectID = String(project.id);
+  state.workspaceBrowserLoading = true;
+  state.workspaceBrowserError = '';
+  if (!state.prReviewMode) {
+    state.fileSidebarMode = 'workspace';
+  }
+  renderPrReviewFileList();
+  try {
+    const url = `/api/projects/${encodeURIComponent(projectID)}/files?path=${encodeURIComponent(requestedPath)}`;
+    const resp = await fetch(url, { cache: 'no-store' });
+    if (!resp.ok) {
+      const detail = (await resp.text()).trim() || `HTTP ${resp.status}`;
+      throw new Error(detail);
+    }
+    const payload = await resp.json();
+    if (projectID !== String(state.activeProjectId || '')) return false;
+    state.workspaceBrowserPath = normalizeWorkspaceBrowserPath(payload?.path || requestedPath);
+    const entriesRaw = Array.isArray(payload?.entries) ? payload.entries : [];
+    state.workspaceBrowserEntries = entriesRaw.map((entry) => ({
+      name: String(entry?.name || ''),
+      path: normalizeWorkspaceBrowserPath(entry?.path || ''),
+      is_dir: Boolean(entry?.is_dir),
+    }));
+    state.workspaceBrowserLoading = false;
+    state.workspaceBrowserError = '';
+    renderPrReviewFileList();
+    return true;
+  } catch (err) {
+    if (projectID !== String(state.activeProjectId || '')) return false;
+    state.workspaceBrowserLoading = false;
+    state.workspaceBrowserError = String(err?.message || err || 'file list unavailable');
+    state.workspaceBrowserEntries = [];
+    renderPrReviewFileList();
+    return false;
+  }
+}
+
+async function openWorkspaceSidebarFile(path) {
+  const filePath = normalizeWorkspaceBrowserPath(path);
+  if (!filePath) return false;
+  const kind = sidebarFileKindForPath(filePath);
+  if (kind === 'image_artifact') {
+    renderCanvas({
+      kind: 'image_artifact',
+      event_id: `workspace-file-${Date.now()}`,
+      title: filePath,
+      path: filePath,
+    });
+    showCanvasColumn('canvas-image');
+    if (isMobileViewport()) setPrReviewDrawerOpen(false);
+    return true;
+  }
+  if (kind === 'pdf_artifact') {
+    renderCanvas({
+      kind: 'pdf_artifact',
+      event_id: `workspace-file-${Date.now()}`,
+      title: filePath,
+      path: filePath,
+    });
+    showCanvasColumn('canvas-pdf');
+    if (isMobileViewport()) setPrReviewDrawerOpen(false);
+    return true;
+  }
+
+  const sid = String(state.sessionId || 'local');
+  try {
+    const resp = await fetch(`/api/files/${encodeURIComponent(sid)}/${encodeURIComponent(filePath)}`, { cache: 'no-store' });
+    if (!resp.ok) {
+      const detail = (await resp.text()).trim() || `HTTP ${resp.status}`;
+      throw new Error(detail);
+    }
+    const contentType = String(resp.headers.get('content-type') || '').toLowerCase();
+    if (contentType.startsWith('image/')) {
+      renderCanvas({
+        kind: 'image_artifact',
+        event_id: `workspace-file-${Date.now()}`,
+        title: filePath,
+        path: filePath,
+      });
+      showCanvasColumn('canvas-image');
+      if (isMobileViewport()) setPrReviewDrawerOpen(false);
+      return true;
+    }
+    if (contentType.includes('application/pdf')) {
+      renderCanvas({
+        kind: 'pdf_artifact',
+        event_id: `workspace-file-${Date.now()}`,
+        title: filePath,
+        path: filePath,
+      });
+      showCanvasColumn('canvas-pdf');
+      if (isMobileViewport()) setPrReviewDrawerOpen(false);
+      return true;
+    }
+    const text = await resp.text();
+    renderCanvas({
+      kind: 'text_artifact',
+      event_id: `workspace-file-${Date.now()}`,
+      title: filePath,
+      text,
+    });
+    showCanvasColumn('canvas-text');
+    if (isMobileViewport()) setPrReviewDrawerOpen(false);
+    return true;
+  } catch (err) {
+    showStatus(`open failed: ${String(err?.message || err || 'unknown error')}`);
+    return false;
+  }
+}
+
+async function refreshWorkspaceBrowser(resetPath = false) {
+  const nextPath = resetPath ? '' : state.workspaceBrowserPath;
+  return loadWorkspaceBrowserPath(nextPath);
 }
 
 function renderActivePrReviewFile() {
@@ -2894,6 +3130,7 @@ async function switchProject(projectID) {
     state.chatWsHasConnected = false;
     upsertProject(project);
     renderEdgeTopProjects();
+    await refreshWorkspaceBrowser(true);
     openCanvasWs();
     await loadChatHistory();
     await refreshAssistantActivity();
@@ -3251,7 +3488,7 @@ function edgePanelsAreOpen() {
   const edgeRight = document.getElementById('edge-right');
   const topOpen = Boolean(edgeTop && (edgeTop.classList.contains('edge-active') || edgeTop.classList.contains('edge-pinned')));
   const rightOpen = Boolean(edgeRight && (edgeRight.classList.contains('edge-active') || edgeRight.classList.contains('edge-pinned')));
-  return topOpen || rightOpen;
+  return topOpen || rightOpen || state.prReviewDrawerOpen;
 }
 
 function handleRasaEdgeTap() {
@@ -3364,8 +3601,15 @@ function initEdgePanels() {
   if (prDrawerToggle) {
     prDrawerToggle.addEventListener('click', (ev) => {
       ev.preventDefault();
-      if (!state.prReviewMode) return;
+      if (!state.prReviewMode && !state.activeProjectId) return;
+      if (!state.prReviewMode) {
+        state.fileSidebarMode = 'workspace';
+        if (!state.workspaceBrowserLoading && state.workspaceBrowserEntries.length === 0 && !state.workspaceBrowserError) {
+          void refreshWorkspaceBrowser(false);
+        }
+      }
       setPrReviewDrawerOpen(!state.prReviewDrawerOpen);
+      renderPrReviewFileList();
     });
   }
   const prDrawerBackdrop = document.getElementById('pr-file-drawer-backdrop');
@@ -3964,7 +4208,7 @@ function bindUi() {
         hideTextInput();
         return;
       }
-      if (state.prReviewMode && state.prReviewDrawerOpen) {
+      if (state.prReviewDrawerOpen) {
         setPrReviewDrawerOpen(false);
         return;
       }
