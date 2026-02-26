@@ -1,5 +1,5 @@
 target_phrase:
-  - "tabura"
+  - "tah boo rah"
 n_samples: 2000
 n_samples_val: 500
 augmentation_rounds: 3
