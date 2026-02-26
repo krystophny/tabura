@@ -1936,6 +1936,7 @@ function parseUnifiedDiffFiles(diffText) {
   }];
 }
 
+let sidebarEdgeTapAt = 0;
 function setPrReviewDrawerOpen(open) {
   const shouldOpen = Boolean(open) && (state.prReviewMode || Boolean(state.activeProjectId));
   state.prReviewDrawerOpen = shouldOpen;
@@ -2032,6 +2033,7 @@ function renderSidebarRow({ icon, label, active = false, meta = '', onClick }) {
       ev.preventDefault();
       return;
     }
+    if (Date.now() - sidebarEdgeTapAt < 600) return;
     onClick(ev);
   });
   return button;
@@ -3893,6 +3895,7 @@ function initEdgePanels() {
       }
       ev.preventDefault();
       edgeLeftLastTouchAt = Date.now();
+      sidebarEdgeTapAt = Date.now();
       toggleFileSidebarFromEdge();
     }, { passive: false });
   }
