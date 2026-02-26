@@ -601,7 +601,7 @@ function settleKeyboardAfterSubmit() {
   });
 }
 
-function setTTSSilentMode(silent, { persist = true } = {}) {
+function setTTSSilentMode(silent, { persist = true, pinPanel = true } = {}) {
   const next = Boolean(silent);
   if (state.ttsSilent === next) return;
   state.ttsSilent = next;
@@ -612,7 +612,7 @@ function setTTSSilentMode(silent, { persist = true } = {}) {
     cancelConversationListen();
     stopTTSPlayback();
     document.body.classList.add('silent-mode');
-    if (window.matchMedia('(max-width: 767px)').matches) {
+    if (pinPanel && window.matchMedia('(max-width: 767px)').matches) {
       const edgeRight = document.getElementById('edge-right');
       if (edgeRight) edgeRight.classList.add('edge-pinned');
     }
@@ -4873,7 +4873,6 @@ function showSplash() {
 }
 
 async function init() {
-  initPanelMotionMode();
   applyIPhoneFrameCorners();
   window.addEventListener('resize', () => {
     if (document.body.classList.contains('keyboard-open')) return;
@@ -4895,14 +4894,21 @@ async function init() {
   } catch (_) {
     ttsEnabled = false;
   }
-  setTTSSilentMode(readTTSSilentPreference(), { persist: false });
+  setTTSSilentMode(readTTSSilentPreference(), { persist: false, pinPanel: false });
   await initHotwordLifecycle();
 
   await fetchProjects();
   const initialProjectID = resolveInitialProjectID();
   if (!initialProjectID) throw new Error('no projects available');
   await switchProject(initialProjectID);
+  // Pin chat panel now that all startup state is settled.
+  if (isMobileSilent()) {
+    const edgeRight = document.getElementById('edge-right');
+    if (edgeRight) edgeRight.classList.add('edge-pinned');
+  }
   showSplash();
+  // Enable panel slide transitions only after startup is fully painted.
+  requestAnimationFrame(() => requestAnimationFrame(initPanelMotionMode));
 }
 
 async function authGate() {
