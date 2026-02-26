@@ -117,6 +117,7 @@ window._taburaApp = { getState, acquireMicStream, sttStart, sttSendBlob, sttStop
 const MATH_SEGMENT_TOKEN_PREFIX = '@@TABURA_CHAT_MATH_SEGMENT_';
 const DEV_UI_RELOAD_POLL_MS = 1500;
 const ASSISTANT_ACTIVITY_POLL_MS = 1200;
+const CHAT_WS_STALE_THRESHOLD_MS = 20000;
 let localMessageSeq = 0;
 const CHAT_CTRL_LONG_PRESS_MS = 180;
 const CHAT_SEND_HOLD_MS = 300;
@@ -166,6 +167,7 @@ let devReloadRequested = false;
 let assistantActivityTimer = null;
 let assistantActivityInFlight = false;
 let assistantSilentCancelInFlight = false;
+let chatWsLastMessageAt = 0;
 
 const ACTIVE_PROJECT_STORAGE_KEY = 'tabura.activeProjectId';
 const LAST_VIEW_STORAGE_KEY = 'tabura.lastView';
@@ -444,6 +446,7 @@ function canStartHotwordMonitor() {
   if (!state.conversationMode) return false;
   if (!canSpeakTTS()) return false;
   if (mode === VOICE_LIFECYCLE.RECORDING || mode === VOICE_LIFECYCLE.STOPPING_RECORDING) return false;
+  if (mode === VOICE_LIFECYCLE.TTS_PLAYING) return false;
   if (state.chatVoiceCapture) return false;
   if (isStopCapableLifecycle(mode)) return false;
   return true;
@@ -2083,7 +2086,9 @@ function hasRemoteAssistantWork() {
 }
 
 function hasLocalStopCapableWork() {
-  return hasLocalAssistantWork() || state.assistantCancelInFlight;
+  return state.assistantActiveTurns.size > 0
+    || state.assistantUnknownTurns > 0
+    || state.assistantCancelInFlight;
 }
 
 function isDirectAssistantWorking() {
@@ -2139,8 +2144,7 @@ function isStopCapableLifecycle(mode = state.voiceLifecycle) {
   return mode === VOICE_LIFECYCLE.LISTENING
     || mode === VOICE_LIFECYCLE.STOPPING_RECORDING
     || mode === VOICE_LIFECYCLE.AWAITING_TURN
-    || mode === VOICE_LIFECYCLE.ASSISTANT_WORKING
-    || mode === VOICE_LIFECYCLE.TTS_PLAYING;
+    || mode === VOICE_LIFECYCLE.ASSISTANT_WORKING;
 }
 
 function isUiReadyForStatus() {
@@ -2152,6 +2156,7 @@ function canStartConversationListen() {
   if (!canSpeakTTS()) return false;
   const mode = syncVoiceLifecycle('can-start-conversation');
   if (mode === VOICE_LIFECYCLE.RECORDING || mode === VOICE_LIFECYCLE.STOPPING_RECORDING) return false;
+  if (mode === VOICE_LIFECYCLE.TTS_PLAYING) return false;
   if (state.chatVoiceCapture) return false;
   if (isStopCapableLifecycle(mode)) return false;
   return true;
@@ -3330,6 +3335,10 @@ async function refreshAssistantActivity() {
     state.assistantRemoteActiveCount = activeTurns;
     state.assistantRemoteQueuedCount = queuedTurns;
     state.assistantRemoteDelegateActiveCount = delegateActive;
+    if (activeTurns <= 0 && queuedTurns <= 0 && delegateActive <= 0 && !state.assistantCancelInFlight) {
+      state.assistantActiveTurns.clear();
+      state.assistantUnknownTurns = 0;
+    }
     updateAssistantActivityIndicator();
   } catch (_) {
     if (!hasLocalAssistantWork() && !state.assistantCancelInFlight) {
@@ -3347,6 +3356,15 @@ function startAssistantActivityWatcher() {
   if (assistantActivityTimer !== null) return;
   const tick = () => {
     if (document.hidden) return;
+    if (hasLocalStopCapableWork() && state.chatWs && chatWsLastMessageAt > 0) {
+      const elapsed = Date.now() - chatWsLastMessageAt;
+      if (elapsed > CHAT_WS_STALE_THRESHOLD_MS) {
+        chatWsLastMessageAt = 0;
+        closeChatWs();
+        openChatWs();
+        return;
+      }
+    }
     void refreshAssistantActivity();
   };
   assistantActivityTimer = window.setInterval(tick, ASSISTANT_ACTIVITY_POLL_MS);
@@ -3402,6 +3420,7 @@ function startAssistantActivityWatcher() {
 
 function closeChatWs() {
   state.chatWsToken += 1;
+  chatWsLastMessageAt = 0;
   if (state.chatWs) {
     try { state.chatWs.close(); } catch (_) {}
   }
@@ -3435,6 +3454,7 @@ function openChatWs() {
 
   ws.onmessage = (event) => {
     if (turnToken !== state.chatWsToken || targetSessionID !== state.chatSessionId) return;
+    chatWsLastMessageAt = Date.now();
     if (event.data instanceof ArrayBuffer) {
       if (!canSpeakTTS()) return;
       if (!ttsPlayer) ttsPlayer = new TTSPlayer();
@@ -3739,6 +3759,11 @@ function handleChatEvent(payload) {
     const turnID = String(payload.turn_id || '').trim();
     const line = formatItemCompletedLabel(payload);
     appendAssistantProgressForTurn(turnID, line);
+    return;
+  }
+
+  if (type === 'turn_completed') {
+    void refreshAssistantActivity();
     return;
   }
 

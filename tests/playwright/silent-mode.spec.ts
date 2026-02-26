@@ -243,6 +243,63 @@ test.describe('chat pane interactions', () => {
     await expect(page.locator('#indicator')).toBeHidden();
   });
 
+  test('indicator clears after natural turn completion', async ({ page }) => {
+    await clearLog(page);
+    await setHarnessActivityResponse(page, { active_turns: 1, queued_turns: 0, delegate_active: 0 });
+
+    await injectChatEvent(page, { type: 'turn_started', turn_id: 'natural-t1' });
+    await expect(page.locator('.stop-square')).toBeVisible();
+
+    // Server finishes work: send assistant_output and update activity to 0
+    await setHarnessActivityResponse(page, { active_turns: 0, queued_turns: 0, delegate_active: 0 });
+    await injectChatEvent(page, {
+      type: 'assistant_output',
+      role: 'assistant',
+      turn_id: 'natural-t1',
+      message: 'Done.',
+    });
+    await page.waitForTimeout(400);
+    await expect(page.locator('#indicator')).toBeHidden();
+  });
+
+  test('indicator clears when turnID mismatches between turn_started and assistant_output', async ({ page }) => {
+    await clearLog(page);
+    // Activity reports 1 active turn during the turn.
+    await setHarnessActivityResponse(page, { active_turns: 1, queued_turns: 0, delegate_active: 0 });
+
+    await injectChatEvent(page, { type: 'turn_started', turn_id: 'mismatch-A' });
+    await expect(page.locator('.stop-square')).toBeVisible();
+
+    // Server finishes work — assistant_output arrives with a different turnID.
+    await setHarnessActivityResponse(page, { active_turns: 0, queued_turns: 0, delegate_active: 0 });
+    await injectChatEvent(page, {
+      type: 'assistant_output',
+      role: 'assistant',
+      turn_id: 'mismatch-B',
+      message: 'Response text.',
+    });
+
+    // The guard reconciles stale local state via the activity poll.
+    await page.waitForTimeout(2000);
+    await expect(page.locator('#indicator')).toBeHidden();
+  });
+
+  test('turn_completed event triggers activity reconciliation', async ({ page }) => {
+    await clearLog(page);
+    await setHarnessActivityResponse(page, { active_turns: 1, queued_turns: 0, delegate_active: 0 });
+
+    await injectChatEvent(page, { type: 'turn_started', turn_id: 'tc-1' });
+    await expect(page.locator('.stop-square')).toBeVisible();
+
+    // Server sends turn_completed, then activity drops to 0
+    await setHarnessActivityResponse(page, { active_turns: 0, queued_turns: 0, delegate_active: 0 });
+    await injectChatEvent(page, { type: 'turn_completed', turn_id: 'tc-1', message: 'Done.' });
+
+    // turn_completed triggers refreshAssistantActivity which reconciles
+    await page.waitForTimeout(800);
+    await expect(page.locator('#indicator')).toBeHidden();
+  });
+
   test('chat-pane-input sends on Enter', async ({ page }) => {
     const input = page.locator('#chat-pane-input');
     await input.focus();
