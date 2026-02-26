@@ -3693,12 +3693,43 @@ function initEdgePanels() {
   // Desktop: button clicks for left/right/bottom edge taps
   if (edgeLeftTap) {
     let edgeLeftLastTouchAt = 0;
+    let edgeLeftTouchStartX = 0;
+    let edgeLeftTouchStartY = 0;
+    let edgeLeftTouchFlipHandled = false;
     edgeLeftTap.addEventListener('click', (ev) => {
       ev.preventDefault();
       if (Date.now() - edgeLeftLastTouchAt < 700) return;
       toggleFileSidebarFromEdge();
     });
+    edgeLeftTap.addEventListener('touchstart', (ev) => {
+      const touch = ev.touches && ev.touches[0];
+      if (!touch) return;
+      edgeLeftTouchStartX = touch.clientX;
+      edgeLeftTouchStartY = touch.clientY;
+      edgeLeftTouchFlipHandled = false;
+    }, { passive: true });
+    edgeLeftTap.addEventListener('touchmove', (ev) => {
+      if (!state.hasArtifact || edgeLeftTouchFlipHandled) return;
+      const touch = ev.touches && ev.touches[0];
+      if (!touch) return;
+      const dx = touch.clientX - edgeLeftTouchStartX;
+      const dy = touch.clientY - edgeLeftTouchStartY;
+      const absDx = Math.abs(dx);
+      const absDy = Math.abs(dy);
+      if (dx > 30 && absDx > absDy * 1.1) {
+        if (stepCanvasFile(-1)) {
+          edgeLeftTouchFlipHandled = true;
+          edgeLeftLastTouchAt = Date.now();
+          ev.preventDefault();
+        }
+      }
+    }, { passive: false });
     edgeLeftTap.addEventListener('touchend', (ev) => {
+      if (edgeLeftTouchFlipHandled) {
+        ev.preventDefault();
+        edgeLeftTouchFlipHandled = false;
+        return;
+      }
       ev.preventDefault();
       edgeLeftLastTouchAt = Date.now();
       toggleFileSidebarFromEdge();
@@ -3708,15 +3739,46 @@ function initEdgePanels() {
   const edgeRightTap = document.getElementById('edge-right-tap');
   if (edgeRightTap) {
     let edgeRightLastTouchAt = 0;
+    let edgeRightTouchStartX = 0;
+    let edgeRightTouchStartY = 0;
+    let edgeRightTouchFlipHandled = false;
     edgeRightTap.addEventListener('click', (ev) => {
       ev.preventDefault();
       if (Date.now() - edgeRightLastTouchAt < 700) return;
       toggleRightEdgeDrawer(edgeRight);
     });
+    edgeRightTap.addEventListener('touchstart', (ev) => {
+      const touch = ev.touches && ev.touches[0];
+      if (!touch) return;
+      edgeRightTouchStartX = touch.clientX;
+      edgeRightTouchStartY = touch.clientY;
+      edgeRightTouchFlipHandled = false;
+    }, { passive: true });
+    edgeRightTap.addEventListener('touchmove', (ev) => {
+      if (!state.hasArtifact || edgeRightTouchFlipHandled) return;
+      const touch = ev.touches && ev.touches[0];
+      if (!touch) return;
+      const dx = touch.clientX - edgeRightTouchStartX;
+      const dy = touch.clientY - edgeRightTouchStartY;
+      const absDx = Math.abs(dx);
+      const absDy = Math.abs(dy);
+      if (dx < -30 && absDx > absDy * 1.1) {
+        if (stepCanvasFile(1)) {
+          edgeRightTouchFlipHandled = true;
+          edgeRightLastTouchAt = Date.now();
+          ev.preventDefault();
+        }
+      }
+    }, { passive: false });
     // Direct touch handler: iOS system gesture recognizer can intercept
     // document-level touch events near screen edges. Handle on the button
     // itself with touch-action:manipulation to bypass system gestures.
     edgeRightTap.addEventListener('touchend', (ev) => {
+      if (edgeRightTouchFlipHandled) {
+        ev.preventDefault();
+        edgeRightTouchFlipHandled = false;
+        return;
+      }
       ev.preventDefault();
       edgeRightLastTouchAt = Date.now();
       toggleRightEdgeDrawer(edgeRight);
@@ -3742,6 +3804,10 @@ function initEdgePanels() {
     const t = ev.touches[0];
     const edgeTapSize = getEdgeTapSizePx();
     edgeTouchHandled = false;
+    const startsInCanvasViewport = Boolean(target && target.closest('#canvas-viewport'));
+    // When a canvas artifact is visible, prioritize horizontal swipe-to-flip
+    // over left/right edge-open gestures.
+    const preserveCanvasHorizontalSwipe = Boolean(state.hasArtifact && startsInCanvasViewport);
     const topOpen = Boolean(edgeTop && (edgeTop.classList.contains('edge-active') || edgeTop.classList.contains('edge-pinned')));
     const rightOpen = Boolean(edgeRight && (edgeRight.classList.contains('edge-active') || edgeRight.classList.contains('edge-pinned')));
     const leftOpen = Boolean(state.prReviewDrawerOpen);
@@ -3751,9 +3817,9 @@ function initEdgePanels() {
       edgeTouchStart = { x: t.clientX, y: t.clientY, edge: 'right-open' };
     } else if (topOpen && target && target.closest('#edge-top')) {
       edgeTouchStart = { x: t.clientX, y: t.clientY, edge: 'top-open' };
-    } else if (isLeftEdgeTapCoordinate(t.clientX)) {
+    } else if (!preserveCanvasHorizontalSwipe && isLeftEdgeTapCoordinate(t.clientX)) {
       edgeTouchStart = { x: t.clientX, y: t.clientY, edge: 'left' };
-    } else if (t.clientX > window.innerWidth - edgeTapSize) {
+    } else if (!preserveCanvasHorizontalSwipe && t.clientX > window.innerWidth - edgeTapSize) {
       edgeTouchStart = { x: t.clientX, y: t.clientY, edge: 'right' };
     } else if (t.clientY < edgeTapSize) {
       edgeTouchStart = { x: t.clientX, y: t.clientY, edge: 'top' };
