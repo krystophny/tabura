@@ -4219,9 +4219,16 @@ function bindUi() {
       }
       return false;
     };
+    const isTapOnInteractiveUi = (ev) => {
+      const t = ev.target;
+      if (!(t instanceof Element)) return false;
+      return Boolean(t.closest('button, a, input, textarea, select, #edge-left-tap, #edge-right-tap, #edge-top, #edge-right, #pr-file-pane, #pr-file-drawer-backdrop'));
+    };
     const handleZenIndicatorTap = (ev, x, y, isTouch = false) => {
       if (!isIndicatorArmed()) return;
-      if (!(isTouch && shouldStopInUiClick()) && !pointHitsIndicatorChip(x, y)) return;
+      const hitsChip = pointHitsIndicatorChip(x, y);
+      if (!hitsChip && isTouch && shouldStopInUiClick() && isTapOnInteractiveUi(ev)) return;
+      if (!hitsChip && !(isTouch && shouldStopInUiClick())) return;
       if (!isTouch && Date.now() - lastIndicatorTouchAt < 600) return;
       if (isTouch) lastIndicatorTouchAt = Date.now();
       ev.preventDefault();
