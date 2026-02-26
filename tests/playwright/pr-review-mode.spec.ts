@@ -37,6 +37,49 @@ async function horizontalFlip(page: Page, deltaX: number) {
   }, deltaX);
 }
 
+async function touchHorizontalFlip(page: Page, startX: number, endX: number, y = 420) {
+  await page.locator('#canvas-viewport').evaluate((el, coords) => {
+    if (typeof Touch === 'undefined') return;
+    const start = { x: Number(coords.sx), y: Number(coords.y) };
+    const end = { x: Number(coords.ex), y: Number(coords.y) };
+    const target = document.elementFromPoint(start.x, start.y) || el;
+    const startTouch = new Touch({
+      identifier: 1,
+      target,
+      clientX: start.x,
+      clientY: start.y,
+      pageX: start.x,
+      pageY: start.y,
+    });
+    const endTouch = new Touch({
+      identifier: 1,
+      target,
+      clientX: end.x,
+      clientY: end.y,
+      pageX: end.x,
+      pageY: end.y,
+    });
+    target.dispatchEvent(new TouchEvent('touchstart', {
+      touches: [startTouch],
+      changedTouches: [startTouch],
+      bubbles: true,
+      cancelable: true,
+    }));
+    target.dispatchEvent(new TouchEvent('touchmove', {
+      touches: [endTouch],
+      changedTouches: [endTouch],
+      bubbles: true,
+      cancelable: true,
+    }));
+    target.dispatchEvent(new TouchEvent('touchend', {
+      touches: [],
+      changedTouches: [endTouch],
+      bubbles: true,
+      cancelable: true,
+    }));
+  }, { sx: startX, ex: endX, y });
+}
+
 function twoFileDiff(): string {
   return [
     'diff --git a/docs/one.md b/docs/one.md',
@@ -115,6 +158,25 @@ test.describe('pr review canvas mode', () => {
 
     await horizontalFlip(page, -140);
     await expect(page.locator('#pr-file-list .pr-file-item.is-active .pr-file-name')).toContainText('docs/one.md');
+  });
+
+  test('mobile edge-origin swipe flips file instead of opening right panel', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await waitReady(page);
+
+    await injectCanvasEvent(page, {
+      kind: 'text_artifact',
+      event_id: 'evt-pr-2c',
+      title: '.tabura/artifacts/pr/pr-18.diff',
+      text: twoFileDiff(),
+    });
+    await expect(page.locator('#pr-file-list .pr-file-item.is-active .pr-file-name')).toContainText('docs/one.md');
+
+    // Start inside the right-edge zone: this must still flip the canvas file.
+    await touchHorizontalFlip(page, 372, 160, 420);
+    await expect(page.locator('#pr-file-list .pr-file-item.is-active .pr-file-name')).toContainText('src/two.js');
+    const rightClasses = await page.locator('#edge-right').getAttribute('class');
+    expect(String(rightClasses || '')).not.toContain('edge-pinned');
   });
 
   test('uses drawer-style file pane on mobile', async ({ page }) => {
