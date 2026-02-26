@@ -816,6 +816,29 @@ func (a *App) StartTLS(host string, port int, certFile, keyFile string) error {
 	return a.start(host, port, strings.TrimSpace(certFile), strings.TrimSpace(keyFile))
 }
 
+// ListenTLS starts an additional HTTPS listener without triggering local serve
+// startup (the caller is expected to also call Start for the primary HTTP
+// listener which handles that).
+func (a *App) ListenTLS(host string, port int, certFile, keyFile string) error {
+	srv := &http.Server{
+		Addr:              fmt.Sprintf("%s:%d", host, port),
+		Handler:           a.Router(),
+		ReadHeaderTimeout: 15 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      60 * time.Second,
+		IdleTimeout:       60 * time.Second,
+	}
+	fmt.Println("tabura server HTTPS listener listening on:")
+	for _, u := range serve.ListenURLsWithScheme(host, port, "https") {
+		fmt.Printf("  %s\n", u)
+	}
+	err := srv.ListenAndServeTLS(certFile, keyFile)
+	if err == http.ErrServerClosed {
+		return nil
+	}
+	return err
+}
+
 func (a *App) start(host string, port int, certFile, keyFile string) error {
 	if err := a.startLocalServe(); err != nil {
 		return err

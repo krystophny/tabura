@@ -90,6 +90,7 @@ type serverConfig struct {
 	projectDir           string
 	webHost              string
 	webPort              int
+	webHTTPSPort         int
 	webCertFile          string
 	webKeyFile           string
 	mcpHost              string
@@ -158,6 +159,7 @@ func parseServerConfig(args []string) (*serverConfig, int) {
 	fs.StringVar(&cfg.dataDir, "data-dir", cfg.dataDir, "data dir")
 	fs.StringVar(&cfg.webHost, "web-host", "127.0.0.1", "web listener host")
 	fs.IntVar(&cfg.webPort, "web-port", web.DefaultPort, "web listener port")
+	fs.IntVar(&cfg.webHTTPSPort, "web-https-port", 8443, "HTTPS web listener port (requires --web-cert-file and --web-key-file)")
 	fs.StringVar(&cfg.webCertFile, "web-cert-file", "", "TLS certificate path for HTTPS web listener")
 	fs.StringVar(&cfg.webKeyFile, "web-key-file", "", "TLS private key path for HTTPS web listener")
 	fs.StringVar(&cfg.mcpHost, "mcp-host", "127.0.0.1", "mcp listener host")
@@ -212,12 +214,15 @@ func runServer(cfg *serverConfig) int {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
-	var startErr error
-	if strings.TrimSpace(cfg.webCertFile) != "" && strings.TrimSpace(cfg.webKeyFile) != "" {
-		startErr = app.StartTLS(cfg.webHost, cfg.webPort, cfg.webCertFile, cfg.webKeyFile)
-	} else {
-		startErr = app.Start(cfg.webHost, cfg.webPort)
+	hasTLS := strings.TrimSpace(cfg.webCertFile) != "" && strings.TrimSpace(cfg.webKeyFile) != ""
+	if hasTLS {
+		go func() {
+			if err := app.ListenTLS(cfg.webHost, cfg.webHTTPSPort, cfg.webCertFile, cfg.webKeyFile); err != nil {
+				fmt.Fprintf(os.Stderr, "HTTPS listener failed: %v\n", err)
+			}
+		}()
 	}
+	startErr := app.Start(cfg.webHost, cfg.webPort)
 	if startErr != nil {
 		_ = mcpApp.Stop(context.Background())
 		fmt.Fprintln(os.Stderr, startErr)
