@@ -416,8 +416,7 @@ async function initOnnxModel() {
     ort.env.wasm.wasmPaths = `${HOTWORD_VENDOR_BASE}/`;
   }
 
-  const threadsAvailable = typeof SharedArrayBuffer !== 'undefined';
-  if (!threadsAvailable && ort.env?.wasm) {
+  if (ort.env?.wasm) {
     ort.env.wasm.numThreads = 1;
   }
 
