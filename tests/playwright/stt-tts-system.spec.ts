@@ -1,7 +1,8 @@
 import { expect, test } from '@playwright/test';
 import { execSync } from 'child_process';
-import { readFileSync } from 'fs';
-import { resolve } from 'path';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import { join, resolve } from 'path';
+import { tmpdir } from 'os';
 import WebSocket from 'ws';
 
 const SERVER_URL = 'http://127.0.0.1:8420';
@@ -57,6 +58,15 @@ function ttsServiceRunning(): boolean {
   }
 }
 
+function ffmpegAvailable(): boolean {
+  try {
+    execSync('ffmpeg -version', { stdio: 'pipe' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function sttServiceRunning(): boolean {
   try {
     // whisper.cpp returns non-zero for empty input but the TCP connect succeeding means it's up
@@ -84,6 +94,7 @@ const needsAuth = serverNeedsAuth();
 const canAuth = !needsAuth || Boolean(testPassword);
 const sttUp = webServerUp && sttServiceRunning();
 const ttsUp = webServerUp && ttsServiceRunning();
+const ffmpegUp = ffmpegAvailable();
 
 // ---------------------------------------------------------------------------
 // Authentication
@@ -186,6 +197,59 @@ function buildWavSineWave(durationMs: number, freq = 440, sampleRate = 16000, bi
     buf.writeInt16LE(sample, 44 + i * bytesPerSample);
   }
   return buf;
+}
+
+async function synthesizePiperWav(text: string): Promise<Buffer> {
+  const resp = await fetch('http://127.0.0.1:8424/v1/audio/speech', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ input: text, voice: 'en', response_format: 'wav' }),
+  });
+  if (!resp.ok) {
+    throw new Error(`Piper TTS failed: HTTP ${resp.status}`);
+  }
+  return Buffer.from(await resp.arrayBuffer());
+}
+
+function transcodeWavToM4A(wav: Buffer): Buffer {
+  const dir = mkdtempSync(join(tmpdir(), 'tabura-stt-m4a-'));
+  const inPath = join(dir, 'input.wav');
+  const outPath = join(dir, 'output.m4a');
+  writeFileSync(inPath, wav);
+  try {
+    execSync(
+      `ffmpeg -hide_banner -loglevel error -nostdin -y -i "${inPath}" -ac 1 -ar 16000 -c:a aac -b:a 64k "${outPath}"`,
+      { stdio: 'pipe' },
+    );
+    return readFileSync(outPath);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+async function postSTTTranscribeAPI(sessionToken: string, mimeType: string, audio: Buffer) {
+  const headers: Record<string, string> = {};
+  if (sessionToken) {
+    headers['Cookie'] = `${SESSION_COOKIE_NAME}=${sessionToken}`;
+  }
+  const form = new FormData();
+  form.append('mime_type', mimeType);
+  form.append('file', new Blob([audio], { type: mimeType }), 'audio-input');
+  const resp = await fetch(`${SERVER_URL}/api/stt/transcribe`, {
+    method: 'POST',
+    headers,
+    body: form,
+  });
+  const raw = await resp.text();
+  let payload: Record<string, unknown> = {};
+  if (raw) {
+    try {
+      payload = JSON.parse(raw) as Record<string, unknown>;
+    } catch {
+      payload = {};
+    }
+  }
+  return { status: resp.status, payload, raw };
 }
 
 // ---------------------------------------------------------------------------
@@ -440,6 +504,29 @@ test.describe('STT/TTS system tests', () => {
       } finally {
         sttConn.close();
       }
+    });
+
+    test('Piper-generated WAV round-trips through authenticated /api/stt/transcribe', async () => {
+      const wav = await synthesizePiperWav('Tabura end to end speech to text verification.');
+      expect(wav.length).toBeGreaterThan(44);
+      expect(wav.slice(0, 4).toString('ascii')).toBe('RIFF');
+
+      const { status, payload, raw } = await postSTTTranscribeAPI(sessionToken, 'audio/wav', wav);
+      expect(status, raw).toBe(200);
+      const text = String(payload.text || '').trim();
+      expect(text.length).toBeGreaterThan(0);
+    });
+
+    test('Piper-generated M4A round-trips through authenticated /api/stt/transcribe', async () => {
+      test.skip(!ffmpegUp, 'ffmpeg not available');
+      const wav = await synthesizePiperWav('Tabura m4a normalization to whisper verification.');
+      const m4a = transcodeWavToM4A(wav);
+      expect(m4a.length).toBeGreaterThan(512);
+
+      const { status, payload, raw } = await postSTTTranscribeAPI(sessionToken, 'audio/mp4', m4a);
+      expect(status, raw).toBe(200);
+      const text = String(payload.text || '').trim();
+      expect(text.length).toBeGreaterThan(0);
     });
   });
 });

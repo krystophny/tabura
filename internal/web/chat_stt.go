@@ -78,7 +78,12 @@ func handleSTTStop(a *App, conn *chatWSConn) {
 	}
 
 	replacements := a.loadSTTReplacements()
-	text, err := stt.Transcribe(a.sttURL, mimeType, buf, replacements)
+	normalizedMimeType, normalizedData, normalizeErr := stt.NormalizeForWhisper(mimeType, buf)
+	if normalizeErr != nil {
+		_ = conn.writeJSON(sttMessage{Type: "stt_error", Error: fmt.Sprintf("audio normalization failed: %v", normalizeErr)})
+		return
+	}
+	text, err := stt.Transcribe(a.sttURL, normalizedMimeType, normalizedData, replacements)
 	if err != nil {
 		if errors.Is(err, stt.ErrLikelyNoise) {
 			_ = conn.writeJSON(sttMessage{Type: "stt_empty", Reason: "likely_noise"})

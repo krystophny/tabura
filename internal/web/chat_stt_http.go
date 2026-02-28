@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 
@@ -52,15 +53,22 @@ func (a *App) handleSTTTranscribe(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "mime_type must be audio/* or application/octet-stream", http.StatusBadRequest)
 		return
 	}
+	normalizedMimeType, normalizedData, normalizeErr := stt.NormalizeForWhisper(mimeType, data)
+	if normalizeErr != nil {
+		http.Error(w, fmt.Sprintf("audio normalization failed: %v", normalizeErr), http.StatusBadRequest)
+		return
+	}
 
 	replacements := a.loadSTTReplacements()
-	text, transcribeErr := stt.Transcribe(a.sttURL, mimeType, data, replacements)
+	text, transcribeErr := stt.Transcribe(a.sttURL, normalizedMimeType, normalizedData, replacements)
 	if transcribeErr != nil {
 		if errors.Is(transcribeErr, stt.ErrLikelyNoise) {
+			log.Printf("stt empty: reason=likely_noise mime=%s bytes=%d", normalizedMimeType, len(normalizedData))
 			writeJSON(w, map[string]string{"text": "", "reason": "likely_noise"})
 			return
 		}
 		if stt.IsRetryableNoSpeechError(transcribeErr) {
+			log.Printf("stt empty: reason=no_speech_detected mime=%s bytes=%d err=%v", normalizedMimeType, len(normalizedData), transcribeErr)
 			writeJSON(w, map[string]string{"text": "", "reason": "no_speech_detected"})
 			return
 		}
