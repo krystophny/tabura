@@ -4624,7 +4624,6 @@ function bindUi() {
     let touchTapStartY = 0;
     let touchTapTracking = false;
     let touchTapMoved = false;
-    let touchTapSuppressClick = false;
     const TOUCH_TAP_MOVE_THRESHOLD = 10;
 
     const handleWorkspaceTap = (target, x, y) => {
@@ -4676,7 +4675,6 @@ function bindUi() {
       if (touchTapMoved) { touchTapMoved = false; return; }
       const touch = ev.changedTouches && ev.changedTouches.length > 0 ? ev.changedTouches[0] : null;
       if (!touch) return;
-      touchTapSuppressClick = true;
       ev.preventDefault();
       handleWorkspaceTap(ev.target, touch.clientX, touch.clientY);
     }, { passive: false });
@@ -4687,7 +4685,7 @@ function bindUi() {
     }, { passive: true });
 
     clickTarget.addEventListener('click', (ev) => {
-      if (touchTapSuppressClick) { touchTapSuppressClick = false; return; }
+      if (isGhostClick()) return;
       if (ev.button !== 0) return;
       handleWorkspaceTap(ev.target, ev.clientX, ev.clientY);
     });

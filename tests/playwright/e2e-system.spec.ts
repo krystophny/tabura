@@ -911,6 +911,96 @@ test.describe('mobile viewport', () => {
     expect(isStillRecording).toBe(true);
   });
 
+  test('touch tap start then tap stop sends message and gets chat response', async ({ page }) => {
+    await clearLog(page);
+
+    // Tap to start recording
+    await dispatchTouchTap(page, 187, 333);
+    await page.waitForTimeout(500);
+    await waitForLogEntry(page, 'recorder', 'start');
+
+    // Tap again to stop (second touch tap)
+    await dispatchTouchTap(page, 187, 333);
+    await waitForLogEntry(page, 'stt', 'stop');
+    await waitForLogEntry(page, 'message_sent');
+
+    const log = await getLog(page);
+    const sent = log.find(e => e.type === 'message_sent');
+    expect(sent).toBeTruthy();
+    expect(sent!.text).toBe('hello world');
+
+    // Inject assistant response to verify it appears in chat
+    await injectChatEvent(page, { type: 'turn_started', turn_id: 'touch-turn-1' });
+    await injectChatEvent(page, {
+      type: 'assistant_output',
+      role: 'assistant',
+      turn_id: 'touch-turn-1',
+      message: 'Response to your voice message.',
+      auto_canvas: false,
+    });
+    await page.waitForTimeout(300);
+
+    const chatHistory = page.locator('#chat-history');
+    const chatText = await chatHistory.textContent();
+    expect(chatText).toContain('hello world');
+    expect(chatText).toContain('Response to your voice message');
+  });
+
+  test('touch tap start then tap stop with TTS response plays audio', async ({ page }) => {
+    await clearLog(page);
+
+    // Tap to start
+    await dispatchTouchTap(page, 187, 333);
+    await page.waitForTimeout(500);
+    await waitForLogEntry(page, 'recorder', 'start');
+
+    // Tap to stop
+    await dispatchTouchTap(page, 187, 333);
+    await waitForLogEntry(page, 'stt', 'stop');
+    await waitForLogEntry(page, 'message_sent');
+
+    // Assistant response with voice origin triggers TTS
+    await injectChatEvent(page, { type: 'turn_started', turn_id: 'touch-tts-1' });
+    await injectChatEvent(page, {
+      type: 'assistant_output',
+      role: 'assistant',
+      turn_id: 'touch-tts-1',
+      message: 'Here is your answer.',
+      auto_canvas: false,
+    });
+    await page.waitForTimeout(500);
+
+    const log = await getLog(page);
+    const ttsCalls = log.filter(e => e.type === 'tts');
+    expect(ttsCalls.length).toBeGreaterThan(0);
+    expect(ttsCalls[0]!.text).toContain('Here is your answer');
+  });
+
+  test('touch tap stop during working mode cancels turn', async ({ page }) => {
+    await clearLog(page);
+
+    // Submit text message first
+    await page.evaluate(() => {
+      const app = (window as any)._taburaApp;
+      app.getState().lastInputOrigin = 'text';
+    });
+    await page.keyboard.type('test');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(200);
+
+    // Simulate assistant working
+    await injectChatEvent(page, { type: 'turn_started', turn_id: 'cancel-turn-1' });
+    await page.waitForTimeout(200);
+
+    // Tap should trigger stop/cancel action
+    await dispatchTouchTap(page, 187, 333);
+    await page.waitForTimeout(500);
+
+    const log = await getLog(page);
+    const cancelCalls = log.filter(e => e.type === 'api_fetch' && e.action === 'cancel');
+    expect(cancelCalls.length).toBeGreaterThan(0);
+  });
+
   test('artifact renders on mobile and fills viewport', async ({ page }) => {
     await renderTestArtifact(page);
     const canvasText = page.locator('#canvas-text');
