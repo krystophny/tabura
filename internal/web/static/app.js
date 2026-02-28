@@ -188,6 +188,7 @@ let assistantActivityTimer = null;
 let assistantActivityInFlight = false;
 let assistantSilentCancelInFlight = false;
 let chatWsLastMessageAt = 0;
+let suppressClickUntil = 0;
 
 const ACTIVE_PROJECT_STORAGE_KEY = 'tabura.activeProjectId';
 const LAST_VIEW_STORAGE_KEY = 'tabura.lastView';
@@ -868,6 +869,15 @@ function showStatus(text) {
   if (el) el.textContent = text;
   const statusEl = document.getElementById('status-label');
   if (statusEl) statusEl.textContent = text;
+}
+
+function suppressSyntheticClick() {
+  const ms = isLikelyIOS() ? 1200 : 700;
+  suppressClickUntil = Math.max(suppressClickUntil, Date.now() + ms);
+}
+
+function isSuppressedClick() {
+  return Date.now() < suppressClickUntil;
 }
 
 let lastVoiceCaptureNoticeText = '';
@@ -4698,15 +4708,6 @@ function bindUi() {
     if (ev.pointerType !== 'mouse') return;
     rememberMousePosition(ev.clientX, ev.clientY);
   }, true);
-
-  // Suppress synthetic click events only after touch interactions that we
-  // explicitly handled; unrelated touchend events must not block first tap/click.
-  let suppressClickUntil = 0;
-  const suppressSyntheticClick = () => {
-    const ms = isLikelyIOS() ? 1200 : 700;
-    suppressClickUntil = Math.max(suppressClickUntil, Date.now() + ms);
-  };
-  const isSuppressedClick = () => Date.now() < suppressClickUntil;
 
   if (indicatorNode) {
     const isIndicatorArmed = () => (
