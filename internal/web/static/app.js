@@ -863,8 +863,7 @@ function showVoiceCaptureNotice(message, x = null, y = null) {
 
 function microphoneUnavailableMessage() {
   if (!window.isSecureContext) {
-    const httpsUrl = `https://${location.hostname}:8443`;
-    return `Microphone unavailable on insecure HTTP. Open ${httpsUrl} and allow microphone access.`;
+    return 'Microphone unavailable on insecure HTTP. Open this site through your HTTPS URL (including reverse-proxy HTTPS) and allow microphone access.';
   }
   if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
     return 'Microphone API unavailable in this browser context. Use Safari/Chrome with microphone access enabled.';
