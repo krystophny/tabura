@@ -108,6 +108,34 @@ function isVoiceTurn() {
 
 window._taburaApp = { getState, acquireMicStream, sttStart, sttSendBlob, sttStop, sttCancel };
 
+let bootstrapErrorShown = false;
+
+function showBootstrapError(message) {
+  const text = String(message || 'Unknown error');
+  if (bootstrapErrorShown) return;
+  bootstrapErrorShown = true;
+  const loginErr = document.getElementById('login-error');
+  if (loginErr) loginErr.textContent = `Initialization failed: ${text}`;
+  const loginView = document.getElementById('view-login');
+  if (loginView) loginView.style.display = '';
+  const mainView = document.getElementById('view-main');
+  if (mainView) mainView.style.display = 'none';
+}
+
+window.addEventListener('error', (event) => {
+  const msg = String(event?.error?.message || event?.message || '').trim();
+  if (!msg) return;
+  if (msg.includes('ResizeObserver loop limit exceeded')) return;
+  showBootstrapError(msg);
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  const reason = event?.reason;
+  const msg = String(reason?.message || reason || '').trim();
+  if (!msg) return;
+  showBootstrapError(msg);
+});
+
 const MATH_SEGMENT_TOKEN_PREFIX = '@@TABURA_CHAT_MATH_SEGMENT_';
 const DEV_UI_RELOAD_POLL_MS = 1500;
 const ASSISTANT_ACTIVITY_POLL_MS = 1200;
@@ -5252,8 +5280,5 @@ authGate()
     return init();
   })
   .catch((err) => {
-    const loginErr = document.getElementById('login-error');
-    if (loginErr) loginErr.textContent = `Initialization failed: ${String(err?.message || err)}`;
-    const loginView = document.getElementById('view-login');
-    if (loginView) loginView.style.display = '';
+    showBootstrapError(String(err?.message || err));
   });
