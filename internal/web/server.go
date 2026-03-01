@@ -66,11 +66,12 @@ type App struct {
 	sttPreVADThresholdDBDefault   float64
 	sttPreVADMinSpeechMSDefault   int
 	ttsURL                        string
-	pluginsDir                    string
-	extensionsDir                 string
-	pluginManager                 *plugins.Manager
-	extensionHost                 *extensions.Host
-	devRuntime                    bool
+	pluginsDir    string
+	extensionsDir string
+	pluginManager *plugins.Manager
+	extensionHost *extensions.Host
+	hookProviders []plugins.HookProvider
+	devRuntime    bool
 
 	store *store.Store
 
@@ -217,8 +218,9 @@ func New(dataDir, localProjectDir, localMCPURL, appServerURL, model, ttsURL, spa
 		ttsURL:                        resolvedTTSURL,
 		pluginsDir:                    resolvedPluginsDir,
 		extensionsDir:                 resolvedExtensionsDir,
-		pluginManager:                 pluginManager,
-		extensionHost:                 extensionHost,
+		pluginManager: pluginManager,
+		extensionHost: extensionHost,
+		hookProviders: buildHookProviders(extensionHost, pluginManager),
 		devRuntime:                    devRuntime,
 		store:                         s,
 		appServerClient:               appServerClient,
@@ -552,11 +554,11 @@ func (a *App) handleMeetingPartnerDecide(w http.ResponseWriter, r *http.Request)
 		Metadata:   req.Metadata,
 	}
 	decision, matched := plugins.MeetingPartnerDecision{}, false
-	if a.extensionHost != nil {
-		decision, matched = a.extensionHost.DecideMeetingPartner(r.Context(), hookReq)
-	}
-	if !matched && a.pluginManager != nil {
-		decision, matched = a.pluginManager.DecideMeetingPartner(r.Context(), hookReq)
+	for _, provider := range a.hookProviders {
+		decision, matched = provider.DecideMeetingPartner(r.Context(), hookReq)
+		if matched {
+			break
+		}
 	}
 	if !matched {
 		decision = plugins.MeetingPartnerDecision{Decision: "noop"}
@@ -614,6 +616,17 @@ func (a *App) handleExtensionCommandExecute(w http.ResponseWriter, r *http.Reque
 		"ok":     true,
 		"result": result,
 	})
+}
+
+func buildHookProviders(ext *extensions.Host, mgr *plugins.Manager) []plugins.HookProvider {
+	var providers []plugins.HookProvider
+	if ext != nil {
+		providers = append(providers, ext)
+	}
+	if mgr != nil {
+		providers = append(providers, mgr)
+	}
+	return providers
 }
 
 func enforceSparkModel(rawModel string) string {
