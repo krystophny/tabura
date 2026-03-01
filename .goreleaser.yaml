@@ -43,6 +43,7 @@ release:
   github:
     owner: krystophny
     name: tabura
+  replace_existing_artifacts: true
   extra_files:
     - glob: ./scripts/install.sh
       name_template: install.sh
