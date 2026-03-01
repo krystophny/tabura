@@ -36,22 +36,7 @@ fi
 echo "Starting whisper STT sidecar at http://$HOST:$PORT"
 LANGUAGE_TRIMMED="$(printf '%s' "$LANGUAGE" | tr -d '[:space:]')"
 if [[ "$LANGUAGE_TRIMMED" == *,* ]]; then
-  IFS=',' read -r -a _langs <<< "$LANGUAGE_TRIMMED"
-  _joined=""
-  for _lang in "${_langs[@]}"; do
-    if [ -z "$_lang" ]; then
-      continue
-    fi
-    if [ -z "$_joined" ]; then
-      _joined="$_lang"
-    else
-      _joined="$_joined, $_lang"
-    fi
-  done
   LANGUAGE="auto"
-  if [ -n "$_joined" ] && [ -z "$PROMPT" ]; then
-    PROMPT="The spoken language is one of: ${_joined}."
-  fi
 fi
 
 args=(

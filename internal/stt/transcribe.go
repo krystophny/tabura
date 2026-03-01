@@ -151,7 +151,7 @@ func transcribeWithConstrainedLanguages(serverURL, mimeType string, data []byte,
 			best = c
 			continue
 		}
-		if c.res.Score > best.res.Score {
+		if candidateEffectiveScore(*c) > candidateEffectiveScore(*best) {
 			best = c
 		}
 	}
@@ -236,6 +236,9 @@ func transcribeOnce(serverURL, mimeType string, data []byte, language, prompt st
 	if text == "" {
 		return whisperResult{}, ErrNoTranscriptOutput
 	}
+	if IsPromptEcho(text, prompt) {
+		return whisperResult{}, ErrLikelyHallucination
+	}
 	if IsWhisperHallucination(text) {
 		return whisperResult{}, ErrLikelyHallucination
 	}
@@ -249,6 +252,25 @@ func transcribeOnce(serverURL, mimeType string, data []byte, language, prompt st
 		Language: normalizeLanguageCode(result.Language),
 		Score:    score,
 	}, nil
+}
+
+func candidateEffectiveScore(c struct {
+	lang string
+	res  whisperResult
+	err  error
+	idx  int
+}) float64 {
+	score := c.res.Score
+	requested := normalizeLanguageCode(c.lang)
+	detected := normalizeLanguageCode(c.res.Language)
+	if requested != "" {
+		if detected == requested {
+			score += 0.35
+		} else if detected != "" {
+			score -= 0.35
+		}
+	}
+	return score
 }
 
 func computeWhisperScore(result whisperResponse, text string) float64 {
@@ -293,12 +315,39 @@ func IsRetryableNoSpeechError(err error) bool {
 func IsWhisperHallucination(text string) bool {
 	t := strings.ToLower(strings.TrimSpace(text))
 	t = strings.TrimRight(t, ".!?,;: ")
+	if strings.HasPrefix(t, "the spoken language is one of:") {
+		return true
+	}
 	for _, h := range whisperHallucinations {
 		if t == h {
 			return true
 		}
 	}
 	return false
+}
+
+// IsPromptEcho returns true when Whisper appears to have echoed the prompt
+// rather than transcribing speech.
+func IsPromptEcho(text, prompt string) bool {
+	normText := normalizePromptCompare(text)
+	normPrompt := normalizePromptCompare(prompt)
+	if normText == "" || normPrompt == "" {
+		return false
+	}
+	if normText == normPrompt {
+		return true
+	}
+	if strings.Contains(normPrompt, "spoken language is one of:") && strings.HasPrefix(normText, "the spoken language is one of:") {
+		return true
+	}
+	return false
+}
+
+func normalizePromptCompare(raw string) string {
+	s := strings.ToLower(strings.TrimSpace(raw))
+	s = strings.Trim(s, "\"'`“”‘’")
+	s = strings.TrimRight(s, ".!?,;: ")
+	return strings.Join(strings.Fields(s), " ")
 }
 
 // IsLikelyNoise returns true when the transcript looks like background noise

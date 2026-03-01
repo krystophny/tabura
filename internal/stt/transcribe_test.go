@@ -102,6 +102,19 @@ func TestTranscribe(t *testing.T) {
 		}
 	})
 
+	t.Run("language prompt echo rejected", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(whisperResponse{Text: "The spoken language is one of: en, de."})
+		}))
+		defer srv.Close()
+
+		_, err := Transcribe(srv.URL, "audio/webm", []byte("fake"), nil)
+		if err != ErrLikelyHallucination {
+			t.Errorf("expected ErrLikelyHallucination, got %v", err)
+		}
+	})
+
 	t.Run("empty transcript", func(t *testing.T) {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
@@ -246,6 +259,8 @@ func TestIsWhisperHallucination(t *testing.T) {
 		"Thank you for watching.",
 		"Thanks for watching",
 		"Subscribe to my channel",
+		"The spoken language is one of: en, de.",
+		"the spoken language is one of: en, fr, de",
 		"you",
 		"Bye.",
 		"The end",
@@ -389,6 +404,60 @@ func TestTranscribeWithOptionsConstrainedLanguages(t *testing.T) {
 	}
 	if got := atomic.LoadInt32(&requestCount); got != 2 {
 		t.Fatalf("request count=%d, want 2", got)
+	}
+}
+
+func TestTranscribeWithOptionsConstrainedLanguagesPrefersMatchingDetectedLanguage(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseMultipartForm(32 << 20); err != nil {
+			t.Fatalf("parse multipart: %v", err)
+		}
+		lang := r.FormValue("language")
+		if r.FormValue("response_format") != "verbose_json" {
+			t.Fatalf("response_format=%q, want verbose_json", r.FormValue("response_format"))
+		}
+		w.Header().Set("Content-Type", "application/json")
+		switch lang {
+		case "en":
+			// Slightly higher raw score than "de", but detected language mismatches
+			// the requested language and should be penalized.
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"text":     "hello world",
+				"language": "de",
+				"segments": []map[string]any{{"avg_logprob": 0.10, "no_speech_prob": 0.00}},
+			})
+		case "de":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"text":     "hallo welt",
+				"language": "de",
+				"segments": []map[string]any{{"avg_logprob": 0.00, "no_speech_prob": 0.00}},
+			})
+		default:
+			http.Error(w, "unexpected language", http.StatusBadRequest)
+		}
+	}))
+	defer srv.Close()
+
+	text, err := TranscribeWithOptions(srv.URL, "audio/webm", []byte("fake-audio-data"), nil, TranscribeOptions{
+		AllowedLanguages: []string{"en", "de"},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if text != "hallo welt" {
+		t.Fatalf("text=%q, want hallo welt", text)
+	}
+}
+
+func TestIsPromptEcho(t *testing.T) {
+	if !IsPromptEcho("The spoken language is one of: en, de.", "The spoken language is one of: en, de.") {
+		t.Fatal("expected prompt echo to be detected")
+	}
+	if IsPromptEcho("hallo welt", "The spoken language is one of: en, de.") {
+		t.Fatal("did not expect prompt echo for normal transcript")
+	}
+	if IsPromptEcho("The spoken language is one of: en, de.", "") {
+		t.Fatal("empty prompt should not trigger IsPromptEcho")
 	}
 }
 
