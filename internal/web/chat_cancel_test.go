@@ -142,7 +142,9 @@ func TestExecuteChatCommandStopCancelsDelegatedWork(t *testing.T) {
 		default:
 		}
 	})
-	app.chatTurnQueue[session.ID] = 1
+	app.turns.mu.Lock()
+	app.turns.queue[session.ID] = 1
+	app.turns.mu.Unlock()
 
 	delegateCancelCalls := 0
 	server := setupMockDelegateCancelServer(t, 7, &delegateCancelCalls)
@@ -155,9 +157,7 @@ func TestExecuteChatCommandStopCancelsDelegatedWork(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse mock port: %v", err)
 	}
-	app.mu.Lock()
-	app.tunnelPorts[project.CanvasSessionID] = port
-	app.mu.Unlock()
+	app.tunnels.setPort(project.CanvasSessionID, port)
 
 	result, err := app.executeChatCommand(session.ID, "/stop")
 	if err != nil {
@@ -320,7 +320,9 @@ func TestHandleChatSessionCommandStopCancelsDelegatedWork(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create chat session: %v", err)
 	}
-	app.chatTurnQueue[session.ID] = 3
+	app.turns.mu.Lock()
+	app.turns.queue[session.ID] = 3
+	app.turns.mu.Unlock()
 
 	delegateCancelCalls := 0
 	server := setupMockDelegateCancelServer(t, 5, &delegateCancelCalls)
@@ -333,9 +335,7 @@ func TestHandleChatSessionCommandStopCancelsDelegatedWork(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse mock port: %v", err)
 	}
-	app.mu.Lock()
-	app.tunnelPorts[project.CanvasSessionID] = port
-	app.mu.Unlock()
+	app.tunnels.setPort(project.CanvasSessionID, port)
 
 	rr := doAuthedJSONRequest(t, app.Router(), http.MethodPost, "/api/chat/sessions/"+session.ID+"/commands", map[string]any{
 		"command": "/stop",
@@ -405,7 +405,9 @@ func TestHandleChatSessionCancelEndpointStopsDelegatedWork(t *testing.T) {
 		default:
 		}
 	})
-	app.chatTurnQueue[session.ID] = 2
+	app.turns.mu.Lock()
+	app.turns.queue[session.ID] = 2
+	app.turns.mu.Unlock()
 
 	delegateCancelCalls := 0
 	server := setupMockDelegateCancelServer(t, 4, &delegateCancelCalls)
@@ -418,9 +420,7 @@ func TestHandleChatSessionCancelEndpointStopsDelegatedWork(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse mock port: %v", err)
 	}
-	app.mu.Lock()
-	app.tunnelPorts[project.CanvasSessionID] = port
-	app.mu.Unlock()
+	app.tunnels.setPort(project.CanvasSessionID, port)
 
 	rr := doAuthedJSONRequest(t, app.Router(), http.MethodPost, "/api/chat/sessions/"+session.ID+"/cancel", map[string]any{})
 	if rr.Code != http.StatusOK {
@@ -522,7 +522,9 @@ func TestHandleChatSessionActivityReportsActiveTurns(t *testing.T) {
 
 	app.registerActiveChatTurn(session.ID, "run-1", func() {})
 	app.registerActiveChatTurn(session.ID, "run-2", func() {})
-	app.chatTurnQueue[session.ID] = 3
+	app.turns.mu.Lock()
+	app.turns.queue[session.ID] = 3
+	app.turns.mu.Unlock()
 
 	rr := doAuthedJSONRequest(t, app.Router(), http.MethodGet, "/api/chat/sessions/"+session.ID+"/activity", map[string]any{})
 	if rr.Code != http.StatusOK {
@@ -560,7 +562,9 @@ func TestHandleChatSessionCancelClearsQueuedTurns(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create chat session: %v", err)
 	}
-	app.chatTurnQueue[session.ID] = 2
+	app.turns.mu.Lock()
+	app.turns.queue[session.ID] = 2
+	app.turns.mu.Unlock()
 
 	rr := doAuthedJSONRequest(t, app.Router(), http.MethodPost, "/api/chat/sessions/"+session.ID+"/cancel", map[string]any{})
 	if rr.Code != http.StatusOK {
@@ -644,7 +648,9 @@ func TestExecuteChatCommandClearAllResetsChatContext(t *testing.T) {
 
 	canceled := make(chan struct{}, 1)
 	app.registerActiveChatTurn(s1.ID, "run-1", func() { canceled <- struct{}{} })
-	app.chatTurnQueue[s2.ID] = 1
+	app.turns.mu.Lock()
+	app.turns.queue[s2.ID] = 1
+	app.turns.mu.Unlock()
 
 	result, err := app.executeChatCommand(s1.ID, "/clear")
 	if err != nil {
