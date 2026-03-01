@@ -1869,14 +1869,17 @@ async function stopVoiceCaptureAndSend() {
   let remoteStopped = false;
   let reopenConversationListen = false;
   try {
-    await stopChatVoiceMediaAndFlush(capture);
     let sttBlob = null;
     let mimeType = '';
     if (capture._vadAudioBlob) {
+      // VAD auto-stop: use speech audio directly, skip MediaRecorder flush
+      // so Safari cannot interfere via its broken stop/dataavailable ordering.
       sttBlob = capture._vadAudioBlob;
       mimeType = 'audio/wav';
       capture._vadAudioBlob = null;
     } else {
+      // Manual stop / timeout: flush MediaRecorder and use its chunks.
+      await stopChatVoiceMediaAndFlush(capture);
       mimeType = String(capture.mimeType || '').trim();
       if (!mimeType) {
         mimeType = firstNonEmptyChunkMimeType(capture.chunks);
