@@ -24,6 +24,7 @@ import {
   isHotwordActive,
   onHotwordDetected,
   setHotwordThreshold,
+  setHotwordAudioContext,
   getPreRollAudio,
   getHotwordMicStream,
 } from './hotword.js';
@@ -156,6 +157,12 @@ const VOICE_VAD_HARD_SILENCE_MS = 2500;
 const VOICE_VAD_NO_SPEECH_MS = 4000;
 const VOICE_VAD_MAX_RECORDING_SOFT_MS = 120000;
 const VOICE_VAD_MAX_RECORDING_HARD_MS = 240000;
+const HOTWORD_VAD_MIN_UTTERANCE_MS = 420;
+const HOTWORD_VAD_CANDIDATE_SILENCE_MS = 1400;
+const HOTWORD_VAD_CANDIDATE_RECHECK_MS = 650;
+const HOTWORD_VAD_HARD_SILENCE_MS = 3200;
+const HOTWORD_VAD_NO_SPEECH_MS = 7000;
+const HOTWORD_VAD_MIN_COMMIT_MS = 2200;
 const VOICE_VAD_FRAME_MS = 40;
 const VOICE_VAD_RECORDER_CHUNK_MS = 250;
 const VOICE_VAD_NOISE_FLOOR_SAMPLES = 8;
@@ -433,6 +440,8 @@ let hotwordSyncInFlight = false;
 let hotwordResyncQueued = false;
 let hotwordInitAttempted = false;
 let hotwordUnsubscribe = null;
+let hotwordRetryTimer = null;
+const HOTWORD_RETRY_MS = 800;
 function readTTSSilentPreference() {
   try {
     const value = window.localStorage.getItem(TTS_SILENT_STORAGE_KEY);
@@ -453,6 +462,21 @@ function canSpeakTTS() {
   return Boolean(ttsEnabled) && !Boolean(state.ttsSilent);
 }
 
+function clearHotwordRetry() {
+  if (hotwordRetryTimer !== null) {
+    window.clearTimeout(hotwordRetryTimer);
+    hotwordRetryTimer = null;
+  }
+}
+
+function scheduleHotwordRetry() {
+  if (hotwordRetryTimer !== null) return;
+  hotwordRetryTimer = window.setTimeout(() => {
+    hotwordRetryTimer = null;
+    requestHotwordSync();
+  }, HOTWORD_RETRY_MS);
+}
+
 function canStartHotwordMonitor() {
   const mode = syncVoiceLifecycle('can-start-hotword');
   if (!state.hotwordEnabled) return false;
@@ -467,6 +491,7 @@ function canStartHotwordMonitor() {
 
 async function syncHotwordMonitor() {
   if (!state.hotwordEnabled || !canStartHotwordMonitor()) {
+    clearHotwordRetry();
     if (isHotwordActive()) {
       stopHotwordMonitor();
     }
@@ -474,14 +499,31 @@ async function syncHotwordMonitor() {
     return;
   }
   if (isHotwordActive()) {
+    clearHotwordRetry();
     state.hotwordActive = true;
     return;
   }
+  let startErr = null;
   try {
     const stream = await acquireMicStream();
     await startHotwordMonitor(stream);
-  } catch (_) {}
+  } catch (err) {
+    startErr = err;
+  }
   state.hotwordActive = isHotwordActive();
+  if (state.hotwordActive) {
+    clearHotwordRetry();
+    return;
+  }
+  const errName = String(startErr?.name || '').toLowerCase();
+  const errMsg = String(startErr?.message || '').toLowerCase();
+  const permissionDenied = errName.includes('notallowed')
+    || errName.includes('permission')
+    || errMsg.includes('permission denied')
+    || errMsg.includes('notallowederror');
+  if (!permissionDenied) {
+    scheduleHotwordRetry();
+  }
 }
 
 function requestHotwordSync() {
@@ -713,10 +755,15 @@ function toggleTTSSilentMode() {
 // to be called from a user-initiated event; once resumed the context stays
 // running until the page is closed.
 const ttsAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+setHotwordAudioContext(ttsAudioCtx);
 function unlockAudioContext() {
   if (ttsAudioCtx.state === 'suspended') {
-    ttsAudioCtx.resume();
+    ttsAudioCtx.resume().catch(() => {}).finally(() => {
+      requestHotwordSync();
+    });
+    return;
   }
+  requestHotwordSync();
 }
 ['touchstart', 'touchend', 'mousedown', 'keydown'].forEach(evt =>
   document.body.addEventListener(evt, unlockAudioContext, { once: false })
@@ -1494,6 +1541,13 @@ function startVADMonitor(capture) {
     noiseFloorDb: null,
     isRunning: true,
   };
+  const isHotwordCapture = Boolean(capture?.hotwordTriggered);
+  const vadMinUtteranceMs = isHotwordCapture ? HOTWORD_VAD_MIN_UTTERANCE_MS : VOICE_VAD_MIN_UTTERANCE_MS;
+  const vadCandidateSilenceMs = isHotwordCapture ? HOTWORD_VAD_CANDIDATE_SILENCE_MS : VOICE_VAD_CANDIDATE_SILENCE_MS;
+  const vadCandidateRecheckMs = isHotwordCapture ? HOTWORD_VAD_CANDIDATE_RECHECK_MS : VOICE_VAD_CANDIDATE_RECHECK_MS;
+  const vadHardSilenceMs = isHotwordCapture ? HOTWORD_VAD_HARD_SILENCE_MS : VOICE_VAD_HARD_SILENCE_MS;
+  const vadNoSpeechMs = isHotwordCapture ? HOTWORD_VAD_NO_SPEECH_MS : VOICE_VAD_NO_SPEECH_MS;
+  const vadMinCommitMs = isHotwordCapture ? HOTWORD_VAD_MIN_COMMIT_MS : 0;
 
   let source;
   let analyser;
@@ -1540,7 +1594,7 @@ function startVADMonitor(capture) {
       }
 
       if (options.noiseFloorDb == null) {
-        if (elapsed >= VOICE_VAD_NO_SPEECH_MS) {
+        if (elapsed >= vadNoSpeechMs) {
           handleNoSpeechTimeout();
           return;
         }
@@ -1589,7 +1643,7 @@ function startVADMonitor(capture) {
       }
 
       if (!options.hasSpeech) {
-        if (elapsed >= VOICE_VAD_NO_SPEECH_MS) {
+        if (elapsed >= vadNoSpeechMs) {
           handleNoSpeechTimeout();
           return;
         }
@@ -1603,21 +1657,22 @@ function startVADMonitor(capture) {
       }
 
       options.speechMs = Math.max(0, now - options.speechStartAt);
-      if (options.speechMs < VOICE_VAD_MIN_UTTERANCE_MS) return;
-      const hitCandidate = options.silenceMs >= VOICE_VAD_CANDIDATE_SILENCE_MS;
-      const hitHardSilence = options.silenceMs >= VOICE_VAD_HARD_SILENCE_MS;
+      if (options.speechMs < vadMinUtteranceMs) return;
+      const hitCandidate = options.silenceMs >= vadCandidateSilenceMs;
+      const hitHardSilence = options.silenceMs >= vadHardSilenceMs;
       const hitSoftMaxDuration = elapsed >= VOICE_VAD_MAX_RECORDING_SOFT_MS;
       const hitHardMaxDuration = elapsed >= VOICE_VAD_MAX_RECORDING_HARD_MS;
+      const canCommit = elapsed >= vadMinCommitMs;
 
-      if (hitHardSilence || hitHardMaxDuration || hitSoftMaxDuration) {
+      if ((canCommit && hitHardSilence) || hitHardMaxDuration || hitSoftMaxDuration) {
         stopVADMonitor(capture);
         void stopVoiceCaptureAndSend();
         return;
       }
 
-      if (hitCandidate) {
+      if (canCommit && hitCandidate) {
         if (!options.pendingCommitAtMs) {
-          options.pendingCommitAtMs = now + VOICE_VAD_CANDIDATE_RECHECK_MS;
+          options.pendingCommitAtMs = now + vadCandidateRecheckMs;
           return;
         }
         if (now >= options.pendingCommitAtMs) {
@@ -1706,7 +1761,7 @@ function stopChatVoiceMediaAndFlush(capture) {
   });
 }
 
-async function beginVoiceCapture(x, y, anchor) {
+async function beginVoiceCapture(x, y, anchor, options = {}) {
   if (state.chatVoiceCapture) return;
   if (!canUseMicrophoneCapture()) {
     showVoiceCaptureNotice(microphoneUnavailableMessage(), x, y);
@@ -1720,6 +1775,7 @@ async function beginVoiceCapture(x, y, anchor) {
     stopping: false,
     stopRequested: false,
     autoSend: true,
+    hotwordTriggered: Boolean(options && options.hotwordTriggered),
     mediaStream: null,
     mediaRecorder: null,
     chunks: [],
@@ -1798,6 +1854,7 @@ async function stopVoiceCaptureAndSend() {
   updateAssistantActivityIndicator();
   showStatus('transcribing...');
   let remoteStopped = false;
+  let reopenConversationListen = false;
   try {
     await stopChatVoiceMediaAndFlush(capture);
     let mimeType = String(capture.mimeType || '').trim();
@@ -1826,7 +1883,8 @@ async function stopVoiceCaptureAndSend() {
     const transcript = String(result?.text || '').trim();
     if (!transcript) {
       if (state.conversationMode) {
-        onTTSPlaybackComplete();
+        state.voiceAwaitingTurn = false;
+        reopenConversationListen = true;
         return;
       }
       throw new Error(voiceCaptureEmptyReasonMessage(result?.reason));
@@ -1844,11 +1902,15 @@ async function stopVoiceCaptureAndSend() {
     const y = Number.isFinite(pos?.y) ? Number(pos.y) : null;
     showVoiceCaptureNotice(`voice capture failed: ${message}`, x, y);
     if (state.conversationMode) {
-      onTTSPlaybackComplete();
+      reopenConversationListen = true;
     }
   } finally {
     if (!remoteStopped) {
       sttCancel();
+    }
+    if (state.conversationMode) {
+      stopHotwordMonitor();
+      state.hotwordActive = false;
     }
     stopChatVoiceMedia(capture);
     if (state.chatVoiceCapture === capture) {
@@ -1858,6 +1920,13 @@ async function stopVoiceCaptureAndSend() {
       syncVoiceLifecycle('voice-capture-stop-finished');
     }
     updateAssistantActivityIndicator();
+    if (reopenConversationListen && state.conversationMode) {
+      // Re-open follow-up listen only after capture teardown has settled.
+      window.setTimeout(() => {
+        if (!state.conversationMode) return;
+        onTTSPlaybackComplete();
+      }, 0);
+    }
   }
 }
 
@@ -1868,6 +1937,10 @@ function cancelChatVoiceCapture() {
   state.voiceAwaitingTurn = false;
   abortPendingSubmit('voice_transcript');
   sttCancel();
+  if (state.conversationMode) {
+    stopHotwordMonitor();
+    state.hotwordActive = false;
+  }
   stopChatVoiceMedia(capture);
   state.chatVoiceCapture = null;
   setVoiceLifecycle(VOICE_LIFECYCLE.IDLE, 'voice-capture-cancelled');
@@ -2037,7 +2110,7 @@ function canStartConversationListen() {
 function beginConversationVoiceCapture() {
   const x = Math.floor(window.innerWidth / 2);
   const y = Math.floor(window.innerHeight / 2);
-  void beginVoiceCapture(x, y, null);
+  void beginVoiceCapture(x, y, null, { hotwordTriggered: true });
 }
 
 function currentIndicatorMode() {

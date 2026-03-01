@@ -140,6 +140,64 @@ test('hotword plus speech starts recording', async ({ page }) => {
   }, { timeout: 5_000 }).toBe(true);
 });
 
+test('hotword capture tolerates initial pause before user speech', async ({ page }) => {
+  await waitReady(page);
+  await setConversationListenWindowMs(page, 2_500);
+  await page.evaluate(() => {
+    (window as any).__setVadDbFrames([
+      ...Array.from({ length: 36 }, () => -80), // ~1.44s initial pause
+      ...Array.from({ length: 14 }, () => -12), // user starts speaking
+      ...Array.from({ length: 40 }, () => -80),
+    ]);
+  });
+  await setConversationMode(page, true);
+  await waitForHotwordStart(page);
+  await clearLog(page);
+
+  await triggerHotword(page);
+
+  await expect.poll(async () => {
+    const log = await getLog(page);
+    return log.some((entry) => entry.type === 'recorder' && entry.action === 'start');
+  }, { timeout: 5_000 }).toBe(true);
+
+  await page.waitForTimeout(1_000);
+  const log = await getLog(page);
+  expect(log.some((entry) => entry.type === 'recorder' && entry.action === 'stop')).toBe(false);
+});
+
+test('hotword empty transcript re-opens conversation listen window', async ({ page }) => {
+  await waitReady(page);
+  await setConversationListenWindowMs(page, 2_500);
+  await setConversationMode(page, true);
+  await waitForHotwordStart(page);
+  await page.evaluate(() => {
+    (window as any).__setSTTTranscribeResponse({ text: '', reason: 'no_speech_detected' }, 200);
+    (window as any).__setVadDbFrames(Array.from({ length: 200 }, () => -80));
+  });
+  await clearLog(page);
+
+  await triggerHotword(page);
+
+  await expect.poll(async () => {
+    const log = await getLog(page);
+    return log.some((entry) => entry.type === 'recorder' && entry.action === 'start');
+  }, { timeout: 5_000 }).toBe(true);
+
+  await page.keyboard.press('Enter');
+
+  await expect.poll(async () => {
+    const log = await getLog(page);
+    return log.some((entry) => entry.type === 'recorder' && entry.action === 'stop');
+  }, { timeout: 5_000 }).toBe(true);
+
+  await expect.poll(async () => page.evaluate(() => {
+    const app = (window as any)._taburaApp;
+    const s = app?.getState?.();
+    return Boolean(s?.conversationListenActive);
+  }), { timeout: 4_000 }).toBe(true);
+});
+
 test('hotword is paused during recording', async ({ page }) => {
   await waitReady(page);
   await setConversationListenWindowMs(page, 3_000);
@@ -258,4 +316,58 @@ test('follow-up timeout returns to pause indicator', async ({ page }) => {
     const indicator = document.getElementById('indicator');
     return Boolean(indicator?.classList.contains('is-paused'));
   }), { timeout: 4_000 }).toBe(true);
+});
+
+test('hotword re-arms after follow-up timeout and starts a second turn', async ({ page }) => {
+  await waitReady(page);
+  await setConversationListenWindowMs(page, 500);
+  await setConversationMode(page, true);
+  await waitForHotwordStart(page);
+  await clearLog(page);
+
+  await triggerVoiceAssistantTTS(page, 'pause-rearm-1');
+
+  await expect.poll(async () => page.evaluate(() => {
+    const indicator = document.getElementById('indicator');
+    return Boolean(indicator?.classList.contains('is-paused'));
+  }), { timeout: 4_000 }).toBe(true);
+
+  await expect.poll(async () => {
+    const rearmLog = await getLog(page);
+    const sawStop = rearmLog.some((entry) => entry.type === 'hotword' && entry.action === 'stop');
+    const sawStart = rearmLog.some((entry) => entry.type === 'hotword' && entry.action === 'start');
+    return sawStop && sawStart;
+  }, { timeout: 5_000 }).toBe(true);
+
+  await expect.poll(async () => page.evaluate(() => {
+    const app = (window as any)._taburaApp;
+    const s = app?.getState?.();
+    const hotwordActive = Boolean((window as any).__isHotwordActive?.());
+    if (!s) return false;
+    const localActiveTurns = s.assistantActiveTurns?.size || 0;
+    return hotwordActive
+      && Boolean(s.conversationMode)
+      && !Boolean(s.conversationListenActive)
+      && !Boolean(s.chatVoiceCapture)
+      && !Boolean(s.ttsPlaying)
+      && !Boolean(s.voiceAwaitingTurn)
+      && Number(s.assistantUnknownTurns || 0) === 0
+      && Number(s.assistantRemoteActiveCount || 0) === 0
+      && Number(s.assistantRemoteQueuedCount || 0) === 0
+      && Number(s.assistantRemoteDelegateActiveCount || 0) === 0
+      && Number(localActiveTurns) === 0
+      && String(s.voiceLifecycle || 'idle') === 'idle';
+  }), { timeout: 5_000 }).toBe(true);
+
+  await clearLog(page);
+  await expect.poll(async () => {
+    await triggerHotword(page);
+    const log = await getLog(page);
+    return log.some((entry) => entry.type === 'hotword' && entry.action === 'detect');
+  }, { timeout: 3_000 }).toBe(true);
+
+  await expect.poll(async () => {
+    const log = await getLog(page);
+    return log.some((entry) => entry.type === 'recorder' && entry.action === 'start');
+  }, { timeout: 7_000 }).toBe(true);
 });

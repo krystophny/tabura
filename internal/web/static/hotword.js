@@ -36,6 +36,7 @@ const state = {
   mode: 'none',
   mock: null,
   model: null,
+  preferredAudioCtx: null,
   audioCtx: null,
   sourceNode: null,
   processorNode: null,
@@ -316,7 +317,8 @@ function onAudioProcess(event) {
   void processFrameQueue();
 }
 
-function stopOnnxNodes() {
+function stopOnnxNodes(options = {}) {
+  const closeContext = Boolean(options && options.closeContext);
   if (state.processorNode) {
     state.processorNode.onaudioprocess = null;
     try { state.processorNode.disconnect(); } catch (_) {}
@@ -330,7 +332,7 @@ function stopOnnxNodes() {
     try { state.sinkNode.disconnect(); } catch (_) {}
     state.sinkNode = null;
   }
-  if (state.audioCtx) {
+  if (closeContext && state.audioCtx && state.audioCtx !== state.preferredAudioCtx) {
     try { state.audioCtx.close(); } catch (_) {}
     state.audioCtx = null;
   }
@@ -350,7 +352,13 @@ async function startOnnxMonitor(stream) {
   resetRingBuffer();
   state.micStream = stream;
 
-  const audioCtx = new AudioContextCtor();
+  let audioCtx = state.preferredAudioCtx;
+  if (!audioCtx || audioCtx.state === 'closed') {
+    audioCtx = state.audioCtx;
+  }
+  if (!audioCtx || audioCtx.state === 'closed') {
+    audioCtx = new AudioContextCtor();
+  }
   const sourceNode = audioCtx.createMediaStreamSource(stream);
   if (typeof audioCtx.createScriptProcessor !== 'function') {
     throw new Error('ScriptProcessor is not supported in this browser');
@@ -371,14 +379,19 @@ async function startOnnxMonitor(stream) {
     processorNode.connect(audioCtx.destination);
   }
 
-  if (audioCtx.state === 'suspended' && typeof audioCtx.resume === 'function') {
-    await audioCtx.resume().catch(() => {});
-  }
-
   state.audioCtx = audioCtx;
   state.sourceNode = sourceNode;
   state.processorNode = processorNode;
   state.sinkNode = sinkNode;
+
+  if (audioCtx.state === 'suspended' && typeof audioCtx.resume === 'function') {
+    await audioCtx.resume().catch(() => {});
+  }
+  // iOS can keep a new AudioContext suspended when resumed outside a direct
+  // gesture. Never report hotword as active unless audio is actually running.
+  if (audioCtx.state !== 'running') {
+    throw new Error(`hotword audio context is ${audioCtx.state || 'unavailable'}`);
+  }
   return true;
 }
 
@@ -410,6 +423,7 @@ export async function initHotword(options = {}) {
   if (state.initialized && !force) return state.available;
   if (force) {
     stopHotwordMonitor();
+    stopOnnxNodes({ closeContext: true });
     state.initialized = false;
     state.available = false;
     state.mode = 'none';
@@ -501,7 +515,7 @@ export function stopHotwordMonitor() {
     } catch (_) {}
   }
   if (state.mode === 'onnx') {
-    stopOnnxNodes();
+    stopOnnxNodes({ closeContext: false });
   }
   state.active = false;
 }
@@ -548,4 +562,16 @@ export function getPreRollAudio() {
 
 export function getHotwordMicStream() {
   return state.micStream || null;
+}
+
+export function setHotwordAudioContext(audioCtx) {
+  if (!audioCtx || typeof audioCtx !== 'object') {
+    state.preferredAudioCtx = null;
+    return;
+  }
+  const hasRequiredApis = typeof audioCtx.createMediaStreamSource === 'function'
+    && typeof audioCtx.createScriptProcessor === 'function';
+  if (!hasRequiredApis) return;
+  state.preferredAudioCtx = audioCtx;
+  state.audioCtx = audioCtx;
 }
