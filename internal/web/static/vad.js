@@ -1,8 +1,6 @@
-const VAD_CDN_URL = 'https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.30/dist/bundle.min.js';
-const VAD_MODEL_URL = 'https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.30/dist/silero_vad_v5.onnx';
-const VAD_WORKLET_URL = 'https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.30/dist/vad.worklet.bundle.min.js';
-const ORT_CDN_URL = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.21.0/dist/ort.min.mjs';
-const ORT_WASM_PATH = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.21.0/dist/';
+// VAD assets served locally from /static/vad/ (fetched by scripts/fetch-vad-assets.sh).
+const VAD_BUNDLE_URL = '/static/vad/bundle.min.js';
+const VAD_ASSET_PATH = '/static/vad/';
 
 const state = {
   loaded: false,
@@ -34,14 +32,9 @@ async function loadRuntime() {
         state.loaded = true;
         return;
       }
-      await import(ORT_CDN_URL);
-      if (typeof ort !== 'undefined' && ort.env?.wasm) {
-        ort.env.wasm.wasmPaths = ORT_WASM_PATH;
-        ort.env.wasm.numThreads = 1;
-      }
       await new Promise((resolve, reject) => {
         const script = document.createElement('script');
-        script.src = VAD_CDN_URL;
+        script.src = VAD_BUNDLE_URL;
         script.onload = resolve;
         script.onerror = () => reject(new Error('vad-web bundle load failed'));
         document.head.appendChild(script);
@@ -92,16 +85,16 @@ export async function initVAD(options = {}) {
 
   try {
     const micVADOptions = {
+      model: 'v5',
+      baseAssetPath: VAD_ASSET_PATH,
+      onnxWASMBasePath: VAD_ASSET_PATH,
       positiveSpeechThreshold,
       negativeSpeechThreshold,
       redemptionFrames,
       minSpeechFrames,
       preSpeechPadFrames,
-      modelURL: VAD_MODEL_URL,
-      workletURL: VAD_WORKLET_URL,
       ortConfig(ortInstance) {
         if (ortInstance?.env?.wasm) {
-          ortInstance.env.wasm.wasmPaths = ORT_WASM_PATH;
           ortInstance.env.wasm.numThreads = 1;
         }
       },
@@ -116,6 +109,9 @@ export async function initVAD(options = {}) {
       },
     };
     if (stream) micVADOptions.stream = stream;
+    if (options.audioContext instanceof AudioContext) {
+      micVADOptions.audioContext = options.audioContext;
+    }
     const micVAD = await vad.MicVAD.new(micVADOptions);
 
     let active = false;

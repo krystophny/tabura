@@ -1612,6 +1612,10 @@ function stopChatVoiceMedia(capture) {
     for (const track of capture._vadStream.getTracks()) { track.stop(); }
     capture._vadStream = null;
   }
+  if (capture._vadAudioContext) {
+    try { capture._vadAudioContext.close(); } catch (_) {}
+    capture._vadAudioContext = null;
+  }
 }
 
 function handleVADNoSpeechTimeout(capture) {
@@ -1670,6 +1674,7 @@ async function startSileroVADMonitor(capture) {
 
     const instance = await initVAD({
       stream: vadStream,
+      audioContext: capture._vadAudioContext || undefined,
       positiveSpeechThreshold: 0.6,
       negativeSpeechThreshold: 0.35,
       redemptionMs,
@@ -1786,6 +1791,20 @@ async function beginVoiceCapture(x, y, anchor, options = {}) {
   cancelConversationListen();
   // Interrupt TTS playback when starting recording
   stopTTSPlayback();
+
+  // Pre-create AudioContext during the user gesture (synchronous, before
+  // any await) so iOS Safari allows it to enter "running" state.  Without
+  // this, vad.MicVAD.new() creates its own AudioContext deep in an async
+  // chain where iOS Safari considers the gesture expired and suspends it,
+  // causing the AudioWorklet to never process frames.
+  let vadAudioContext = null;
+  if (isVoiceVADAutoSendEnabled() && typeof AudioContext !== 'undefined') {
+    try {
+      vadAudioContext = new AudioContext();
+      if (vadAudioContext.state === 'suspended') vadAudioContext.resume();
+    } catch (_) {}
+  }
+
   const capture = {
     active: false,
     stopping: false,
@@ -1809,12 +1828,20 @@ async function beginVoiceCapture(x, y, anchor, options = {}) {
   showStatus('recording...');
   try {
     const stream = await acquireMicStream();
-    if (state.chatVoiceCapture !== capture) return;
+    if (state.chatVoiceCapture !== capture) {
+      if (vadAudioContext) { try { vadAudioContext.close(); } catch (_) {} }
+      return;
+    }
     const recorder = newMediaRecorder(stream);
     capture.mimeType = String(recorder?.mimeType || '').trim();
-    if (state.chatVoiceCapture !== capture) return;
+    if (state.chatVoiceCapture !== capture) {
+      if (vadAudioContext) { try { vadAudioContext.close(); } catch (_) {} }
+      return;
+    }
     capture.mediaStream = stream;
     capture.mediaRecorder = recorder;
+    capture._vadAudioContext = vadAudioContext;
+    vadAudioContext = null;
     capture.active = true;
     recorder.addEventListener('dataavailable', (ev) => {
       if (!ev?.data || ev.data.size <= 0) return;
@@ -1838,6 +1865,7 @@ async function beginVoiceCapture(x, y, anchor, options = {}) {
     if (state.chatVoiceCapture === capture) {
       state.chatVoiceCapture = null;
     }
+    if (vadAudioContext) { try { vadAudioContext.close(); } catch (_) {} }
   }
 }
 

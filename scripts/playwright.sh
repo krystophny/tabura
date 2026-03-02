@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MOUNT="/work"
+CONTAINER_NAME="tabura-playwright"
 
 if command -v podman >/dev/null 2>&1; then
   RUNTIME=podman
@@ -11,6 +12,11 @@ elif command -v docker >/dev/null 2>&1; then
 else
   echo "playwright.sh: podman or docker required" >&2
   exit 1
+fi
+
+# Kill any stale container from a previous interrupted run.
+if "${RUNTIME}" inspect "${CONTAINER_NAME}" >/dev/null 2>&1; then
+  "${RUNTIME}" rm -f "${CONTAINER_NAME}" >/dev/null 2>&1 || true
 fi
 
 PW_VERSION="$(node -e "console.log(require('${ROOT_DIR}/node_modules/@playwright/test/package.json').version)")"
@@ -40,7 +46,11 @@ if [[ -n "${PLAYWRIGHT_HTML_REPORT:-}" ]]; then
   ENV_FLAGS+=(-e "PLAYWRIGHT_HTML_REPORT=$(rewrite "${PLAYWRIGHT_HTML_REPORT}")")
 fi
 
-exec "${RUNTIME}" run --rm --ipc=host \
+# Clean up container on any exit (interrupt, kill, error).
+cleanup() { "${RUNTIME}" rm -f "${CONTAINER_NAME}" >/dev/null 2>&1 || true; }
+trap cleanup EXIT INT TERM
+
+"${RUNTIME}" run --rm --name "${CONTAINER_NAME}" --ipc=host \
   -v "${ROOT_DIR}:${MOUNT}" \
   -w "${MOUNT}" \
   "${ENV_FLAGS[@]+"${ENV_FLAGS[@]}"}" \
