@@ -911,6 +911,22 @@ test.describe('safari-recorder=broken', () => {
       return s.chatWs && s.chatWs.readyState === (window as any).WebSocket.OPEN;
     }, null, { timeout: 15_000 });
     await page.waitForTimeout(200);
+    // Verify mock getUserMedia is installed — fails fast instead of timing out.
+    const mockOk = await page.evaluate(() => {
+      const md = navigator.mediaDevices;
+      if (!md || typeof md.getUserMedia !== 'function') return 'mediaDevices.getUserMedia missing';
+      return md.getUserMedia({ audio: true }).then(
+        (stream: any) => {
+          // Clean up mock stream
+          if (stream && typeof stream.getTracks === 'function') {
+            stream.getTracks().forEach((t: any) => t.stop && t.stop());
+          }
+          return 'ok';
+        },
+        (err: any) => `getUserMedia rejected: ${err?.message || err}`,
+      );
+    });
+    expect(mockOk, 'mock getUserMedia must be installed').toBe('ok');
     await setHarnessCancelResponses(page, []);
     await setHarnessActivityResponse(page, { active_turns: 0, queued_turns: 0, delegate_active: 0 });
     await setHarnessMessagePostDelay(page, 0);
