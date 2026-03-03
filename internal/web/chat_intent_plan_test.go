@@ -61,6 +61,39 @@ func TestParseSystemActionsJSONRepairsMalformedCommandQuotes(t *testing.T) {
 	}
 }
 
+func TestSuggestShellCommandRetryRepairsJQTrailingBracketTypos(t *testing.T) {
+	command := `curl -s 'https://example.invalid' | jq -r '.current}'`
+	output := `jq: error: syntax error, unexpected INVALID_CHARACTER, expecting end of file at , line 1, column 9:
+    .current}
+            ^
+jq: 1 compile error`
+
+	fixed, reason, ok := suggestShellCommandRetry(command, output)
+	if !ok {
+		t.Fatal("expected retry suggestion for jq typo")
+	}
+	if strings.TrimSpace(reason) == "" {
+		t.Fatal("expected non-empty retry reason")
+	}
+	if fixed == command {
+		t.Fatal("expected fixed command to differ from original")
+	}
+	if strings.Contains(fixed, ".current}") {
+		t.Fatalf("fixed command still contains typo: %q", fixed)
+	}
+	if !strings.Contains(fixed, ".current") {
+		t.Fatalf("fixed command missing corrected jq filter: %q", fixed)
+	}
+}
+
+func TestSuggestShellCommandRetryNoopWithoutJQSyntaxError(t *testing.T) {
+	command := `echo hello`
+	output := `some unrelated stderr`
+	if fixed, reason, ok := suggestShellCommandRetry(command, output); ok || fixed != "" || reason != "" {
+		t.Fatalf("expected no retry suggestion, got fixed=%q reason=%q ok=%v", fixed, reason, ok)
+	}
+}
+
 func TestClassifyIntentPlanWithLLMMultiAction(t *testing.T) {
 	llm := setupMockIntentLLMServer(
 		t,

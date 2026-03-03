@@ -1232,6 +1232,91 @@ func truncateSystemActionOutput(text string, maxBytes int) string {
 	return text[:maxBytes] + "\n...(truncated)"
 }
 
+type shellCommandExecution struct {
+	Output   string
+	ExitCode int
+	TimedOut bool
+	RunErr   error
+}
+
+func executeShellCommand(command string, cwd string) shellCommandExecution {
+	commandCtx, cancel := context.WithTimeout(context.Background(), systemActionShellTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(commandCtx, "bash", "-lc", command)
+	cmd.Dir = cwd
+
+	var output bytes.Buffer
+	cmd.Stdout = &output
+	cmd.Stderr = &output
+	runErr := cmd.Run()
+
+	rawOutput := strings.TrimSpace(output.String())
+	rawOutput = truncateSystemActionOutput(rawOutput, systemActionShellOutputLimit)
+	if rawOutput == "" {
+		rawOutput = "(no output)"
+	}
+
+	if errors.Is(commandCtx.Err(), context.DeadlineExceeded) {
+		return shellCommandExecution{
+			Output:   rawOutput,
+			ExitCode: -1,
+			TimedOut: true,
+			RunErr:   runErr,
+		}
+	}
+
+	exitCode := 0
+	if runErr != nil {
+		var exitErr *exec.ExitError
+		if errors.As(runErr, &exitErr) {
+			exitCode = exitErr.ExitCode()
+		}
+	}
+
+	return shellCommandExecution{
+		Output:   rawOutput,
+		ExitCode: exitCode,
+		TimedOut: false,
+		RunErr:   runErr,
+	}
+}
+
+func suggestShellCommandRetry(command string, output string) (string, string, bool) {
+	cleanCommand := strings.TrimSpace(command)
+	if cleanCommand == "" || !strings.Contains(cleanCommand, "jq") {
+		return "", "", false
+	}
+	cleanOutput := strings.TrimSpace(output)
+	if cleanOutput == "" {
+		return "", "", false
+	}
+	lowerOutput := strings.ToLower(cleanOutput)
+	if !strings.Contains(lowerOutput, "jq: error: syntax error") || !strings.Contains(lowerOutput, "compile error") {
+		return "", "", false
+	}
+	lines := strings.Split(cleanOutput, "\n")
+	for _, line := range lines {
+		candidate := strings.TrimSpace(line)
+		if candidate == "" || !strings.HasPrefix(candidate, ".") {
+			continue
+		}
+		if !(strings.HasSuffix(candidate, "}") || strings.HasSuffix(candidate, "]")) {
+			continue
+		}
+		fixedCandidate := strings.TrimSuffix(strings.TrimSuffix(candidate, "}"), "]")
+		if strings.TrimSpace(fixedCandidate) == "" || fixedCandidate == candidate {
+			continue
+		}
+		fixedCommand := strings.Replace(cleanCommand, candidate, fixedCandidate, 1)
+		if fixedCommand == cleanCommand {
+			continue
+		}
+		return fixedCommand, fmt.Sprintf("fixed jq filter typo (%s -> %s)", candidate, fixedCandidate), true
+	}
+	return "", "", false
+}
+
 func (a *App) executeSystemAction(sessionID string, session store.ChatSession, action *SystemAction) (string, map[string]interface{}, error) {
 	if action == nil {
 		return "", nil, errors.New("system action is required")
@@ -1306,53 +1391,55 @@ func (a *App) executeSystemAction(sessionID string, session store.ChatSession, a
 		if cwd == "" {
 			return "", nil, errors.New("shell cwd is not available")
 		}
-		commandCtx, cancel := context.WithTimeout(context.Background(), systemActionShellTimeout)
-		defer cancel()
-		cmd := exec.CommandContext(commandCtx, "bash", "-lc", command)
-		cmd.Dir = cwd
-		var output bytes.Buffer
-		cmd.Stdout = &output
-		cmd.Stderr = &output
-		runErr := cmd.Run()
-		rawOutput := strings.TrimSpace(output.String())
-		rawOutput = truncateSystemActionOutput(rawOutput, systemActionShellOutputLimit)
-		if rawOutput == "" {
-			rawOutput = "(no output)"
-		}
-		if errors.Is(commandCtx.Err(), context.DeadlineExceeded) {
-			return fmt.Sprintf("Shell command timed out after %s.\n\n%s", systemActionShellTimeout, rawOutput), map[string]interface{}{
+		execResult := executeShellCommand(command, cwd)
+		if execResult.TimedOut {
+			return fmt.Sprintf("Shell command timed out after %s.\n\n%s", systemActionShellTimeout, execResult.Output), map[string]interface{}{
 				"type":       "shell",
 				"command":    command,
 				"cwd":        cwd,
 				"exit_code":  -1,
 				"timed_out":  true,
-				"output":     rawOutput,
+				"output":     execResult.Output,
 				"project_id": targetProject.ID,
 			}, nil
 		}
-		exitCode := 0
-		if runErr != nil {
-			var exitErr *exec.ExitError
-			if errors.As(runErr, &exitErr) {
-				exitCode = exitErr.ExitCode()
-			} else {
-				return "", nil, runErr
+
+		if execResult.RunErr != nil && execResult.ExitCode == 0 {
+			return "", nil, execResult.RunErr
+		}
+
+		if execResult.ExitCode != 0 {
+			if fixedCommand, fixReason, retry := suggestShellCommandRetry(command, execResult.Output); retry {
+				retryResult := executeShellCommand(fixedCommand, cwd)
+				if !retryResult.TimedOut && retryResult.RunErr == nil && retryResult.ExitCode == 0 {
+					return fmt.Sprintf("Shell command auto-corrected (%s).\n\n%s", fixReason, retryResult.Output), map[string]interface{}{
+						"type":                "shell",
+						"command":             fixedCommand,
+						"original_command":    command,
+						"cwd":                 cwd,
+						"exit_code":           0,
+						"output":              retryResult.Output,
+						"project_id":          targetProject.ID,
+						"auto_corrected":      true,
+						"auto_correct_reason": fixReason,
+					}, nil
+				}
 			}
-			return fmt.Sprintf("Shell command failed (exit %d).\n\n%s", exitCode, rawOutput), map[string]interface{}{
+			return fmt.Sprintf("Shell command failed (exit %d).\n\n%s", execResult.ExitCode, execResult.Output), map[string]interface{}{
 				"type":       "shell",
 				"command":    command,
 				"cwd":        cwd,
-				"exit_code":  exitCode,
-				"output":     rawOutput,
+				"exit_code":  execResult.ExitCode,
+				"output":     execResult.Output,
 				"project_id": targetProject.ID,
 			}, nil
 		}
-		return rawOutput, map[string]interface{}{
+		return execResult.Output, map[string]interface{}{
 			"type":       "shell",
 			"command":    command,
 			"cwd":        cwd,
-			"exit_code":  exitCode,
-			"output":     rawOutput,
+			"exit_code":  execResult.ExitCode,
+			"output":     execResult.Output,
 			"project_id": targetProject.ID,
 		}, nil
 	case "open_file_canvas":
