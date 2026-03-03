@@ -822,7 +822,6 @@ func (a *App) classifyAndExecuteSystemAction(ctx context.Context, sessionID stri
 			}
 			return "I couldn't open that file on canvas. Please provide an exact relative path (for example: docs/CLAUDE.md).", nil, true
 		}
-		return "", nil, false
 	}
 
 	localAction, localConfidence, localErr := a.classifyIntentLocally(ctx, trimmedText)

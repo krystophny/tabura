@@ -468,6 +468,42 @@ func TestClassifyAndExecuteSystemActionToolRequestsUseQwenPlan(t *testing.T) {
 	}
 }
 
+func TestClassifyAndExecuteSystemActionFallsBackToClassifierWhenLLMUnavailable(t *testing.T) {
+	classifier := setupMockIntentClassifierServer(t, http.StatusOK, map[string]interface{}{
+		"intent":     "toggle_silent",
+		"confidence": 0.99,
+		"entities":   map[string]interface{}{},
+	})
+	defer classifier.Close()
+
+	app := newAuthedTestApp(t)
+	app.intentClassifierURL = classifier.URL
+	app.intentLLMURL = "http://127.0.0.1:1"
+
+	project, err := app.ensureDefaultProjectRecord()
+	if err != nil {
+		t.Fatalf("ensure default project: %v", err)
+	}
+	session, err := app.store.GetOrCreateChatSession(project.ProjectKey)
+	if err != nil {
+		t.Fatalf("chat session: %v", err)
+	}
+
+	message, payloads, handled := app.classifyAndExecuteSystemAction(context.Background(), session.ID, session, "be quiet")
+	if !handled {
+		t.Fatal("expected classifier fallback to handle request")
+	}
+	if strings.TrimSpace(message) != "Toggled silent mode." {
+		t.Fatalf("message = %q, want %q", message, "Toggled silent mode.")
+	}
+	if len(payloads) != 1 {
+		t.Fatalf("payloads length = %d, want 1", len(payloads))
+	}
+	if got := strings.TrimSpace(strFromAny(payloads[0]["type"])); got != "toggle_silent" {
+		t.Fatalf("payload type = %q, want toggle_silent", got)
+	}
+}
+
 func TestClassifyAndExecuteSystemActionWithIntentLLMSkipsClassifierDelegate(t *testing.T) {
 	classifier := setupMockIntentClassifierServer(t, http.StatusOK, map[string]interface{}{
 		"intent":     "delegate",
