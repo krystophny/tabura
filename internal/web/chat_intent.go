@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -674,7 +675,7 @@ func (a *App) classifyAndExecuteSystemAction(ctx context.Context, sessionID stri
 		if len(actions) == 0 {
 			return "", nil, false
 		}
-		message, payloads, err := a.executeSystemActionPlan(sessionID, session, actions)
+		message, payloads, err := a.executeSystemActionPlan(sessionID, session, trimmedText, actions)
 		if err != nil {
 			return "", nil, false
 		}
@@ -733,12 +734,129 @@ func firstShellPathFromOutput(output string) string {
 
 type shellPathCandidate struct {
 	Title         string
+	HintScore     int
 	HiddenPenalty int
 	Depth         int
 	Length        int
 }
 
-func selectBestShellPathFromOutput(cwd, output string) string {
+var quotedTextPattern = regexp.MustCompile(`"([^"]+)"|'([^']+)'`)
+
+func normalizeOpenHintToken(raw string) string {
+	token := strings.ToLower(strings.TrimSpace(raw))
+	token = strings.Trim(token, " \t\r\n`'\".,:;!?()[]{}<>")
+	token = strings.TrimPrefix(token, "./")
+	token = strings.Trim(token, "/")
+	token = strings.ReplaceAll(token, "\\", "/")
+	return token
+}
+
+func extractOpenRequestHints(text string) []string {
+	trimmed := strings.TrimSpace(text)
+	if trimmed == "" {
+		return nil
+	}
+	stopwords := map[string]struct{}{
+		"open": {}, "show": {}, "display": {}, "read": {}, "view": {}, "edit": {},
+		"the": {}, "a": {}, "an": {}, "please": {}, "file": {}, "files": {},
+		"on": {}, "in": {}, "at": {}, "to": {}, "from": {}, "for": {},
+		"canvas": {}, "project": {}, "this": {}, "that": {}, "my": {},
+	}
+	addable := func(token string, seen map[string]struct{}, out *[]string) {
+		token = normalizeOpenHintToken(token)
+		if token == "" {
+			return
+		}
+		if _, blocked := stopwords[token]; blocked {
+			return
+		}
+		if len(token) < 3 && !strings.Contains(token, ".") && !strings.Contains(token, "/") {
+			return
+		}
+		if _, exists := seen[token]; exists {
+			return
+		}
+		seen[token] = struct{}{}
+		*out = append(*out, token)
+	}
+
+	hints := make([]string, 0, 8)
+	seen := map[string]struct{}{}
+
+	// Quoted file/path fragments are usually strong user hints.
+	for _, match := range quotedTextPattern.FindAllStringSubmatch(trimmed, -1) {
+		for _, group := range match[1:] {
+			if strings.TrimSpace(group) == "" {
+				continue
+			}
+			addable(group, seen, &hints)
+		}
+	}
+
+	fields := strings.Fields(strings.ToLower(trimmed))
+	verbs := map[string]struct{}{"open": {}, "show": {}, "display": {}, "read": {}, "view": {}, "edit": {}}
+	for i, field := range fields {
+		verb := normalizeOpenHintToken(field)
+		if _, isVerb := verbs[verb]; !isVerb {
+			continue
+		}
+		for j := i + 1; j < len(fields) && j <= i+6; j++ {
+			addable(fields[j], seen, &hints)
+		}
+	}
+
+	// Extract explicit file/path-like tokens anywhere in the request.
+	for _, field := range strings.Fields(trimmed) {
+		token := normalizeOpenHintToken(field)
+		if token == "" {
+			continue
+		}
+		if strings.Contains(token, ".") || strings.Contains(token, "/") {
+			addable(token, seen, &hints)
+			base := normalizeOpenHintToken(filepath.Base(token))
+			addable(base, seen, &hints)
+			stem := normalizeOpenHintToken(strings.TrimSuffix(base, filepath.Ext(base)))
+			addable(stem, seen, &hints)
+		}
+	}
+	return hints
+}
+
+func scoreShellPathCandidate(title string, hints []string) int {
+	if len(hints) == 0 {
+		return 0
+	}
+	cleanTitle := filepath.ToSlash(strings.ToLower(strings.TrimSpace(title)))
+	if cleanTitle == "" {
+		return 0
+	}
+	base := strings.ToLower(strings.TrimSpace(filepath.Base(cleanTitle)))
+	stem := strings.TrimSuffix(base, filepath.Ext(base))
+	score := 0
+	for _, rawHint := range hints {
+		hint := normalizeOpenHintToken(rawHint)
+		if hint == "" {
+			continue
+		}
+		hintBase := strings.ToLower(strings.TrimSpace(filepath.Base(hint)))
+		hintStem := strings.TrimSuffix(hintBase, filepath.Ext(hintBase))
+		switch {
+		case cleanTitle == hint || base == hintBase:
+			score += 120
+		case stem != "" && (stem == hintBase || stem == hintStem):
+			score += 90
+		case strings.HasSuffix(cleanTitle, "/"+hintBase):
+			score += 70
+		case strings.Contains(base, hintBase):
+			score += 55
+		case strings.Contains(cleanTitle, hint):
+			score += 35
+		}
+	}
+	return score
+}
+
+func selectBestShellPathFromOutput(cwd, output string, hints []string) string {
 	root := strings.TrimSpace(cwd)
 	if root == "" {
 		return firstShellPathFromOutput(output)
@@ -778,6 +896,7 @@ func selectBestShellPathFromOutput(cwd, output string) string {
 		depth := strings.Count(title, "/")
 		candidates = append(candidates, shellPathCandidate{
 			Title:         title,
+			HintScore:     scoreShellPathCandidate(title, hints),
 			HiddenPenalty: hiddenPenalty,
 			Depth:         depth,
 			Length:        len(title),
@@ -789,6 +908,9 @@ func selectBestShellPathFromOutput(cwd, output string) string {
 	sort.SliceStable(candidates, func(i, j int) bool {
 		left := candidates[i]
 		right := candidates[j]
+		if left.HintScore != right.HintScore {
+			return left.HintScore > right.HintScore
+		}
 		if left.HiddenPenalty != right.HiddenPenalty {
 			return left.HiddenPenalty < right.HiddenPenalty
 		}
@@ -824,7 +946,7 @@ func preferTopLevelSiblingPath(cwd, candidate string) string {
 	return filepath.ToSlash(base)
 }
 
-func (a *App) executeSystemActionPlan(sessionID string, session store.ChatSession, actions []*SystemAction) (string, []map[string]interface{}, error) {
+func (a *App) executeSystemActionPlan(sessionID string, session store.ChatSession, userText string, actions []*SystemAction) (string, []map[string]interface{}, error) {
 	if len(actions) == 0 {
 		return "", nil, errors.New("action plan is empty")
 	}
@@ -839,6 +961,7 @@ func (a *App) executeSystemActionPlan(sessionID string, session store.ChatSessio
 			targetCWD = strings.TrimSpace(a.cwdForProjectKey(targetProject.ProjectKey))
 		}
 	}
+	requestHints := extractOpenRequestHints(userText)
 	for _, action := range actions {
 		if action == nil {
 			continue
@@ -871,7 +994,7 @@ func (a *App) executeSystemActionPlan(sessionID string, session store.ChatSessio
 			payloadType := strings.TrimSpace(fmt.Sprint(payload["type"]))
 			payloadOutput := strings.TrimSpace(fmt.Sprint(payload["output"]))
 			if strings.EqualFold(payloadType, "shell") && payloadOutput != "" && payloadOutput != "<nil>" {
-				lastShellPath = selectBestShellPathFromOutput(targetCWD, payloadOutput)
+				lastShellPath = selectBestShellPathFromOutput(targetCWD, payloadOutput, requestHints)
 			}
 		}
 	}

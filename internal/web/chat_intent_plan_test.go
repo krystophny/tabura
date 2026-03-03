@@ -97,6 +97,77 @@ func TestFirstShellPathFromOutput(t *testing.T) {
 	}
 }
 
+func TestExtractOpenRequestHintsGeneric(t *testing.T) {
+	hints := extractOpenRequestHints(`Please open the "docs/CLAUDE.md" file in canvas.`)
+	if !stringSliceContains(hints, "docs/claude.md") {
+		t.Fatalf("expected docs/claude.md in hints, got %#v", hints)
+	}
+	if !stringSliceContains(hints, "claude.md") {
+		t.Fatalf("expected claude.md in hints, got %#v", hints)
+	}
+	if !stringSliceContains(hints, "claude") {
+		t.Fatalf("expected claude in hints, got %#v", hints)
+	}
+}
+
+func TestExecuteSystemActionPlanUsesRequestHintForPlaceholder(t *testing.T) {
+	app := newAuthedTestApp(t)
+	project, err := app.ensureDefaultProjectRecord()
+	if err != nil {
+		t.Fatalf("ensure default project: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(project.RootPath, "go.mod"), []byte("module test"), 0o644); err != nil {
+		t.Fatalf("write go.mod: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(project.RootPath, "README.md"), []byte("hello-readme"), 0o644); err != nil {
+		t.Fatalf("write README.md: %v", err)
+	}
+	session, err := app.store.GetOrCreateChatSession(project.ProjectKey)
+	if err != nil {
+		t.Fatalf("chat session: %v", err)
+	}
+
+	showCalls := 0
+	var observed map[string]interface{}
+	server := setupMockCanvasShowServer(t, &showCalls, &observed)
+	defer server.Close()
+	port, err := extractPort(server.URL)
+	if err != nil {
+		t.Fatalf("extract canvas port: %v", err)
+	}
+	app.tunnels.setPort(app.canvasSessionIDForProject(project), port)
+
+	_, payloads, err := app.executeSystemActionPlan(session.ID, session, "Open README file in canvas", []*SystemAction{
+		{
+			Action: "shell",
+			Params: map[string]interface{}{
+				"command": "printf './go.mod\\n./README.md\\n'",
+			},
+		},
+		{
+			Action: "open_file_canvas",
+			Params: map[string]interface{}{
+				"path": systemActionLastShellPathPlaceholder,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("executeSystemActionPlan returned error: %v", err)
+	}
+	if len(payloads) < 2 {
+		t.Fatalf("payloads length = %d, want >= 2", len(payloads))
+	}
+	if showCalls < 1 {
+		t.Fatalf("canvas_artifact_show calls = %d, want >= 1", showCalls)
+	}
+	if got := strings.TrimSpace(strFromAny(observed["title"])); got != "README.md" {
+		t.Fatalf("canvas title = %q, want README.md", got)
+	}
+	if got := strings.TrimSpace(strFromAny(observed["markdown_or_text"])); got != "hello-readme" {
+		t.Fatalf("canvas content = %q, want hello-readme", got)
+	}
+}
+
 func TestExecuteSystemActionPlanResolvesLastShellPathPlaceholder(t *testing.T) {
 	app := newAuthedTestApp(t)
 	project, err := app.ensureDefaultProjectRecord()
@@ -121,7 +192,7 @@ func TestExecuteSystemActionPlanResolvesLastShellPathPlaceholder(t *testing.T) {
 	}
 	app.tunnels.setPort(app.canvasSessionIDForProject(project), port)
 
-	message, payloads, err := app.executeSystemActionPlan(session.ID, session, []*SystemAction{
+	message, payloads, err := app.executeSystemActionPlan(session.ID, session, "Open README", []*SystemAction{
 		{
 			Action: "shell",
 			Params: map[string]interface{}{
@@ -583,7 +654,7 @@ func TestExecuteSystemActionPlanPrefersTopLevelSiblingForPlaceholder(t *testing.
 	}
 	app.tunnels.setPort(app.canvasSessionIDForProject(project), port)
 
-	_, payloads, err := app.executeSystemActionPlan(session.ID, session, []*SystemAction{
+	_, payloads, err := app.executeSystemActionPlan(session.ID, session, "Open CLAUDE file", []*SystemAction{
 		{
 			Action: "shell",
 			Params: map[string]interface{}{
@@ -612,4 +683,14 @@ func TestExecuteSystemActionPlanPrefersTopLevelSiblingForPlaceholder(t *testing.
 	if got := strings.TrimSpace(strFromAny(observed["markdown_or_text"])); got != "root-claude" {
 		t.Fatalf("canvas content = %q, want root-claude", got)
 	}
+}
+
+func stringSliceContains(items []string, needle string) bool {
+	target := strings.TrimSpace(strings.ToLower(needle))
+	for _, item := range items {
+		if strings.EqualFold(strings.TrimSpace(item), target) {
+			return true
+		}
+	}
+	return false
 }

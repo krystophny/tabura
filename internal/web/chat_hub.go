@@ -219,7 +219,7 @@ func (a *App) runHubTurn(sessionID string, session store.ChatSession, messages [
 		}
 		actions, _ := parseSystemActions(assistantText)
 		if len(actions) > 0 {
-			actionMessage, actionPayloads, actionErr := a.executeSystemActionPlan(sessionID, session, actions)
+			actionMessage, actionPayloads, actionErr := a.executeSystemActionPlan(sessionID, session, userText, actions)
 			if actionErr != nil {
 				assistantText = fmt.Sprintf("Hub action failed: %s", actionErr.Error())
 			} else {
@@ -252,7 +252,7 @@ func (a *App) runHubTurn(sessionID string, session store.ChatSession, messages [
 		)
 	}
 	executeClassifiedAction := func(actions []*SystemAction) bool {
-		actionMessage, actionPayloads, actionErr := a.executeSystemActionPlan(sessionID, session, actions)
+		actionMessage, actionPayloads, actionErr := a.executeSystemActionPlan(sessionID, session, userText, actions)
 		if actionErr != nil {
 			return false
 		}
