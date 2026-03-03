@@ -55,6 +55,7 @@ Policy:
 - For multi-step tasks, return {"actions":[{"action":"..."}, {"action":"..."}]}.
 - For "open README"-style requests, prefer a two-step plan: shell find/list first, then open_file_canvas.
 - When chaining shell -> open_file_canvas, set path="$last_shell_path".
+- In JSON command strings, prefer single quotes inside shell command arguments.
 
 For system actions, return {"action":"<action>", ...params}.
 For non-system conversation, return {"action":"chat"}.`
@@ -171,6 +172,58 @@ func extractEmbeddedJSON(raw string) string {
 	return ""
 }
 
+func repairMalformedCommandQuotes(raw string) string {
+	const marker = `"command":"`
+	if !strings.Contains(raw, marker) {
+		return raw
+	}
+	var out strings.Builder
+	out.Grow(len(raw))
+	cursor := 0
+	for cursor < len(raw) {
+		rel := strings.Index(raw[cursor:], marker)
+		if rel < 0 {
+			out.WriteString(raw[cursor:])
+			break
+		}
+		start := cursor + rel
+		endStart := start + len(marker)
+		out.WriteString(raw[cursor:endStart])
+		cursor = endStart
+		for cursor < len(raw) {
+			ch := raw[cursor]
+			if ch == '\\' && cursor+1 < len(raw) {
+				out.WriteByte(raw[cursor])
+				out.WriteByte(raw[cursor+1])
+				cursor += 2
+				continue
+			}
+			if ch == '"' {
+				lookahead := cursor + 1
+				for lookahead < len(raw) {
+					next := raw[lookahead]
+					if next == ' ' || next == '\n' || next == '\r' || next == '\t' {
+						lookahead++
+						continue
+					}
+					break
+				}
+				if lookahead >= len(raw) || raw[lookahead] == ',' || raw[lookahead] == '}' {
+					out.WriteByte('"')
+					cursor++
+					break
+				}
+				out.WriteByte('\'')
+				cursor++
+				continue
+			}
+			out.WriteByte(ch)
+			cursor++
+		}
+	}
+	return out.String()
+}
+
 func parseSystemAction(raw string) (*SystemAction, error) {
 	return parseSystemActionJSON(raw)
 }
@@ -216,13 +269,27 @@ func parseSystemActionsJSON(raw string) ([]*SystemAction, error) {
 	if trimmed == "" {
 		return nil, nil
 	}
-	var decoded interface{}
-	if err := json.Unmarshal([]byte(trimmed), &decoded); err != nil {
+	decodeJSON := func(candidate string) (interface{}, bool) {
+		var decoded interface{}
+		if err := json.Unmarshal([]byte(candidate), &decoded); err == nil {
+			return decoded, true
+		}
+		repaired := repairMalformedCommandQuotes(candidate)
+		if repaired != candidate {
+			if err := json.Unmarshal([]byte(repaired), &decoded); err == nil {
+				return decoded, true
+			}
+		}
+		return nil, false
+	}
+	decoded, ok := decodeJSON(trimmed)
+	if !ok {
 		embedded := extractEmbeddedJSON(trimmed)
 		if embedded == "" {
 			return nil, nil
 		}
-		if err := json.Unmarshal([]byte(embedded), &decoded); err != nil {
+		decoded, ok = decodeJSON(embedded)
+		if !ok {
 			return nil, nil
 		}
 	}

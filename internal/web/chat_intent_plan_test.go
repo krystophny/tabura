@@ -48,6 +48,19 @@ func TestParseSystemActionsJSONExtractsEmbeddedPayload(t *testing.T) {
 	}
 }
 
+func TestParseSystemActionsJSONRepairsMalformedCommandQuotes(t *testing.T) {
+	actions, err := parseSystemActionsJSON(`{"actions":[{"action":"shell","command":"find . -maxdepth 3 -type f -iname "README*" | head -n 1"},{"action":"open_file_canvas","path":"$last_shell_path"}]}`)
+	if err != nil {
+		t.Fatalf("parseSystemActionsJSON returned error: %v", err)
+	}
+	if len(actions) != 2 {
+		t.Fatalf("actions length = %d, want 2", len(actions))
+	}
+	if got := strings.TrimSpace(systemActionShellCommand(actions[0].Params)); got == "" {
+		t.Fatal("expected repaired shell command")
+	}
+}
+
 func TestClassifyIntentPlanWithLLMMultiAction(t *testing.T) {
 	llm := setupMockIntentLLMServer(
 		t,
@@ -334,6 +347,70 @@ func TestClassifyAndExecuteSystemActionWithIntentLLMSkipsClassifierDelegate(t *t
 		if strings.TrimSpace(strFromAny(payload["type"])) == "delegate" {
 			t.Fatalf("unexpected delegate payload: %#v", payload)
 		}
+	}
+	if showCalls < 1 {
+		t.Fatalf("canvas_artifact_show calls = %d, want >= 1", showCalls)
+	}
+}
+
+func TestClassifyAndExecuteSystemActionHandlesMalformedQwenJSON(t *testing.T) {
+	llm := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		if strings.TrimSpace(r.URL.Path) != "/v1/chat/completions" {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"choices": []map[string]interface{}{
+				{
+					"message": map[string]interface{}{
+						"content": `{"actions":[{"action":"shell","command":"find . -maxdepth 2 -type f -iname "README*" | head -n 1"},{"action":"open_file_canvas","path":"$last_shell_path"}]}`,
+					},
+				},
+			},
+		})
+	}))
+	defer llm.Close()
+
+	app := newAuthedTestApp(t)
+	app.intentClassifierURL = ""
+	app.intentLLMURL = llm.URL
+
+	project, err := app.ensureDefaultProjectRecord()
+	if err != nil {
+		t.Fatalf("ensure default project: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(project.RootPath, "README.md"), []byte("hello-readme"), 0o644); err != nil {
+		t.Fatalf("write README.md: %v", err)
+	}
+	session, err := app.store.GetOrCreateChatSession(project.ProjectKey)
+	if err != nil {
+		t.Fatalf("chat session: %v", err)
+	}
+
+	showCalls := 0
+	var observed map[string]interface{}
+	server := setupMockCanvasShowServer(t, &showCalls, &observed)
+	defer server.Close()
+	port, err := extractPort(server.URL)
+	if err != nil {
+		t.Fatalf("extract canvas port: %v", err)
+	}
+	app.tunnels.setPort(app.canvasSessionIDForProject(project), port)
+
+	_, payloads, handled := app.classifyAndExecuteSystemAction(context.Background(), session.ID, session, "Open the README file.")
+	if !handled {
+		t.Fatal("expected malformed JSON plan to be repaired and executed")
+	}
+	if len(payloads) < 2 {
+		t.Fatalf("payloads length = %d, want >= 2", len(payloads))
+	}
+	if got := strings.TrimSpace(strFromAny(payloads[len(payloads)-1]["type"])); got != "open_file_canvas" {
+		t.Fatalf("last payload type = %q, want open_file_canvas", got)
 	}
 	if showCalls < 1 {
 		t.Fatalf("canvas_artifact_show calls = %d, want >= 1", showCalls)
