@@ -85,9 +85,9 @@ const state = {
   chatCtrlHoldTimer: null,
   chatVoiceCapture: null,
   reasoningEffortsByAlias: {
-    codex: ['low', 'medium', 'high', 'extra_high'],
-    gpt: ['low', 'medium', 'high', 'extra_high'],
-    spark: ['low', 'medium', 'high', 'extra_high'],
+    codex: ['low', 'medium', 'high', 'xhigh'],
+    gpt: ['low', 'medium', 'high', 'xhigh'],
+    spark: ['low', 'medium', 'high', 'xhigh'],
   },
   contextUsed: 0,
   contextMax: 0,
@@ -201,9 +201,9 @@ const ACTIVE_PROJECT_STORAGE_KEY = 'tabura.activeProjectId';
 const LAST_VIEW_STORAGE_KEY = 'tabura.lastView';
 const PROJECT_CHAT_MODEL_ALIASES = ['codex', 'gpt', 'spark'];
 const PROJECT_CHAT_MODEL_REASONING_EFFORTS = {
-  codex: ['low', 'medium', 'high', 'extra_high'],
-  gpt: ['low', 'medium', 'high', 'extra_high'],
-  spark: ['low', 'medium', 'high', 'extra_high'],
+  codex: ['low', 'medium', 'high', 'xhigh'],
+  gpt: ['low', 'medium', 'high', 'xhigh'],
+  spark: ['low', 'medium', 'high', 'xhigh'],
 };
 const TTS_SILENT_STORAGE_KEY = 'tabura.ttsSilent';
 const SIDEBAR_IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg', '.ico', '.avif']);
@@ -1227,7 +1227,10 @@ function defaultReasoningEffortForAlias(alias) {
 }
 
 function normalizeProjectChatModelReasoningEffort(value, alias) {
-  const effort = String(value || '').trim().toLowerCase();
+  let effort = String(value || '').trim().toLowerCase();
+  if (effort === 'extra_high') {
+    effort = 'xhigh';
+  }
   const options = reasoningEffortOptionsForAlias(alias);
   if (options.includes(effort)) {
     return effort;
@@ -3204,7 +3207,7 @@ function renderEdgeTopModelButtons() {
   for (const effort of effortOptions) {
     const option = document.createElement('option');
     option.value = effort;
-    option.textContent = effort === 'extra_high' ? 'xhigh' : effort.replace(/_/g, ' ');
+    option.textContent = effort === 'xhigh' || effort === 'extra_high' ? 'xhigh' : effort.replace(/_/g, ' ');
     effortSelect.appendChild(option);
   }
   effortSelect.value = effortOptions.includes(selectedEffort) ? selectedEffort : (effortOptions[0] || '');

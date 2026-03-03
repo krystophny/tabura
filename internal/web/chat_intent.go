@@ -17,15 +17,17 @@ import (
 const (
 	DefaultIntentClassifierURL     = "http://127.0.0.1:8425"
 	DefaultIntentLLMURL            = "http://127.0.0.1:8426"
+	DefaultIntentLLMModel          = "local"
+	DefaultIntentLLMProfile        = "qwen3.5-9b"
+	DefaultIntentLLMProfileOptions = "qwen3.5-9b,qwen3.5-4b"
 	intentClassifierMinConfidence  = 0.8
 	intentClassifierRequestTimeout = 75 * time.Millisecond
 	intentClassifierResponseLimit  = 64 * 1024
-	intentLLMRequestTimeout        = 150 * time.Millisecond
+	intentLLMRequestTimeout        = 900 * time.Millisecond
 	intentLLMResponseLimit         = 128 * 1024
-	intentLLMModel                 = "qwen3-0.6b-q4_k_m"
 )
 
-const intentLLMSystemPrompt = `Classify the user intent and return JSON only.
+const intentLLMSystemPrompt = `You are Tabura's local intent and delegation router. Return JSON only.
 Allowed actions:
 - switch_project (name)
 - switch_model (alias, effort)
@@ -35,6 +37,12 @@ Allowed actions:
 - show_status
 - delegate
 - chat
+
+Policy:
+- Prefer {"action":"chat"} unless the user clearly requests one of the allowed system actions.
+- Use {"action":"delegate"} only for explicit delegation requests (for example: "let codex ...", "ask gpt ...", "delegate ...") or clearly complex long-running coding tasks.
+- For delegate without an explicit model, set model="codex".
+- Keep delegated task text concise and faithful to user intent.
 
 For system actions, return {"action":"<action>", ...params}.
 For non-system conversation, return {"action":"chat"}.`
@@ -65,6 +73,60 @@ type localIntentLLMMessage struct {
 type SystemAction struct {
 	Action string                 `json:"action"`
 	Params map[string]interface{} `json:"-"`
+}
+
+func parseIntentLLMProfileOptions(raw string) []string {
+	clean := strings.TrimSpace(raw)
+	if clean == "" {
+		return nil
+	}
+	parts := strings.Split(clean, ",")
+	out := make([]string, 0, len(parts))
+	seen := map[string]struct{}{}
+	for _, part := range parts {
+		token := strings.ToLower(strings.TrimSpace(part))
+		if token == "" {
+			continue
+		}
+		if _, exists := seen[token]; exists {
+			continue
+		}
+		seen[token] = struct{}{}
+		out = append(out, token)
+	}
+	return out
+}
+
+func resolveIntentLLMProfile(raw string) string {
+	clean := strings.ToLower(strings.TrimSpace(raw))
+	if clean == "" {
+		return DefaultIntentLLMProfile
+	}
+	return clean
+}
+
+func ensureIntentLLMProfileOption(options []string, profile string) []string {
+	cleanProfile := strings.ToLower(strings.TrimSpace(profile))
+	if cleanProfile == "" {
+		cleanProfile = DefaultIntentLLMProfile
+	}
+	for _, option := range options {
+		if strings.EqualFold(strings.TrimSpace(option), cleanProfile) {
+			return options
+		}
+	}
+	return append([]string{cleanProfile}, options...)
+}
+
+func (a *App) localIntentLLMModel() string {
+	if a == nil {
+		return DefaultIntentLLMModel
+	}
+	clean := strings.TrimSpace(a.intentLLMModel)
+	if clean == "" {
+		return DefaultIntentLLMModel
+	}
+	return clean
 }
 
 func parseSystemAction(raw string) (*SystemAction, error) {
@@ -220,6 +282,16 @@ func (a *App) classifyIntentLocally(ctx context.Context, text string) (*SystemAc
 	if strings.TrimSpace(payload.Effort) != "" {
 		params["effort"] = strings.TrimSpace(payload.Effort)
 	}
+	if actionName == "delegate" {
+		model := normalizeDelegateModel(systemActionStringParam(params, "model"))
+		if model == "" {
+			model = "codex"
+		}
+		params["model"] = model
+		if systemActionDelegateTask(params) == "" {
+			params["task"] = trimmedText
+		}
+	}
 	return &SystemAction{Action: actionName, Params: params}, payload.Confidence, nil
 }
 
@@ -232,9 +304,26 @@ func (a *App) classifyIntentWithLLM(ctx context.Context, text string) (*SystemAc
 	if trimmedText == "" {
 		return nil, nil
 	}
+	if hint := detectDelegationHint(trimmedText); hint.Detected {
+		model := normalizeDelegateModel(hint.Model)
+		if model == "" {
+			model = "codex"
+		}
+		task := strings.TrimSpace(hint.Task)
+		if task == "" {
+			task = trimmedText
+		}
+		return &SystemAction{
+			Action: "delegate",
+			Params: map[string]interface{}{
+				"model": model,
+				"task":  task,
+			},
+		}, nil
+	}
 
 	requestBody, _ := json.Marshal(map[string]interface{}{
-		"model":       intentLLMModel,
+		"model":       a.localIntentLLMModel(),
 		"temperature": 0,
 		"max_tokens":  128,
 		"chat_template_kwargs": map[string]interface{}{
@@ -287,6 +376,19 @@ func (a *App) classifyIntentWithLLM(ctx context.Context, text string) (*SystemAc
 	}
 	if normalizeSystemActionName(action.Action) == "" {
 		return nil, nil
+	}
+	if action.Action == "delegate" {
+		model := normalizeDelegateModel(systemActionStringParam(action.Params, "model"))
+		if model == "" {
+			model = "codex"
+		}
+		if action.Params == nil {
+			action.Params = map[string]interface{}{}
+		}
+		action.Params["model"] = model
+		if systemActionDelegateTask(action.Params) == "" {
+			action.Params["task"] = trimmedText
+		}
 	}
 	return action, nil
 }

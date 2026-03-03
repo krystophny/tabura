@@ -1,13 +1,18 @@
 package web
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/krystophny/tabura/internal/appserver"
 	"github.com/krystophny/tabura/internal/modelprofile"
@@ -15,8 +20,9 @@ import (
 )
 
 const (
-	HubProjectKey  = "__hub__"
-	HubProjectKind = "hub"
+	HubProjectKey        = "__hub__"
+	HubProjectKind       = "hub"
+	hubLLMRequestTimeout = 900 * time.Millisecond
 )
 
 const hubSystemPrompt = `You are Tabura Hub, a fast voice assistant coordinator.
@@ -25,7 +31,7 @@ Respond concisely. For system actions, return JSON:
 
 Available actions:
 - {"action":"switch_project","name":"..."}
-- {"action":"switch_model","alias":"codex|gpt|spark","effort":"low|medium|high|extra_high"}
+- {"action":"switch_model","alias":"codex|gpt|spark","effort":"low|medium|high|xhigh"}
 - {"action":"toggle_silent"}
 - {"action":"toggle_conversation"}
 - {"action":"delegate","model":"codex|gpt|spark","task":"..."}
@@ -199,6 +205,42 @@ func (a *App) runHubTurn(sessionID string, session store.ChatSession, messages [
 
 	persistedAssistantID := int64(0)
 	persistedAssistantText := ""
+	finalizeHubAssistantText := func(text, turnID, threadID string) {
+		assistantText := strings.TrimSpace(text)
+		if assistantText == "" {
+			assistantText = "(assistant returned no content)"
+		}
+		action, _ := parseSystemAction(assistantText)
+		if action != nil {
+			actionMessage, actionPayload, actionErr := a.executeSystemAction(sessionID, session, action)
+			if actionErr != nil {
+				assistantText = fmt.Sprintf("Hub action failed: %s", actionErr.Error())
+			} else {
+				assistantText = strings.TrimSpace(actionMessage)
+				if assistantText == "" {
+					assistantText = "Done."
+				}
+				if actionPayload != nil {
+					a.broadcastChatEvent(sessionID, map[string]interface{}{
+						"type":   "system_action",
+						"action": actionPayload,
+					})
+				}
+			}
+		}
+
+		a.finalizeAssistantResponse(
+			sessionID,
+			session.ProjectKey,
+			assistantText,
+			&persistedAssistantID,
+			&persistedAssistantText,
+			turnID,
+			runID,
+			threadID,
+			outputMode,
+		)
+	}
 	executeClassifiedAction := func(action *SystemAction) bool {
 		actionMessage, actionPayload, actionErr := a.executeSystemAction(sessionID, session, action)
 		if actionErr != nil {
@@ -259,8 +301,20 @@ func (a *App) runHubTurn(sessionID string, session store.ChatSession, messages [
 		return
 	}
 
+	assistantText, localLLMErr := a.hubReplyWithLocalLLM(ctx, userText)
+	if localLLMErr == nil {
+		if action, _ := parseSystemAction(assistantText); action != nil {
+			if executeClassifiedAction(action) {
+				return
+			}
+		} else {
+			finalizeHubAssistantText(assistantText, "", "")
+			return
+		}
+	}
+
 	if a.appServerClient == nil {
-		errText := "app-server is not configured"
+		errText := fmt.Sprintf("hub local llm failed: %v", localLLMErr)
 		_, _ = a.store.AddChatMessage(sessionID, "system", errText, errText, "text")
 		a.broadcastChatEvent(sessionID, map[string]interface{}{"type": "error", "error": errText})
 		return
@@ -272,7 +326,7 @@ func (a *App) runHubTurn(sessionID string, session store.ChatSession, messages [
 		CWD:          a.cwdForProjectKey(session.ProjectKey),
 		Prompt:       hubSystemPrompt + "\n\nUser message:\n" + userText,
 		Model:        model,
-		ThreadParams: reasoning,
+		ThreadParams: nil,
 		TurnParams:   reasoning,
 		Timeout:      assistantTurnTimeout,
 	})
@@ -294,38 +348,64 @@ func (a *App) runHubTurn(sessionID string, session store.ChatSession, messages [
 		return
 	}
 
-	assistantText := strings.TrimSpace(resp.Message)
-	if assistantText == "" {
-		assistantText = "(assistant returned no content)"
+	finalizeHubAssistantText(resp.Message, resp.TurnID, resp.ThreadID)
+}
+
+func (a *App) hubReplyWithLocalLLM(ctx context.Context, userText string) (string, error) {
+	baseURL := strings.TrimRight(strings.TrimSpace(a.intentLLMURL), "/")
+	if baseURL == "" {
+		return "", errors.New("local llm url is empty")
 	}
-	action, _ := parseSystemAction(assistantText)
-	if action != nil {
-		actionMessage, actionPayload, actionErr := a.executeSystemAction(sessionID, session, action)
-		if actionErr != nil {
-			assistantText = fmt.Sprintf("Hub action failed: %s", actionErr.Error())
-		} else {
-			assistantText = strings.TrimSpace(actionMessage)
-			if assistantText == "" {
-				assistantText = "Done."
-			}
-			if actionPayload != nil {
-				a.broadcastChatEvent(sessionID, map[string]interface{}{
-					"type":   "system_action",
-					"action": actionPayload,
-				})
-			}
-		}
+	trimmedText := strings.TrimSpace(userText)
+	if trimmedText == "" {
+		return "", errors.New("hub user text is empty")
 	}
 
-	a.finalizeAssistantResponse(
-		sessionID,
-		session.ProjectKey,
-		assistantText,
-		&persistedAssistantID,
-		&persistedAssistantText,
-		resp.TurnID,
-		runID,
-		resp.ThreadID,
-		outputMode,
+	requestBody, _ := json.Marshal(map[string]interface{}{
+		"model":       a.localIntentLLMModel(),
+		"temperature": 0,
+		"max_tokens":  256,
+		"chat_template_kwargs": map[string]interface{}{
+			"enable_thinking": false,
+		},
+		"messages": []map[string]string{
+			{"role": "system", "content": hubSystemPrompt},
+			{"role": "user", "content": trimmedText},
+		},
+	})
+
+	requestCtx, cancel := context.WithTimeout(ctx, hubLLMRequestTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(
+		requestCtx,
+		http.MethodPost,
+		baseURL+"/v1/chat/completions",
+		bytes.NewReader(requestBody),
 	)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, intentLLMResponseLimit))
+		return "", fmt.Errorf("hub local llm HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	var payload localIntentLLMChatCompletionResponse
+	if err := json.NewDecoder(io.LimitReader(resp.Body, intentLLMResponseLimit)).Decode(&payload); err != nil {
+		return "", err
+	}
+	if len(payload.Choices) == 0 {
+		return "", errors.New("hub local llm returned no choices")
+	}
+	content := strings.TrimSpace(payload.Choices[0].Message.Content)
+	if content == "" {
+		return "", errors.New("hub local llm returned empty content")
+	}
+	return content, nil
 }

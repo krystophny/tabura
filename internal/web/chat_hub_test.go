@@ -311,7 +311,7 @@ func TestHubSwitchModelTargetsPrimaryProject(t *testing.T) {
 		Action: "switch_model",
 		Params: map[string]interface{}{
 			"alias":  "gpt",
-			"effort": "extra_high",
+			"effort": "xhigh",
 		},
 	})
 	if err != nil {
@@ -338,9 +338,9 @@ func TestHubSwitchModelTargetsPrimaryProject(t *testing.T) {
 	if updatedDefault.ChatModel != "gpt" {
 		t.Fatalf("default project chat model = %q, want gpt", updatedDefault.ChatModel)
 	}
-	if updatedDefault.ChatModelReasoningEffort != "extra_high" {
+	if updatedDefault.ChatModelReasoningEffort != "xhigh" {
 		t.Fatalf(
-			"default reasoning effort = %q, want extra_high",
+			"default reasoning effort = %q, want xhigh",
 			updatedDefault.ChatModelReasoningEffort,
 		)
 	}
@@ -602,6 +602,7 @@ func TestHubRunTurnFallsBackToSparkWhenLocalIntentExecutionFails(t *testing.T) {
 		t.Fatalf("new app: %v", err)
 	}
 	app.intentClassifierURL = classifier.URL
+	app.intentLLMURL = ""
 	t.Cleanup(func() {
 		_ = app.Shutdown(context.Background())
 	})
@@ -642,10 +643,10 @@ func TestHubProjectProfileUsesSparkLow(t *testing.T) {
 	if profile.Model != modelprofile.ModelForAlias(modelprofile.AliasSpark) {
 		t.Fatalf("hub profile model = %q, want spark model", profile.Model)
 	}
-	if got := strings.TrimSpace(profile.ThreadParams["model_reasoning_effort"].(string)); got != modelprofile.ReasoningLow {
-		t.Fatalf("hub thread reasoning = %q, want %q", got, modelprofile.ReasoningLow)
+	if profile.ThreadParams != nil {
+		t.Fatalf("hub thread params = %#v, want nil", profile.ThreadParams)
 	}
-	if got := strings.TrimSpace(profile.TurnParams["model_reasoning_effort"].(string)); got != modelprofile.ReasoningLow {
+	if got := strings.TrimSpace(profile.TurnParams["effort"].(string)); got != modelprofile.ReasoningLow {
 		t.Fatalf("hub turn reasoning = %q, want %q", got, modelprofile.ReasoningLow)
 	}
 }

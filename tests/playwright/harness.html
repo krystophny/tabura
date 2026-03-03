@@ -397,7 +397,8 @@
           body = {};
         }
         const model = String(body?.model || harnessProjects[index].chat_model || 'spark').trim().toLowerCase();
-        const effort = String(body?.reasoning_effort || harnessProjects[index].chat_model_reasoning_effort || 'low').trim().toLowerCase();
+        let effort = String(body?.reasoning_effort || harnessProjects[index].chat_model_reasoning_effort || 'low').trim().toLowerCase();
+        if (effort === 'extra_high') effort = 'xhigh';
         harnessProjects[index] = {
           ...harnessProjects[index],
           chat_model: model || harnessProjects[index].chat_model,
