@@ -82,7 +82,7 @@ Legacy plugin manifests (compatibility):
     }
   ],
   "engine": {
-    "tabura": ">=0.1.6"
+    "tabura": ">=0.1.7"
   },
   "signing": {
     "publisher": "acme-labs"
@@ -98,7 +98,7 @@ Notes:
 - Only `kind=webhook` is currently supported.
 - Timeout is capped at `30000ms`.
 - If `secret_env` resolves, Tabura sends `Authorization: Bearer <secret>`.
-- `engine.tabura` supports exact (`0.1.6`) or minimum (`>=0.1.0`) constraints.
+- `engine.tabura` supports exact (`0.1.7`) or minimum (`>=0.1.0`) constraints.
 
 ## Hook Contract
 
