@@ -150,3 +150,178 @@ func TestProjectCompanionSummaryAndReferencesAPIAndExports(t *testing.T) {
 		t.Fatalf("references markdown missing captured metadata: %q", rr.Body.String())
 	}
 }
+
+func TestProjectCompanionRoomMemoryDerivesFromTranscriptAndEvents(t *testing.T) {
+	app := newAuthedTestApp(t)
+	project, session := seedProjectCompanionSession(t, app)
+
+	if err := app.store.AddParticipantEvent(session.ID, 0, "session_started", `{"reason":"manual"}`); err != nil {
+		t.Fatalf("AddParticipantEvent session_started: %v", err)
+	}
+	seg1, err := app.store.AddParticipantSegment(store.ParticipantSegment{
+		SessionID:   session.ID,
+		StartTS:     100,
+		EndTS:       101,
+		Speaker:     "Alice",
+		Text:        "Review the Acme Cloud budget before Friday.",
+		CommittedAt: 102,
+		Status:      "final",
+	})
+	if err != nil {
+		t.Fatalf("AddParticipantSegment seg1: %v", err)
+	}
+	seg2, err := app.store.AddParticipantSegment(store.ParticipantSegment{
+		SessionID:   session.ID,
+		StartTS:     120,
+		EndTS:       121,
+		Speaker:     "Bob",
+		Text:        "Bob will send Contoso follow-up notes after the meeting.",
+		CommittedAt: 122,
+		Status:      "final",
+	})
+	if err != nil {
+		t.Fatalf("AddParticipantSegment seg2: %v", err)
+	}
+	if err := app.store.AddParticipantEvent(session.ID, seg1.ID, "segment_committed", `{"text":"Review the Acme Cloud budget before Friday."}`); err != nil {
+		t.Fatalf("AddParticipantEvent segment_committed seg1: %v", err)
+	}
+	if err := app.store.AddParticipantEvent(session.ID, seg2.ID, "segment_committed", `{"text":"Bob will send Contoso follow-up notes after the meeting."}`); err != nil {
+		t.Fatalf("AddParticipantEvent segment_committed seg2: %v", err)
+	}
+	if err := app.store.AddParticipantEvent(session.ID, seg2.ID, "assistant_triggered", `{"chat_session_id":"chat-1"}`); err != nil {
+		t.Fatalf("AddParticipantEvent assistant_triggered: %v", err)
+	}
+	if err := app.store.AddParticipantEvent(session.ID, seg2.ID, "assistant_turn_completed", `{"chat_session_id":"chat-1"}`); err != nil {
+		t.Fatalf("AddParticipantEvent assistant_turn_completed: %v", err)
+	}
+
+	rr := doAuthedJSONRequest(t, app.Router(), http.MethodGet, "/api/projects/"+project.ID+"/summary", nil)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("GET derived summary status = %d, want 200", rr.Code)
+	}
+	var summary companionSummaryResponse
+	if err := json.Unmarshal(rr.Body.Bytes(), &summary); err != nil {
+		t.Fatalf("decode derived summary payload: %v", err)
+	}
+	if summary.Session == nil || summary.Session.ID != session.ID {
+		t.Fatalf("summary session = %#v, want %q", summary.Session, session.ID)
+	}
+	if !strings.Contains(summary.SummaryText, "Assistant response completed") {
+		t.Fatalf("summary_text = %q, want assistant completion topic", summary.SummaryText)
+	}
+	if !strings.Contains(summary.SummaryText, "Acme Cloud") {
+		t.Fatalf("summary_text = %q, want derived entity", summary.SummaryText)
+	}
+
+	rr = doAuthedJSONRequest(t, app.Router(), http.MethodGet, "/api/projects/"+project.ID+"/references", nil)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("GET derived references status = %d, want 200", rr.Code)
+	}
+	var refs companionReferencesResponse
+	if err := json.Unmarshal(rr.Body.Bytes(), &refs); err != nil {
+		t.Fatalf("decode derived references payload: %v", err)
+	}
+	for _, want := range []string{"Alice", "Bob", "Acme Cloud", "Contoso"} {
+		if !containsString(refs.Entities, want) {
+			t.Fatalf("entities = %#v, want %q", refs.Entities, want)
+		}
+	}
+	if len(refs.TopicTimeline) != 5 {
+		t.Fatalf("topic_timeline = %d, want 5", len(refs.TopicTimeline))
+	}
+	if !topicTimelineContains(refs.TopicTimeline, "Session started") {
+		t.Fatalf("topic_timeline = %#v, want Session started entry", refs.TopicTimeline)
+	}
+	last, ok := refs.TopicTimeline[len(refs.TopicTimeline)-1].(map[string]any)
+	if !ok {
+		t.Fatalf("last topic timeline entry type = %T, want map[string]any", refs.TopicTimeline[len(refs.TopicTimeline)-1])
+	}
+	if got := strings.TrimSpace(last["topic"].(string)); got != "Assistant response completed" {
+		t.Fatalf("last topic = %q, want Assistant response completed", got)
+	}
+
+	rr = doAuthedJSONRequest(t, app.Router(), http.MethodGet, "/api/projects/"+project.ID+"/references?format=md", nil)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("GET derived references markdown status = %d, want 200", rr.Code)
+	}
+	if !strings.Contains(rr.Body.String(), "Alice: Review the Acme Cloud budget before Friday") {
+		t.Fatalf("references markdown missing derived segment timeline: %q", rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), "Assistant response completed") {
+		t.Fatalf("references markdown missing derived assistant event: %q", rr.Body.String())
+	}
+}
+
+func TestProjectCompanionRoomMemoryIsProjectScoped(t *testing.T) {
+	app := newAuthedTestApp(t)
+	project, session := seedProjectCompanionSession(t, app)
+
+	otherProject, err := app.store.CreateProject("Meeting Temp", "meeting-temp", t.TempDir(), "managed", "", "", false)
+	if err != nil {
+		t.Fatalf("CreateProject other: %v", err)
+	}
+	otherSession, err := app.store.AddParticipantSession(otherProject.ProjectKey, "{}")
+	if err != nil {
+		t.Fatalf("AddParticipantSession other: %v", err)
+	}
+
+	if _, err := app.store.AddParticipantSegment(store.ParticipantSegment{
+		SessionID:   session.ID,
+		StartTS:     100,
+		EndTS:       101,
+		Speaker:     "Alice",
+		Text:        "Discuss the Acme Cloud budget.",
+		CommittedAt: 102,
+		Status:      "final",
+	}); err != nil {
+		t.Fatalf("AddParticipantSegment primary: %v", err)
+	}
+	if _, err := app.store.AddParticipantSegment(store.ParticipantSegment{
+		SessionID:   otherSession.ID,
+		StartTS:     200,
+		EndTS:       201,
+		Speaker:     "Mallory",
+		Text:        "Discuss the Zeus acquisition.",
+		CommittedAt: 202,
+		Status:      "final",
+	}); err != nil {
+		t.Fatalf("AddParticipantSegment other: %v", err)
+	}
+
+	rr := doAuthedJSONRequest(t, app.Router(), http.MethodGet, "/api/projects/"+project.ID+"/references", nil)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("GET scoped references status = %d, want 200", rr.Code)
+	}
+	var refs companionReferencesResponse
+	if err := json.Unmarshal(rr.Body.Bytes(), &refs); err != nil {
+		t.Fatalf("decode scoped references payload: %v", err)
+	}
+	if !containsString(refs.Entities, "Acme Cloud") {
+		t.Fatalf("entities = %#v, want Acme Cloud", refs.Entities)
+	}
+	if containsString(refs.Entities, "Zeus") || containsString(refs.Entities, "Mallory") {
+		t.Fatalf("entities leaked across projects: %#v", refs.Entities)
+	}
+}
+
+func containsString(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
+}
+
+func topicTimelineContains(items []any, want string) bool {
+	for _, item := range items {
+		typed, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		if strings.TrimSpace(typed["topic"].(string)) == want {
+			return true
+		}
+	}
+	return false
+}

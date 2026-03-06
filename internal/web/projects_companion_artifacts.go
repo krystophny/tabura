@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/krystophny/tabura/internal/roomstate"
 	"github.com/krystophny/tabura/internal/store"
 )
 
@@ -144,6 +145,120 @@ func parseCompanionTopicTimeline(raw string) []any {
 	return out
 }
 
+func mergeCompanionEntities(primary, secondary []string) []string {
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(primary)+len(secondary))
+	for _, entity := range append(primary, secondary...) {
+		clean := strings.TrimSpace(entity)
+		if clean == "" {
+			continue
+		}
+		key := strings.ToLower(clean)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, clean)
+	}
+	return out
+}
+
+func normalizeTimelineKey(item any) string {
+	data, err := json.Marshal(item)
+	if err != nil {
+		return strings.TrimSpace(fmt.Sprint(item))
+	}
+	return string(data)
+}
+
+func mergeCompanionTopicTimeline(primary, secondary []any) []any {
+	seen := map[string]struct{}{}
+	out := make([]any, 0, len(primary)+len(secondary))
+	for _, item := range append(primary, secondary...) {
+		key := normalizeTimelineKey(item)
+		if key == "" {
+			continue
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, item)
+	}
+	return out
+}
+
+func formatCompanionTopicTimelineItem(item any) string {
+	if typed, ok := item.(map[string]any); ok {
+		topic := strings.TrimSpace(fmt.Sprint(typed["topic"]))
+		speaker := strings.TrimSpace(fmt.Sprint(typed["speaker"]))
+		detail := strings.TrimSpace(fmt.Sprint(typed["detail"]))
+		if topic == "<nil>" {
+			topic = ""
+		}
+		if speaker == "<nil>" {
+			speaker = ""
+		}
+		if detail == "<nil>" {
+			detail = ""
+		}
+		switch {
+		case speaker != "" && detail != "" && detail != topic:
+			return fmt.Sprintf("%s: %s (%s)", speaker, topic, detail)
+		case speaker != "" && topic != "":
+			return fmt.Sprintf("%s: %s", speaker, topic)
+		case topic != "" && detail != "" && detail != topic:
+			return fmt.Sprintf("%s (%s)", topic, detail)
+		case topic != "":
+			return topic
+		case detail != "":
+			return detail
+		}
+	}
+	return strings.TrimSpace(fmt.Sprint(item))
+}
+
+type companionRoomMemory struct {
+	SummaryText   string
+	UpdatedAt     int64
+	Entities      []string
+	TopicTimeline []any
+}
+
+func (a *App) loadCompanionRoomMemory(sessionID string) (companionRoomMemory, error) {
+	segments, err := a.store.ListParticipantSegments(sessionID, 0, 0)
+	if err != nil {
+		return companionRoomMemory{}, err
+	}
+	events, err := a.store.ListParticipantEvents(sessionID)
+	if err != nil {
+		return companionRoomMemory{}, err
+	}
+	derived := roomstate.Derive(segments, events)
+	memory := companionRoomMemory{
+		SummaryText:   derived.SummaryText,
+		UpdatedAt:     derived.UpdatedAt,
+		Entities:      derived.Entities,
+		TopicTimeline: derived.TopicTimeline,
+	}
+	state, err := a.store.GetParticipantRoomState(sessionID)
+	if err != nil {
+		if isNoRows(err) {
+			return memory, nil
+		}
+		return companionRoomMemory{}, err
+	}
+	if strings.TrimSpace(state.SummaryText) != "" {
+		memory.SummaryText = state.SummaryText
+	}
+	if state.UpdatedAt > memory.UpdatedAt {
+		memory.UpdatedAt = state.UpdatedAt
+	}
+	memory.Entities = mergeCompanionEntities(parseCompanionEntities(state.EntitiesJSON), memory.Entities)
+	memory.TopicTimeline = mergeCompanionTopicTimeline(parseCompanionTopicTimeline(state.TopicTimelineJSON), memory.TopicTimeline)
+	return memory, nil
+}
+
 func respondCompanionArtifact(w http.ResponseWriter, format string, payload any, markdownText, plainText string) {
 	switch strings.ToLower(strings.TrimSpace(format)) {
 	case "", "json":
@@ -272,7 +387,7 @@ func renderCompanionReferencesMarkdown(session *store.ParticipantSession, entiti
 		return b.String()
 	}
 	for _, topic := range topics {
-		fmt.Fprintf(&b, "- %s\n", strings.TrimSpace(fmt.Sprint(topic)))
+		fmt.Fprintf(&b, "- %s\n", formatCompanionTopicTimelineItem(topic))
 	}
 	return b.String()
 }
@@ -297,7 +412,7 @@ func renderCompanionReferencesText(session *store.ParticipantSession, entities [
 		return b.String()
 	}
 	for _, topic := range topics {
-		fmt.Fprintf(&b, "- %s\n", strings.TrimSpace(fmt.Sprint(topic)))
+		fmt.Fprintf(&b, "- %s\n", formatCompanionTopicTimelineItem(topic))
 	}
 	return b.String()
 }
@@ -348,15 +463,13 @@ func (a *App) handleProjectCompanionSummary(w http.ResponseWriter, r *http.Reque
 	summaryText := ""
 	updatedAt := int64(0)
 	if session != nil {
-		state, err := a.store.GetParticipantRoomState(session.ID)
-		if err != nil && !isNoRows(err) {
+		memory, err := a.loadCompanionRoomMemory(session.ID)
+		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		if err == nil {
-			summaryText = state.SummaryText
-			updatedAt = state.UpdatedAt
-		}
+		summaryText = memory.SummaryText
+		updatedAt = memory.UpdatedAt
 	}
 	payload := companionSummaryResponse{
 		OK:          true,
@@ -381,15 +494,13 @@ func (a *App) handleProjectCompanionReferences(w http.ResponseWriter, r *http.Re
 	entities := []string{}
 	topics := []any{}
 	if session != nil {
-		state, err := a.store.GetParticipantRoomState(session.ID)
-		if err != nil && !isNoRows(err) {
+		memory, err := a.loadCompanionRoomMemory(session.ID)
+		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		if err == nil {
-			entities = parseCompanionEntities(state.EntitiesJSON)
-			topics = parseCompanionTopicTimeline(state.TopicTimelineJSON)
-		}
+		entities = memory.Entities
+		topics = memory.TopicTimeline
 	}
 	payload := companionReferencesResponse{
 		OK:            true,
