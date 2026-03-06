@@ -10,7 +10,6 @@ import {
   getActiveTextEventId,
   getPreviousArtifactText,
 } from './canvas.js';
-import { createEmptyCanvasRipple } from './empty-canvas-ripple.js';
 import {
   getUiState, setUiMode,
   showIndicatorMode, hideIndicator,
@@ -58,10 +57,14 @@ const state = {
   projectsOpen: false,
   projectSwitchInFlight: false,
   projectModelSwitchInFlight: false,
+  inputMode: 'voice',
+  startupBehavior: 'hub_first',
+  interactionMode: 'ask',
   ttsSilent: false,
   yoloMode: false,
   disclaimerAckRequired: false,
   disclaimerVersion: '',
+  welcomeSurface: null,
   pendingByTurn: new Map(),
   pendingQueue: [],
   assistantActiveTurns: new Set(),
@@ -114,6 +117,8 @@ const state = {
   workspaceStepInFlight: false,
   prReviewAwaitingArtifact: false,
   artifactEditMode: false,
+  reviewBatch: [],
+  reviewSubmitInFlight: false,
 };
 
 export function getState() {
@@ -197,7 +202,6 @@ let assistantActivityInFlight = false;
 let assistantSilentCancelInFlight = false;
 let chatWsLastMessageAt = 0;
 let suppressClickUntil = 0;
-let emptyCanvasRipple = null;
 
 const ACTIVE_PROJECT_STORAGE_KEY = 'tabura.activeProjectId';
 const LAST_VIEW_STORAGE_KEY = 'tabura.lastView';
@@ -778,11 +782,7 @@ function settleKeyboardAfterSubmit() {
 
 function setTTSSilentMode(silent, { persist = true, pinPanel = true } = {}) {
   const next = Boolean(silent);
-  if (state.ttsSilent === next) return;
   state.ttsSilent = next;
-  if (persist) {
-    persistTTSSilentPreference(next);
-  }
   if (next) {
     cancelConversationListen();
     stopTTSPlayback();
@@ -801,8 +801,16 @@ function setTTSSilentMode(silent, { persist = true, pinPanel = true } = {}) {
 function toggleTTSSilentMode() {
   if (!ttsEnabled) return;
   const next = !state.ttsSilent;
-  setTTSSilentMode(next);
-  showStatus(next ? 'silent mode on' : 'voice mode on');
+  updateRuntimePreferences({ silent_mode: next })
+    .then(() => {
+      setTTSSilentMode(next, { persist: false });
+      showStatus(next ? 'silent mode on' : 'voice mode on');
+      void showWelcomeForActiveProject();
+    })
+    .catch((err) => {
+      showStatus(`silent update failed: ${String(err?.message || err || 'unknown error')}`);
+      renderEdgeTopModelButtons();
+    });
 }
 
 // Single shared AudioContext — created once, unlocked via resume() on user
@@ -1033,8 +1041,40 @@ function applyRuntimePreferences(runtime) {
   } else {
     setYoloModeLocal(readYoloModePreference(), { persist: false, render: false });
   }
+  const runtimeSilent = parseOptionalBoolean(runtime?.silent_mode);
+  state.ttsSilent = runtimeSilent === true;
+  state.inputMode = String(runtime?.input_mode || 'voice').trim().toLowerCase() === 'typing' ? 'typing' : 'voice';
+  state.startupBehavior = String(runtime?.startup_behavior || 'hub_first').trim().toLowerCase() || 'hub_first';
   state.disclaimerVersion = String(runtime?.disclaimer_version || '').trim();
   state.disclaimerAckRequired = Boolean(runtime?.disclaimer_ack_required);
+}
+
+async function updateRuntimePreferences(patch) {
+  const resp = await fetch('/api/runtime/preferences', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch || {}),
+  });
+  if (!resp.ok) {
+    const detail = (await resp.text()).trim() || `HTTP ${resp.status}`;
+    throw new Error(detail);
+  }
+  const payload = await resp.json();
+  const silent = parseOptionalBoolean(payload?.silent_mode);
+  if (silent !== null) {
+    state.ttsSilent = silent;
+  }
+  state.inputMode = String(payload?.input_mode || state.inputMode || 'voice').trim().toLowerCase() === 'typing' ? 'typing' : 'voice';
+  state.startupBehavior = String(payload?.startup_behavior || state.startupBehavior || 'hub_first').trim().toLowerCase() || 'hub_first';
+  renderEdgeTopModelButtons();
+  return payload;
+}
+
+function setInteractionMode(mode) {
+  state.interactionMode = String(mode || '').trim().toLowerCase() === 'review' ? 'review' : 'ask';
+  document.body.classList.toggle('canvas-review-mode', state.interactionMode === 'review');
+  renderEdgeTopModelButtons();
+  renderReviewBatchPanel();
 }
 
 async function acknowledgeDisclaimer(version) {
@@ -2154,7 +2194,6 @@ function showCanvasColumn(paneId) {
     }
   }
   state.hasArtifact = true;
-  if (emptyCanvasRipple) emptyCanvasRipple.setEnabled(false);
   setUiMode('artifact');
   persistLastView({ mode: 'artifact' });
   if (!isVoiceTurn() && isDirectAssistantWorking()) {
@@ -2182,7 +2221,6 @@ function hideCanvasColumn() {
       p.classList.remove('is-active');
     });
   }
-  if (emptyCanvasRipple) emptyCanvasRipple.setEnabled(true);
   updateAssistantActivityIndicator();
 }
 
@@ -2753,6 +2791,7 @@ async function openWorkspaceSidebarFile(path) {
   const filePath = normalizeWorkspaceBrowserPath(path);
   if (!filePath) return false;
   state.fileSidebarMode = 'workspace';
+  clearWelcomeSurface();
   const kind = sidebarFileKindForPath(filePath);
   if (kind === 'image_artifact') {
     state.workspaceOpenFilePath = filePath;
@@ -2868,6 +2907,7 @@ function renderActivePrReviewFile() {
   }
   const file = files[state.prReviewActiveIndex];
   if (!file) return false;
+  clearWelcomeSurface();
   renderCanvas({
     kind: 'text_artifact',
     event_id: `pr-review-${Date.now()}-${state.prReviewActiveIndex}`,
@@ -3222,6 +3262,291 @@ function clearChatHistory() {
   if (host) host.innerHTML = '';
 }
 
+function clearWelcomeSurface() {
+  state.welcomeSurface = null;
+  const canvasText = document.getElementById('canvas-text');
+  if (canvasText instanceof HTMLElement) {
+    canvasText.classList.remove('welcome-surface');
+  }
+}
+
+function activeWelcomeProjectID() {
+  if (state.welcomeSurface && typeof state.welcomeSurface === 'object') {
+    return String(state.welcomeSurface.project_id || '').trim();
+  }
+  return '';
+}
+
+async function handleWelcomeAction(action) {
+  const type = String(action?.type || '').trim();
+  if (!type) return;
+  if (type === 'switch_project') {
+    const projectID = String(action?.project_id || '').trim();
+    if (!projectID || projectID === 'hub') {
+      const hub = hubProject();
+      if (hub?.id) {
+        await switchProject(hub.id);
+      }
+      return;
+    }
+    await switchProject(projectID);
+    return;
+  }
+  if (type === 'open_file') {
+    const filePath = String(action?.path || '').trim();
+    if (filePath) {
+      await openWorkspaceSidebarFile(filePath);
+    }
+    return;
+  }
+  if (type === 'set_silent_mode') {
+    const next = parseOptionalBoolean(action?.silent_mode);
+    if (next !== null) {
+      await updateRuntimePreferences({ silent_mode: next });
+      setTTSSilentMode(next, { persist: false });
+      await showWelcomeForActiveProject(true);
+    }
+    return;
+  }
+  if (type === 'set_input_mode') {
+    const next = String(action?.input_mode || '').trim().toLowerCase() === 'typing' ? 'typing' : 'voice';
+    await updateRuntimePreferences({ input_mode: next });
+    await showWelcomeForActiveProject(true);
+    return;
+  }
+  if (type === 'set_startup_behavior') {
+    await updateRuntimePreferences({ startup_behavior: 'hub_first' });
+    await showWelcomeForActiveProject(true);
+  }
+}
+
+function renderWelcomeSurface(payload) {
+  const canvasText = document.getElementById('canvas-text');
+  if (!(canvasText instanceof HTMLElement)) return;
+  const sections = Array.isArray(payload?.sections) ? payload.sections : [];
+  const title = String(payload?.title || 'Welcome').trim() || 'Welcome';
+  const subtitle = isHubActive()
+    ? 'Choose a project or change a global runtime preference.'
+    : 'Pick up a recent file, open docs, or switch modes before asking.';
+  const normalizedSections = sections.map((section, index) => ({
+    ...section,
+    _sectionIndex: index,
+  }));
+  const sectionHtml = normalizedSections.map((section) => {
+    const cards = Array.isArray(section?.cards) ? section.cards : [];
+    const cardsHtml = cards.map((card, index) => `
+      <button
+        type="button"
+        class="welcome-card"
+        data-section-index="${Number(section?._sectionIndex ?? 0)}"
+        data-card-index="${index}"
+      >
+        <span class="welcome-card-title">${escapeHtml(String(card?.title || 'Open'))}</span>
+        ${card?.subtitle ? `<span class="welcome-card-subtitle">${escapeHtml(String(card.subtitle || ''))}</span>` : ''}
+        ${card?.description ? `<span class="welcome-card-description">${escapeHtml(String(card.description || ''))}</span>` : ''}
+      </button>
+    `).join('');
+    return `
+      <section class="welcome-section">
+        <div class="welcome-section-title">${escapeHtml(String(section?.title || 'Section'))}</div>
+        <div class="welcome-card-grid">${cardsHtml}</div>
+      </section>
+    `;
+  }).join('');
+  state.welcomeSurface = {
+    ...payload,
+    sections: normalizedSections,
+  };
+  canvasText.classList.add('welcome-surface');
+  canvasText.innerHTML = `
+    <div class="welcome-surface-root">
+      <div>
+        <div class="welcome-surface-title">${escapeHtml(title)}</div>
+        <div class="welcome-surface-subtitle">${escapeHtml(subtitle)}</div>
+      </div>
+      ${sectionHtml}
+    </div>
+  `;
+  canvasText.querySelectorAll('.welcome-card').forEach((node) => {
+    node.addEventListener('click', (event) => {
+      const target = event.currentTarget;
+      if (!(target instanceof HTMLElement)) return;
+      const sectionIndex = Number.parseInt(target.dataset.sectionIndex || '', 10);
+      const cardIndex = Number.parseInt(target.dataset.cardIndex || '', 10);
+      if (!Number.isFinite(sectionIndex) || !Number.isFinite(cardIndex)) return;
+      const section = state.welcomeSurface?.sections?.[sectionIndex];
+      const card = section?.cards?.[cardIndex];
+      if (!card?.action) return;
+      void handleWelcomeAction(card.action);
+    });
+  });
+  showCanvasColumn('canvas-text');
+}
+
+async function fetchProjectWelcome(projectID = 'active') {
+  const resp = await fetch(`/api/projects/${encodeURIComponent(projectID)}/welcome`, { cache: 'no-store' });
+  if (!resp.ok) {
+    const detail = (await resp.text()).trim() || `HTTP ${resp.status}`;
+    throw new Error(detail);
+  }
+  return resp.json();
+}
+
+async function showWelcomeForActiveProject(force = false) {
+  const project = activeProject();
+  if (!project?.id) return;
+  if (!force && state.hasArtifact && activeWelcomeProjectID() !== project.id) return;
+  if (state.prReviewMode || state.artifactEditMode) return;
+  const payload = await fetchProjectWelcome(project.id);
+  if (String(payload?.project_id || '').trim() !== project.id) return;
+  renderWelcomeSurface(payload);
+}
+
+function shouldUseBottomComposer() {
+  return window.matchMedia('(max-width: 767px)').matches;
+}
+
+function openComposerAt(x, y, anchor = null, initialText = '') {
+  const text = String(initialText || '');
+  if (shouldUseBottomComposer()) {
+    const edgeRight = document.getElementById('edge-right');
+    const input = document.getElementById('chat-pane-input');
+    setInputAnchor(anchor);
+    if (edgeRight instanceof HTMLElement) {
+      edgeRight.classList.add('edge-active', 'edge-pinned');
+    }
+    if (input instanceof HTMLTextAreaElement) {
+      input.focus();
+      input.value = text;
+      const caret = text.length;
+      input.setSelectionRange(caret, caret);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    return;
+  }
+  showTextInput(x, y, anchor);
+  if (!text) return;
+  const input = document.getElementById('floating-input');
+  if (input instanceof HTMLTextAreaElement) {
+    input.value = text;
+    const caret = text.length;
+    input.setSelectionRange(caret, caret);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+}
+
+function formatReviewAnchor(anchor) {
+  if (!anchor || typeof anchor !== 'object') return 'annotation';
+  const title = String(anchor.title || getActiveArtifactTitle() || '').trim();
+  const line = Number(anchor.line || 0);
+  const page = Number(anchor.page || 0);
+  if (page > 0 && title) return `${title} · page ${page}`;
+  if (page > 0) return `page ${page}`;
+  if (line > 0 && title) return `${title} · line ${line}`;
+  if (line > 0) return `line ${line}`;
+  return title || 'annotation';
+}
+
+function renderReviewBatchPanel() {
+  const panel = document.getElementById('review-batch-panel');
+  const list = document.getElementById('review-batch-list');
+  const submit = document.getElementById('review-batch-submit');
+  const clear = document.getElementById('review-batch-clear');
+  if (!(panel instanceof HTMLElement) || !(list instanceof HTMLElement)) return;
+  const visible = state.interactionMode === 'review';
+  panel.style.display = visible ? '' : 'none';
+  if (!visible) return;
+  list.innerHTML = '';
+  if (state.reviewBatch.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'review-batch-item';
+    empty.textContent = 'No comments collected yet.';
+    list.appendChild(empty);
+  } else {
+    state.reviewBatch.forEach((item, index) => {
+      const row = document.createElement('div');
+      row.className = 'review-batch-item';
+      row.innerHTML = `
+        <div class="review-batch-item-loc">${escapeHtml(formatReviewAnchor(item.anchor))}</div>
+        <div class="review-batch-item-text">${escapeHtml(String(item.text || ''))}</div>
+      `;
+      row.title = `Comment ${index + 1}`;
+      list.appendChild(row);
+    });
+  }
+  if (submit instanceof HTMLButtonElement) {
+    submit.disabled = state.reviewSubmitInFlight || state.reviewBatch.length === 0;
+  }
+  if (clear instanceof HTMLButtonElement) {
+    clear.disabled = state.reviewSubmitInFlight || state.reviewBatch.length === 0;
+  }
+}
+
+function addReviewBatchItem(text, anchor) {
+  const content = String(text || '').trim();
+  if (!content) return false;
+  state.reviewBatch.push({
+    text: content,
+    anchor: anchor || null,
+    created_at: Date.now(),
+  });
+  renderReviewBatchPanel();
+  showStatus(`queued comment ${state.reviewBatch.length}`);
+  return true;
+}
+
+function activeArtifactKindForReview() {
+  const activePane = document.querySelector('#canvas-viewport .canvas-pane.is-active');
+  if (!(activePane instanceof HTMLElement)) return 'text';
+  if (activePane.id === 'canvas-pdf') return 'pdf';
+  if (activePane.id === 'canvas-image') return 'image';
+  return 'text';
+}
+
+async function submitReviewBatch() {
+  if (state.reviewSubmitInFlight || state.reviewBatch.length === 0) return false;
+  const project = activeProject();
+  if (!project?.id) return false;
+  state.reviewSubmitInFlight = true;
+  renderReviewBatchPanel();
+  try {
+    const payload = {
+      project_id: project.id,
+      artifact_kind: activeArtifactKindForReview(),
+      artifact_title: String(getActiveArtifactTitle() || ''),
+      artifact_path: String(state.workspaceOpenFilePath || ''),
+      comments: state.reviewBatch.map((item) => ({
+        text: String(item.text || ''),
+        anchor: item.anchor || {},
+      })),
+    };
+    const resp = await fetch('/api/review/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!resp.ok) {
+      const detail = (await resp.text()).trim() || `HTTP ${resp.status}`;
+      throw new Error(detail);
+    }
+    const result = await resp.json();
+    state.reviewBatch = [];
+    renderReviewBatchPanel();
+    const reviewPath = String(result?.review_markdown_path || '').trim();
+    showStatus(reviewPath ? `review saved: ${reviewPath}` : 'review submitted');
+    if (reviewPath) {
+      await openWorkspaceSidebarFile(reviewPath);
+    }
+    return true;
+  } catch (err) {
+    showStatus(`review submit failed: ${String(err?.message || err || 'unknown error')}`);
+    return false;
+  } finally {
+    state.reviewSubmitInFlight = false;
+    renderReviewBatchPanel();
+  }
+}
+
 async function fetchProjects() {
   const resp = await fetch('/api/projects', { cache: 'no-store' });
   if (!resp.ok) throw new Error(`projects list failed: HTTP ${resp.status}`);
@@ -3253,6 +3578,10 @@ function upsertProject(project) {
 }
 
 function resolveInitialProjectID() {
+  if (state.startupBehavior === 'hub_first') {
+    const hub = hubProject();
+    if (hub?.id) return hub.id;
+  }
   if (state.serverActiveProjectId && state.projects.some((project) => project.id === state.serverActiveProjectId)) {
     return state.serverActiveProjectId;
   }
@@ -3384,6 +3713,53 @@ function renderEdgeTopModelButtons() {
     toggleTTSSilentMode();
   });
   host.appendChild(silentButton);
+
+  const inputButton = document.createElement('button');
+  inputButton.type = 'button';
+  inputButton.className = 'edge-project-btn edge-model-btn';
+  inputButton.textContent = state.inputMode === 'typing' ? 'typing' : 'voice';
+  if (state.inputMode === 'typing') {
+    inputButton.classList.add('is-active');
+  }
+  inputButton.disabled = state.projectSwitchInFlight || state.projectModelSwitchInFlight;
+  inputButton.addEventListener('click', () => {
+    const nextMode = state.inputMode === 'typing' ? 'voice' : 'typing';
+    updateRuntimePreferences({ input_mode: nextMode })
+      .then(() => {
+        showStatus(nextMode === 'typing' ? 'typing mode on' : 'voice mode on');
+        void showWelcomeForActiveProject(true);
+      })
+      .catch((err) => {
+        showStatus(`input mode failed: ${String(err?.message || err || 'unknown error')}`);
+      });
+  });
+  host.appendChild(inputButton);
+
+  const askButton = document.createElement('button');
+  askButton.type = 'button';
+  askButton.className = 'edge-project-btn edge-model-btn';
+  askButton.textContent = 'ask';
+  if (state.interactionMode === 'ask') {
+    askButton.classList.add('is-active');
+  }
+  askButton.addEventListener('click', () => {
+    setInteractionMode('ask');
+    showStatus('ask mode');
+  });
+  host.appendChild(askButton);
+
+  const reviewButton = document.createElement('button');
+  reviewButton.type = 'button';
+  reviewButton.className = 'edge-project-btn edge-model-btn';
+  reviewButton.textContent = 'review';
+  if (state.interactionMode === 'review') {
+    reviewButton.classList.add('is-active');
+  }
+  reviewButton.addEventListener('click', () => {
+    setInteractionMode('review');
+    showStatus('review mode');
+  });
+  host.appendChild(reviewButton);
 }
 
 async function switchProjectChatModel(modelAlias, reasoningEffort = '') {
@@ -3445,6 +3821,7 @@ async function activateProject(projectID) {
   setChatMode(project.chat_mode || 'chat');
   if (!state.chatSessionId) throw new Error('chat session ID missing');
   upsertProject(project);
+  clearWelcomeSurface();
   return project;
 }
 
@@ -4054,6 +4431,7 @@ async function switchProject(projectID) {
   closeCanvasWs();
   clearChatHistory();
   clearCanvas();
+  clearWelcomeSurface();
   state.workspaceOpenFilePath = '';
   state.workspaceStepInFlight = false;
   hideCanvasColumn();
@@ -4068,6 +4446,7 @@ async function switchProject(projectID) {
     renderEdgeTopProjects();
     await refreshWorkspaceBrowser(true);
     openCanvasWs();
+    await showWelcomeForActiveProject(true);
     await loadChatHistory();
     await refreshAssistantActivity();
     openChatWs();
@@ -4403,6 +4782,7 @@ async function handleStopAction() {
 }
 
 function applyCanvasArtifactEvent(payload) {
+  clearWelcomeSurface();
   if (state.artifactEditMode) {
     exitArtifactEditMode({ applyChanges: false });
   }
@@ -4414,6 +4794,7 @@ function applyCanvasArtifactEvent(payload) {
     exitPrReviewMode();
     renderCanvas(payload);
     hideCanvasColumn();
+    void showWelcomeForActiveProject(true);
     return;
   }
 
@@ -4494,6 +4875,7 @@ async function loadCanvasSnapshot(sessionID = state.sessionId) {
       if (!state.hasArtifact) {
         exitPrReviewMode();
         clearCanvas();
+        await showWelcomeForActiveProject(true);
       }
       return;
     }
@@ -4505,11 +4887,13 @@ async function loadCanvasSnapshot(sessionID = state.sessionId) {
     if (!state.hasArtifact) {
       exitPrReviewMode();
       clearCanvas();
+      await showWelcomeForActiveProject(true);
     }
   } catch (_) {
     if (!state.hasArtifact) {
       exitPrReviewMode();
       clearCanvas();
+      await showWelcomeForActiveProject(true);
     }
   }
 }
@@ -5069,14 +5453,7 @@ function bindUi() {
   const syncIndicatorOnViewportChange = () => {
     updateAssistantActivityIndicator();
   };
-  const emitEmptyCanvasRipple = (x, y, magnitude = 1) => {
-    if (state.hasArtifact || !emptyCanvasRipple) return;
-    if (!Number.isFinite(x) || !Number.isFinite(y)) return;
-    emptyCanvasRipple.addImpulse(x, y, magnitude);
-  };
   if (canvasViewport instanceof HTMLElement) {
-    emptyCanvasRipple = createEmptyCanvasRipple(canvasViewport);
-    emptyCanvasRipple.setEnabled(!state.hasArtifact);
     canvasViewport.addEventListener('scroll', syncIndicatorOnViewportChange, { passive: true, capture: true });
     let canvasSwipeStart = null;
     let canvasSwipeHandled = false;
@@ -5098,15 +5475,7 @@ function bindUi() {
       const touch = ev.touches[0];
       const dx = touch.clientX - canvasSwipeStart.x;
       const dy = touch.clientY - canvasSwipeStart.y;
-      if (!state.hasArtifact) {
-        const movement = Math.hypot(dx, dy);
-        if (movement > 1) {
-          const strength = Math.min(1.25, movement / 84);
-          emitEmptyCanvasRipple(touch.clientX, touch.clientY, strength);
-          canvasSwipeStart = { x: touch.clientX, y: touch.clientY };
-        }
-        return;
-      }
+      if (!state.hasArtifact) return;
       if (Math.abs(dx) < 48) return;
       if (Math.abs(dx) <= Math.abs(dy) * 1.25) return;
       const stepped = stepCanvasFile(dx < 0 ? 1 : -1);
@@ -5117,12 +5486,7 @@ function bindUi() {
     canvasViewport.addEventListener('touchend', resetCanvasSwipe, { passive: true });
     canvasViewport.addEventListener('touchcancel', resetCanvasSwipe, { passive: true });
     canvasViewport.addEventListener('wheel', (ev) => {
-      if (!state.hasArtifact) {
-        const intensity = Math.min(1.35, (Math.abs(ev.deltaX) + Math.abs(ev.deltaY)) / 140);
-        emitEmptyCanvasRipple(ev.clientX, ev.clientY, intensity);
-        ev.preventDefault();
-        return;
-      }
+      if (!state.hasArtifact) return;
       const absX = Math.abs(ev.deltaX);
       const absY = Math.abs(ev.deltaY);
       if (absX < 0.8) return;
@@ -5159,11 +5523,15 @@ function bindUi() {
     };
 
     const handleWorkspaceTap = (target, x, y) => {
-      emitEmptyCanvasRipple(x, y, 0.95);
       if (isConversationListenActive()) {
         if (isVoiceInteractionTarget(target, x, y)) return;
         cancelConversationListen();
-        void beginVoiceCaptureFromPoint(x, y);
+        if (state.interactionMode === 'review' || state.inputMode === 'typing') {
+          const anchor = state.hasArtifact && canvasText ? getAnchorFromPoint(x, y) : null;
+          openComposerAt(x, y, anchor);
+        } else {
+          void beginVoiceCaptureFromPoint(x, y);
+        }
         return;
       }
       if (isUiStopGestureActive()) {
@@ -5176,6 +5544,11 @@ function bindUi() {
       rememberMousePosition(x, y);
       if (isRecording()) {
         void stopVoiceCaptureAndSend();
+        return;
+      }
+      if (state.interactionMode === 'review' || state.inputMode === 'typing') {
+        const anchor = state.hasArtifact && canvasText ? getAnchorFromPoint(x, y) : null;
+        openComposerAt(x, y, anchor);
         return;
       }
       void beginVoiceCaptureFromPoint(x, y);
@@ -5199,7 +5572,6 @@ function bindUi() {
       }
       touchTapStartX = touch.clientX;
       touchTapStartY = touch.clientY;
-      emitEmptyCanvasRipple(touch.clientX, touch.clientY, 0.5);
       touchTapTracking = !isVoiceInteractionTarget(ev.target, touch.clientX, touch.clientY);
       touchTapMoved = false;
       touchLongTapTriggered = false;
@@ -5282,7 +5654,7 @@ function bindUi() {
       if (state.hasArtifact && canvasText) {
         anchor = getAnchorFromPoint(ev.clientX, ev.clientY);
       }
-      showTextInput(ev.clientX, ev.clientY, anchor);
+      openComposerAt(ev.clientX, ev.clientY, anchor);
     });
   }
 
@@ -5298,11 +5670,16 @@ function bindUi() {
         const text = floatingInput.value.trim();
         if (text) {
           state.lastInputOrigin = 'text';
+          const anchor = getInputAnchor();
           floatingInput.value = '';
           floatingInput.blur();
           hideTextInput();
           settleKeyboardAfterSubmit();
-          void submitMessage(text);
+          if (state.interactionMode === 'review') {
+            addReviewBatchItem(text, anchor);
+          } else {
+            void submitMessage(text);
+          }
         }
       }
       if (ev.key === 'Escape') {
@@ -5332,7 +5709,11 @@ function bindUi() {
           chatPaneInput.style.height = '';
           chatPaneInput.blur();
           settleKeyboardAfterSubmit();
-          void submitMessage(text);
+          if (state.interactionMode === 'review') {
+            addReviewBatchItem(text, getInputAnchor());
+          } else {
+            void submitMessage(text);
+          }
         }
       }
       if (ev.key === 'Escape') {
@@ -5348,6 +5729,21 @@ function bindUi() {
       chatPaneInput.style.height = `${Math.min(chatPaneInput.scrollHeight, 240)}px`;
     });
 
+  }
+
+  const reviewBatchClear = document.getElementById('review-batch-clear');
+  if (reviewBatchClear instanceof HTMLButtonElement) {
+    reviewBatchClear.addEventListener('click', () => {
+      state.reviewBatch = [];
+      renderReviewBatchPanel();
+      showStatus('review batch cleared');
+    });
+  }
+  const reviewBatchSubmit = document.getElementById('review-batch-submit');
+  if (reviewBatchSubmit instanceof HTMLButtonElement) {
+    reviewBatchSubmit.addEventListener('click', () => {
+      void submitReviewBatch();
+    });
   }
 
   // Voice tap on chat history (only when panel is pinned, not just hover-active)
@@ -5504,18 +5900,13 @@ function bindUi() {
         ev.preventDefault();
         return;
       }
+      if (state.inputMode !== 'typing' && state.interactionMode !== 'review') {
+        return;
+      }
       const cx = window.innerWidth / 2 - 130;
       const cy = window.innerHeight / 2;
       cancelConversationListen();
-      showTextInput(cx, cy, null);
-      // Forward the keystroke
-      const input = document.getElementById('floating-input');
-      if (input instanceof HTMLTextAreaElement) {
-        input.value = ev.key;
-        const caret = ev.key.length;
-        input.setSelectionRange(caret, caret);
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-      }
+      openComposerAt(cx, cy, null, ev.key);
       ev.preventDefault();
       return;
     }
@@ -5603,7 +5994,7 @@ async function init() {
     setYoloModeLocal(readYoloModePreference(), { persist: false, render: false });
   }
   await showDisclaimerModal().catch(() => {});
-  setTTSSilentMode(readTTSSilentPreference(), { persist: false, pinPanel: false });
+  setTTSSilentMode(state.ttsSilent, { persist: false, pinPanel: false });
   await initHotwordLifecycle();
 
   await fetchProjects();

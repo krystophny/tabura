@@ -47,6 +47,9 @@ const (
 	appStateYoloModeKey         = "safety.yolo_mode"
 	appStateDisclaimerAckKey    = "safety.disclaimer_ack.version"
 	appStateDisclaimerAckAtKey  = "safety.disclaimer_ack.timestamp"
+	appStateSilentModeKey       = "runtime.silent_mode"
+	appStateInputModeKey        = "runtime.input_mode"
+	appStateStartupBehaviorKey  = "runtime.startup_behavior"
 	disclaimerVersionCurrent    = "2026-03-03-v1"
 )
 
@@ -333,6 +336,7 @@ func (a *App) Router() http.Handler {
 
 	// runtime
 	r.Get("/api/runtime", a.handleRuntime)
+	r.Patch("/api/runtime/preferences", a.handleRuntimePreferencesUpdate)
 	r.Post("/api/runtime/yolo", a.handleRuntimeYoloModeUpdate)
 	r.Post("/api/runtime/disclaimer-ack", a.handleRuntimeDisclaimerAck)
 	r.Get("/api/plugins", a.handlePlugins)
@@ -345,6 +349,8 @@ func (a *App) Router() http.Handler {
 	r.Post("/api/projects/{project_id}/chat-model", a.handleProjectChatModelUpdate)
 	r.Get("/api/projects/{project_id}/context", a.handleProjectContext)
 	r.Get("/api/projects/{project_id}/files", a.handleProjectFilesList)
+	r.Get("/api/projects/{project_id}/welcome", a.handleProjectWelcome)
+	r.Post("/api/review/submit", a.handleReviewSubmit)
 	r.Post("/api/chat/sessions", a.handleChatSessionCreate)
 	r.Get("/api/chat/sessions/{session_id}/history", a.handleChatSessionHistory)
 	r.Get("/api/chat/sessions/{session_id}/activity", a.handleChatSessionActivity)
@@ -527,6 +533,9 @@ func (a *App) handleRuntime(w http.ResponseWriter, r *http.Request) {
 		"available_reasoning_efforts": modelprofile.AvailableReasoningEffortsByAlias(),
 		"stt_url":                     a.sttURL,
 		"tts_enabled":                 a.ttsURL != "",
+		"silent_mode":                 a.silentModeEnabled(),
+		"input_mode":                  a.runtimeInputMode(),
+		"startup_behavior":            a.runtimeStartupBehavior(),
 		"safety_yolo_mode":            a.yoloModeEnabled(),
 		"disclaimer_version":          disclaimerVersionCurrent,
 		"disclaimer_ack_required":     a.disclaimerAckRequired(),
