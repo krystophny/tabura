@@ -351,6 +351,7 @@ func (a *App) Router() http.Handler {
 	r.Get("/api/projects/{project_id}/context", a.handleProjectContext)
 	r.Get("/api/projects/{project_id}/files", a.handleProjectFilesList)
 	r.Get("/api/projects/{project_id}/welcome", a.handleProjectWelcome)
+	r.Post("/api/ink/submit", a.handleInkSubmit)
 	r.Post("/api/review/submit", a.handleReviewSubmit)
 	r.Post("/api/chat/sessions", a.handleChatSessionCreate)
 	r.Get("/api/chat/sessions/{session_id}/history", a.handleChatSessionHistory)

@@ -58,9 +58,8 @@ const state = {
   projectsOpen: false,
   projectSwitchInFlight: false,
   projectModelSwitchInFlight: false,
-  inputMode: 'voice',
+  inputMode: 'pen',
   startupBehavior: 'hub_first',
-  interactionMode: 'ask',
   ttsSilent: false,
   yoloMode: false,
   disclaimerAckRequired: false,
@@ -118,8 +117,14 @@ const state = {
   workspaceStepInFlight: false,
   prReviewAwaitingArtifact: false,
   artifactEditMode: false,
-  reviewBatch: [],
-  reviewSubmitInFlight: false,
+  inkDraft: {
+    strokes: [],
+    activePointerId: null,
+    activePointerType: '',
+    activePath: null,
+    dirty: false,
+  },
+  inkSubmitInFlight: false,
 };
 
 export function getState() {
@@ -1024,6 +1029,21 @@ function forceUiHardReload() {
   window.location.replace(url.toString());
 }
 
+function normalizeInputMode(modeRaw) {
+  const mode = String(modeRaw || '').trim().toLowerCase();
+  if (mode === 'voice') return 'voice';
+  if (mode === 'keyboard' || mode === 'typing' || mode === 'text') return 'keyboard';
+  return 'pen';
+}
+
+function isPenInputMode() {
+  return state.inputMode === 'pen';
+}
+
+function isKeyboardInputMode() {
+  return state.inputMode === 'keyboard' || state.inputMode === 'typing';
+}
+
 async function fetchRuntimeMeta() {
   const resp = await fetch(apiURL('runtime'), {
     cache: 'no-store',
@@ -1044,7 +1064,7 @@ function applyRuntimePreferences(runtime) {
   }
   const runtimeSilent = parseOptionalBoolean(runtime?.silent_mode);
   state.ttsSilent = runtimeSilent === true;
-  state.inputMode = String(runtime?.input_mode || 'voice').trim().toLowerCase() === 'typing' ? 'typing' : 'voice';
+  state.inputMode = normalizeInputMode(runtime?.input_mode || 'pen');
   state.startupBehavior = String(runtime?.startup_behavior || 'hub_first').trim().toLowerCase() || 'hub_first';
   state.disclaimerVersion = String(runtime?.disclaimer_version || '').trim();
   state.disclaimerAckRequired = Boolean(runtime?.disclaimer_ack_required);
@@ -1065,17 +1085,10 @@ async function updateRuntimePreferences(patch) {
   if (silent !== null) {
     state.ttsSilent = silent;
   }
-  state.inputMode = String(payload?.input_mode || state.inputMode || 'voice').trim().toLowerCase() === 'typing' ? 'typing' : 'voice';
+  state.inputMode = normalizeInputMode(payload?.input_mode || state.inputMode || 'pen');
   state.startupBehavior = String(payload?.startup_behavior || state.startupBehavior || 'hub_first').trim().toLowerCase() || 'hub_first';
   renderEdgeTopModelButtons();
   return payload;
-}
-
-function setInteractionMode(mode) {
-  state.interactionMode = String(mode || '').trim().toLowerCase() === 'review' ? 'review' : 'ask';
-  document.body.classList.toggle('canvas-review-mode', state.interactionMode === 'review');
-  renderEdgeTopModelButtons();
-  renderReviewBatchPanel();
 }
 
 async function acknowledgeDisclaimer(version) {
@@ -2208,6 +2221,7 @@ function hideCanvasColumn() {
     exitArtifactEditMode({ applyChanges: true });
   }
   exitPrReviewMode();
+  clearInkDraft();
   state.hasArtifact = false;
   state.workspaceOpenFilePath = '';
   state.workspaceStepInFlight = false;
@@ -3305,19 +3319,16 @@ async function handleWelcomeAction(action) {
     if (next !== null) {
       await updateRuntimePreferences({ silent_mode: next });
       setTTSSilentMode(next, { persist: false });
-      await showWelcomeForActiveProject(true);
     }
     return;
   }
   if (type === 'set_input_mode') {
-    const next = String(action?.input_mode || '').trim().toLowerCase() === 'typing' ? 'typing' : 'voice';
+    const next = normalizeInputMode(action?.input_mode || 'pen');
     await updateRuntimePreferences({ input_mode: next });
-    await showWelcomeForActiveProject(true);
     return;
   }
   if (type === 'set_startup_behavior') {
     await updateRuntimePreferences({ startup_behavior: 'hub_first' });
-    await showWelcomeForActiveProject(true);
   }
 }
 
@@ -3394,13 +3405,8 @@ async function fetchProjectWelcome(projectID = 'active') {
 }
 
 async function showWelcomeForActiveProject(force = false) {
-  const project = activeProject();
-  if (!project?.id) return;
-  if (!force && state.hasArtifact && activeWelcomeProjectID() !== project.id) return;
-  if (state.prReviewMode || state.artifactEditMode) return;
-  const payload = await fetchProjectWelcome(project.id);
-  if (String(payload?.project_id || '').trim() !== project.id) return;
-  renderWelcomeSurface(payload);
+  void force;
+  clearWelcomeSurface();
 }
 
 function shouldUseBottomComposer() {
@@ -3436,67 +3442,7 @@ function openComposerAt(x, y, anchor = null, initialText = '') {
   }
 }
 
-function formatReviewAnchor(anchor) {
-  if (!anchor || typeof anchor !== 'object') return 'annotation';
-  const title = String(anchor.title || getActiveArtifactTitle() || '').trim();
-  const line = Number(anchor.line || 0);
-  const page = Number(anchor.page || 0);
-  if (page > 0 && title) return `${title} · page ${page}`;
-  if (page > 0) return `page ${page}`;
-  if (line > 0 && title) return `${title} · line ${line}`;
-  if (line > 0) return `line ${line}`;
-  return title || 'annotation';
-}
-
-function renderReviewBatchPanel() {
-  const panel = document.getElementById('review-batch-panel');
-  const list = document.getElementById('review-batch-list');
-  const submit = document.getElementById('review-batch-submit');
-  const clear = document.getElementById('review-batch-clear');
-  if (!(panel instanceof HTMLElement) || !(list instanceof HTMLElement)) return;
-  const visible = state.interactionMode === 'review';
-  panel.style.display = visible ? '' : 'none';
-  if (!visible) return;
-  list.innerHTML = '';
-  if (state.reviewBatch.length === 0) {
-    const empty = document.createElement('div');
-    empty.className = 'review-batch-item';
-    empty.textContent = 'No comments collected yet.';
-    list.appendChild(empty);
-  } else {
-    state.reviewBatch.forEach((item, index) => {
-      const row = document.createElement('div');
-      row.className = 'review-batch-item';
-      row.innerHTML = `
-        <div class="review-batch-item-loc">${escapeHtml(formatReviewAnchor(item.anchor))}</div>
-        <div class="review-batch-item-text">${escapeHtml(String(item.text || ''))}</div>
-      `;
-      row.title = `Comment ${index + 1}`;
-      list.appendChild(row);
-    });
-  }
-  if (submit instanceof HTMLButtonElement) {
-    submit.disabled = state.reviewSubmitInFlight || state.reviewBatch.length === 0;
-  }
-  if (clear instanceof HTMLButtonElement) {
-    clear.disabled = state.reviewSubmitInFlight || state.reviewBatch.length === 0;
-  }
-}
-
-function addReviewBatchItem(text, anchor) {
-  const content = String(text || '').trim();
-  if (!content) return false;
-  state.reviewBatch.push({
-    text: content,
-    anchor: anchor || null,
-    created_at: Date.now(),
-  });
-  renderReviewBatchPanel();
-  showStatus(`queued comment ${state.reviewBatch.length}`);
-  return true;
-}
-
-function activeArtifactKindForReview() {
+function activeArtifactKindForInk() {
   const activePane = document.querySelector('#canvas-viewport .canvas-pane.is-active');
   if (!(activePane instanceof HTMLElement)) return 'text';
   if (activePane.id === 'canvas-pdf') return 'pdf';
@@ -3504,24 +3450,142 @@ function activeArtifactKindForReview() {
   return 'text';
 }
 
-async function submitReviewBatch() {
-  if (state.reviewSubmitInFlight || state.reviewBatch.length === 0) return false;
+function resetInkDraftState() {
+  state.inkDraft.activePointerId = null;
+  state.inkDraft.activePointerType = '';
+  state.inkDraft.activePath = null;
+}
+
+function inkLayerEl() {
+  const node = document.getElementById('ink-layer');
+  return node instanceof SVGSVGElement ? node : null;
+}
+
+function renderInkControls() {
+  const controls = document.getElementById('ink-controls');
+  if (!(controls instanceof HTMLElement)) return;
+  const visible = isPenInputMode() && state.inkDraft.dirty;
+  controls.style.display = visible ? '' : 'none';
+  const submit = document.getElementById('ink-submit');
+  const clear = document.getElementById('ink-clear');
+  if (submit instanceof HTMLButtonElement) submit.disabled = state.inkSubmitInFlight;
+  if (clear instanceof HTMLButtonElement) clear.disabled = state.inkSubmitInFlight;
+}
+
+function clearInkDraft() {
+  const layer = inkLayerEl();
+  if (layer) layer.innerHTML = '';
+  state.inkDraft.strokes = [];
+  state.inkDraft.dirty = false;
+  resetInkDraftState();
+  renderInkControls();
+}
+
+function syncInkLayerSize() {
+  const layer = inkLayerEl();
+  const viewport = document.getElementById('canvas-viewport');
+  if (!(layer instanceof SVGSVGElement) || !(viewport instanceof HTMLElement)) return;
+  const rect = viewport.getBoundingClientRect();
+  const width = Math.max(1, Math.round(rect.width));
+  const height = Math.max(1, Math.round(rect.height));
+  layer.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  layer.setAttribute('width', `${width}`);
+  layer.setAttribute('height', `${height}`);
+}
+
+function pointForViewportEvent(clientX, clientY) {
+  const viewport = document.getElementById('canvas-viewport');
+  if (!(viewport instanceof HTMLElement)) {
+    return { x: clientX, y: clientY };
+  }
+  const rect = viewport.getBoundingClientRect();
+  return {
+    x: clientX - rect.left + viewport.scrollLeft,
+    y: clientY - rect.top + viewport.scrollTop,
+  };
+}
+
+function appendInkPointToPath(pathEl, stroke) {
+  if (!(pathEl instanceof SVGPathElement) || !stroke || !Array.isArray(stroke.points) || stroke.points.length === 0) return;
+  const d = stroke.points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`).join(' ');
+  pathEl.setAttribute('d', d);
+}
+
+function beginInkStroke(pointerEvent) {
+  const layer = inkLayerEl();
+  if (!(layer instanceof SVGSVGElement)) return false;
+  syncInkLayerSize();
+  const point = pointForViewportEvent(pointerEvent.clientX, pointerEvent.clientY);
+  const stroke = {
+    pointer_type: String(pointerEvent.pointerType || 'pen').trim().toLowerCase() || 'pen',
+    width: Math.max(1.5, Number(pointerEvent.pressure) > 0 ? 1.8 + Number(pointerEvent.pressure) * 2.8 : 2.4),
+    points: [{
+      x: point.x,
+      y: point.y,
+      pressure: Number(pointerEvent.pressure) || 0,
+    }],
+  };
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('stroke-width', stroke.width.toFixed(2));
+  appendInkPointToPath(path, stroke);
+  layer.appendChild(path);
+  state.inkDraft.strokes.push(stroke);
+  state.inkDraft.activePointerId = pointerEvent.pointerId;
+  state.inkDraft.activePointerType = stroke.pointer_type;
+  state.inkDraft.activePath = path;
+  state.inkDraft.dirty = true;
+  renderInkControls();
+  return true;
+}
+
+function extendInkStroke(pointerEvent) {
+  if (state.inkDraft.activePointerId !== pointerEvent.pointerId) return false;
+  const stroke = state.inkDraft.strokes[state.inkDraft.strokes.length - 1];
+  const path = state.inkDraft.activePath;
+  if (!stroke || !(path instanceof SVGPathElement)) return false;
+  const point = pointForViewportEvent(pointerEvent.clientX, pointerEvent.clientY);
+  stroke.points.push({
+    x: point.x,
+    y: point.y,
+    pressure: Number(pointerEvent.pressure) || 0,
+  });
+  appendInkPointToPath(path, stroke);
+  return true;
+}
+
+function buildInkSVGMarkup() {
+  const layer = inkLayerEl();
+  if (!(layer instanceof SVGSVGElement)) return '';
+  syncInkLayerSize();
+  const viewBox = layer.getAttribute('viewBox') || '0 0 1 1';
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}">${layer.innerHTML}</svg>`;
+}
+
+async function submitInkDraft() {
+  if (state.inkSubmitInFlight || state.inkDraft.strokes.length === 0) return false;
   const project = activeProject();
   if (!project?.id) return false;
-  state.reviewSubmitInFlight = true;
-  renderReviewBatchPanel();
+  const wasBlankCanvas = !state.hasArtifact;
+  state.inkSubmitInFlight = true;
+  renderInkControls();
   try {
     const payload = {
       project_id: project.id,
-      artifact_kind: activeArtifactKindForReview(),
+      artifact_kind: activeArtifactKindForInk(),
       artifact_title: String(getActiveArtifactTitle() || ''),
       artifact_path: String(state.workspaceOpenFilePath || ''),
-      comments: state.reviewBatch.map((item) => ({
-        text: String(item.text || ''),
-        anchor: item.anchor || {},
+      strokes: state.inkDraft.strokes.map((stroke) => ({
+        pointer_type: stroke.pointer_type,
+        width: stroke.width,
+        points: stroke.points.map((point) => ({
+          x: point.x,
+          y: point.y,
+          pressure: point.pressure,
+        })),
       })),
+      svg: buildInkSVGMarkup(),
     };
-    const resp = await fetch(apiURL('review/submit'), {
+    const resp = await fetch(apiURL('ink/submit'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -3531,20 +3595,34 @@ async function submitReviewBatch() {
       throw new Error(detail);
     }
     const result = await resp.json();
-    state.reviewBatch = [];
-    renderReviewBatchPanel();
-    const reviewPath = String(result?.review_markdown_path || '').trim();
-    showStatus(reviewPath ? `review saved: ${reviewPath}` : 'review submitted');
-    if (reviewPath) {
-      await openWorkspaceSidebarFile(reviewPath);
+    const summaryPath = String(result?.summary_path || '').trim();
+    const inkPath = String(result?.ink_svg_path || '').trim();
+    const revisionHistoryPath = String(result?.revision_history_path || '').trim();
+    clearInkDraft();
+    if (revisionHistoryPath) {
+      showStatus(`ink saved: ${revisionHistoryPath}`);
+    } else if (summaryPath) {
+      showStatus(`ink saved: ${summaryPath}`);
+    } else if (inkPath) {
+      showStatus(`ink saved: ${inkPath}`);
+    } else {
+      showStatus('ink saved');
+    }
+    if (summaryPath) {
+      await openWorkspaceSidebarFile(summaryPath);
+    } else if (inkPath) {
+      await openWorkspaceSidebarFile(inkPath);
+    }
+    if (wasBlankCanvas && summaryPath) {
+      await submitMessage(`Please inspect the handwritten note saved at \`${summaryPath}\` and respond to it if possible.`, { kind: 'ink_note' });
     }
     return true;
   } catch (err) {
-    showStatus(`review submit failed: ${String(err?.message || err || 'unknown error')}`);
+    showStatus(`ink submit failed: ${String(err?.message || err || 'unknown error')}`);
     return false;
   } finally {
-    state.reviewSubmitInFlight = false;
-    renderReviewBatchPanel();
+    state.inkSubmitInFlight = false;
+    renderInkControls();
   }
 }
 
@@ -3715,52 +3793,36 @@ function renderEdgeTopModelButtons() {
   });
   host.appendChild(silentButton);
 
-  const inputButton = document.createElement('button');
-  inputButton.type = 'button';
-  inputButton.className = 'edge-project-btn edge-model-btn';
-  inputButton.textContent = state.inputMode === 'typing' ? 'typing' : 'voice';
-  if (state.inputMode === 'typing') {
-    inputButton.classList.add('is-active');
+  const inputModes = [
+    { id: 'voice', label: 'voice' },
+    { id: 'pen', label: 'pen' },
+    { id: 'keyboard', label: 'kbd' },
+  ];
+  for (const mode of inputModes) {
+    const inputButton = document.createElement('button');
+    inputButton.type = 'button';
+    inputButton.className = 'edge-project-btn edge-model-btn';
+    inputButton.textContent = mode.label;
+    inputButton.setAttribute('aria-pressed', state.inputMode === mode.id ? 'true' : 'false');
+    if (state.inputMode === mode.id) {
+      inputButton.classList.add('is-active');
+    }
+    inputButton.disabled = state.projectSwitchInFlight || state.projectModelSwitchInFlight;
+    inputButton.addEventListener('click', () => {
+      updateRuntimePreferences({ input_mode: mode.id })
+        .then(() => {
+          if (mode.id !== 'pen') {
+            clearInkDraft();
+          }
+          renderInkControls();
+          showStatus(`${mode.id} mode on`);
+        })
+        .catch((err) => {
+          showStatus(`input mode failed: ${String(err?.message || err || 'unknown error')}`);
+        });
+    });
+    host.appendChild(inputButton);
   }
-  inputButton.disabled = state.projectSwitchInFlight || state.projectModelSwitchInFlight;
-  inputButton.addEventListener('click', () => {
-    const nextMode = state.inputMode === 'typing' ? 'voice' : 'typing';
-    updateRuntimePreferences({ input_mode: nextMode })
-      .then(() => {
-        showStatus(nextMode === 'typing' ? 'typing mode on' : 'voice mode on');
-        void showWelcomeForActiveProject(true);
-      })
-      .catch((err) => {
-        showStatus(`input mode failed: ${String(err?.message || err || 'unknown error')}`);
-      });
-  });
-  host.appendChild(inputButton);
-
-  const askButton = document.createElement('button');
-  askButton.type = 'button';
-  askButton.className = 'edge-project-btn edge-model-btn';
-  askButton.textContent = 'ask';
-  if (state.interactionMode === 'ask') {
-    askButton.classList.add('is-active');
-  }
-  askButton.addEventListener('click', () => {
-    setInteractionMode('ask');
-    showStatus('ask mode');
-  });
-  host.appendChild(askButton);
-
-  const reviewButton = document.createElement('button');
-  reviewButton.type = 'button';
-  reviewButton.className = 'edge-project-btn edge-model-btn';
-  reviewButton.textContent = 'review';
-  if (state.interactionMode === 'review') {
-    reviewButton.classList.add('is-active');
-  }
-  reviewButton.addEventListener('click', () => {
-    setInteractionMode('review');
-    showStatus('review mode');
-  });
-  host.appendChild(reviewButton);
 }
 
 async function switchProjectChatModel(modelAlias, reasoningEffort = '') {
@@ -4782,6 +4844,7 @@ async function handleStopAction() {
 
 function applyCanvasArtifactEvent(payload) {
   clearWelcomeSurface();
+  clearInkDraft();
   if (state.artifactEditMode) {
     exitArtifactEditMode({ applyChanges: false });
   }
@@ -5035,6 +5098,7 @@ function initEdgePanels() {
   const rasaBtn = document.getElementById('btn-edge-rasa');
   if (rasaBtn) {
     rasaBtn.addEventListener('click', () => {
+      clearInkDraft();
       clearCanvas();
       hideCanvasColumn();
       if (edgeTop) {
@@ -5451,6 +5515,7 @@ function bindUi() {
     updateAssistantActivityIndicator();
   };
   if (canvasViewport instanceof HTMLElement) {
+    syncInkLayerSize();
     canvasViewport.addEventListener('scroll', syncIndicatorOnViewportChange, { passive: true, capture: true });
     let canvasSwipeStart = null;
     let canvasSwipeHandled = false;
@@ -5500,6 +5565,32 @@ function bindUi() {
       horizontalWheelAccum = 0;
       horizontalWheelLastAt = now;
     }, { passive: false });
+    canvasViewport.addEventListener('pointerdown', (ev) => {
+      if (!isPenInputMode()) return;
+      if (ev.pointerType !== 'pen') return;
+      if (isEditableTarget(ev.target)) return;
+      if (ev.target instanceof Element && ev.target.closest('.edge-panel,#pr-file-pane,#pr-file-drawer-backdrop')) return;
+      if (beginInkStroke(ev)) {
+        ev.preventDefault();
+        try { canvasViewport.setPointerCapture(ev.pointerId); } catch (_) {}
+      }
+    }, true);
+    canvasViewport.addEventListener('pointermove', (ev) => {
+      if (!isPenInputMode()) return;
+      if (state.inkDraft.activePointerId !== ev.pointerId) return;
+      if (extendInkStroke(ev)) {
+        ev.preventDefault();
+      }
+    }, true);
+    const finishInkPointer = (ev) => {
+      if (state.inkDraft.activePointerId !== ev.pointerId) return;
+      extendInkStroke(ev);
+      resetInkDraftState();
+      renderInkControls();
+      ev.preventDefault();
+    };
+    canvasViewport.addEventListener('pointerup', finishInkPointer, true);
+    canvasViewport.addEventListener('pointercancel', finishInkPointer, true);
   }
   window.addEventListener('scroll', syncIndicatorOnViewportChange, { passive: true });
   window.addEventListener('resize', syncIndicatorOnViewportChange);
@@ -5520,10 +5611,13 @@ function bindUi() {
     };
 
     const handleWorkspaceTap = (target, x, y) => {
+      if (isPenInputMode()) {
+        return;
+      }
       if (isConversationListenActive()) {
         if (isVoiceInteractionTarget(target, x, y)) return;
         cancelConversationListen();
-        if (state.interactionMode === 'review' || state.inputMode === 'typing') {
+        if (isKeyboardInputMode()) {
           const anchor = state.hasArtifact && canvasText ? getAnchorFromPoint(x, y) : null;
           openComposerAt(x, y, anchor);
         } else {
@@ -5543,7 +5637,7 @@ function bindUi() {
         void stopVoiceCaptureAndSend();
         return;
       }
-      if (state.interactionMode === 'review' || state.inputMode === 'typing') {
+      if (isKeyboardInputMode()) {
         const anchor = state.hasArtifact && canvasText ? getAnchorFromPoint(x, y) : null;
         openComposerAt(x, y, anchor);
         return;
@@ -5667,16 +5761,11 @@ function bindUi() {
         const text = floatingInput.value.trim();
         if (text) {
           state.lastInputOrigin = 'text';
-          const anchor = getInputAnchor();
           floatingInput.value = '';
           floatingInput.blur();
           hideTextInput();
           settleKeyboardAfterSubmit();
-          if (state.interactionMode === 'review') {
-            addReviewBatchItem(text, anchor);
-          } else {
-            void submitMessage(text);
-          }
+          void submitMessage(text);
         }
       }
       if (ev.key === 'Escape') {
@@ -5706,11 +5795,7 @@ function bindUi() {
           chatPaneInput.style.height = '';
           chatPaneInput.blur();
           settleKeyboardAfterSubmit();
-          if (state.interactionMode === 'review') {
-            addReviewBatchItem(text, getInputAnchor());
-          } else {
-            void submitMessage(text);
-          }
+          void submitMessage(text);
         }
       }
       if (ev.key === 'Escape') {
@@ -5728,18 +5813,17 @@ function bindUi() {
 
   }
 
-  const reviewBatchClear = document.getElementById('review-batch-clear');
-  if (reviewBatchClear instanceof HTMLButtonElement) {
-    reviewBatchClear.addEventListener('click', () => {
-      state.reviewBatch = [];
-      renderReviewBatchPanel();
-      showStatus('review batch cleared');
+  const inkClear = document.getElementById('ink-clear');
+  if (inkClear instanceof HTMLButtonElement) {
+    inkClear.addEventListener('click', () => {
+      clearInkDraft();
+      showStatus('ink cleared');
     });
   }
-  const reviewBatchSubmit = document.getElementById('review-batch-submit');
-  if (reviewBatchSubmit instanceof HTMLButtonElement) {
-    reviewBatchSubmit.addEventListener('click', () => {
-      void submitReviewBatch();
+  const inkSubmit = document.getElementById('ink-submit');
+  if (inkSubmit instanceof HTMLButtonElement) {
+    inkSubmit.addEventListener('click', () => {
+      void submitInkDraft();
     });
   }
 
@@ -5747,6 +5831,7 @@ function bindUi() {
   const chatHistory = document.getElementById('chat-history');
   if (chatHistory) {
     chatHistory.addEventListener('click', (ev) => {
+      if (state.inputMode !== 'voice') return;
       if (ev.button !== 0) return;
       if (ev.target instanceof Element && ev.target.closest('a,button,input,textarea,select,[contenteditable="true"]')) return;
       if (isInEdgeZone(ev.clientX, ev.clientY)) return;
@@ -5804,6 +5889,11 @@ function bindUi() {
         hideTextInput();
         return;
       }
+      if (state.inkDraft.dirty) {
+        clearInkDraft();
+        showStatus('ink cleared');
+        return;
+      }
       if (state.prReviewDrawerOpen) {
         setPrReviewDrawerOpen(false);
         return;
@@ -5822,6 +5912,11 @@ function bindUi() {
     if (ev.key === 'Enter' && isRecording()) {
       ev.preventDefault();
       void stopVoiceCaptureAndSend();
+      return;
+    }
+    if (ev.key === 'Enter' && isPenInputMode() && state.inkDraft.dirty) {
+      ev.preventDefault();
+      void submitInkDraft();
       return;
     }
 
@@ -5897,7 +5992,7 @@ function bindUi() {
         ev.preventDefault();
         return;
       }
-      if (state.inputMode !== 'typing' && state.interactionMode !== 'review') {
+      if (!isKeyboardInputMode()) {
         return;
       }
       const cx = window.innerWidth / 2 - 130;
@@ -5971,8 +6066,12 @@ async function init() {
   window.addEventListener('resize', () => {
     if (document.body.classList.contains('keyboard-open')) return;
     applyIPhoneFrameCorners();
+    syncInkLayerSize();
+    renderInkControls();
   });
   bindUi();
+  syncInkLayerSize();
+  renderInkControls();
   updateAssistantActivityIndicator();
   startDevReloadWatcher();
   startAssistantActivityWatcher();
@@ -5984,6 +6083,7 @@ async function init() {
   try {
     const runtime = await fetchRuntimeMeta();
     applyRuntimePreferences(runtime);
+    renderInkControls();
     ttsEnabled = Boolean(runtime?.tts_enabled);
     applyRuntimeReasoningEffortOptions(runtime?.available_reasoning_efforts);
   } catch (_) {

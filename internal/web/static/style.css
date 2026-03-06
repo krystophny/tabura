@@ -289,6 +289,38 @@ body.file-sidebar-enabled #pr-file-drawer-backdrop.is-open {
   display: flex;
 }
 
+.ink-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 6;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.ink-layer path {
+  fill: none;
+  stroke: #111827;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.ink-controls {
+  position: absolute;
+  right: calc(0.75rem + var(--safe-area-right));
+  bottom: calc(0.75rem + var(--safe-area-bottom));
+  z-index: 390;
+  display: flex;
+  gap: 0.45rem;
+  padding: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.18);
+}
+
 /* Canvas text */
 #canvas-text,
 #canvas-image,
@@ -873,60 +905,6 @@ body.keyboard-open .indicator.is-paused {
   overflow-wrap: anywhere;
 }
 
-.review-batch-panel {
-  position: fixed;
-  right: calc(0.75rem + var(--safe-area-right));
-  bottom: calc(0.75rem + var(--safe-area-bottom));
-  width: min(360px, calc(100vw - 1.5rem));
-  max-height: min(52vh, 460px);
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-  padding: 0.75rem;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.2);
-  z-index: 380;
-}
-
-.review-batch-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  font-weight: 700;
-}
-
-.review-batch-actions {
-  display: flex;
-  gap: 0.45rem;
-}
-
-.review-batch-list {
-  overflow: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-}
-
-.review-batch-item {
-  border: 1px solid #d1d5db;
-  border-radius: 10px;
-  padding: 0.65rem 0.7rem;
-  background: #fff;
-}
-
-.review-batch-item-loc {
-  font-size: 0.82rem;
-  font-weight: 700;
-  margin-bottom: 0.3rem;
-}
-
-.review-batch-item-text {
-  white-space: pre-wrap;
-}
-
 /* Chat pane input row (inside edge-right panel) */
 .chat-pane-input-row {
   flex-shrink: 0;
@@ -1430,16 +1408,16 @@ body.panel-motion-enabled {
 
 /* Silent mode: mobile full-width chat pane */
 @media (max-width: 767px) {
-  .review-batch-panel {
+  .ink-controls {
     right: 0;
     left: 0;
     bottom: 0;
     width: 100vw;
-    max-height: 40vh;
     border-radius: 14px 14px 0 0;
     border-left: 0;
     border-right: 0;
     border-bottom: 0;
+    justify-content: flex-end;
   }
 
   body.silent-mode .edge-right { width: 100vw; }

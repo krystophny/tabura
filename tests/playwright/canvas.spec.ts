@@ -79,7 +79,7 @@ async function injectCanvasEvent(page: Page, payload: Record<string, unknown>) {
   }, payload);
 }
 
-async function setInputMode(page: Page, inputMode: 'typing' | 'voice') {
+async function setInputMode(page: Page, inputMode: 'typing' | 'voice' | 'pen' | 'keyboard') {
   await page.evaluate((mode) => {
     (window as any).__setRuntimeState?.({ input_mode: mode });
     const app = (window as any)._taburaApp;
@@ -129,6 +129,27 @@ async function dispatchTouchSwipe(page: Page, startX: number, startY: number, en
     target.dispatchEvent(new TouchEvent('touchmove', { touches: [end], changedTouches: [end], bubbles: true, cancelable: true }));
     target.dispatchEvent(new TouchEvent('touchend', { touches: [], changedTouches: [end], bubbles: true, cancelable: true }));
   }, { startX, startY, endX, endY });
+}
+
+async function dispatchPenStroke(page: Page, points: Array<{ x: number; y: number; pressure?: number }>) {
+  await page.evaluate((rawPoints) => {
+    const viewport = document.getElementById('canvas-viewport');
+    if (!(viewport instanceof HTMLElement) || !Array.isArray(rawPoints) || rawPoints.length === 0) return;
+    const mk = (type: string, point: any) => new PointerEvent(type, {
+      bubbles: true,
+      cancelable: true,
+      pointerId: 41,
+      pointerType: 'pen',
+      pressure: Number(point.pressure ?? 0.6),
+      clientX: Number(point.x),
+      clientY: Number(point.y),
+    });
+    viewport.dispatchEvent(mk('pointerdown', rawPoints[0]));
+    for (let i = 1; i < rawPoints.length; i += 1) {
+      viewport.dispatchEvent(mk('pointermove', rawPoints[i]));
+    }
+    viewport.dispatchEvent(mk('pointerup', rawPoints[rawPoints.length - 1]));
+  }, points);
 }
 
 test.describe('canvas - tabula rasa', () => {
@@ -184,6 +205,7 @@ test.describe('canvas - tabula rasa', () => {
 
   test('click starts recording, stop indicator stays visible after stop', async ({ page }) => {
     await clearLog(page);
+    await setInputMode(page, 'voice');
 
     // Click on canvas area
     await page.mouse.click(400, 400);
@@ -223,6 +245,31 @@ test.describe('canvas - tabula rasa', () => {
     await page.keyboard.press('Escape');
     await page.waitForTimeout(100);
     await expect(page.locator('#floating-input')).toBeHidden();
+  });
+
+  test('pen stroke shows submit controls and submits ink artifact flow', async ({ page }) => {
+    await clearLog(page);
+    await setInputMode(page, 'pen');
+
+    await dispatchPenStroke(page, [
+      { x: 220, y: 220, pressure: 0.55 },
+      { x: 260, y: 250, pressure: 0.7 },
+      { x: 300, y: 280, pressure: 0.65 },
+    ]);
+    await page.waitForTimeout(100);
+
+    await expect(page.locator('#ink-controls')).toBeVisible();
+    await page.locator('#ink-submit').click();
+
+    await expect.poll(async () => {
+      const log = await getLog(page);
+      return log.some((entry) => entry.type === 'api_fetch' && entry.action === 'ink_submit');
+    }, { timeout: 5_000 }).toBe(true);
+
+    await expect.poll(async () => {
+      const log = await getLog(page);
+      return log.some((entry) => entry.type === 'message_sent' && String(entry.text || '').includes('.tabura/artifacts/ink/test-ink.md'));
+    }, { timeout: 5_000 }).toBe(true);
   });
 });
 

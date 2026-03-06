@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func TestReviewSubmitWritesMarkdownArtifact(t *testing.T) {
+func TestInkSubmitWritesArtifacts(t *testing.T) {
 	app := newAuthedTestApp(t)
 
 	rrProjects := doAuthedJSONRequest(t, app.Router(), http.MethodGet, "/api/projects", nil)
@@ -31,62 +31,69 @@ func TestReviewSubmitWritesMarkdownArtifact(t *testing.T) {
 		t.Fatalf("expected non-hub project")
 	}
 
-	rr := doAuthedJSONRequest(t, app.Router(), http.MethodPost, "/api/review/submit", map[string]any{
+	rr := doAuthedJSONRequest(t, app.Router(), http.MethodPost, "/api/ink/submit", map[string]any{
 		"project_id":     projectID,
 		"artifact_kind":  "text",
 		"artifact_title": "README.md",
 		"artifact_path":  "README.md",
-		"comments": []map[string]any{
+		"svg":            `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 80"><path d="M 10 10 L 40 40" /></svg>`,
+		"strokes": []map[string]any{
 			{
-				"text": "Tighten this explanation.",
-				"anchor": map[string]any{
-					"title":         "README.md",
-					"line":          12,
-					"selected_text": "Current text",
+				"pointer_type": "pen",
+				"width":        3.2,
+				"points": []map[string]any{
+					{"x": 10, "y": 10, "pressure": 0.7},
+					{"x": 40, "y": 40, "pressure": 0.8},
 				},
 			},
 		},
 	})
 	if rr.Code != http.StatusOK {
-		t.Fatalf("review submit status=%d body=%s", rr.Code, rr.Body.String())
+		t.Fatalf("ink submit status=%d body=%s", rr.Code, rr.Body.String())
 	}
 
 	var payload map[string]any
 	if err := json.Unmarshal(rr.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("decode review submit response: %v", err)
+		t.Fatalf("decode ink submit response: %v", err)
 	}
-	reviewPath := strFromAny(payload["review_markdown_path"])
+	inkPath := strFromAny(payload["ink_svg_path"])
+	summaryPath := strFromAny(payload["summary_path"])
 	manifestPath := strFromAny(payload["revision_manifest_path"])
 	historyPath := strFromAny(payload["revision_history_path"])
-	if reviewPath == "" {
-		t.Fatalf("expected review_markdown_path in response")
-	}
-	if manifestPath == "" || historyPath == "" {
-		t.Fatalf("expected revision paths in response: %v", payload)
+	if inkPath == "" || summaryPath == "" || manifestPath == "" || historyPath == "" {
+		t.Fatalf("expected ink paths in response: %v", payload)
 	}
 
 	project, err := app.store.GetProject(projectID)
 	if err != nil {
 		t.Fatalf("get project: %v", err)
 	}
-	content, err := os.ReadFile(filepath.Join(project.RootPath, filepath.FromSlash(reviewPath)))
+	inkContent, err := os.ReadFile(filepath.Join(project.RootPath, filepath.FromSlash(inkPath)))
 	if err != nil {
-		t.Fatalf("read review artifact: %v", err)
+		t.Fatalf("read ink svg: %v", err)
 	}
-	text := string(content)
-	if !strings.Contains(text, "Tighten this explanation.") {
-		t.Fatalf("review artifact missing comment: %s", text)
+	if !strings.Contains(string(inkContent), "<svg") {
+		t.Fatalf("ink svg missing svg root: %s", string(inkContent))
 	}
-	if !strings.Contains(text, "Line: `12`") {
-		t.Fatalf("review artifact missing line anchor: %s", text)
+
+	summaryContent, err := os.ReadFile(filepath.Join(project.RootPath, filepath.FromSlash(summaryPath)))
+	if err != nil {
+		t.Fatalf("read ink summary: %v", err)
+	}
+	summaryText := string(summaryContent)
+	if !strings.Contains(summaryText, "Stroke count: `1`") {
+		t.Fatalf("ink summary missing stroke count: %s", summaryText)
+	}
+	if !strings.Contains(summaryText, "README.md") {
+		t.Fatalf("ink summary missing artifact title/path: %s", summaryText)
 	}
 
 	manifestContent, err := os.ReadFile(filepath.Join(project.RootPath, filepath.FromSlash(manifestPath)))
 	if err != nil {
 		t.Fatalf("read revision manifest: %v", err)
 	}
-	if !strings.Contains(string(manifestContent), "\"kind\": \"review\"") {
-		t.Fatalf("revision manifest missing review entry: %s", string(manifestContent))
+	if !strings.Contains(string(manifestContent), "\"kind\": \"ink\"") {
+		t.Fatalf("revision manifest missing ink entry: %s", string(manifestContent))
 	}
 
 	historyContent, err := os.ReadFile(filepath.Join(project.RootPath, filepath.FromSlash(historyPath)))

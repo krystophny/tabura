@@ -37,6 +37,11 @@
             <section id="canvas-text" class="canvas-pane" aria-label="Text artifact"></section>
             <section id="canvas-image" class="canvas-pane" aria-label="Image artifact"><img id="canvas-img" alt="artifact"></section>
             <section id="canvas-pdf" class="canvas-pane" aria-label="PDF artifact"></section>
+            <svg id="ink-layer" class="ink-layer" aria-hidden="true"></svg>
+          </div>
+          <div id="ink-controls" class="ink-controls" style="display:none">
+            <button id="ink-clear" type="button" class="edge-btn">Clear Ink</button>
+            <button id="ink-submit" type="button" class="edge-btn">Submit Ink</button>
           </div>
         </div>
       </div>
@@ -52,17 +57,6 @@
       <div id="overlay" class="overlay" style="display:none">
         <div class="overlay-content"></div>
       </div>
-
-      <aside id="review-batch-panel" class="review-batch-panel" style="display:none" aria-label="Review batch">
-        <div class="review-batch-head">
-          <span>Review Batch</span>
-          <div class="review-batch-actions">
-            <button id="review-batch-clear" type="button" class="edge-btn">Clear</button>
-            <button id="review-batch-submit" type="button" class="edge-btn">Submit</button>
-          </div>
-        </div>
-        <div id="review-batch-list" class="review-batch-list"></div>
-      </aside>
 
       <button id="edge-left-tap" type="button" class="edge-left-tap" aria-label="Toggle file sidebar"></button>
       <button id="edge-right-tap" type="button" class="edge-right-tap" aria-label="Open chat panel"></button>

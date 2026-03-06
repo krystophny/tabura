@@ -46,7 +46,7 @@ async function injectCanvasEvent(page: Page, payload: Record<string, unknown>) {
   }, payload);
 }
 
-async function setInputMode(page: Page, inputMode: 'typing' | 'voice') {
+async function setInputMode(page: Page, inputMode: 'typing' | 'voice' | 'pen' | 'keyboard') {
   await page.evaluate((mode) => {
     (window as any).__setRuntimeState?.({ input_mode: mode });
     const app = (window as any)._taburaApp;
@@ -824,6 +824,7 @@ test.describe('mobile viewport', () => {
     await page.setViewportSize({ width: 375, height: 667 });
     await waitReady(page);
     await injectCanvasModuleRef(page);
+    await setInputMode(page, 'voice');
   });
 
   test('canvas fills mobile viewport', async ({ page }) => {
@@ -990,6 +991,7 @@ test.describe('voice-to-message flow', () => {
   test.beforeEach(async ({ page }) => {
     await waitReady(page);
     await injectCanvasModuleRef(page);
+    await setInputMode(page, 'voice');
   });
 
   test('voice capture -> STT result -> message sent', async ({ page }) => {
@@ -1047,6 +1049,7 @@ test.describe('full assistant turn flow', () => {
   test.beforeEach(async ({ page }) => {
     await waitReady(page);
     await injectCanvasModuleRef(page);
+    await setInputMode(page, 'voice');
   });
 
   test('text input -> turn started -> streaming -> final output -> dismiss', async ({ page }) => {

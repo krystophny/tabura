@@ -23,6 +23,11 @@
             <section id="canvas-text" class="canvas-pane" aria-label="Text artifact"></section>
             <section id="canvas-image" class="canvas-pane" aria-label="Image artifact"><img id="canvas-img" alt="artifact"></section>
             <section id="canvas-pdf" class="canvas-pane" aria-label="PDF artifact"></section>
+            <svg id="ink-layer" class="ink-layer" aria-hidden="true"></svg>
+          </div>
+          <div id="ink-controls" class="ink-controls" style="display:none">
+            <button id="ink-clear" type="button" class="edge-btn">Clear Ink</button>
+            <button id="ink-submit" type="button" class="edge-btn">Submit Ink</button>
           </div>
         </div>
       </div>
@@ -167,7 +172,7 @@
       boot_id: 'test',
       tts_enabled: true,
       silent_mode: false,
-      input_mode: 'voice',
+      input_mode: 'pen',
       startup_behavior: 'hub_first',
     };
     window.__setRuntimeState = (patch) => {
@@ -176,7 +181,10 @@
         runtimeState.silent_mode = Boolean(next.silent_mode);
       }
       if (Object.prototype.hasOwnProperty.call(next, 'input_mode')) {
-        runtimeState.input_mode = String(next.input_mode || '').trim().toLowerCase() === 'typing' ? 'typing' : 'voice';
+        const normalized = String(next.input_mode || '').trim().toLowerCase();
+        runtimeState.input_mode = normalized === 'voice'
+          ? 'voice'
+          : (normalized === 'keyboard' || normalized === 'typing' ? 'keyboard' : 'pen');
       }
       if (Object.prototype.hasOwnProperty.call(next, 'startup_behavior')) {
         runtimeState.startup_behavior = 'hub_first';
@@ -391,7 +399,10 @@
           runtimeState.silent_mode = Boolean(body.silent_mode);
         }
         if (typeof body?.input_mode === 'string') {
-          runtimeState.input_mode = String(body.input_mode).trim().toLowerCase() === 'typing' ? 'typing' : 'voice';
+          const normalized = String(body.input_mode).trim().toLowerCase();
+          runtimeState.input_mode = normalized === 'voice'
+            ? 'voice'
+            : (normalized === 'keyboard' || normalized === 'typing' ? 'keyboard' : 'pen');
         }
         if (typeof body?.startup_behavior === 'string') {
           runtimeState.startup_behavior = 'hub_first';
@@ -510,6 +521,25 @@
           projects,
           default_project_id: 'test',
           active_project_id: activeProjectId,
+        }), { status: 200 });
+      }
+      if (u.includes('/api/ink/submit') && opts?.method === 'POST') {
+        let body = {};
+        try { body = JSON.parse(String(opts?.body || '{}')); } catch (_) { body = {}; }
+        window.__harnessLog.push({
+          type: 'api_fetch',
+          action: 'ink_submit',
+          method: opts?.method || 'POST',
+          url: u,
+          payload: body,
+        });
+        return new Response(JSON.stringify({
+          ok: true,
+          project_id: String(body.project_id || activeProjectId),
+          ink_svg_path: '.tabura/artifacts/ink/test-ink.svg',
+          summary_path: '.tabura/artifacts/ink/test-ink.md',
+          revision_manifest_path: '.tabura/revisions/readme-md/manifest.json',
+          revision_history_path: '.tabura/revisions/readme-md/history.md',
         }), { status: 200 });
       }
       if (u.includes('/api/participant/config') && opts?.method === 'PUT') {

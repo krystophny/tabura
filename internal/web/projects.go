@@ -847,6 +847,17 @@ func boolPtr(v bool) *bool {
 	return &v
 }
 
+func nextWelcomeInputMode(current string) string {
+	switch normalizeRuntimeInputMode(current) {
+	case "voice":
+		return "pen"
+	case "pen":
+		return "keyboard"
+	default:
+		return "voice"
+	}
+}
+
 func isWelcomeDocName(name string) bool {
 	lower := strings.ToLower(strings.TrimSpace(name))
 	switch {
@@ -938,12 +949,12 @@ func (a *App) buildHubWelcomeSections(projects []store.Project, activeProjectID 
 		},
 		{
 			ID:          "pref-input",
-			Title:       "Typing mode",
+			Title:       "Input mode",
 			Subtitle:    a.runtimeInputMode(),
-			Description: "Switch between voice-first and typing-first input",
+			Description: "Switch between voice, pen, and keyboard input",
 			Action: projectWelcomeAction{
 				Type:      "set_input_mode",
-				InputMode: map[bool]string{true: "voice", false: "typing"}[a.runtimeInputMode() == "typing"],
+				InputMode: nextWelcomeInputMode(a.runtimeInputMode()),
 			},
 		},
 		{
@@ -1095,12 +1106,12 @@ func (a *App) buildProjectWelcomeSections(project store.Project) []projectWelcom
 			},
 			{
 				ID:          "typing",
-				Title:       "Typing mode",
+				Title:       "Input mode",
 				Subtitle:    a.runtimeInputMode(),
 				Description: "Global runtime preference",
 				Action: projectWelcomeAction{
 					Type:      "set_input_mode",
-					InputMode: map[bool]string{true: "voice", false: "typing"}[a.runtimeInputMode() == "typing"],
+					InputMode: nextWelcomeInputMode(a.runtimeInputMode()),
 				},
 			},
 			{

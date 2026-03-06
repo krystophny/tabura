@@ -36,8 +36,8 @@ func TestRuntimeIncludesSafetyPreferences(t *testing.T) {
 	if got := boolFromAny(payload["silent_mode"]); got {
 		t.Fatalf("silent_mode = %v, want false", got)
 	}
-	if got := strFromAny(payload["input_mode"]); got != "voice" {
-		t.Fatalf("input_mode = %q, want %q", got, "voice")
+	if got := strFromAny(payload["input_mode"]); got != "pen" {
+		t.Fatalf("input_mode = %q, want %q", got, "pen")
 	}
 	if got := strFromAny(payload["startup_behavior"]); got != "hub_first" {
 		t.Fatalf("startup_behavior = %q, want %q", got, "hub_first")
@@ -92,7 +92,7 @@ func TestRuntimePreferenceUpdatePersists(t *testing.T) {
 	app := newAuthedTestApp(t)
 	rr := doAuthedJSONRequest(t, app.Router(), http.MethodPatch, "/api/runtime/preferences", map[string]any{
 		"silent_mode":      true,
-		"input_mode":       "typing",
+		"input_mode":       "keyboard",
 		"startup_behavior": "hub_first",
 	})
 	if rr.Code != http.StatusOK {
@@ -110,8 +110,8 @@ func TestRuntimePreferenceUpdatePersists(t *testing.T) {
 	if got := boolFromAny(payload["silent_mode"]); !got {
 		t.Fatalf("silent_mode = %v, want true", got)
 	}
-	if got := strFromAny(payload["input_mode"]); got != "typing" {
-		t.Fatalf("input_mode = %q, want %q", got, "typing")
+	if got := strFromAny(payload["input_mode"]); got != "keyboard" {
+		t.Fatalf("input_mode = %q, want %q", got, "keyboard")
 	}
 	if got := strFromAny(payload["startup_behavior"]); got != "hub_first" {
 		t.Fatalf("startup_behavior = %q, want %q", got, "hub_first")

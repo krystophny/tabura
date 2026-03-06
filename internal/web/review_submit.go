@@ -133,10 +133,30 @@ func (a *App) handleReviewSubmit(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	revisionFiles := map[string]string{
+		"review_markdown": filepath.ToSlash(relMarkdownPath),
+	}
+	if pdfExportRel != "" {
+		revisionFiles["pdf_export"] = pdfExportRel
+	}
+	revisionManifestPath, revisionHistoryPath, err := appendLocalRevision(
+		project.RootPath,
+		req.ArtifactTitle,
+		req.ArtifactPath,
+		"review",
+		"submitted review batch",
+		revisionFiles,
+	)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	writeJSON(w, map[string]interface{}{
-		"ok":                   true,
-		"project_id":           project.ID,
-		"review_markdown_path": filepath.ToSlash(relMarkdownPath),
-		"pdf_export_path":      pdfExportRel,
+		"ok":                     true,
+		"project_id":             project.ID,
+		"review_markdown_path":   filepath.ToSlash(relMarkdownPath),
+		"pdf_export_path":        pdfExportRel,
+		"revision_manifest_path": revisionManifestPath,
+		"revision_history_path":  revisionHistoryPath,
 	})
 }

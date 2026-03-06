@@ -21,10 +21,14 @@ type runtimePreferencesRequest struct {
 
 func normalizeRuntimeInputMode(raw string) string {
 	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "typing", "type", "text":
-		return "typing"
-	default:
+	case "keyboard", "typing", "type", "text":
+		return "keyboard"
+	case "pen", "ink", "draw", "handwrite":
+		return "pen"
+	case "voice", "talk", "mic", "audio":
 		return "voice"
+	default:
+		return "pen"
 	}
 }
 
@@ -50,11 +54,11 @@ func (a *App) silentModeEnabled() bool {
 
 func (a *App) runtimeInputMode() string {
 	if a == nil || a.store == nil {
-		return "voice"
+		return "pen"
 	}
 	value, err := a.store.AppState(appStateInputModeKey)
 	if err != nil {
-		return "voice"
+		return "pen"
 	}
 	return normalizeRuntimeInputMode(value)
 }
