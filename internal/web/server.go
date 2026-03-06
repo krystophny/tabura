@@ -95,6 +95,7 @@ type App struct {
 	confirmMu       sync.Mutex
 	hub             *wsHub
 	turns           *chatTurnTracker
+	companionTurns  *companionPendingTurnTracker
 	tunnels         *tunnelRegistry
 	chatAppSessions map[string]*appserver.Session
 	pendingDanger   map[string]*pendingDangerousAction
@@ -256,6 +257,7 @@ func New(dataDir, localProjectDir, localMCPURL, appServerURL, model, ttsURL, spa
 		upgrader:                      websocket.Upgrader{CheckOrigin: checkWSOrigin},
 		hub:                           newWSHub(),
 		turns:                         newChatTurnTracker(),
+		companionTurns:                newCompanionPendingTurnTracker(),
 		tunnels:                       newTunnelRegistry(),
 		chatAppSessions:               map[string]*appserver.Session{},
 		pendingDanger:                 map[string]*pendingDangerousAction{},
