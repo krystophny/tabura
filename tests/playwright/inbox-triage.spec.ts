@@ -46,6 +46,16 @@ async function setInboxItems(page: Page, items: Array<Record<string, unknown>>) 
   }
 }
 
+async function queueSidebarResponseDelay(
+  page: Page,
+  view: 'inbox' | 'waiting' | 'someday' | 'done' | 'counts',
+  delayMs: number,
+) {
+  await page.evaluate(({ nextView, nextDelayMs }) => {
+    (window as any).__queueItemSidebarResponseDelay(nextView, nextDelayMs);
+  }, { nextView: view, nextDelayMs: delayMs });
+}
+
 async function touchPhase(page: Page, selector: string, phase: 'start' | 'move' | 'end', dx = 0, dy = 0) {
   await page.locator(selector).evaluate((el, payload) => {
     const rect = (el as HTMLElement).getBoundingClientRect();
@@ -157,6 +167,26 @@ test.describe('inbox triage interactions', () => {
     const log = await page.evaluate(() => (window as any).__harnessLog || []);
     const triageCalls = log.filter((entry: any) => entry?.action === 'item_triage');
     expect(triageCalls.map((entry: any) => entry?.payload?.action)).toEqual(['done', 'delete', 'delegate', 'later']);
+  });
+
+  test('stale inbox reload does not resurrect a triaged item', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await waitReady(page);
+    await openInbox(page);
+
+    const row = '#pr-file-list .pr-file-item[data-item-id="101"]';
+    await queueSidebarResponseDelay(page, 'inbox', 250);
+    await page.locator('.sidebar-tab', { hasText: 'Inbox' }).click();
+    await page.waitForTimeout(50);
+
+    await touchPhase(page, row, 'start');
+    await touchPhase(page, row, 'move', -185, 0);
+    await expect(page.locator(row)).toHaveAttribute('data-triage-action', 'later');
+    await touchPhase(page, row, 'end', -185, 0);
+    await expect(page.locator('#pr-file-list')).not.toContainText('Review parser cleanup');
+
+    await page.waitForTimeout(300);
+    await expect(page.locator('#pr-file-list')).not.toContainText('Review parser cleanup');
   });
 
   test('desktop context menu and keyboard shortcuts cover archive, delete, later, and delegate', async ({ page }) => {

@@ -539,6 +539,13 @@
     window.__itemSidebarData = defaultItemSidebarData();
     window.__itemSidebarActors = defaultItemSidebarActors();
     window.__itemSidebarArtifacts = defaultItemSidebarArtifacts();
+    window.__itemSidebarResponseDelays = {
+      inbox: [],
+      waiting: [],
+      someday: [],
+      done: [],
+      counts: [],
+    };
     window.__setItemSidebarData = (next) => {
       const incoming = next && typeof next === 'object' ? next : {};
       window.__itemSidebarData = {
@@ -558,8 +565,33 @@
         return acc;
       }, {});
     };
+    window.__queueItemSidebarResponseDelay = (view, delayMs) => {
+      const key = String(view || '').trim().toLowerCase();
+      if (!['inbox', 'waiting', 'someday', 'done', 'counts'].includes(key)) return;
+      const queue = window.__itemSidebarResponseDelays && typeof window.__itemSidebarResponseDelays === 'object'
+        ? window.__itemSidebarResponseDelays
+        : {};
+      if (!Array.isArray(queue[key])) queue[key] = [];
+      queue[key].push(Math.max(0, Number(delayMs) || 0));
+      window.__itemSidebarResponseDelays = queue;
+    };
     function cloneItemSidebarEntry(entry) {
       return entry && typeof entry === 'object' ? { ...entry } : {};
+    }
+    function cloneItemSidebarEntries(entries) {
+      return Array.isArray(entries) ? entries.map((entry) => cloneItemSidebarEntry(entry)) : [];
+    }
+    function nextItemSidebarResponseDelay(view) {
+      const key = String(view || '').trim().toLowerCase();
+      const queue = window.__itemSidebarResponseDelays && typeof window.__itemSidebarResponseDelays === 'object'
+        ? window.__itemSidebarResponseDelays
+        : {};
+      if (!Array.isArray(queue[key]) || queue[key].length === 0) return 0;
+      return Math.max(0, Number(queue[key].shift()) || 0);
+    }
+    function sleep(ms) {
+      if (!Number.isFinite(Number(ms)) || Number(ms) <= 0) return Promise.resolve();
+      return new Promise((resolve) => window.setTimeout(resolve, Number(ms)));
     }
     function moveItemSidebarEntry(itemID, nextState, patch = {}) {
       const data = window.__itemSidebarData || defaultItemSidebarData();
@@ -1008,6 +1040,8 @@
           someday: Array.isArray(itemData.someday) ? itemData.someday.length : 0,
           done: Array.isArray(itemData.done) ? itemData.done.length : 0,
         };
+        const delayMs = nextItemSidebarResponseDelay('counts');
+        if (delayMs > 0) await sleep(delayMs);
         return new Response(JSON.stringify({ ok: true, counts }), { status: 200 });
       }
       if (/\/api\/items\/\d+\/triage(?:\?|$)/.test(u) && opts?.method === 'POST') {
@@ -1045,6 +1079,28 @@
         }
         return new Response(JSON.stringify({ ok: true, item }), { status: 200 });
       }
+      if (/\/api\/items\/\d+\/state(?:\?|$)/.test(u) && opts?.method === 'PUT') {
+        let body = {};
+        try { body = JSON.parse(String(opts?.body || '{}')); } catch (_) { body = {}; }
+        const match = u.match(/\/api\/items\/(\d+)\/state(?:\?|$)/);
+        const itemID = Number(match?.[1] || 0);
+        const nextState = String(body.state || '').trim().toLowerCase();
+        if (!['inbox', 'waiting', 'someday', 'done'].includes(nextState)) {
+          return new Response('invalid state', { status: 400 });
+        }
+        const item = moveItemSidebarEntry(itemID, nextState);
+        window.__harnessLog.push({
+          type: 'api_fetch',
+          action: 'item_state',
+          method: opts?.method || 'PUT',
+          url: u,
+          payload: body,
+        });
+        if (!item) {
+          return new Response('item not found', { status: 404 });
+        }
+        return new Response(JSON.stringify({ ok: true, item }), { status: 200 });
+      }
       if (u.includes('/api/actors')) {
         const actors = Array.isArray(window.__itemSidebarActors) ? window.__itemSidebarActors : [];
         return new Response(JSON.stringify({ ok: true, actors }), { status: 200 });
@@ -1067,7 +1123,16 @@
         if (u.includes('/api/items/waiting')) key = 'waiting';
         if (u.includes('/api/items/someday')) key = 'someday';
         if (u.includes('/api/items/done')) key = 'done';
-        const items = Array.isArray(itemData[key]) ? itemData[key] : [];
+        const items = cloneItemSidebarEntries(itemData[key]);
+        const delayMs = nextItemSidebarResponseDelay(key);
+        window.__harnessLog.push({
+          type: 'api_fetch',
+          action: 'item_list',
+          method: opts?.method || 'GET',
+          url: u,
+          payload: { view: key, delay_ms: delayMs },
+        });
+        if (delayMs > 0) await sleep(delayMs);
         return new Response(JSON.stringify({ ok: true, items }), { status: 200 });
       }
       if (u.includes('/api/projects')) {

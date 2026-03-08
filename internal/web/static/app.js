@@ -127,9 +127,11 @@ const state = {
   itemSidebarItems: [],
   itemSidebarCounts: defaultItemSidebarCounts(),
   itemSidebarLoading: false,
+  itemSidebarLoadSeq: 0,
   itemSidebarError: '',
   itemSidebarActiveItemID: 0,
   itemSidebarMenuOpen: false,
+  somedayReviewNudgeEnabled: true,
   prReviewAwaitingArtifact: false,
   artifactEditMode: false,
   inkDraft: {
@@ -286,6 +288,9 @@ let suppressClickUntil = 0;
 const ACTIVE_PROJECT_STORAGE_KEY = 'tabura.activeProjectId';
 const LAST_VIEW_STORAGE_KEY = 'tabura.lastView';
 const RUNTIME_RELOAD_CONTEXT_STORAGE_KEY = 'tabura.runtimeReloadContext';
+const SOMEDAY_REVIEW_NUDGE_ENABLED_STORAGE_KEY = 'tabura.somedayReviewNudgeEnabled';
+const SOMEDAY_REVIEW_NUDGE_LAST_SHOWN_STORAGE_KEY = 'tabura.somedayReviewNudgeLastShownAt';
+const SOMEDAY_REVIEW_NUDGE_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
 const PROJECT_CHAT_MODEL_ALIASES = ['codex', 'gpt', 'spark'];
 const PROJECT_CHAT_MODEL_REASONING_EFFORTS = {
   codex: ['low', 'medium', 'high', 'xhigh'],
@@ -561,6 +566,43 @@ function persistYoloModePreference(enabled) {
   try {
     window.localStorage.setItem(YOLO_MODE_STORAGE_KEY, enabled ? 'true' : 'false');
   } catch (_) {}
+}
+
+function readSomedayReviewNudgePreference() {
+  try {
+    const value = window.localStorage.getItem(SOMEDAY_REVIEW_NUDGE_ENABLED_STORAGE_KEY);
+    const parsed = parseOptionalBoolean(value);
+    return parsed !== false;
+  } catch (_) {
+    return true;
+  }
+}
+
+function persistSomedayReviewNudgePreference(enabled) {
+  try {
+    window.localStorage.setItem(SOMEDAY_REVIEW_NUDGE_ENABLED_STORAGE_KEY, enabled ? 'true' : 'false');
+  } catch (_) {}
+}
+
+function readSomedayReviewNudgeLastShownAt() {
+  try {
+    const raw = Number(window.localStorage.getItem(SOMEDAY_REVIEW_NUDGE_LAST_SHOWN_STORAGE_KEY) || '0');
+    return Number.isFinite(raw) && raw > 0 ? raw : 0;
+  } catch (_) {
+    return 0;
+  }
+}
+
+function persistSomedayReviewNudgeLastShownAt(value = Date.now()) {
+  try {
+    window.localStorage.setItem(SOMEDAY_REVIEW_NUDGE_LAST_SHOWN_STORAGE_KEY, String(Math.max(0, Number(value) || 0)));
+  } catch (_) {}
+}
+
+function setSomedayReviewNudgeEnabled(enabled, { persist = true } = {}) {
+  const next = Boolean(enabled);
+  state.somedayReviewNudgeEnabled = next;
+  if (persist) persistSomedayReviewNudgePreference(next);
 }
 
 function setYoloModeLocal(enabled, { persist = true, render = true } = {}) {
@@ -2990,6 +3032,26 @@ function setInboxTriggerCount(count) {
 function applyItemSidebarCounts(rawCounts) {
   state.itemSidebarCounts = normalizeItemSidebarCounts(rawCounts);
   setInboxTriggerCount(state.itemSidebarCounts.inbox);
+  maybeShowSomedayReviewNudge();
+}
+
+function maybeShowSomedayReviewNudge() {
+  if (!state.somedayReviewNudgeEnabled) return false;
+  const somedayCount = Number(state.itemSidebarCounts?.someday || 0);
+  if (somedayCount <= 0) return false;
+  if (state.fileSidebarMode === 'items' && state.itemSidebarView === 'someday' && state.prReviewDrawerOpen) {
+    persistSomedayReviewNudgeLastShownAt();
+    return false;
+  }
+  const lastShownAt = readSomedayReviewNudgeLastShownAt();
+  if (lastShownAt > 0 && (Date.now() - lastShownAt) < SOMEDAY_REVIEW_NUDGE_INTERVAL_MS) {
+    return false;
+  }
+  const suffix = somedayCount === 1 ? '' : 's';
+  appendPlainMessage('system', `You have ${somedayCount} item${suffix} in someday. Say "review my someday list" to open them.`);
+  showStatus('review someday list');
+  persistSomedayReviewNudgeLastShownAt();
+  return true;
 }
 
 async function refreshItemSidebarCounts() {
@@ -3018,9 +3080,11 @@ function itemSidebarActionLabel(action, item = null) {
   if (normalized === 'done') {
     return isEmailSidebarItem(item) ? 'Archive' : 'Done';
   }
+  if (normalized === 'inbox') return 'Back to Inbox';
   if (normalized === 'delete') return 'Delete';
   if (normalized === 'delegate') return 'Delegate';
   if (normalized === 'later') return 'Later';
+  if (normalized === 'someday') return 'Someday';
   return '';
 }
 
@@ -3030,7 +3094,9 @@ function itemSidebarStatusText(action, item = null, actorName = '') {
     return `delegated to ${String(actorName || '').trim()}`;
   }
   if (!label) return 'updated';
+  if (label === 'back to inbox') return 'returned to inbox';
   if (label === 'later') return 'moved to later';
+  if (label === 'someday') return 'moved to someday';
   return `${label}d`;
 }
 
@@ -3182,6 +3248,30 @@ async function performItemSidebarTriage(item, action, options = {}) {
   }
 }
 
+async function performItemSidebarStateUpdate(item, nextState) {
+  const itemID = Number(item?.id || 0);
+  const normalizedState = normalizeItemSidebarView(nextState);
+  if (itemID <= 0 || !normalizedState) return false;
+  try {
+    const resp = await fetch(apiURL(`items/${encodeURIComponent(String(itemID))}/state`), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ state: normalizedState }),
+    });
+    if (!resp.ok) {
+      const detail = (await resp.text()).trim() || `HTTP ${resp.status}`;
+      throw new Error(detail);
+    }
+    state.itemSidebarActiveItemID = itemID;
+    await loadItemSidebarView(state.itemSidebarView);
+    showStatus(itemSidebarStatusText(normalizedState, item));
+    return true;
+  } catch (err) {
+    showStatus(`item update failed: ${String(err?.message || err || 'unknown error')}`);
+    return false;
+  }
+}
+
 async function showItemSidebarDelegateMenu(item, x, y) {
   try {
     const actors = await fetchItemSidebarActors();
@@ -3209,28 +3299,52 @@ async function showItemSidebarDelegateMenu(item, x, y) {
 }
 
 function showItemSidebarActionMenu(item, x, y) {
-  const entries = [
-    {
-      label: itemSidebarActionLabel('done', item),
-      action: 'done',
-      onClick: () => performItemSidebarTriage(item, 'done'),
-    },
-    {
-      label: itemSidebarActionLabel('later', item),
-      action: 'later',
-      onClick: () => performItemSidebarTriage(item, 'later'),
-    },
-    {
-      label: itemSidebarActionLabel('delegate', item),
-      action: 'delegate',
-      onClick: () => showItemSidebarDelegateMenu(item, x, y),
-    },
-    {
-      label: itemSidebarActionLabel('delete', item),
-      action: 'delete',
-      onClick: () => performItemSidebarTriage(item, 'delete'),
-    },
-  ];
+  const view = normalizeItemSidebarView(state.itemSidebarView);
+  const entries = view === 'someday'
+    ? [
+      {
+        label: itemSidebarActionLabel('inbox', item),
+        action: 'inbox',
+        onClick: () => performItemSidebarStateUpdate(item, 'inbox'),
+      },
+      {
+        label: itemSidebarActionLabel('done', item),
+        action: 'done',
+        onClick: () => performItemSidebarTriage(item, 'done'),
+      },
+      {
+        label: itemSidebarActionLabel('delete', item),
+        action: 'delete',
+        onClick: () => performItemSidebarTriage(item, 'delete'),
+      },
+    ]
+    : [
+      {
+        label: itemSidebarActionLabel('done', item),
+        action: 'done',
+        onClick: () => performItemSidebarTriage(item, 'done'),
+      },
+      {
+        label: itemSidebarActionLabel('later', item),
+        action: 'later',
+        onClick: () => performItemSidebarTriage(item, 'later'),
+      },
+      {
+        label: itemSidebarActionLabel('delegate', item),
+        action: 'delegate',
+        onClick: () => showItemSidebarDelegateMenu(item, x, y),
+      },
+      {
+        label: itemSidebarActionLabel('someday', item),
+        action: 'someday',
+        onClick: () => performItemSidebarTriage(item, 'someday'),
+      },
+      {
+        label: itemSidebarActionLabel('delete', item),
+        action: 'delete',
+        onClick: () => performItemSidebarTriage(item, 'delete'),
+      },
+    ];
   showItemSidebarMenu(entries, x, y);
 }
 
@@ -3321,8 +3435,18 @@ async function openSidebarArtifactItem(item) {
   return true;
 }
 
+async function openItemSidebarView(view = state.itemSidebarView) {
+  state.fileSidebarMode = 'items';
+  if (!state.prReviewDrawerOpen) {
+    setPrReviewDrawerOpen(true);
+  }
+  renderPrReviewFileList();
+  return loadItemSidebarView(view);
+}
+
 function activeItemSidebarShortcutTarget() {
-  if (state.prReviewMode || state.fileSidebarMode !== 'items' || state.itemSidebarView !== 'inbox') {
+  const view = normalizeItemSidebarView(state.itemSidebarView);
+  if (state.prReviewMode || state.fileSidebarMode !== 'items' || (view !== 'inbox' && view !== 'someday')) {
     return null;
   }
   const items = Array.isArray(state.itemSidebarItems) ? state.itemSidebarItems : [];
@@ -3334,6 +3458,8 @@ function activeItemSidebarShortcutTarget() {
 async function loadItemSidebarView(view = state.itemSidebarView) {
   const normalizedView = normalizeItemSidebarView(view);
   const projectID = String(state.activeProjectId || '').trim();
+  const loadSeq = Number(state.itemSidebarLoadSeq || 0) + 1;
+  state.itemSidebarLoadSeq = loadSeq;
   hideItemSidebarMenu();
   state.itemSidebarView = normalizedView;
   state.itemSidebarLoading = true;
@@ -3364,6 +3490,7 @@ async function loadItemSidebarView(view = state.itemSidebarView) {
     }
     const [itemsPayload, countsPayload] = await Promise.all([itemsResp.json(), countsResp.json()]);
     if (projectID !== String(state.activeProjectId || '').trim()) return false;
+    if (loadSeq !== Number(state.itemSidebarLoadSeq || 0)) return false;
     state.itemSidebarItems = Array.isArray(itemsPayload?.items) ? itemsPayload.items : [];
     state.itemSidebarLoading = false;
     state.itemSidebarError = '';
@@ -3372,6 +3499,7 @@ async function loadItemSidebarView(view = state.itemSidebarView) {
     return true;
   } catch (err) {
     if (projectID !== String(state.activeProjectId || '').trim()) return false;
+    if (loadSeq !== Number(state.itemSidebarLoadSeq || 0)) return false;
     state.itemSidebarItems = [];
     state.itemSidebarLoading = false;
     state.itemSidebarError = String(err?.message || err || 'item list unavailable');
@@ -3544,9 +3672,7 @@ function renderSidebarTabs(list) {
       button.appendChild(badge);
     }
     button.addEventListener('click', () => {
-      state.fileSidebarMode = 'items';
-      state.itemSidebarView = view;
-      void loadItemSidebarView(view);
+      void openItemSidebarView(view);
     });
     tabs.appendChild(button);
   });
@@ -3669,7 +3795,7 @@ function renderSidebarRow({
     };
     resetSwipeUi();
   }, { passive: true });
-  if (triageEnabled && item) {
+  if ((triageEnabled || state.itemSidebarView === 'someday') && item) {
     button.addEventListener('touchmove', (ev) => {
       if (!touchState) return;
       const t = ev.touches && ev.touches[0];
@@ -3777,6 +3903,7 @@ function renderItemSidebarList(list) {
   }
   items.forEach((item) => {
     const icon = itemIconForRow(item);
+    const triageEnabled = state.itemSidebarView === 'inbox';
     list.appendChild(renderSidebarRow({
       icon: icon.icon,
       iconText: icon.text,
@@ -3786,7 +3913,7 @@ function renderItemSidebarList(list) {
       meta: formatSidebarAge(item?.updated_at || item?.created_at),
       active: Number(item?.id || 0) === Number(state.itemSidebarActiveItemID || 0),
       item,
-      triageEnabled: state.itemSidebarView === 'inbox',
+      triageEnabled,
       onClick: () => { void openSidebarItem(item); },
     }));
   });
@@ -3798,14 +3925,19 @@ function handleItemSidebarKeyboardShortcut(ev) {
   if (!document.body.classList.contains('file-sidebar-open')) return false;
   const key = String(ev.key || '');
   let action = '';
+  const view = normalizeItemSidebarView(state.itemSidebarView);
   if (key === 'Backspace') {
     action = 'delete';
   } else if (key === 'd' || key === 'D') {
     action = 'done';
-  } else if (key === 'l' || key === 'L') {
+  } else if (view === 'inbox' && (key === 'l' || key === 'L')) {
     action = 'later';
-  } else if (key === 'g' || key === 'G') {
+  } else if (view === 'inbox' && (key === 'g' || key === 'G')) {
     action = 'delegate';
+  } else if (view === 'inbox' && (key === 's' || key === 'S')) {
+    action = 'someday';
+  } else if (view === 'someday' && (key === 'a' || key === 'A')) {
+    action = 'inbox';
   } else {
     return false;
   }
@@ -3816,6 +3948,10 @@ function handleItemSidebarKeyboardShortcut(ev) {
     const x = rect ? rect.right - 12 : 24;
     const y = rect ? rect.top + Math.min(rect.height, 48) : 24;
     void showItemSidebarDelegateMenu(sidebarTarget, x, y);
+    return true;
+  }
+  if (action === 'inbox') {
+    void performItemSidebarStateUpdate(sidebarTarget, 'inbox');
     return true;
   }
   void performItemSidebarTriage(sidebarTarget, action);
@@ -5954,6 +6090,24 @@ function handleChatEvent(payload) {
       }
     } else if (actionType === 'toggle_silent') {
       toggleTTSSilentMode();
+    } else if (actionType === 'show_item_sidebar_view') {
+      const view = normalizeItemSidebarView(action?.view || 'inbox');
+      void openItemSidebarView(view);
+    } else if (actionType === 'set_someday_review_nudge') {
+      const enabled = parseOptionalBoolean(action?.enabled);
+      if (enabled !== null) {
+        setSomedayReviewNudgeEnabled(enabled);
+        showStatus(enabled ? 'someday reminders on' : 'someday reminders off');
+      }
+    } else if (actionType === 'item_state_changed') {
+      const nextView = String(action?.view || '').trim();
+      if (nextView) {
+        void openItemSidebarView(nextView);
+      } else if (state.fileSidebarMode === 'items' && state.prReviewDrawerOpen) {
+        void loadItemSidebarView(state.itemSidebarView);
+      } else {
+        void refreshItemSidebarCounts().catch(() => {});
+      }
     } else if (actionType === 'print_item') {
       openPrintView(String(action?.url || '').trim());
     } else if (actionType === 'toggle_live_dialogue' || actionType === 'toggle_conversation') {
@@ -7900,6 +8054,7 @@ function showSplash() {
 
 async function init() {
   pendingRuntimeReloadContext = consumeRuntimeReloadContext();
+  setSomedayReviewNudgeEnabled(readSomedayReviewNudgePreference(), { persist: false });
   applyIPhoneFrameCorners();
   window.addEventListener('resize', () => {
     if (document.body.classList.contains('keyboard-open')) return;
