@@ -2,8 +2,11 @@ package store
 
 import (
 	"database/sql"
+	"errors"
+	"fmt"
 	"path/filepath"
 	"reflect"
+	"sync"
 	"testing"
 
 	_ "modernc.org/sqlite"
@@ -188,5 +191,303 @@ func TestDomainTypesExposeJSONTags(t *testing.T) {
 				t.Fatalf("%s.%s missing json tag", tc.name, field.Name)
 			}
 		}
+	}
+}
+
+func TestDomainCRUDRoundTrip(t *testing.T) {
+	s := newTestStore(t)
+
+	workspaceAPath := filepath.Join(t.TempDir(), "workspace-a")
+	workspaceBPath := filepath.Join(t.TempDir(), "workspace-b")
+
+	workspaceA, err := s.CreateWorkspace("Workspace A", workspaceAPath)
+	if err != nil {
+		t.Fatalf("CreateWorkspace(workspace-a) error: %v", err)
+	}
+	workspaceB, err := s.CreateWorkspace(" Workspace B ", workspaceBPath)
+	if err != nil {
+		t.Fatalf("CreateWorkspace(workspace-b) error: %v", err)
+	}
+	gotByPath, err := s.GetWorkspaceByPath(workspaceBPath)
+	if err != nil {
+		t.Fatalf("GetWorkspaceByPath() error: %v", err)
+	}
+	if gotByPath.ID != workspaceB.ID {
+		t.Fatalf("GetWorkspaceByPath() ID = %d, want %d", gotByPath.ID, workspaceB.ID)
+	}
+	if _, err := s.CreateWorkspace("Duplicate", workspaceAPath); err == nil {
+		t.Fatal("expected duplicate workspace path error")
+	}
+	if err := s.SetActiveWorkspace(workspaceB.ID); err != nil {
+		t.Fatalf("SetActiveWorkspace() error: %v", err)
+	}
+	workspaces, err := s.ListWorkspaces()
+	if err != nil {
+		t.Fatalf("ListWorkspaces() error: %v", err)
+	}
+	if len(workspaces) != 2 {
+		t.Fatalf("ListWorkspaces() len = %d, want 2", len(workspaces))
+	}
+	if !workspaces[0].IsActive || workspaces[0].ID != workspaceB.ID {
+		t.Fatalf("ListWorkspaces() active workspace mismatch: %+v", workspaces)
+	}
+	workspaceA, err = s.GetWorkspace(workspaceA.ID)
+	if err != nil {
+		t.Fatalf("GetWorkspace(workspace-a) error: %v", err)
+	}
+	if workspaceA.IsActive {
+		t.Fatal("expected inactive workspace after SetActiveWorkspace")
+	}
+
+	human, err := s.CreateActor("Alice", ActorKindHuman)
+	if err != nil {
+		t.Fatalf("CreateActor(Alice) error: %v", err)
+	}
+	agent, err := s.CreateActor("Codex", ActorKindAgent)
+	if err != nil {
+		t.Fatalf("CreateActor(Codex) error: %v", err)
+	}
+	if _, err := s.CreateActor("Nobody", "robot"); err == nil {
+		t.Fatal("expected invalid actor kind error")
+	}
+	actors, err := s.ListActors()
+	if err != nil {
+		t.Fatalf("ListActors() error: %v", err)
+	}
+	if len(actors) != 2 {
+		t.Fatalf("ListActors() len = %d, want 2", len(actors))
+	}
+	if actors[0].Name != "Alice" || actors[1].Name != "Codex" {
+		t.Fatalf("ListActors() names = %#v, want Alice/Codex", []string{actors[0].Name, actors[1].Name})
+	}
+	gotActor, err := s.GetActor(agent.ID)
+	if err != nil {
+		t.Fatalf("GetActor() error: %v", err)
+	}
+	if gotActor.Kind != ActorKindAgent {
+		t.Fatalf("GetActor().Kind = %q, want %q", gotActor.Kind, ActorKindAgent)
+	}
+
+	refPath := filepath.Join(t.TempDir(), "artifact.md")
+	refURL := "https://example.invalid/item/1"
+	title := "Plan draft"
+	metaJSON := `{"source":"unit"}`
+	artifact, err := s.CreateArtifact(ArtifactKindMarkdown, &refPath, &refURL, &title, &metaJSON)
+	if err != nil {
+		t.Fatalf("CreateArtifact() error: %v", err)
+	}
+	gotArtifact, err := s.GetArtifact(artifact.ID)
+	if err != nil {
+		t.Fatalf("GetArtifact() error: %v", err)
+	}
+	if gotArtifact.Kind != ArtifactKindMarkdown || gotArtifact.Title == nil || *gotArtifact.Title != title {
+		t.Fatalf("GetArtifact() = %+v", gotArtifact)
+	}
+	updatedTitle := "Plan draft v2"
+	clearRefURL := ""
+	updatedKind := ArtifactKindDocument
+	if err := s.UpdateArtifact(artifact.ID, ArtifactUpdate{
+		Kind:   &updatedKind,
+		Title:  &updatedTitle,
+		RefURL: &clearRefURL,
+	}); err != nil {
+		t.Fatalf("UpdateArtifact() error: %v", err)
+	}
+	gotArtifact, err = s.GetArtifact(artifact.ID)
+	if err != nil {
+		t.Fatalf("GetArtifact(updated) error: %v", err)
+	}
+	if gotArtifact.Kind != ArtifactKindDocument {
+		t.Fatalf("GetArtifact(updated).Kind = %q, want %q", gotArtifact.Kind, ArtifactKindDocument)
+	}
+	if gotArtifact.RefURL != nil {
+		t.Fatalf("GetArtifact(updated).RefURL = %v, want nil", *gotArtifact.RefURL)
+	}
+	if gotArtifact.Title == nil || *gotArtifact.Title != updatedTitle {
+		t.Fatalf("GetArtifact(updated).Title = %v, want %q", gotArtifact.Title, updatedTitle)
+	}
+	artifacts, err := s.ListArtifactsByKind(ArtifactKindDocument)
+	if err != nil {
+		t.Fatalf("ListArtifactsByKind() error: %v", err)
+	}
+	if len(artifacts) != 1 || artifacts[0].ID != artifact.ID {
+		t.Fatalf("ListArtifactsByKind() = %+v, want artifact %d", artifacts, artifact.ID)
+	}
+
+	source := "github"
+	sourceRef := "issue-174"
+	visibleAfter := "2026-03-09T10:00:00Z"
+	followUpAt := "2026-03-10T11:00:00Z"
+
+	inboxItem, err := s.CreateItem("Inbox item", ItemOptions{})
+	if err != nil {
+		t.Fatalf("CreateItem(inbox) error: %v", err)
+	}
+	artifactItem, err := s.CreateItem("Artifact item", ItemOptions{
+		ArtifactID: &artifact.ID,
+		Source:     &source,
+		SourceRef:  &sourceRef,
+	})
+	if err != nil {
+		t.Fatalf("CreateItem(artifact) error: %v", err)
+	}
+	workspaceItem, err := s.CreateItem("Workspace item", ItemOptions{
+		WorkspaceID: &workspaceA.ID,
+	})
+	if err != nil {
+		t.Fatalf("CreateItem(workspace) error: %v", err)
+	}
+	assignedItem, err := s.CreateItem("Assigned item", ItemOptions{
+		State:        ItemStateWaiting,
+		WorkspaceID:  &workspaceB.ID,
+		ArtifactID:   &artifact.ID,
+		ActorID:      &human.ID,
+		VisibleAfter: &visibleAfter,
+		FollowUpAt:   &followUpAt,
+	})
+	if err != nil {
+		t.Fatalf("CreateItem(assigned) error: %v", err)
+	}
+	if assignedItem.WorkspaceID == nil || *assignedItem.WorkspaceID != workspaceB.ID {
+		t.Fatalf("CreateItem(assigned).WorkspaceID = %v, want %d", assignedItem.WorkspaceID, workspaceB.ID)
+	}
+	if assignedItem.ArtifactID == nil || *assignedItem.ArtifactID != artifact.ID {
+		t.Fatalf("CreateItem(assigned).ArtifactID = %v, want %d", assignedItem.ArtifactID, artifact.ID)
+	}
+	if assignedItem.ActorID == nil || *assignedItem.ActorID != human.ID {
+		t.Fatalf("CreateItem(assigned).ActorID = %v, want %d", assignedItem.ActorID, human.ID)
+	}
+
+	if err := s.AssignItem(artifactItem.ID, agent.ID); err != nil {
+		t.Fatalf("AssignItem() error: %v", err)
+	}
+	gotItem, err := s.GetItem(artifactItem.ID)
+	if err != nil {
+		t.Fatalf("GetItem(artifact assigned) error: %v", err)
+	}
+	if gotItem.ActorID == nil || *gotItem.ActorID != agent.ID {
+		t.Fatalf("GetItem(artifact assigned).ActorID = %v, want %d", gotItem.ActorID, agent.ID)
+	}
+	if err := s.AssignItem(artifactItem.ID, 9999); err == nil {
+		t.Fatal("expected assign to nonexistent actor error")
+	}
+
+	if err := s.UpdateItemTimes(inboxItem.ID, &visibleAfter, &followUpAt); err != nil {
+		t.Fatalf("UpdateItemTimes() error: %v", err)
+	}
+	gotItem, err = s.GetItem(inboxItem.ID)
+	if err != nil {
+		t.Fatalf("GetItem(updated times) error: %v", err)
+	}
+	if gotItem.VisibleAfter == nil || *gotItem.VisibleAfter != visibleAfter {
+		t.Fatalf("VisibleAfter = %v, want %q", gotItem.VisibleAfter, visibleAfter)
+	}
+	if gotItem.FollowUpAt == nil || *gotItem.FollowUpAt != followUpAt {
+		t.Fatalf("FollowUpAt = %v, want %q", gotItem.FollowUpAt, followUpAt)
+	}
+
+	if err := s.UpdateItemState(inboxItem.ID, ItemStateWaiting); err != nil {
+		t.Fatalf("UpdateItemState(waiting) error: %v", err)
+	}
+	if err := s.UpdateItemState(inboxItem.ID, ItemStateDone); err != nil {
+		t.Fatalf("UpdateItemState(done) error: %v", err)
+	}
+	if err := s.UpdateItemState(inboxItem.ID, ItemStateInbox); err == nil {
+		t.Fatal("expected invalid done -> inbox transition error")
+	}
+	if err := s.UpdateItemState(inboxItem.ID, "paused"); err == nil {
+		t.Fatal("expected invalid item state error")
+	}
+
+	waitingItems, err := s.ListItemsByState(ItemStateWaiting)
+	if err != nil {
+		t.Fatalf("ListItemsByState(waiting) error: %v", err)
+	}
+	if len(waitingItems) != 2 {
+		t.Fatalf("ListItemsByState(waiting) len = %d, want 2", len(waitingItems))
+	}
+	doneItems, err := s.ListItemsByState(ItemStateDone)
+	if err != nil {
+		t.Fatalf("ListItemsByState(done) error: %v", err)
+	}
+	if len(doneItems) != 1 || doneItems[0].ID != inboxItem.ID {
+		t.Fatalf("ListItemsByState(done) = %+v, want inbox item %d", doneItems, inboxItem.ID)
+	}
+	if _, err := s.ListItemsByState("paused"); err == nil {
+		t.Fatal("expected invalid ListItemsByState error")
+	}
+
+	if err := s.DeleteWorkspace(workspaceA.ID); err != nil {
+		t.Fatalf("DeleteWorkspace() error: %v", err)
+	}
+	workspaceItem, err = s.GetItem(workspaceItem.ID)
+	if err != nil {
+		t.Fatalf("GetItem(workspace item after workspace delete) error: %v", err)
+	}
+	if workspaceItem.WorkspaceID != nil {
+		t.Fatalf("workspace item WorkspaceID = %v, want nil", *workspaceItem.WorkspaceID)
+	}
+	if err := s.DeleteArtifact(artifact.ID); err != nil {
+		t.Fatalf("DeleteArtifact() error: %v", err)
+	}
+	artifactItem, err = s.GetItem(artifactItem.ID)
+	if err != nil {
+		t.Fatalf("GetItem(artifact item after artifact delete) error: %v", err)
+	}
+	if artifactItem.ArtifactID != nil {
+		t.Fatalf("artifact item ArtifactID = %v, want nil", *artifactItem.ArtifactID)
+	}
+	if err := s.DeleteActor(agent.ID); err != nil {
+		t.Fatalf("DeleteActor() error: %v", err)
+	}
+	artifactItem, err = s.GetItem(artifactItem.ID)
+	if err != nil {
+		t.Fatalf("GetItem(artifact item after actor delete) error: %v", err)
+	}
+	if artifactItem.ActorID != nil {
+		t.Fatalf("artifact item ActorID = %v, want nil", *artifactItem.ActorID)
+	}
+
+	if err := s.DeleteItem(assignedItem.ID); err != nil {
+		t.Fatalf("DeleteItem() error: %v", err)
+	}
+	if _, err := s.GetItem(assignedItem.ID); !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("GetItem(deleted) error = %v, want sql.ErrNoRows", err)
+	}
+}
+
+func TestDomainConcurrentWorkspaceCreates(t *testing.T) {
+	s := newTestStore(t)
+
+	const count = 12
+	baseDir := t.TempDir()
+	errCh := make(chan error, count)
+	var wg sync.WaitGroup
+	for i := 0; i < count; i++ {
+		i := i
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, err := s.CreateWorkspace(
+				"Workspace",
+				filepath.Join(baseDir, fmt.Sprintf("workspace-%02d", i)),
+			)
+			errCh <- err
+		}()
+	}
+	wg.Wait()
+	close(errCh)
+
+	for err := range errCh {
+		if err != nil {
+			t.Fatalf("CreateWorkspace() concurrent error: %v", err)
+		}
+	}
+	workspaces, err := s.ListWorkspaces()
+	if err != nil {
+		t.Fatalf("ListWorkspaces() error: %v", err)
+	}
+	if len(workspaces) != count {
+		t.Fatalf("ListWorkspaces() len = %d, want %d", len(workspaces), count)
 	}
 }
