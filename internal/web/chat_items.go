@@ -49,6 +49,9 @@ func parseInlineItemIntent(text string, now time.Time) *SystemAction {
 
 func parseInlineItemIntentWithInputMode(text string, now time.Time, inputMode string) *SystemAction {
 	normalized := normalizeItemCommandText(text)
+	if somedayAction := parseInlineSomedayIntent(text); somedayAction != nil {
+		return somedayAction
+	}
 	if ideaText, ok := extractIdeaCaptureText(text); ok {
 		return &SystemAction{
 			Action: "capture_idea",
@@ -218,7 +221,7 @@ func parseItemSplitCount(raw string) (int, bool) {
 
 func isItemSystemAction(action string) bool {
 	switch strings.ToLower(strings.TrimSpace(action)) {
-	case "make_item", "delegate_item", "snooze_item", "split_items", "capture_idea", "create_github_issue", "create_github_issue_split", "print_item":
+	case "make_item", "delegate_item", "snooze_item", "split_items", "capture_idea", "create_github_issue", "create_github_issue_split", "print_item", "review_someday", "triage_someday", "promote_someday", "toggle_someday_review_nudge":
 		return true
 	default:
 		return false
@@ -233,9 +236,16 @@ func itemActionFailurePrefix(action string) string {
 		return "I couldn't capture the idea: "
 	case "print_item":
 		return "I couldn't prepare the print view: "
+	case "review_someday":
+		return "I couldn't open the someday list: "
+	case "toggle_someday_review_nudge":
+		return "I couldn't update the someday reminder setting: "
 	}
-	if strings.EqualFold(strings.TrimSpace(action), "split_items") {
+	switch strings.ToLower(strings.TrimSpace(action)) {
+	case "split_items":
 		return "I couldn't create the items: "
+	case "triage_someday", "promote_someday":
+		return "I couldn't update the item: "
 	}
 	return "I couldn't create the item: "
 }

@@ -333,7 +333,7 @@ func (a *App) resolvePrintItemTarget(session store.ChatSession, action *SystemAc
 	if err != nil {
 		return store.Item{}, err
 	}
-	if item, err := a.resolveCanvasPrintItem(project); err == nil {
+	if item, err := a.resolveCanvasConversationItem(project); err == nil {
 		return item, nil
 	} else if !errors.Is(err, sql.ErrNoRows) {
 		return store.Item{}, err
@@ -359,7 +359,7 @@ func (a *App) resolvePrintItemTarget(session store.ChatSession, action *SystemAc
 	return items[0], nil
 }
 
-func (a *App) resolveCanvasPrintItem(project store.Project) (store.Item, error) {
+func (a *App) resolveCanvasConversationItem(project store.Project) (store.Item, error) {
 	canvas := a.resolveConversationCanvasArtifact(project)
 	if canvas == nil {
 		return store.Item{}, sql.ErrNoRows

@@ -1045,6 +1045,28 @@
         }
         return new Response(JSON.stringify({ ok: true, item }), { status: 200 });
       }
+      if (/\/api\/items\/\d+\/state(?:\?|$)/.test(u) && opts?.method === 'PUT') {
+        let body = {};
+        try { body = JSON.parse(String(opts?.body || '{}')); } catch (_) { body = {}; }
+        const match = u.match(/\/api\/items\/(\d+)\/state(?:\?|$)/);
+        const itemID = Number(match?.[1] || 0);
+        const nextState = String(body.state || '').trim().toLowerCase();
+        if (!['inbox', 'waiting', 'someday', 'done'].includes(nextState)) {
+          return new Response('invalid state', { status: 400 });
+        }
+        const item = moveItemSidebarEntry(itemID, nextState);
+        window.__harnessLog.push({
+          type: 'api_fetch',
+          action: 'item_state',
+          method: opts?.method || 'PUT',
+          url: u,
+          payload: body,
+        });
+        if (!item) {
+          return new Response('item not found', { status: 404 });
+        }
+        return new Response(JSON.stringify({ ok: true, item }), { status: 200 });
+      }
       if (u.includes('/api/actors')) {
         const actors = Array.isArray(window.__itemSidebarActors) ? window.__itemSidebarActors : [];
         return new Response(JSON.stringify({ ok: true, actors }), { status: 200 });
