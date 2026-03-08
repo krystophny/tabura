@@ -203,6 +203,9 @@ const COMPANION_REFERENCES_VIEW_PATH = `${COMPANION_VIEW_PATH_PREFIX}/references
 let localMessageSeq = 0;
 const CHAT_CTRL_LONG_PRESS_MS = 180;
 const ARTIFACT_EDIT_LONG_TAP_MS = 420;
+const REVIEW_COMMENT_MIN_OFFSET_X_PX = 12;
+const REVIEW_COMMENT_OFFSET_Y_PX = 14;
+const REVIEW_COMMENT_FALLBACK_OFFSET_Y_PX = 18;
 // Frontend end-of-utterance policy:
 // - start/end speech from local mic energy
 // - pure VAD commit (no semantic EOU sidecar)
@@ -1083,15 +1086,15 @@ function getSelectionCommentPoint(selection, fallbackEvent = null) {
     const rect = selection.getRangeAt(0).getBoundingClientRect();
     if (rect && (rect.width > 0 || rect.height > 0)) {
       return {
-        x: rect.left + Math.max(12, rect.width / 2),
-        y: rect.bottom + 14,
+        x: rect.left + Math.max(REVIEW_COMMENT_MIN_OFFSET_X_PX, rect.width / 2),
+        y: rect.bottom + REVIEW_COMMENT_OFFSET_Y_PX,
       };
     }
   }
   if (Number.isFinite(fallbackEvent?.clientX) && Number.isFinite(fallbackEvent?.clientY)) {
     return {
       x: Number(fallbackEvent.clientX),
-      y: Number(fallbackEvent.clientY) + 18,
+      y: Number(fallbackEvent.clientY) + REVIEW_COMMENT_FALLBACK_OFFSET_Y_PX,
     };
   }
   return {

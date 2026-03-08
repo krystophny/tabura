@@ -1,5 +1,8 @@
 import { expect, test, type Page } from '@playwright/test';
 
+const REVIEW_COMMENT_CLICK_OFFSET_X = 24;
+const REVIEW_COMMENT_CLICK_OFFSET_Y = 4;
+
 async function waitReady(page: Page) {
   await page.goto('/tests/playwright/harness.html');
   await page.waitForFunction(() => {
@@ -165,7 +168,7 @@ test.describe('pr review canvas mode', () => {
     await page.keyboard.press('ArrowRight');
     await expect(page.locator('#canvas-text')).toContainText('src/two.js');
 
-    await page.evaluate(() => {
+    await page.evaluate(({ offsetX, offsetY }) => {
       const line = document.querySelector('#canvas-text .hl-diff-line.hl-diff-add[data-file-path="src/two.js"][data-file-line="1"]');
       if (!(line instanceof HTMLElement)) {
         throw new Error('review line not found');
@@ -178,9 +181,12 @@ test.describe('pr review canvas mode', () => {
       const rect = line.getBoundingClientRect();
       line.dispatchEvent(new MouseEvent('mouseup', {
         bubbles: true,
-        clientX: rect.left + Math.min(24, rect.width / 2),
-        clientY: rect.bottom - Math.min(4, rect.height / 2),
+        clientX: rect.left + Math.min(Number(offsetX), rect.width / 2),
+        clientY: rect.bottom - Math.min(Number(offsetY), rect.height / 2),
       }));
+    }, {
+      offsetX: REVIEW_COMMENT_CLICK_OFFSET_X,
+      offsetY: REVIEW_COMMENT_CLICK_OFFSET_Y,
     });
 
     const composer = page.locator('#floating-input');
