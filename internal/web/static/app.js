@@ -127,6 +127,7 @@ const state = {
   itemSidebarItems: [],
   itemSidebarCounts: defaultItemSidebarCounts(),
   itemSidebarLoading: false,
+  itemSidebarLoadSeq: 0,
   itemSidebarError: '',
   itemSidebarActiveItemID: 0,
   itemSidebarMenuOpen: false,
@@ -3457,6 +3458,8 @@ function activeItemSidebarShortcutTarget() {
 async function loadItemSidebarView(view = state.itemSidebarView) {
   const normalizedView = normalizeItemSidebarView(view);
   const projectID = String(state.activeProjectId || '').trim();
+  const loadSeq = Number(state.itemSidebarLoadSeq || 0) + 1;
+  state.itemSidebarLoadSeq = loadSeq;
   hideItemSidebarMenu();
   state.itemSidebarView = normalizedView;
   state.itemSidebarLoading = true;
@@ -3487,6 +3490,7 @@ async function loadItemSidebarView(view = state.itemSidebarView) {
     }
     const [itemsPayload, countsPayload] = await Promise.all([itemsResp.json(), countsResp.json()]);
     if (projectID !== String(state.activeProjectId || '').trim()) return false;
+    if (loadSeq !== Number(state.itemSidebarLoadSeq || 0)) return false;
     state.itemSidebarItems = Array.isArray(itemsPayload?.items) ? itemsPayload.items : [];
     state.itemSidebarLoading = false;
     state.itemSidebarError = '';
@@ -3495,6 +3499,7 @@ async function loadItemSidebarView(view = state.itemSidebarView) {
     return true;
   } catch (err) {
     if (projectID !== String(state.activeProjectId || '').trim()) return false;
+    if (loadSeq !== Number(state.itemSidebarLoadSeq || 0)) return false;
     state.itemSidebarItems = [];
     state.itemSidebarLoading = false;
     state.itemSidebarError = String(err?.message || err || 'item list unavailable');
