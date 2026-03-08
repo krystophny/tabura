@@ -3,6 +3,9 @@ package store
 type ArtifactKind string
 
 const (
+	ActorKindHuman = "human"
+	ActorKindAgent = "agent"
+
 	ArtifactKindEmail       ArtifactKind = "email"
 	ArtifactKindDocument    ArtifactKind = "document"
 	ArtifactKindPDF         ArtifactKind = "pdf"
@@ -12,7 +15,30 @@ const (
 	ArtifactKindGitHubPR    ArtifactKind = "github_pr"
 	ArtifactKindTranscript  ArtifactKind = "transcript"
 	ArtifactKindPlanNote    ArtifactKind = "plan_note"
+
+	ItemStateInbox   = "inbox"
+	ItemStateWaiting = "waiting"
+	ItemStateDone    = "done"
 )
+
+type ArtifactUpdate struct {
+	Kind     *ArtifactKind `json:"kind,omitempty"`
+	RefPath  *string       `json:"ref_path,omitempty"`
+	RefURL   *string       `json:"ref_url,omitempty"`
+	Title    *string       `json:"title,omitempty"`
+	MetaJSON *string       `json:"meta_json,omitempty"`
+}
+
+type ItemOptions struct {
+	State        string  `json:"state,omitempty"`
+	WorkspaceID  *int64  `json:"workspace_id,omitempty"`
+	ArtifactID   *int64  `json:"artifact_id,omitempty"`
+	ActorID      *int64  `json:"actor_id,omitempty"`
+	VisibleAfter *string `json:"visible_after,omitempty"`
+	FollowUpAt   *string `json:"follow_up_at,omitempty"`
+	Source       *string `json:"source,omitempty"`
+	SourceRef    *string `json:"source_ref,omitempty"`
+}
 
 type Workspace struct {
 	ID        int64  `json:"id"`
