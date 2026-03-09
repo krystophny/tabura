@@ -138,10 +138,14 @@ func resolveCanvasFilePath(cwd, requested string) (absolutePath, canvasTitle str
 	return abs, filepath.ToSlash(rel), nil
 }
 
-func (a *App) executeFileBlocks(projectKey, canvasSessionID string, blocks []fileBlock) {
+func (a *App) executeFileBlocks(projectKey, canvasSessionID string, blocks []fileBlock) bool {
+	wroteAny := false
 	for _, block := range blocks {
-		_ = a.writeCanvasFileBlock(projectKey, canvasSessionID, block)
+		if a.writeCanvasFileBlock(projectKey, canvasSessionID, block) {
+			wroteAny = true
+		}
 	}
+	return wroteAny
 }
 
 func (a *App) writeCanvasFileBlock(projectKey, canvasSessionID string, block fileBlock) bool {

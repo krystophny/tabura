@@ -217,6 +217,35 @@ func TestBuildPromptFromHistoryForMode_SilentUsesToolOnlyPreamble(t *testing.T) 
 	}
 }
 
+func TestBuildPromptFromHistoryForSession_SilentResearchUsesArtifactContract(t *testing.T) {
+	prompt := buildPromptFromHistoryForSession("chat", "session-42", []store.ChatMessage{{
+		Role:         "user",
+		ContentPlain: "research bootstrap current modeling in stellarators",
+	}}, nil, turnOutputModeSilent, "")
+	if !strings.Contains(prompt, "Research Artifact Output") {
+		t.Fatal("silent research prompt should include research artifact contract")
+	}
+	if !strings.Contains(prompt, ".tabura/artifacts/research/session-42/summary.md") {
+		t.Fatalf("silent research prompt should pin the session research root, got %q", prompt)
+	}
+	if !strings.Contains(prompt, "Produce multiple file-backed canvas artifacts") {
+		t.Fatal("silent research prompt should require multiple file-backed artifacts")
+	}
+}
+
+func TestBuildTurnPromptForSession_SilentResearchUsesArtifactContract(t *testing.T) {
+	prompt := buildTurnPromptForSession("session-42", []store.ChatMessage{{
+		Role:         "user",
+		ContentPlain: "find and summarize recent work on gyrokinetic turbulence",
+	}}, nil, turnOutputModeSilent, "")
+	if !strings.Contains(prompt, "Research Artifact Output") {
+		t.Fatal("silent research turn prompt should include research artifact contract")
+	}
+	if !strings.Contains(prompt, ".tabura/artifacts/research/session-42/summary.md") {
+		t.Fatalf("silent research turn prompt should pin the session research root, got %q", prompt)
+	}
+}
+
 func TestBuildPromptFromHistoryForMode_SparkOmitsModelSpecificHints(t *testing.T) {
 	prompt := buildPromptFromHistoryForMode("chat", nil, nil, turnOutputModeVoice, "spark")
 	if strings.Contains(prompt, "merge conflicts") {
@@ -541,6 +570,8 @@ type canvasMCPMock struct {
 	artifactText     string
 	lastShownTitle   string
 	lastShownContent string
+	shownTitles      []string
+	shownContents    []string
 	artifactShow     int32
 }
 
@@ -584,6 +615,8 @@ func (m *canvasMCPMock) setupServer(t *testing.T) *httptest.Server {
 			m.artifactText = content
 			m.lastShownTitle = title
 			m.lastShownContent = content
+			m.shownTitles = append(m.shownTitles, title)
+			m.shownContents = append(m.shownContents, content)
 			m.mu.Unlock()
 			structured = map[string]interface{}{"ok": true}
 		default:
@@ -789,5 +822,139 @@ func TestFinalizeAssistantResponse_SilentFallsBackWhenOverwritePathEscapesProjec
 	}
 	if strings.TrimSpace(mock.lastShownContent) != "fresh response" {
 		t.Fatalf("expected fallback scratch artifact content, got %q", mock.lastShownContent)
+	}
+}
+
+func TestFinalizeAssistantResponse_SilentResearchWritesMultipleArtifacts(t *testing.T) {
+	app := newAuthedTestApp(t)
+	project, err := app.ensureDefaultProjectRecord()
+	if err != nil {
+		t.Fatalf("ensure default project: %v", err)
+	}
+	session, err := app.store.GetOrCreateChatSession(project.ProjectKey)
+	if err != nil {
+		t.Fatalf("chat session: %v", err)
+	}
+	if _, err := app.store.AddChatMessage(session.ID, "user", "research bootstrap current modeling in stellarators", "research bootstrap current modeling in stellarators", "markdown"); err != nil {
+		t.Fatalf("seed research user message: %v", err)
+	}
+
+	mock := &canvasMCPMock{}
+	server := mock.setupServer(t)
+	defer server.Close()
+	port, err := extractPort(server.URL)
+	if err != nil {
+		t.Fatalf("extract port: %v", err)
+	}
+	app.tunnels.setPort(app.canvasSessionIDForProject(project), port)
+
+	response := `Research bundle ready.
+
+:::file{path="summary.md"}
+# Summary
+
+- Citation: Example 2026
+:::
+
+:::file{path="sources.md"}
+# Sources
+
+- Example 2026
+:::`
+
+	var persistedID int64
+	var persistedText string
+	result := app.finalizeAssistantResponse(
+		session.ID,
+		project.ProjectKey,
+		response,
+		&persistedID,
+		&persistedText,
+		"",
+		"",
+		"",
+		turnOutputModeSilent,
+	)
+
+	if got := atomic.LoadInt32(&mock.artifactShow); got != 2 {
+		t.Fatalf("expected two canvas_artifact_show calls, got %d", got)
+	}
+	wantSummary := ".tabura/artifacts/research/" + session.ID + "/summary.md"
+	wantSources := ".tabura/artifacts/research/" + session.ID + "/sources.md"
+	mock.mu.Lock()
+	shownTitles := append([]string(nil), mock.shownTitles...)
+	mock.mu.Unlock()
+	if len(shownTitles) != 2 || shownTitles[0] != wantSummary || shownTitles[1] != wantSources {
+		t.Fatalf("shown titles = %#v, want [%q %q]", shownTitles, wantSummary, wantSources)
+	}
+	summaryBytes, err := os.ReadFile(filepath.Join(project.RootPath, filepath.FromSlash(wantSummary)))
+	if err != nil {
+		t.Fatalf("read summary artifact: %v", err)
+	}
+	if !strings.Contains(string(summaryBytes), "# Summary") {
+		t.Fatalf("summary artifact content = %q", string(summaryBytes))
+	}
+	sourcesBytes, err := os.ReadFile(filepath.Join(project.RootPath, filepath.FromSlash(wantSources)))
+	if err != nil {
+		t.Fatalf("read sources artifact: %v", err)
+	}
+	if !strings.Contains(string(sourcesBytes), "# Sources") {
+		t.Fatalf("sources artifact content = %q", string(sourcesBytes))
+	}
+	if strings.Contains(result, "[file:") {
+		t.Fatalf("final chat should strip file markers, got %q", result)
+	}
+	if strings.TrimSpace(result) != "Research bundle ready." {
+		t.Fatalf("final chat = %q, want %q", result, "Research bundle ready.")
+	}
+}
+
+func TestFinalizeAssistantResponse_SilentFileBlocksKeepExplicitPathsOutsideResearchTurns(t *testing.T) {
+	app := newAuthedTestApp(t)
+	project, err := app.ensureDefaultProjectRecord()
+	if err != nil {
+		t.Fatalf("ensure default project: %v", err)
+	}
+	session, err := app.store.GetOrCreateChatSession(project.ProjectKey)
+	if err != nil {
+		t.Fatalf("chat session: %v", err)
+	}
+	if _, err := app.store.AddChatMessage(session.ID, "user", "show this diff on canvas", "show this diff on canvas", "markdown"); err != nil {
+		t.Fatalf("seed non-research user message: %v", err)
+	}
+
+	mock := &canvasMCPMock{}
+	server := mock.setupServer(t)
+	defer server.Close()
+	port, err := extractPort(server.URL)
+	if err != nil {
+		t.Fatalf("extract port: %v", err)
+	}
+	app.tunnels.setPort(app.canvasSessionIDForProject(project), port)
+
+	response := `Done.
+
+:::file{path=".tabura/artifacts/pr/pr-18.diff"}
+diff --git a/a.go b/a.go
+:::`
+
+	var persistedID int64
+	var persistedText string
+	_ = app.finalizeAssistantResponse(
+		session.ID,
+		project.ProjectKey,
+		response,
+		&persistedID,
+		&persistedText,
+		"",
+		"",
+		"",
+		turnOutputModeSilent,
+	)
+
+	mock.mu.Lock()
+	defer mock.mu.Unlock()
+	if len(mock.shownTitles) != 1 || mock.shownTitles[0] != ".tabura/artifacts/pr/pr-18.diff" {
+		t.Fatalf("shown titles = %#v, want explicit PR artifact path", mock.shownTitles)
 	}
 }

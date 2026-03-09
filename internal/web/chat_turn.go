@@ -60,9 +60,9 @@ func (a *App) runAssistantTurn(sessionID string, outputMode string, localOnly bo
 	companionCtx := a.loadCompanionPromptContext(session.ProjectKey)
 	var prompt string
 	if resumed {
-		prompt = buildTurnPromptForModeWithCompanion(messages, canvasCtx, companionCtx, outputMode, profile.Alias)
+		prompt = buildTurnPromptForSessionWithCompanion(sessionID, messages, canvasCtx, companionCtx, outputMode, profile.Alias)
 	} else {
-		prompt = buildPromptFromHistoryForModeWithCompanion(session.Mode, messages, canvasCtx, companionCtx, outputMode, profile.Alias)
+		prompt = buildPromptFromHistoryForSessionWithCompanion(session.Mode, sessionID, messages, canvasCtx, companionCtx, outputMode, profile.Alias)
 		_ = a.store.UpdateChatSessionThread(sessionID, appSess.ThreadID())
 	}
 	if strings.TrimSpace(prompt) == "" {
@@ -331,7 +331,7 @@ func (a *App) tryRunLocalSystemActionTurn(sessionID string, session store.ChatSe
 func (a *App) runAssistantTurnLegacy(sessionID string, session store.ChatSession, messages []store.ChatMessage, outputMode string, profile appServerModelProfile) {
 	profile = a.appServerProfileForChatSession(session, profile)
 	canvasCtx := a.resolveCanvasContext(session.ProjectKey)
-	prompt := buildPromptFromHistoryForMode(session.Mode, messages, canvasCtx, outputMode, profile.Alias)
+	prompt := buildPromptFromHistoryForSession(session.Mode, sessionID, messages, canvasCtx, outputMode, profile.Alias)
 	if strings.TrimSpace(prompt) == "" {
 		a.broadcastChatEvent(sessionID, map[string]interface{}{"type": "error", "error": "empty prompt"})
 		return
@@ -570,7 +570,14 @@ func (a *App) finalizeAssistantResponse(
 	} else {
 		canvasCtx := a.resolveCanvasContext(projectKey)
 		content := strings.TrimSpace(text)
-		if content != "" && canvasSessionID != "" {
+		blocks, cleaned := parseFileBlocks(content)
+		if len(blocks) > 0 && canvasSessionID != "" {
+			if a.isResearchTurn(sessionID) {
+				blocks = normalizeResearchFileBlocks(blocks, researchArtifactRoot(sessionID))
+			}
+			renderOnCanvas = a.executeFileBlocks(projectKey, canvasSessionID, blocks)
+			text = cleaned
+		} else if content != "" && canvasSessionID != "" {
 			block := fileBlock{
 				Path:    "",
 				Content: content,
@@ -583,8 +590,9 @@ func (a *App) finalizeAssistantResponse(
 				block.Path = ""
 				autoCanvas = a.writeCanvasFileBlock(projectKey, canvasSessionID, block)
 			}
+			text = content
 		}
-		renderOnCanvas = autoCanvas
+		renderOnCanvas = renderOnCanvas || autoCanvas
 	}
 	text = stripLangTags(text)
 	chatMarkdown, chatPlain, renderFormat := assistantFinalChatContent(text, renderOnCanvas, autoCanvas)

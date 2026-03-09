@@ -110,11 +110,20 @@ func buildPromptFromHistoryForMode(mode string, messages []store.ChatMessage, ca
 }
 
 func buildPromptFromHistoryForModeWithCompanion(mode string, messages []store.ChatMessage, canvas *canvasContext, companion *companionPromptContext, outputMode string, modelAlias string) string {
+	return buildPromptFromHistoryForSessionWithCompanion(mode, "", messages, canvas, companion, outputMode, modelAlias)
+}
+
+func buildPromptFromHistoryForSession(mode, sessionID string, messages []store.ChatMessage, canvas *canvasContext, outputMode string, modelAlias string) string {
+	return buildPromptFromHistoryForSessionWithCompanion(mode, sessionID, messages, canvas, nil, outputMode, modelAlias)
+}
+
+func buildPromptFromHistoryForSessionWithCompanion(mode, sessionID string, messages []store.ChatMessage, canvas *canvasContext, companion *companionPromptContext, outputMode string, modelAlias string) string {
 	isVoiceMode := isVoiceOutputMode(outputMode)
 	const maxHistory = 80
 	if len(messages) > maxHistory {
 		messages = messages[len(messages)-maxHistory:]
 	}
+	userText := latestUserMessage(messages)
 	var b strings.Builder
 
 	promptTemplate := loadModePromptTemplate(outputMode, defaultVoiceHistoryPrompt, "")
@@ -140,6 +149,7 @@ func buildPromptFromHistoryForModeWithCompanion(mode string, messages []store.Ch
 		b.WriteString("Explain what you intend to do and why, then continue once the approval decision is available.\n")
 		b.WriteString("For research tasks, propose each retrieval step clearly and present findings as artifacts or concise chat updates.\n\n")
 	}
+	appendResearchArtifactPrompt(&b, outputMode, userText, researchArtifactRoot(sessionID))
 
 	appendCompanionPromptContext(&b, companion)
 	b.WriteString("Conversation transcript:\n")
@@ -177,18 +187,17 @@ func buildTurnPromptForMode(messages []store.ChatMessage, canvas *canvasContext,
 }
 
 func buildTurnPromptForModeWithCompanion(messages []store.ChatMessage, canvas *canvasContext, companion *companionPromptContext, outputMode string, modelAlias string) string {
+	return buildTurnPromptForSessionWithCompanion("", messages, canvas, companion, outputMode, modelAlias)
+}
+
+func buildTurnPromptForSession(sessionID string, messages []store.ChatMessage, canvas *canvasContext, outputMode string, modelAlias string) string {
+	return buildTurnPromptForSessionWithCompanion(sessionID, messages, canvas, nil, outputMode, modelAlias)
+}
+
+func buildTurnPromptForSessionWithCompanion(sessionID string, messages []store.ChatMessage, canvas *canvasContext, companion *companionPromptContext, outputMode string, modelAlias string) string {
 	isVoiceMode := isVoiceOutputMode(outputMode)
 	_ = modelAlias
-	var lastUserMsg string
-	for i := len(messages) - 1; i >= 0; i-- {
-		if strings.EqualFold(strings.TrimSpace(messages[i].Role), "user") {
-			lastUserMsg = strings.TrimSpace(messages[i].ContentPlain)
-			if lastUserMsg == "" {
-				lastUserMsg = strings.TrimSpace(messages[i].ContentMarkdown)
-			}
-			break
-		}
-	}
+	lastUserMsg := latestUserMessage(messages)
 	if lastUserMsg == "" {
 		return ""
 	}
@@ -199,6 +208,7 @@ func buildTurnPromptForModeWithCompanion(messages []store.ChatMessage, canvas *c
 			fmt.Fprintf(&b, "[Active artifact tab: %q (kind: %s)]\n\n", canvas.ArtifactTitle, canvas.ArtifactKind)
 		}
 	}
+	appendResearchArtifactPrompt(&b, outputMode, lastUserMsg, researchArtifactRoot(sessionID))
 	appendCompanionPromptContext(&b, companion)
 	b.WriteString(lastUserMsg)
 	return b.String()
