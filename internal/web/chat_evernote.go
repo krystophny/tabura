@@ -424,47 +424,17 @@ func (a *App) executeSyncEvernoteAction() (string, map[string]interface{}, error
 	if err != nil {
 		return "", nil, err
 	}
-	mappings, err := a.store.ListContainerMappings(store.ExternalProviderEvernote)
-	if err != nil {
-		return "", nil, err
-	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
 	result := evernoteSyncResult{}
 	for _, account := range accounts {
-		client, err := evernoteClientForAccount(account)
+		synced, err := a.syncEvernoteAccount(ctx, account)
 		if err != nil {
 			return "", nil, err
 		}
-		notebooks, err := client.ListNotebooks(ctx)
-		if err != nil {
-			return "", nil, err
-		}
-		notebookNames := evernoteNotebookNameByID(notebooks)
-		updatedAfter := ""
-		if latest, err := a.store.LatestBindingRemoteUpdatedAt(account.ID, store.ExternalProviderEvernote, "note"); err != nil {
-			return "", nil, err
-		} else if latest != nil {
-			updatedAfter = *latest
-		}
-		notes, err := listAllEvernoteNotes(ctx, client, updatedAfter)
-		if err != nil {
-			return "", nil, err
-		}
-		for _, summary := range notes {
-			note, err := client.GetNote(ctx, summary.ID)
-			if err != nil {
-				return "", nil, err
-			}
-			notebookName := strings.TrimSpace(notebookNames[strings.TrimSpace(note.NotebookID)])
-			synced, err := a.persistEvernoteNote(account, note, notebookName, mappings)
-			if err != nil {
-				return "", nil, err
-			}
-			result.NoteCount += synced.NoteCount
-			result.TaskCount += synced.TaskCount
-		}
+		result.NoteCount += synced.NoteCount
+		result.TaskCount += synced.TaskCount
 	}
 
 	return fmt.Sprintf("Synced %d Evernote note(s) and %d task item(s).", result.NoteCount, result.TaskCount), map[string]interface{}{
@@ -481,4 +451,45 @@ func (a *App) executeEvernoteAction(_ store.ChatSession, action *SystemAction) (
 	default:
 		return "", nil, fmt.Errorf("unsupported evernote action: %s", action.Action)
 	}
+}
+
+func (a *App) syncEvernoteAccount(ctx context.Context, account store.ExternalAccount) (evernoteSyncResult, error) {
+	mappings, err := a.store.ListContainerMappings(store.ExternalProviderEvernote)
+	if err != nil {
+		return evernoteSyncResult{}, err
+	}
+	client, err := evernoteClientForAccount(account)
+	if err != nil {
+		return evernoteSyncResult{}, err
+	}
+	notebooks, err := client.ListNotebooks(ctx)
+	if err != nil {
+		return evernoteSyncResult{}, err
+	}
+	notebookNames := evernoteNotebookNameByID(notebooks)
+	updatedAfter := ""
+	if latest, err := a.store.LatestBindingRemoteUpdatedAt(account.ID, store.ExternalProviderEvernote, "note"); err != nil {
+		return evernoteSyncResult{}, err
+	} else if latest != nil {
+		updatedAfter = *latest
+	}
+	notes, err := listAllEvernoteNotes(ctx, client, updatedAfter)
+	if err != nil {
+		return evernoteSyncResult{}, err
+	}
+	result := evernoteSyncResult{}
+	for _, summary := range notes {
+		note, err := client.GetNote(ctx, summary.ID)
+		if err != nil {
+			return evernoteSyncResult{}, err
+		}
+		notebookName := strings.TrimSpace(notebookNames[strings.TrimSpace(note.NotebookID)])
+		synced, err := a.persistEvernoteNote(account, note, notebookName, mappings)
+		if err != nil {
+			return evernoteSyncResult{}, err
+		}
+		result.NoteCount += synced.NoteCount
+		result.TaskCount += synced.TaskCount
+	}
+	return result, nil
 }

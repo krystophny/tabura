@@ -108,6 +108,14 @@ func (e *Engine) Register(provider Provider) {
 }
 
 func (e *Engine) RunOnce(ctx context.Context) (RunResult, error) {
+	return e.run(ctx, false)
+}
+
+func (e *Engine) RunNow(ctx context.Context) (RunResult, error) {
+	return e.run(ctx, true)
+}
+
+func (e *Engine) run(ctx context.Context, force bool) (RunResult, error) {
 	accounts, err := e.accounts.ListExternalAccounts("")
 	if err != nil {
 		return RunResult{}, err
@@ -134,7 +142,7 @@ func (e *Engine) RunOnce(ctx context.Context) (RunResult, error) {
 		}
 		interval := e.accountInterval(account)
 		lastRun, due := e.accountDue(account.ID, interval, now)
-		if !due {
+		if !force && !due {
 			remaining := interval - now.Sub(lastRun)
 			if remaining < 0 {
 				remaining = 0
