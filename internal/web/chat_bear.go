@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -189,6 +190,15 @@ func bearNoteTitle(note bear.Note) string {
 	return fmt.Sprintf("Bear note %s", strings.TrimSpace(note.ID))
 }
 
+func bearNoteRefURL(note bear.Note) *string {
+	noteID := strings.TrimSpace(note.ID)
+	if noteID == "" {
+		return nil
+	}
+	value := "bear://x-callback-url/open-note?id=" + url.QueryEscape(noteID)
+	return &value
+}
+
 func (a *App) upsertBearArtifact(account store.ExternalAccount, note bear.Note, mapping *store.ExternalContainerMapping) (store.Artifact, error) {
 	metaJSON, err := bearNoteArtifactMeta(note)
 	if err != nil {
@@ -196,12 +206,14 @@ func (a *App) upsertBearArtifact(account store.ExternalAccount, note bear.Note, 
 	}
 	kind := store.ArtifactKindMarkdown
 	title := bearNoteTitle(note)
+	refURL := bearNoteRefURL(note)
 	remoteID := strings.TrimSpace(note.ID)
 
 	if binding, err := a.store.GetBindingByRemote(account.ID, store.ExternalProviderBear, "note", remoteID); err == nil {
 		if binding.ArtifactID != nil {
 			err = a.store.UpdateArtifact(*binding.ArtifactID, store.ArtifactUpdate{
 				Kind:     &kind,
+				RefURL:   refURL,
 				Title:    optionalTrimmedString(title),
 				MetaJSON: metaJSON,
 			})
@@ -232,7 +244,7 @@ func (a *App) upsertBearArtifact(account store.ExternalAccount, note bear.Note, 
 		return store.Artifact{}, err
 	}
 
-	artifact, err := a.store.CreateArtifact(kind, nil, nil, optionalTrimmedString(title), metaJSON)
+	artifact, err := a.store.CreateArtifact(kind, nil, refURL, optionalTrimmedString(title), metaJSON)
 	if err != nil {
 		return store.Artifact{}, err
 	}
