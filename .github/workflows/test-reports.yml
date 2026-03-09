@@ -37,6 +37,7 @@ jobs:
 
       - name: Run CI-safe E2E
         env:
+          TABURA_TEST_PASSWORD: tabura-test-password
           PLAYWRIGHT_GREP_INVERT: "@local-only"
         run: npm run test:e2e:ci
 
