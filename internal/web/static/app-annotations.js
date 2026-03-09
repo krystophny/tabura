@@ -11,6 +11,8 @@ const submitMessage = (...args) => refs.submitMessage(...args);
 
 const ANNOTATION_STORAGE_KEY = 'tabura.annotations.v1';
 const HIGHLIGHT_COLOR = 'rgba(253, 230, 138, 0.72)';
+const STICKY_NOTE_LABEL = 'Sticky note';
+const INK_NOTE_LABEL = 'Ink annotation';
 
 let annotationsReady = false;
 let activeDescriptor = null;
@@ -105,6 +107,15 @@ function normalizeRects(rects) {
     .filter((rect) => [rect.x, rect.y, rect.width, rect.height].every((value) => Number.isFinite(value) && value >= 0));
 }
 
+function clamp01(value) {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(1, value));
+}
+
+function annotationPrimaryRect(annotation) {
+  return normalizeRects(annotation?.rects)[0] || null;
+}
+
 function createAnnotationID() {
   return `ann-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -177,9 +188,23 @@ function activeArtifactBundleInstruction() {
 function formatAnnotationTarget(annotation) {
   if (annotation?.target === 'pdf') {
     const page = Number.parseInt(safeText(annotation?.page), 10);
+    if (annotation?.type === 'sticky_note') {
+      return Number.isFinite(page) && page > 0 ? `PDF sticky note on page ${page}` : 'PDF sticky note';
+    }
+    if (annotation?.type === 'ink') {
+      return Number.isFinite(page) && page > 0 ? `PDF ink on page ${page}` : 'PDF ink';
+    }
     return Number.isFinite(page) && page > 0 ? `PDF page ${page}` : 'PDF selection';
   }
   return 'Text selection';
+}
+
+function annotationPreviewText(annotation) {
+  const explicit = safeText(annotation?.text);
+  if (explicit) return explicit;
+  if (annotation?.type === 'sticky_note') return STICKY_NOTE_LABEL;
+  if (annotation?.type === 'ink') return INK_NOTE_LABEL;
+  return 'Highlight';
 }
 
 function formatAnnotationBundleText(annotations, options = {}) {
@@ -293,7 +318,7 @@ function annotationAnchorRect(annotation) {
 }
 
 function clearRenderedAnnotations() {
-  document.querySelectorAll('.canvas-annotation-layer, .canvas-annotation-badge').forEach((node) => node.remove());
+  document.querySelectorAll('.canvas-annotation-layer, .canvas-annotation-badge, .canvas-sticky-note, .canvas-ink-annotation').forEach((node) => node.remove());
 }
 
 function ensureTextAnnotationLayer() {
@@ -369,7 +394,7 @@ function renderAnnotationBubble() {
   bubble.replaceChildren();
   const preview = document.createElement('div');
   preview.className = 'annotation-bubble-preview';
-  preview.textContent = safeText(annotation.text) || 'Highlight';
+  preview.textContent = annotationPreviewText(annotation);
   bubble.appendChild(preview);
 
   const notes = document.createElement('div');
@@ -471,8 +496,38 @@ function renderAnnotationBubble() {
   bubble.style.top = `${Math.max(12, Math.min(window.innerHeight - 220, anchor.top + anchor.height + 10))}px`;
 }
 
+export function pdfPageAnchorAtPoint(clientX, clientY) {
+  const hits = typeof document.elementsFromPoint === 'function'
+    ? document.elementsFromPoint(clientX, clientY)
+    : [document.elementFromPoint(clientX, clientY)];
+  for (const hit of hits) {
+    if (!(hit instanceof Element)) continue;
+    const page = hit.closest('.canvas-pdf-page');
+    const pageInner = page?.querySelector('.canvas-pdf-page-inner');
+    const pageNumber = Number.parseInt(safeText(page?.dataset?.page), 10);
+    if (!(pageInner instanceof HTMLElement) || !Number.isFinite(pageNumber) || pageNumber <= 0) {
+      continue;
+    }
+    const bounds = pageInner.getBoundingClientRect();
+    const width = Math.max(bounds.width, 1);
+    const height = Math.max(bounds.height, 1);
+    return {
+      page,
+      pageInner,
+      pageNumber,
+      width,
+      height,
+      xNorm: clamp01((clientX - bounds.left) / width),
+      yNorm: clamp01((clientY - bounds.top) / height),
+      xPx: clamp01((clientX - bounds.left) / width) * width,
+      yPx: clamp01((clientY - bounds.top) / height) * height,
+    };
+  }
+  return null;
+}
+
 function renderAnnotationBadge(root, annotation, width, height) {
-  const rect = normalizeRects(annotation.rects)[0];
+  const rect = annotationPrimaryRect(annotation);
   if (!(root instanceof HTMLElement) || !rect) return;
   const notes = Array.isArray(annotation.notes) ? annotation.notes : [];
   if (notes.length === 0) return;
@@ -494,6 +549,86 @@ function renderAnnotationBadge(root, annotation, width, height) {
     void submitAnnotationBundle(annotation.id);
   });
   root.appendChild(badge);
+}
+
+function renderStickyNoteMarker(root, annotation, width, height) {
+  const rect = annotationPrimaryRect(annotation);
+  if (!(root instanceof HTMLElement) || !rect) return;
+  const marker = document.createElement('button');
+  marker.type = 'button';
+  marker.className = 'canvas-sticky-note';
+  marker.dataset.annotationId = annotation.id;
+  marker.textContent = 'Note';
+  marker.style.left = `${rect.x * width}px`;
+  marker.style.top = `${rect.y * height}px`;
+  marker.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    openAnnotationBubble(annotation.id);
+  });
+  marker.addEventListener('dblclick', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    void submitAnnotationBundle(annotation.id);
+  });
+  root.appendChild(marker);
+  renderAnnotationBadge(root, annotation, width, height);
+}
+
+function renderInkAnnotation(root, annotation, width, height) {
+  const rect = annotationPrimaryRect(annotation);
+  if (!(root instanceof HTMLElement) || !rect) return;
+  const strokes = Array.isArray(annotation?.strokes) ? annotation.strokes : [];
+  if (strokes.length === 0) return;
+  const minWidth = 12;
+  const minHeight = 12;
+  const baseLeft = rect.x * width;
+  const baseTop = rect.y * height;
+  const baseWidth = Math.max(rect.width * width, minWidth);
+  const baseHeight = Math.max(rect.height * height, minHeight);
+  const hitPadding = 8;
+
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'canvas-ink-annotation';
+  button.dataset.annotationId = annotation.id;
+  button.style.left = `${Math.max(0, baseLeft - hitPadding)}px`;
+  button.style.top = `${Math.max(0, baseTop - hitPadding)}px`;
+  button.style.width = `${baseWidth + (hitPadding * 2)}px`;
+  button.style.height = `${baseHeight + (hitPadding * 2)}px`;
+  button.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    openAnnotationBubble(annotation.id);
+  });
+  button.addEventListener('dblclick', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    void submitAnnotationBundle(annotation.id);
+  });
+
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', `0 0 ${baseWidth + (hitPadding * 2)} ${baseHeight + (hitPadding * 2)}`);
+  svg.setAttribute('aria-hidden', 'true');
+  for (const stroke of strokes) {
+    const points = Array.isArray(stroke?.points) ? stroke.points : [];
+    if (points.length === 0) continue;
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    const d = points.map((point, index) => {
+      const x = ((clamp01(Number(point?.x)) - rect.x) * width) + hitPadding;
+      const y = ((clamp01(Number(point?.y)) - rect.y) * height) + hitPadding;
+      return `${index === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`;
+    }).join(' ');
+    path.setAttribute('d', d);
+    path.setAttribute('stroke-width', `${Math.max(1.5, clamp01(Number(stroke?.width)) * width)}`);
+    path.setAttribute('stroke-linecap', 'round');
+    path.setAttribute('stroke-linejoin', 'round');
+    path.setAttribute('fill', 'none');
+    svg.appendChild(path);
+  }
+  button.appendChild(svg);
+  root.appendChild(button);
+  renderAnnotationBadge(root, annotation, width, height);
 }
 
 function renderTextAnnotations(annotations) {
@@ -540,6 +675,14 @@ function renderPdfAnnotations(annotations) {
       if (!(layer instanceof HTMLElement) || !(root instanceof HTMLElement)) return;
       const width = Math.max(root.clientWidth, 1);
       const height = Math.max(root.clientHeight, 1);
+      if (annotation?.type === 'sticky_note') {
+        renderStickyNoteMarker(root, annotation, width, height);
+        return;
+      }
+      if (annotation?.type === 'ink') {
+        renderInkAnnotation(root, annotation, width, height);
+        return;
+      }
       normalizeRects(annotation.rects).forEach((rect) => {
         const node = document.createElement('button');
         node.type = 'button';
@@ -616,6 +759,71 @@ function buildPDFAnnotation(range) {
     rects,
     notes: [],
   };
+}
+
+export function createPdfStickyNoteAt(clientX, clientY) {
+  const anchor = pdfPageAnchorAtPoint(clientX, clientY);
+  if (!anchor) return false;
+  const annotation = {
+    id: createAnnotationID(),
+    type: 'sticky_note',
+    target: 'pdf',
+    page: anchor.pageNumber,
+    text: STICKY_NOTE_LABEL,
+    color: HIGHLIGHT_COLOR,
+    rects: [{ x: anchor.xNorm, y: anchor.yNorm, width: 0, height: 0 }],
+    notes: [],
+  };
+  const annotations = listActiveAnnotations();
+  annotations.push(annotation);
+  saveActiveAnnotations(annotations);
+  renderActiveAnnotations();
+  openAnnotationBubble(annotation.id);
+  return true;
+}
+
+export function persistPdfInkAnnotation(pageNumber, pageWidth, pageHeight, stroke) {
+  const points = Array.isArray(stroke?.points) ? stroke.points : [];
+  if (!Number.isFinite(pageNumber) || pageNumber <= 0 || !Number.isFinite(pageWidth) || pageWidth <= 0 || !Number.isFinite(pageHeight) || pageHeight <= 0 || points.length === 0) {
+    return false;
+  }
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = 0;
+  let maxY = 0;
+  const normalizedPoints = points.map((point) => {
+    const x = clamp01(Number(point?.x) / pageWidth);
+    const y = clamp01(Number(point?.y) / pageHeight);
+    minX = Math.min(minX, x);
+    minY = Math.min(minY, y);
+    maxX = Math.max(maxX, x);
+    maxY = Math.max(maxY, y);
+    return { x, y };
+  });
+  if (!Number.isFinite(minX) || !Number.isFinite(minY)) return false;
+  const annotation = {
+    id: createAnnotationID(),
+    type: 'ink',
+    target: 'pdf',
+    page: pageNumber,
+    text: INK_NOTE_LABEL,
+    rects: [{
+      x: minX,
+      y: minY,
+      width: Math.max(0, maxX - minX),
+      height: Math.max(0, maxY - minY),
+    }],
+    strokes: [{
+      width: clamp01(Number(stroke?.width) / pageWidth),
+      points: normalizedPoints,
+    }],
+    notes: [],
+  };
+  const annotations = listActiveAnnotations();
+  annotations.push(annotation);
+  saveActiveAnnotations(annotations);
+  renderActiveAnnotations();
+  return true;
 }
 
 export function createSelectionAnnotation() {

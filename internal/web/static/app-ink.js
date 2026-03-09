@@ -11,6 +11,8 @@ const openWorkspaceSidebarFile = (...args) => refs.openWorkspaceSidebarFile(...a
 const activeProject = (...args) => refs.activeProject(...args);
 const normalizeProjectRunState = (...args) => refs.normalizeProjectRunState(...args);
 const isInkTool = (...args) => refs.isInkTool(...args);
+const pdfPageAnchorAtPoint = (...args) => refs.pdfPageAnchorAtPoint(...args);
+const persistPdfInkAnnotation = (...args) => refs.persistPdfInkAnnotation(...args);
 
 export function activeArtifactKindForInk() {
   const activePane = document.querySelector('#canvas-viewport .canvas-pane.is-active');
@@ -24,6 +26,12 @@ export function resetInkDraftState() {
   state.inkDraft.activePointerId = null;
   state.inkDraft.activePointerType = '';
   state.inkDraft.activePath = null;
+  state.inkDraft.target = '';
+  state.inkDraft.page = 0;
+  state.inkDraft.pageInner = null;
+  state.inkDraft.pageWidth = 0;
+  state.inkDraft.pageHeight = 0;
+  state.inkDraft.draftLayer = null;
 }
 
 export function inkLayerEl() {
@@ -34,7 +42,7 @@ export function inkLayerEl() {
 export function renderInkControls() {
   const controls = document.getElementById('ink-controls');
   if (!(controls instanceof HTMLElement)) return;
-  const visible = state.interaction.surface === 'annotate' && isInkTool() && state.inkDraft.dirty;
+  const visible = state.interaction.surface === 'annotate' && isInkTool() && state.inkDraft.dirty && state.inkDraft.target !== 'pdf';
   controls.style.display = visible ? '' : 'none';
   document.body.classList.toggle('ink-controls-visible', visible);
   const submit = document.getElementById('ink-submit');
@@ -54,6 +62,9 @@ export function setPenInkingState(active) {
 }
 
 export function clearInkDraft() {
+  if (state.inkDraft.draftLayer instanceof SVGSVGElement) {
+    state.inkDraft.draftLayer.remove();
+  }
   const layer = inkLayerEl();
   if (layer) layer.innerHTML = '';
   state.inkDraft.strokes = [];
@@ -93,7 +104,60 @@ export function appendInkPointToPath(pathEl, stroke) {
   pathEl.setAttribute('d', d);
 }
 
+function clampPoint(value, max) {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(Number(max) || 0, value));
+}
+
+function ensurePdfInkDraftLayer(pageInner, width, height) {
+  if (!(pageInner instanceof HTMLElement)) return null;
+  let layer = pageInner.querySelector('.canvas-ink-draft-layer');
+  if (!(layer instanceof SVGSVGElement)) {
+    layer = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    layer.classList.add('canvas-ink-draft-layer');
+    layer.setAttribute('aria-hidden', 'true');
+    pageInner.appendChild(layer);
+  }
+  layer.setAttribute('viewBox', `0 0 ${Math.max(1, width)} ${Math.max(1, height)}`);
+  layer.setAttribute('width', `${Math.max(1, width)}`);
+  layer.setAttribute('height', `${Math.max(1, height)}`);
+  return layer;
+}
+
 export function beginInkStroke(pointerEvent) {
+  const pdfAnchor = activeArtifactKindForInk() === 'pdf'
+    ? pdfPageAnchorAtPoint(pointerEvent.clientX, pointerEvent.clientY)
+    : null;
+  if (pdfAnchor) {
+    const draftLayer = ensurePdfInkDraftLayer(pdfAnchor.pageInner, pdfAnchor.width, pdfAnchor.height);
+    if (!(draftLayer instanceof SVGSVGElement)) return false;
+    const stroke = {
+      pointer_type: String(pointerEvent.pointerType || 'pen').trim().toLowerCase() || 'pen',
+      width: Math.max(1.5, Number(pointerEvent.pressure) > 0 ? 1.8 + Number(pointerEvent.pressure) * 2.8 : 2.4),
+      points: [{
+        x: pdfAnchor.xPx,
+        y: pdfAnchor.yPx,
+        pressure: Number(pointerEvent.pressure) || 0,
+      }],
+    };
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('stroke-width', stroke.width.toFixed(2));
+    appendInkPointToPath(path, stroke);
+    draftLayer.appendChild(path);
+    state.inkDraft.strokes = [stroke];
+    state.inkDraft.activePointerId = pointerEvent.pointerId;
+    state.inkDraft.activePointerType = stroke.pointer_type;
+    state.inkDraft.activePath = path;
+    state.inkDraft.target = 'pdf';
+    state.inkDraft.page = pdfAnchor.pageNumber;
+    state.inkDraft.pageInner = pdfAnchor.pageInner;
+    state.inkDraft.pageWidth = pdfAnchor.width;
+    state.inkDraft.pageHeight = pdfAnchor.height;
+    state.inkDraft.draftLayer = draftLayer;
+    state.inkDraft.dirty = false;
+    renderInkControls();
+    return true;
+  }
   const layer = inkLayerEl();
   if (!(layer instanceof SVGSVGElement)) return false;
   syncInkLayerSize();
@@ -125,13 +189,40 @@ export function extendInkStroke(pointerEvent) {
   const stroke = state.inkDraft.strokes[state.inkDraft.strokes.length - 1];
   const path = state.inkDraft.activePath;
   if (!stroke || !(path instanceof SVGPathElement)) return false;
-  const point = pointForViewportEvent(pointerEvent.clientX, pointerEvent.clientY);
+  let point = pointForViewportEvent(pointerEvent.clientX, pointerEvent.clientY);
+  if (state.inkDraft.target === 'pdf' && state.inkDraft.pageInner instanceof HTMLElement) {
+    const bounds = state.inkDraft.pageInner.getBoundingClientRect();
+    point = {
+      x: clampPoint(pointerEvent.clientX - bounds.left, state.inkDraft.pageWidth),
+      y: clampPoint(pointerEvent.clientY - bounds.top, state.inkDraft.pageHeight),
+    };
+  }
   stroke.points.push({
     x: point.x,
     y: point.y,
     pressure: Number(pointerEvent.pressure) || 0,
   });
   appendInkPointToPath(path, stroke);
+  return true;
+}
+
+export function finalizeInkStroke(pointerEvent) {
+  if (state.inkDraft.activePointerId !== pointerEvent.pointerId) return false;
+  extendInkStroke(pointerEvent);
+  if (state.inkDraft.target === 'pdf') {
+    const stroke = state.inkDraft.strokes[state.inkDraft.strokes.length - 1];
+    persistPdfInkAnnotation(state.inkDraft.page, state.inkDraft.pageWidth, state.inkDraft.pageHeight, stroke);
+    if (state.inkDraft.draftLayer instanceof SVGSVGElement) {
+      state.inkDraft.draftLayer.remove();
+    }
+    state.inkDraft.strokes = [];
+    state.inkDraft.dirty = false;
+    resetInkDraftState();
+    renderInkControls();
+    return true;
+  }
+  resetInkDraftState();
+  renderInkControls();
   return true;
 }
 

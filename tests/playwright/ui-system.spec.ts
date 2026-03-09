@@ -231,6 +231,27 @@ async function dispatchTouchTap(page: Page, x: number, y: number) {
   }, { x, y });
 }
 
+async function dispatchPenStroke(page: Page, points: Array<{ x: number; y: number; pressure?: number }>) {
+  await page.evaluate((rawPoints) => {
+    const viewport = document.getElementById('canvas-viewport');
+    if (!(viewport instanceof HTMLElement) || !Array.isArray(rawPoints) || rawPoints.length === 0) return;
+    const mk = (type: string, point: any) => new PointerEvent(type, {
+      bubbles: true,
+      cancelable: true,
+      pointerId: 41,
+      pointerType: 'pen',
+      pressure: Number(point.pressure ?? 0.6),
+      clientX: Number(point.x),
+      clientY: Number(point.y),
+    });
+    viewport.dispatchEvent(mk('pointerdown', rawPoints[0]));
+    for (let i = 1; i < rawPoints.length; i += 1) {
+      viewport.dispatchEvent(mk('pointermove', rawPoints[i]));
+    }
+    viewport.dispatchEvent(mk('pointerup', rawPoints[rawPoints.length - 1]));
+  }, points);
+}
+
 async function dispatchTouchLongPress(page: Page, x: number, y: number, holdMs = 560) {
   await page.evaluate(async ({ x, y, holdMs }) => {
     if (typeof Touch === 'undefined') return;
@@ -534,6 +555,43 @@ test.describe('floating tool palette', () => {
     await page.locator('#annotation-note-input').fill('PDF anchor works');
     await page.locator('#annotation-note-save').click();
     await expect(page.locator('#canvas-pdf .canvas-annotation-badge')).toHaveText('1');
+  });
+
+  test('text note tool creates sticky notes on PDF positions', async ({ page }) => {
+    await injectCanvasModuleRef(page);
+    await renderPdfArtifactMock(page);
+    await setInteractionTool(page, 'text_note');
+
+    const pageBox = await page.locator('#canvas-pdf .canvas-pdf-page-inner').boundingBox();
+    if (!pageBox) throw new Error('pdf page unavailable for sticky note test');
+    await page.mouse.click(pageBox.x + 160, pageBox.y + 220);
+
+    await expect(page.locator('#canvas-pdf .canvas-sticky-note')).toHaveCount(1);
+    await expect(page.locator('#annotation-bubble')).toBeVisible();
+
+    await page.locator('#annotation-note-input').fill('Margin note');
+    await page.locator('#annotation-note-save').click();
+    await expect(page.locator('#canvas-pdf .canvas-annotation-badge')).toHaveText('1');
+  });
+
+  test('ink tool persists page-anchored PDF strokes across rerender', async ({ page }) => {
+    await injectCanvasModuleRef(page);
+    await renderPdfArtifactMock(page);
+    await setInteractionTool(page, 'ink');
+
+    const pageBox = await page.locator('#canvas-pdf .canvas-pdf-page-inner').boundingBox();
+    if (!pageBox) throw new Error('pdf page unavailable for ink test');
+    await dispatchPenStroke(page, [
+      { x: pageBox.x + 110, y: pageBox.y + 180, pressure: 0.7 },
+      { x: pageBox.x + 170, y: pageBox.y + 210, pressure: 0.7 },
+      { x: pageBox.x + 230, y: pageBox.y + 260, pressure: 0.7 },
+    ]);
+
+    await expect(page.locator('#canvas-pdf .canvas-ink-annotation')).toHaveCount(1);
+    await expect(page.locator('#ink-controls')).toBeHidden();
+
+    await renderPdfArtifactMock(page);
+    await expect(page.locator('#canvas-pdf .canvas-ink-annotation')).toHaveCount(1);
   });
 
   test('highlight annotations stay local until bundle send', async ({ page }) => {
