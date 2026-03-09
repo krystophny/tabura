@@ -725,6 +725,10 @@ func (a *App) classifyAndExecuteSystemAction(ctx context.Context, sessionID stri
 }
 
 func (a *App) classifyAndExecuteSystemActionWithCursor(ctx context.Context, sessionID string, session store.ChatSession, text string, cursor *chatCursorContext) (string, []map[string]interface{}, bool) {
+	return a.classifyAndExecuteSystemActionForTurn(ctx, sessionID, session, text, cursor, "")
+}
+
+func (a *App) classifyAndExecuteSystemActionForTurn(ctx context.Context, sessionID string, session store.ChatSession, text string, cursor *chatCursorContext, captureMode string) (string, []map[string]interface{}, bool) {
 	trimmedText := strings.TrimSpace(text)
 	if trimmedText == "" {
 		return "", nil, false
@@ -754,7 +758,7 @@ func (a *App) classifyAndExecuteSystemActionWithCursor(ctx context.Context, sess
 		}
 	}
 
-	captureMode := a.chatCaptureModes.consume(sessionID)
+	captureMode = normalizeChatCaptureMode(firstNonEmptyCursorText(captureMode, a.chatCaptureModes.consume(sessionID)))
 	if inlineSourceSyncAction := parseInlineSourceSyncIntent(trimmedText); inlineSourceSyncAction != nil {
 		enforced := enforceRoutingPolicy(trimmedText, []*SystemAction{inlineSourceSyncAction})
 		if len(enforced) == 0 {

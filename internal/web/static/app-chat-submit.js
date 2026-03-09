@@ -73,6 +73,24 @@ function buildCursorPayload(anchor) {
   return payload;
 }
 
+function mergeCursorPayload(primary, fallback) {
+  const base = primary && typeof primary === 'object' ? { ...primary } : {};
+  const extra = fallback && typeof fallback === 'object' ? fallback : null;
+  if (!extra) {
+    return Object.keys(base).length > 0 ? base : null;
+  }
+  Object.entries(extra).forEach(([key, value]) => {
+    if (base[key] !== undefined && base[key] !== null && base[key] !== '' && base[key] !== 0 && base[key] !== false) {
+      return;
+    }
+    if (value === undefined || value === null || value === '' || value === 0 || value === false) {
+      return;
+    }
+    base[key] = value;
+  });
+  return Object.keys(base).length > 0 ? base : null;
+}
+
 function buildSidebarSelectionCursorPayload() {
   const activeProject = Array.isArray(state.projects)
     ? state.projects.find((project) => String(project?.id || '') === String(state.activeProjectId || ''))
@@ -216,7 +234,7 @@ export async function submitMessage(text, options = {}) {
     output_mode: state.ttsSilent ? 'silent' : 'voice',
     capture_mode: submitKind === 'voice_transcript' ? 'voice' : 'text',
   };
-  const cursorPayload = buildCursorPayload(anchor) || buildSidebarSelectionCursorPayload();
+  const cursorPayload = mergeCursorPayload(buildCursorPayload(anchor), buildSidebarSelectionCursorPayload());
   if (cursorPayload) {
     body.cursor = cursorPayload;
   }

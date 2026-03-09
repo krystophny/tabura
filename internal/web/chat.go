@@ -351,20 +351,23 @@ func (a *App) handleChatSessionMessage(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	a.chatCaptureModes.set(sessionID, req.CaptureMode)
 	storedUser, err := a.store.AddChatMessage(sessionID, "user", text, text, "text")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	a.chatCursorContexts.enqueue(sessionID, req.Cursor)
 	a.broadcastChatEvent(sessionID, map[string]interface{}{
 		"type":    "message_accepted",
 		"role":    "user",
 		"content": text,
 		"id":      storedUser.ID,
 	})
-	queuedTurns := a.enqueueAssistantTurn(sessionID, outputMode, req.LocalOnly)
+	queuedTurns := a.enqueueAssistantTurn(sessionID, outputMode, chatTurnOptions{
+		localOnly:   req.LocalOnly,
+		messageID:   storedUser.ID,
+		captureMode: req.CaptureMode,
+		cursor:      req.Cursor,
+	})
 	writeJSON(w, map[string]interface{}{
 		"ok":         true,
 		"kind":       "turn_queued",
