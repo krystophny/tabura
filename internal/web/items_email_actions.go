@@ -234,7 +234,7 @@ func (a *App) deleteStaleEmailActionInboxItems(provider string, desired map[stri
 		return err
 	}
 	for _, item := range items {
-		sourceRef := strings.TrimSpace(strFromPointer(item.SourceRef))
+		sourceRef := strings.TrimSpace(stringFromPointer(item.SourceRef))
 		if !isEmailActionSourceRef(sourceRef) {
 			continue
 		}
