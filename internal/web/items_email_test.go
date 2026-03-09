@@ -14,10 +14,12 @@ import (
 )
 
 type fakeEmailSyncProvider struct {
-	listFunc  func(email.SearchOptions) ([]string, error)
-	messages  map[string]*providerdata.EmailMessage
-	contacts  []providerdata.Contact
-	listCalls []email.SearchOptions
+	listFunc         func(email.SearchOptions) ([]string, error)
+	messages         map[string]*providerdata.EmailMessage
+	contacts         []providerdata.Contact
+	listCalls        []email.SearchOptions
+	archiveCalls     [][]string
+	moveToInboxCalls [][]string
 }
 
 func (f *fakeEmailSyncProvider) ListMessages(_ context.Context, opts email.SearchOptions) ([]string, error) {
@@ -40,6 +42,16 @@ func (f *fakeEmailSyncProvider) GetMessages(_ context.Context, messageIDs []stri
 
 func (f *fakeEmailSyncProvider) Close() error {
 	return nil
+}
+
+func (f *fakeEmailSyncProvider) Archive(_ context.Context, messageIDs []string) (int, error) {
+	f.archiveCalls = append(f.archiveCalls, append([]string(nil), messageIDs...))
+	return len(messageIDs), nil
+}
+
+func (f *fakeEmailSyncProvider) MoveToInbox(_ context.Context, messageIDs []string) (int, error) {
+	f.moveToInboxCalls = append(f.moveToInboxCalls, append([]string(nil), messageIDs...))
+	return len(messageIDs), nil
 }
 
 func (f *fakeEmailSyncProvider) ListContacts(_ context.Context) ([]providerdata.Contact, error) {
@@ -71,7 +83,7 @@ func TestSourceSyncRunnerPollsGmailAndIMAPAccounts(t *testing.T) {
 	gmailProvider := &fakeEmailSyncProvider{
 		listFunc: func(opts email.SearchOptions) ([]string, error) {
 			switch {
-			case opts.IsRead != nil && !*opts.IsRead:
+			case opts.Folder == "INBOX":
 				return []string{"gmail-1"}, nil
 			case opts.IsFlagged != nil && *opts.IsFlagged:
 				return nil, nil
@@ -103,7 +115,7 @@ func TestSourceSyncRunnerPollsGmailAndIMAPAccounts(t *testing.T) {
 	imapProvider := &fakeEmailSyncProvider{
 		listFunc: func(opts email.SearchOptions) ([]string, error) {
 			switch {
-			case opts.IsRead != nil && !*opts.IsRead:
+			case opts.Folder == "INBOX":
 				return []string{"INBOX:7"}, nil
 			case opts.IsFlagged != nil && *opts.IsFlagged:
 				return nil, nil
@@ -312,7 +324,7 @@ func exchangeEmailSyncProvider() *fakeEmailSyncProvider {
 	return &fakeEmailSyncProvider{
 		listFunc: func(opts email.SearchOptions) ([]string, error) {
 			switch {
-			case opts.IsRead != nil && !*opts.IsRead:
+			case opts.Folder == "INBOX":
 				return []string{"exchange-1"}, nil
 			case opts.IsFlagged != nil && *opts.IsFlagged:
 				return nil, nil
@@ -384,7 +396,7 @@ func assertExchangeEmailSyncArtifacts(t *testing.T, fixture exchangeEmailSyncFix
 	}
 }
 
-func TestSyncEmailAccountCreatesFollowUpItemsFromRules(t *testing.T) {
+func TestSyncEmailAccountDoesNotCreateInboxItemsFromRulesOutsideInbox(t *testing.T) {
 	app := newAuthedTestApp(t)
 
 	account, err := app.store.CreateExternalAccount(store.SphereWork, store.ExternalProviderGmail, "Legal Gmail", map[string]any{
@@ -401,7 +413,7 @@ func TestSyncEmailAccountCreatesFollowUpItemsFromRules(t *testing.T) {
 			switch {
 			case opts.Subject == "contract":
 				return []string{"gmail-contract"}, nil
-			case opts.IsRead != nil && !*opts.IsRead:
+			case opts.Folder == "INBOX":
 				return nil, nil
 			case opts.IsFlagged != nil && *opts.IsFlagged:
 				return nil, nil
@@ -432,12 +444,19 @@ func TestSyncEmailAccountCreatesFollowUpItemsFromRules(t *testing.T) {
 		t.Fatalf("syncEmailAccount() error: %v", err)
 	}
 
-	item, err := app.store.GetItemBySource(store.ExternalProviderGmail, "message:gmail-contract")
-	if err != nil {
-		t.Fatalf("GetItemBySource(rule) error: %v", err)
+	if _, err := app.store.GetItemBySource(store.ExternalProviderGmail, "message:gmail-contract"); err == nil {
+		t.Fatal("archived rule-matched message created inbox item, want no item")
 	}
-	if item.Title != "contract review needed" {
-		t.Fatalf("rule item title = %q, want subject", item.Title)
+
+	artifacts, err := app.store.ListArtifactsByKind(store.ArtifactKindEmail)
+	if err != nil {
+		t.Fatalf("ListArtifactsByKind(email) error: %v", err)
+	}
+	if len(artifacts) != 1 {
+		t.Fatalf("len(email artifacts) = %d, want 1", len(artifacts))
+	}
+	if got := strFromPointer(artifacts[0].Title); got != "contract review needed" {
+		t.Fatalf("email artifact title = %q, want contract review needed", got)
 	}
 }
 
@@ -463,7 +482,7 @@ func TestSyncEmailAccountUsesMappedNonPrimaryLabelForAssignment(t *testing.T) {
 	provider := &fakeEmailSyncProvider{
 		listFunc: func(opts email.SearchOptions) ([]string, error) {
 			switch {
-			case opts.IsRead != nil && !*opts.IsRead:
+			case opts.Folder == "INBOX":
 				return []string{"gmail-contracts"}, nil
 			case opts.IsFlagged != nil && *opts.IsFlagged:
 				return nil, nil
@@ -529,7 +548,7 @@ func TestSyncEmailAccountUsesMappedNonPrimaryLabelForAssignment(t *testing.T) {
 	}
 }
 
-func TestSyncEmailAccountLeavesDoneItemsClosed(t *testing.T) {
+func TestSyncEmailAccountRemoteInboxReopensDoneItems(t *testing.T) {
 	app := newAuthedTestApp(t)
 
 	account, err := app.store.CreateExternalAccount(store.SphereWork, store.ExternalProviderGmail, "Done Gmail", nil)
@@ -540,7 +559,7 @@ func TestSyncEmailAccountLeavesDoneItemsClosed(t *testing.T) {
 	provider := &fakeEmailSyncProvider{
 		listFunc: func(opts email.SearchOptions) ([]string, error) {
 			switch {
-			case opts.IsRead != nil && !*opts.IsRead:
+			case opts.Folder == "INBOX":
 				return []string{"gmail-done"}, nil
 			case opts.IsFlagged != nil && *opts.IsFlagged:
 				return nil, nil
@@ -584,8 +603,76 @@ func TestSyncEmailAccountLeavesDoneItemsClosed(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetItem(second) error: %v", err)
 	}
+	if item.State != store.ItemStateInbox {
+		t.Fatalf("item state after resync = %q, want inbox", item.State)
+	}
+}
+
+func TestSyncEmailAccountRemoteArchiveClosesInboxItems(t *testing.T) {
+	app := newAuthedTestApp(t)
+
+	account, err := app.store.CreateExternalAccount(store.SphereWork, store.ExternalProviderGmail, "Archive Gmail", nil)
+	if err != nil {
+		t.Fatalf("CreateExternalAccount() error: %v", err)
+	}
+
+	inInbox := true
+	provider := &fakeEmailSyncProvider{
+		listFunc: func(opts email.SearchOptions) ([]string, error) {
+			switch {
+			case opts.Folder == "INBOX":
+				if inInbox {
+					return []string{"gmail-remote-archive"}, nil
+				}
+				return nil, nil
+			case opts.IsFlagged != nil && *opts.IsFlagged:
+				return nil, nil
+			case !opts.Since.IsZero():
+				if inInbox {
+					return []string{"gmail-remote-archive"}, nil
+				}
+				return nil, nil
+			default:
+				return nil, nil
+			}
+		},
+		messages: map[string]*providerdata.EmailMessage{
+			"gmail-remote-archive": {
+				ID:         "gmail-remote-archive",
+				ThreadID:   "thread-remote-archive",
+				Subject:    "Archive me elsewhere",
+				Sender:     "Ops <ops@example.com>",
+				Recipients: []string{"team@example.com"},
+				Date:       time.Date(2026, time.March, 9, 9, 30, 0, 0, time.UTC),
+				Labels:     []string{"INBOX"},
+			},
+		},
+	}
+	app.newEmailSyncProvider = func(context.Context, store.ExternalAccount) (emailSyncProvider, error) {
+		return provider, nil
+	}
+
+	if _, err := app.syncEmailAccount(context.Background(), account); err != nil {
+		t.Fatalf("first syncEmailAccount() error: %v", err)
+	}
+	item, err := app.store.GetItemBySource(store.ExternalProviderGmail, "message:gmail-remote-archive")
+	if err != nil {
+		t.Fatalf("GetItemBySource(first) error: %v", err)
+	}
+	if item.State != store.ItemStateInbox {
+		t.Fatalf("item state after first sync = %q, want inbox", item.State)
+	}
+
+	inInbox = false
+	if _, err := app.syncEmailAccount(context.Background(), account); err != nil {
+		t.Fatalf("second syncEmailAccount() error: %v", err)
+	}
+	item, err = app.store.GetItem(item.ID)
+	if err != nil {
+		t.Fatalf("GetItem(second) error: %v", err)
+	}
 	if item.State != store.ItemStateDone {
-		t.Fatalf("item state after resync = %q, want done", item.State)
+		t.Fatalf("item state after remote archive = %q, want done", item.State)
 	}
 }
 
@@ -596,11 +683,13 @@ func TestSyncEmailAccountCreatesThreadArtifactsAndLinksEmailItems(t *testing.T) 
 	if err != nil {
 		t.Fatalf("CreateExternalAccount() error: %v", err)
 	}
+	firstBody := "Please review the contract summary."
+	secondBody := "The archive copy is attached."
 
 	provider := &fakeEmailSyncProvider{
 		listFunc: func(opts email.SearchOptions) ([]string, error) {
 			switch {
-			case opts.IsRead != nil && !*opts.IsRead:
+			case opts.Folder == "INBOX":
 				return []string{"gmail-1"}, nil
 			case opts.IsFlagged != nil && *opts.IsFlagged:
 				return nil, nil
@@ -619,6 +708,7 @@ func TestSyncEmailAccountCreatesThreadArtifactsAndLinksEmailItems(t *testing.T) 
 				Recipients: []string{"legal@example.com"},
 				Date:       time.Date(2026, time.March, 9, 10, 0, 0, 0, time.UTC),
 				Labels:     []string{"INBOX"},
+				BodyText:   &firstBody,
 			},
 			"gmail-2": {
 				ID:         "gmail-2",
@@ -629,6 +719,7 @@ func TestSyncEmailAccountCreatesThreadArtifactsAndLinksEmailItems(t *testing.T) 
 				Date:       time.Date(2026, time.March, 8, 9, 0, 0, 0, time.UTC),
 				Labels:     []string{"Archive"},
 				IsRead:     true,
+				BodyText:   &secondBody,
 			},
 		},
 	}
@@ -660,6 +751,17 @@ func TestSyncEmailAccountCreatesThreadArtifactsAndLinksEmailItems(t *testing.T) 
 	}
 	if got := strFromAny(threadMeta["subject"]); got != "Contract review" {
 		t.Fatalf("subject = %q, want Contract review", got)
+	}
+	messages, ok := threadMeta["messages"].([]any)
+	if !ok || len(messages) != 2 {
+		t.Fatalf("thread messages = %#v, want 2 entries", threadMeta["messages"])
+	}
+	firstMessage, ok := messages[0].(map[string]any)
+	if !ok {
+		t.Fatalf("thread first message = %#v", messages[0])
+	}
+	if got := strFromAny(firstMessage["body"]); got != "Please review the contract summary." {
+		t.Fatalf("thread first message body = %q, want contract summary", got)
 	}
 
 	item, err := app.store.GetItemBySource(store.ExternalProviderGmail, "message:gmail-1")
@@ -699,7 +801,7 @@ func TestSyncEmailAccountExtractsThreadActionItems(t *testing.T) {
 	provider := &fakeEmailSyncProvider{
 		listFunc: func(opts email.SearchOptions) ([]string, error) {
 			switch {
-			case opts.IsRead != nil && !*opts.IsRead:
+			case opts.Folder == "INBOX":
 				return []string{"gmail-action"}, nil
 			case opts.IsFlagged != nil && *opts.IsFlagged:
 				return nil, nil
@@ -761,6 +863,205 @@ func TestSyncEmailAccountExtractsThreadActionItems(t *testing.T) {
 	}
 	if sendItem.ArtifactID == nil || meetingItem.ArtifactID == nil || *sendItem.ArtifactID != threads[0].ID || *meetingItem.ArtifactID != threads[0].ID {
 		t.Fatalf("action artifact ids = %v and %v, want thread artifact %d", sendItem.ArtifactID, meetingItem.ArtifactID, threads[0].ID)
+	}
+}
+
+func TestSyncEmailAccountOnlyCreatesInboxItemsForFollowUpMessages(t *testing.T) {
+	app := newAuthedTestApp(t)
+	account, err := app.store.CreateExternalAccount(store.SphereWork, store.ExternalProviderGmail, "Work Gmail", nil)
+	if err != nil {
+		t.Fatalf("CreateExternalAccount() error: %v", err)
+	}
+
+	staleSourceRef := "thread:thread-recent:action:schedule-the-status-review"
+	_, err = app.store.CreateItem("Schedule the status review", store.ItemOptions{
+		State:     store.ItemStateInbox,
+		Source:    stringPointer(store.ExternalProviderGmail),
+		SourceRef: &staleSourceRef,
+	})
+	if err != nil {
+		t.Fatalf("CreateItem(stale action) error: %v", err)
+	}
+
+	body := "Please schedule the status review."
+	provider := &fakeEmailSyncProvider{
+		listFunc: func(opts email.SearchOptions) ([]string, error) {
+			switch {
+			case opts.Folder == "INBOX":
+				return nil, nil
+			case opts.IsFlagged != nil && *opts.IsFlagged:
+				return nil, nil
+			case !opts.Since.IsZero():
+				return []string{"gmail-recent"}, nil
+			default:
+				return nil, nil
+			}
+		},
+		messages: map[string]*providerdata.EmailMessage{
+			"gmail-recent": {
+				ID:         "gmail-recent",
+				ThreadID:   "thread-recent",
+				Subject:    "Status review",
+				Sender:     "Ada <ada@example.com>",
+				Recipients: []string{"team@example.com"},
+				Date:       time.Date(2026, time.March, 9, 7, 30, 0, 0, time.UTC),
+				Labels:     []string{"Updates"},
+				BodyText:   &body,
+				IsRead:     true,
+			},
+		},
+	}
+	app.newEmailSyncProvider = func(context.Context, store.ExternalAccount) (emailSyncProvider, error) {
+		return provider, nil
+	}
+
+	if _, err := app.syncEmailAccount(context.Background(), account); err != nil {
+		t.Fatalf("syncEmailAccount() error: %v", err)
+	}
+
+	if _, err := app.store.GetItemBySource(store.ExternalProviderGmail, "message:gmail-recent"); err == nil {
+		t.Fatal("recent non-follow-up message created inbox item, want no item")
+	}
+	if _, err := app.store.GetItemBySource(store.ExternalProviderGmail, staleSourceRef); err == nil {
+		t.Fatal("stale inbox action item still exists after sync")
+	}
+
+	artifacts, err := app.store.ListArtifactsByKind(store.ArtifactKindEmail)
+	if err != nil {
+		t.Fatalf("ListArtifactsByKind(email) error: %v", err)
+	}
+	if len(artifacts) != 1 {
+		t.Fatalf("len(email artifacts) = %d, want 1", len(artifacts))
+	}
+	var emailMeta map[string]any
+	if err := json.Unmarshal([]byte(strFromPointer(artifacts[0].MetaJSON)), &emailMeta); err != nil {
+		t.Fatalf("Unmarshal(email meta) error: %v", err)
+	}
+	if got := strFromAny(emailMeta["body"]); got != body {
+		t.Fatalf("email body = %q, want %q", got, body)
+	}
+}
+
+func TestItemTriageDoneArchivesRemoteGmailMessage(t *testing.T) {
+	app := newAuthedTestApp(t)
+
+	account, err := app.store.CreateExternalAccount(store.SpherePrivate, store.ExternalProviderGmail, "Private Gmail", nil)
+	if err != nil {
+		t.Fatalf("CreateExternalAccount() error: %v", err)
+	}
+	provider := &fakeEmailSyncProvider{
+		listFunc: func(opts email.SearchOptions) ([]string, error) {
+			switch {
+			case opts.Folder == "INBOX":
+				return []string{"gmail-archive"}, nil
+			case !opts.Since.IsZero():
+				return []string{"gmail-archive"}, nil
+			default:
+				return nil, nil
+			}
+		},
+		messages: map[string]*providerdata.EmailMessage{
+			"gmail-archive": {
+				ID:         "gmail-archive",
+				ThreadID:   "thread-archive",
+				Subject:    "Archive me",
+				Sender:     "Ada <ada@example.com>",
+				Recipients: []string{"chr.albert@gmail.com"},
+				Date:       time.Date(2026, time.March, 9, 21, 0, 0, 0, time.UTC),
+				Labels:     []string{"INBOX"},
+			},
+		},
+	}
+	app.newEmailSyncProvider = func(context.Context, store.ExternalAccount) (emailSyncProvider, error) {
+		return provider, nil
+	}
+
+	if _, err := app.syncEmailAccount(context.Background(), account); err != nil {
+		t.Fatalf("syncEmailAccount() error: %v", err)
+	}
+	item, err := app.store.GetItemBySource(store.ExternalProviderGmail, "message:gmail-archive")
+	if err != nil {
+		t.Fatalf("GetItemBySource() error: %v", err)
+	}
+
+	rr := doAuthedJSONRequest(t, app.Router(), "POST", "/api/items/"+itoa(item.ID)+"/triage", map[string]any{
+		"action": "done",
+	})
+	if rr.Code != 200 {
+		t.Fatalf("triage done status = %d, want 200: %s", rr.Code, rr.Body.String())
+	}
+	if len(provider.archiveCalls) != 1 || len(provider.archiveCalls[0]) != 1 || provider.archiveCalls[0][0] != "gmail-archive" {
+		t.Fatalf("archive calls = %#v, want gmail-archive", provider.archiveCalls)
+	}
+	updated, err := app.store.GetItem(item.ID)
+	if err != nil {
+		t.Fatalf("GetItem(updated) error: %v", err)
+	}
+	if updated.State != store.ItemStateDone {
+		t.Fatalf("updated state = %q, want done", updated.State)
+	}
+}
+
+func TestItemStateUpdateInboxRestoresRemoteGmailMessage(t *testing.T) {
+	app := newAuthedTestApp(t)
+
+	account, err := app.store.CreateExternalAccount(store.SpherePrivate, store.ExternalProviderGmail, "Private Gmail", nil)
+	if err != nil {
+		t.Fatalf("CreateExternalAccount() error: %v", err)
+	}
+	provider := &fakeEmailSyncProvider{
+		listFunc: func(opts email.SearchOptions) ([]string, error) {
+			switch {
+			case opts.Folder == "INBOX":
+				return []string{"gmail-restore"}, nil
+			case !opts.Since.IsZero():
+				return []string{"gmail-restore"}, nil
+			default:
+				return nil, nil
+			}
+		},
+		messages: map[string]*providerdata.EmailMessage{
+			"gmail-restore": {
+				ID:         "gmail-restore",
+				ThreadID:   "thread-restore",
+				Subject:    "Restore me",
+				Sender:     "Ada <ada@example.com>",
+				Recipients: []string{"chr.albert@gmail.com"},
+				Date:       time.Date(2026, time.March, 9, 21, 15, 0, 0, time.UTC),
+				Labels:     []string{"INBOX"},
+			},
+		},
+	}
+	app.newEmailSyncProvider = func(context.Context, store.ExternalAccount) (emailSyncProvider, error) {
+		return provider, nil
+	}
+
+	if _, err := app.syncEmailAccount(context.Background(), account); err != nil {
+		t.Fatalf("syncEmailAccount() error: %v", err)
+	}
+	item, err := app.store.GetItemBySource(store.ExternalProviderGmail, "message:gmail-restore")
+	if err != nil {
+		t.Fatalf("GetItemBySource() error: %v", err)
+	}
+	if err := app.store.TriageItemDone(item.ID); err != nil {
+		t.Fatalf("TriageItemDone() error: %v", err)
+	}
+
+	rr := doAuthedJSONRequest(t, app.Router(), "PUT", "/api/items/"+itoa(item.ID)+"/state", map[string]any{
+		"state": store.ItemStateInbox,
+	})
+	if rr.Code != 200 {
+		t.Fatalf("state inbox status = %d, want 200: %s", rr.Code, rr.Body.String())
+	}
+	if len(provider.moveToInboxCalls) != 1 || len(provider.moveToInboxCalls[0]) != 1 || provider.moveToInboxCalls[0][0] != "gmail-restore" {
+		t.Fatalf("move to inbox calls = %#v, want gmail-restore", provider.moveToInboxCalls)
+	}
+	updated, err := app.store.GetItem(item.ID)
+	if err != nil {
+		t.Fatalf("GetItem(updated) error: %v", err)
+	}
+	if updated.State != store.ItemStateInbox {
+		t.Fatalf("updated state = %q, want inbox", updated.State)
 	}
 }
 

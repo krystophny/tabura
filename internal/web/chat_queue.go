@@ -17,6 +17,9 @@ type chatTurnTracker struct {
 	queue      map[string]int
 	outputMode map[string][]string
 	localOnly  map[string][]bool
+	messageID  map[string][]int64
+	capture    map[string][]string
+	cursor     map[string][]*chatCursorContext
 	worker     map[string]bool
 }
 
@@ -31,6 +34,9 @@ func newChatTurnTracker() *chatTurnTracker {
 		queue:      map[string]int{},
 		outputMode: map[string][]string{},
 		localOnly:  map[string][]bool{},
+		messageID:  map[string][]int64{},
+		capture:    map[string][]string{},
+		cursor:     map[string][]*chatCursorContext{},
 		worker:     map[string]bool{},
 	}
 }
@@ -94,6 +100,9 @@ func (t *chatTurnTracker) clearQueued(sessionID string) int {
 	delete(t.queue, sessionID)
 	delete(t.outputMode, sessionID)
 	delete(t.localOnly, sessionID)
+	delete(t.messageID, sessionID)
+	delete(t.capture, sessionID)
+	delete(t.cursor, sessionID)
 	return queued
 }
 
@@ -118,11 +127,14 @@ func (t *chatTurnTracker) queuedCount(sessionID string) int {
 	return t.queue[sessionID]
 }
 
-func (t *chatTurnTracker) enqueue(sessionID, outputMode string, localOnlyFlag bool) (queued int, startWorker bool) {
+func (t *chatTurnTracker) enqueue(sessionID, outputMode string, localOnlyFlag bool, messageID int64, captureMode string, cursor *chatCursorContext) (queued int, startWorker bool) {
 	mode := normalizeTurnOutputMode(outputMode)
 	t.mu.Lock()
 	t.outputMode[sessionID] = append(t.outputMode[sessionID], mode)
 	t.localOnly[sessionID] = append(t.localOnly[sessionID], localOnlyFlag)
+	t.messageID[sessionID] = append(t.messageID[sessionID], messageID)
+	t.capture[sessionID] = append(t.capture[sessionID], normalizeChatCaptureMode(captureMode))
+	t.cursor[sessionID] = append(t.cursor[sessionID], normalizeChatCursorContext(cursor))
 	t.queue[sessionID] = t.queue[sessionID] + 1
 	queued = t.queue[sessionID]
 	workerRunning := t.worker[sessionID]
@@ -163,15 +175,63 @@ func (t *chatTurnTracker) dequeue(sessionID string) (dequeuedTurn, bool) {
 			t.localOnly[sessionID] = localFlags
 		}
 	}
+	messageIDs := t.messageID[sessionID]
+	messageID := int64(0)
+	if len(messageIDs) > 0 {
+		messageID = messageIDs[0]
+		messageIDs = messageIDs[1:]
+		if len(messageIDs) == 0 {
+			delete(t.messageID, sessionID)
+		} else {
+			t.messageID[sessionID] = messageIDs
+		}
+	}
+	captureModes := t.capture[sessionID]
+	captureMode := chatCaptureModeText
+	if len(captureModes) > 0 {
+		captureMode = normalizeChatCaptureMode(captureModes[0])
+		captureModes = captureModes[1:]
+		if len(captureModes) == 0 {
+			delete(t.capture, sessionID)
+		} else {
+			t.capture[sessionID] = captureModes
+		}
+	}
+	cursors := t.cursor[sessionID]
+	var cursor *chatCursorContext
+	if len(cursors) > 0 {
+		cursor = cursors[0]
+		cursors = cursors[1:]
+		if len(cursors) == 0 {
+			delete(t.cursor, sessionID)
+		} else {
+			t.cursor[sessionID] = cursors
+		}
+	}
 	queued--
 	if queued <= 0 {
 		delete(t.queue, sessionID)
 		delete(t.outputMode, sessionID)
 		delete(t.localOnly, sessionID)
-		return dequeuedTurn{outputMode: mode, localOnly: localOnlyFlag}, true
+		delete(t.messageID, sessionID)
+		delete(t.capture, sessionID)
+		delete(t.cursor, sessionID)
+		return dequeuedTurn{
+			outputMode:  mode,
+			localOnly:   localOnlyFlag,
+			messageID:   messageID,
+			captureMode: captureMode,
+			cursor:      cursor,
+		}, true
 	}
 	t.queue[sessionID] = queued
-	return dequeuedTurn{outputMode: mode, localOnly: localOnlyFlag}, true
+	return dequeuedTurn{
+		outputMode:  mode,
+		localOnly:   localOnlyFlag,
+		messageID:   messageID,
+		captureMode: captureMode,
+		cursor:      cursor,
+	}, true
 }
 
 func (t *chatTurnTracker) markIdleIfEmpty(sessionID string) bool {
@@ -185,8 +245,11 @@ func (t *chatTurnTracker) markIdleIfEmpty(sessionID string) bool {
 }
 
 type dequeuedTurn struct {
-	outputMode string
-	localOnly  bool
+	outputMode  string
+	localOnly   bool
+	messageID   int64
+	captureMode string
+	cursor      *chatCursorContext
 }
 
 type projectRunState struct {
@@ -348,9 +411,19 @@ func (a *App) projectRunStateForSession(sessionID string) projectRunState {
 	return newProjectRunState(activeTurns, queuedTurns, a.activeChatTurnID(sessionID))
 }
 
-func (a *App) enqueueAssistantTurn(sessionID, outputMode string, opts ...bool) int {
-	localOnlyFlag := len(opts) > 0 && opts[0]
-	queued, startWorker := a.turns.enqueue(sessionID, outputMode, localOnlyFlag)
+func (a *App) enqueueAssistantTurn(sessionID, outputMode string, opts ...chatTurnOptions) int {
+	options := chatTurnOptions{}
+	if len(opts) > 0 {
+		options = opts[0]
+	}
+	queued, startWorker := a.turns.enqueue(
+		sessionID,
+		outputMode,
+		options.localOnly,
+		options.messageID,
+		options.captureMode,
+		options.cursor,
+	)
 	if startWorker {
 		a.startAssistantTurnWorker(sessionID)
 	}
@@ -400,8 +473,15 @@ func (a *App) runAssistantTurnQueue(sessionID string) {
 		if a.shutdownRequested() {
 			return
 		}
-		a.runAssistantTurn(sessionID, turn.outputMode, turn.localOnly)
+		a.runAssistantTurn(sessionID, turn)
 	}
+}
+
+type chatTurnOptions struct {
+	localOnly   bool
+	messageID   int64
+	captureMode string
+	cursor      *chatCursorContext
 }
 
 func (a *App) getOrCreateAppSession(sessionID string, cwd string, profile appServerModelProfile) (*appserver.Session, bool, error) {

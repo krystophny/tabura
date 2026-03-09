@@ -100,9 +100,8 @@ export function normalizeItemSidebarCounts(rawCounts) {
 export function setInboxTriggerCount(count) {
   const edgeLeftTap = document.getElementById('edge-left-tap');
   if (!(edgeLeftTap instanceof HTMLElement)) return;
-  const value = Math.max(0, Number(count) || 0);
-  edgeLeftTap.dataset.inboxCount = value > 0 ? String(value) : '';
-  edgeLeftTap.classList.toggle('has-inbox-count', value > 0);
+  edgeLeftTap.dataset.inboxCount = '';
+  edgeLeftTap.classList.remove('has-inbox-count');
 }
 
 export function applyItemSidebarCounts(rawCounts) {
@@ -450,7 +449,11 @@ export async function performItemSidebarStateUpdate(item, nextState) {
       throw new Error(detail);
     }
     state.itemSidebarActiveItemID = itemID;
-    await loadItemSidebarView(state.itemSidebarView);
+    const targetView = normalizedState === 'inbox'
+      ? 'inbox'
+      : state.itemSidebarView;
+    state.itemSidebarView = targetView;
+    await loadItemSidebarView(targetView);
     showStatus(itemSidebarStatusText(normalizedState, item));
     return true;
   } catch (err) {
@@ -548,7 +551,7 @@ export async function showItemSidebarProjectMenu(item, x, y) {
 }
 
 export function showItemSidebarActionMenu(item, x, y) {
-  const view = normalizeItemSidebarView(state.itemSidebarView);
+  const itemState = normalizeItemSidebarView(item?.state || state.itemSidebarView);
   const nextSphere = normalizeActiveSphere(item?.sphere) === 'work' ? 'private' : 'work';
   const sphereEntry = Number(item?.workspace_id || 0) > 0
     ? []
@@ -557,13 +560,34 @@ export function showItemSidebarActionMenu(item, x, y) {
         action: 'move_sphere',
         onClick: () => performItemSidebarSphereUpdate(item, nextSphere),
       }];
-  const entries = view === 'someday'
+  const reopenEntry = {
+    label: itemSidebarActionLabel('inbox', item),
+    action: 'inbox',
+    onClick: () => performItemSidebarStateUpdate(item, 'inbox'),
+  };
+  const entries = itemState === 'done'
     ? [
+      reopenEntry,
       {
-        label: itemSidebarActionLabel('inbox', item),
-        action: 'inbox',
-        onClick: () => performItemSidebarStateUpdate(item, 'inbox'),
+        label: 'Workspace...',
+        action: 'workspace',
+        onClick: () => showItemSidebarWorkspaceMenu(item, x, y),
       },
+      {
+        label: 'Project...',
+        action: 'project',
+        onClick: () => showItemSidebarProjectMenu(item, x, y),
+      },
+      ...sphereEntry,
+      {
+        label: itemSidebarActionLabel('delete', item),
+        action: 'delete',
+        onClick: () => performItemSidebarTriage(item, 'delete'),
+      },
+    ]
+    : itemState === 'someday'
+    ? [
+      reopenEntry,
       {
         label: itemSidebarActionLabel('done', item),
         action: 'done',
@@ -580,6 +604,36 @@ export function showItemSidebarActionMenu(item, x, y) {
         onClick: () => showItemSidebarProjectMenu(item, x, y),
       },
       ...sphereEntry,
+      {
+        label: itemSidebarActionLabel('delete', item),
+        action: 'delete',
+        onClick: () => performItemSidebarTriage(item, 'delete'),
+      },
+    ]
+    : itemState === 'waiting'
+    ? [
+      reopenEntry,
+      {
+        label: itemSidebarActionLabel('done', item),
+        action: 'done',
+        onClick: () => performItemSidebarTriage(item, 'done'),
+      },
+      {
+        label: 'Workspace...',
+        action: 'workspace',
+        onClick: () => showItemSidebarWorkspaceMenu(item, x, y),
+      },
+      {
+        label: 'Project...',
+        action: 'project',
+        onClick: () => showItemSidebarProjectMenu(item, x, y),
+      },
+      ...sphereEntry,
+      {
+        label: itemSidebarActionLabel('someday', item),
+        action: 'someday',
+        onClick: () => performItemSidebarTriage(item, 'someday'),
+      },
       {
         label: itemSidebarActionLabel('delete', item),
         action: 'delete',
@@ -752,12 +806,84 @@ export function buildIdeaNoteMarkdown(title, artifactMeta) {
   return detail.join('\n');
 }
 
+function sidebarEmailBody(meta = {}) {
+  return String(
+    meta.body
+    || meta.body_text
+    || meta.text
+    || meta.summary
+    || meta.content
+    || meta.snippet
+    || '',
+  ).trim();
+}
+
+function sidebarJoinList(values) {
+  if (!Array.isArray(values)) return '';
+  return values
+    .map((value) => String(value || '').trim())
+    .filter(Boolean)
+    .join(', ');
+}
+
+function buildEmailArtifactMarkdown(title, artifactMeta) {
+  const subject = String(artifactMeta?.subject || title || 'Email').trim() || 'Email';
+  const detail = [`# ${subject}`];
+  const sender = String(artifactMeta?.sender || '').trim();
+  if (sender) detail.push('', `From: ${sender}`);
+  const recipients = sidebarJoinList(artifactMeta?.recipients);
+  if (recipients) detail.push(`To: ${recipients}`);
+  const date = String(artifactMeta?.date || '').trim();
+  if (date) detail.push(`Date: ${date}`);
+  const labels = sidebarJoinList(artifactMeta?.labels);
+  if (labels) detail.push(`Labels: ${labels}`);
+  const body = sidebarEmailBody(artifactMeta);
+  if (body) {
+    detail.push('', body);
+  }
+  return detail.join('\n');
+}
+
+function buildEmailThreadArtifactMarkdown(title, artifactMeta) {
+  const subject = String(artifactMeta?.subject || title || 'Email thread').trim() || 'Email thread';
+  const detail = [`# ${subject}`];
+  const participants = sidebarJoinList(artifactMeta?.participants);
+  if (participants) detail.push('', `Participants: ${participants}`);
+  const messageCount = Number(artifactMeta?.message_count || 0);
+  if (messageCount > 0) detail.push(`Messages: ${messageCount}`);
+  const messages = Array.isArray(artifactMeta?.messages) ? artifactMeta.messages : [];
+  if (messages.length === 0) {
+    const fallbackBody = sidebarEmailBody(artifactMeta);
+    if (fallbackBody) detail.push('', fallbackBody);
+    return detail.join('\n');
+  }
+  messages.forEach((entry, index) => {
+    const sender = String(entry?.sender || '').trim() || `Message ${index + 1}`;
+    const date = String(entry?.date || '').trim();
+    const heading = date ? `## ${sender} (${date})` : `## ${sender}`;
+    detail.push('', heading);
+    const recipients = sidebarJoinList(entry?.recipients);
+    if (recipients) detail.push('', `To: ${recipients}`);
+    const body = sidebarEmailBody(entry);
+    if (body) {
+      detail.push('', body);
+    }
+  });
+  return detail.join('\n');
+}
+
 export function buildSidebarItemFallbackText(item, artifact = null) {
   const artifactMeta = parseSidebarArtifactMeta(artifact?.meta_json || '');
   const title = String(artifact?.title || item?.artifact_title || item?.title || 'Item').trim() || 'Item';
   const artifactKind = String(artifact?.kind || item?.artifact_kind || '').trim().toLowerCase();
   if (artifactKind === 'idea_note') {
     return buildIdeaNoteMarkdown(title, artifactMeta);
+  }
+  if (artifactKind === 'email') {
+    return buildEmailArtifactMarkdown(title, artifactMeta);
+  }
+  if (artifactKind === 'email_thread') {
+    return buildEmailThreadArtifactMarkdown(title, artifactMeta);
   }
   const detail = [
     `# ${title}`,
@@ -786,7 +912,7 @@ export function buildSidebarItemFallbackText(item, artifact = null) {
 export async function openSidebarArtifactItem(item) {
   const artifactID = Number(item?.artifact_id || 0);
   const fallbackArtifactKind = String(item?.artifact_kind || '').trim().toLowerCase();
-  const fallbackSurfaceDefault = fallbackArtifactKind === 'email' ? 'annotate' : '';
+  const fallbackSurfaceDefault = (fallbackArtifactKind === 'email' || fallbackArtifactKind === 'email_thread') ? 'annotate' : '';
   if (artifactID <= 0) {
     applyCanvasArtifactEvent({
       kind: 'text_artifact',
@@ -831,7 +957,7 @@ export async function openSidebarArtifactItem(item) {
     event_id: `sidebar-item-${artifactID}-${Date.now()}`,
     title: String(artifact?.title || item?.artifact_title || item?.title || 'Item'),
     text: buildSidebarItemFallbackText(item, artifact),
-    meta: artifactKind === 'email' ? { surface_default: 'annotate' } : undefined,
+    meta: (artifactKind === 'email' || artifactKind === 'email_thread') ? { surface_default: 'annotate' } : undefined,
   });
   return true;
 }

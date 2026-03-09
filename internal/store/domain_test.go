@@ -637,8 +637,8 @@ func TestDomainCRUDRoundTrip(t *testing.T) {
 	if err := s.UpdateItemState(inboxItem.ID, ItemStateDone); err != nil {
 		t.Fatalf("UpdateItemState(done) error: %v", err)
 	}
-	if err := s.UpdateItemState(inboxItem.ID, ItemStateInbox); err == nil {
-		t.Fatal("expected invalid done -> inbox transition error")
+	if err := s.UpdateItemState(inboxItem.ID, ItemStateInbox); err != nil {
+		t.Fatalf("UpdateItemState(inbox from done) error: %v", err)
 	}
 	if err := s.UpdateItemState(inboxItem.ID, "paused"); err == nil {
 		t.Fatal("expected invalid item state error")
@@ -655,14 +655,14 @@ func TestDomainCRUDRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListItemsByState(done) error: %v", err)
 	}
-	if len(doneItems) != 3 {
-		t.Fatalf("ListItemsByState(done) len = %d, want 3", len(doneItems))
+	if len(doneItems) != 2 {
+		t.Fatalf("ListItemsByState(done) len = %d, want 2", len(doneItems))
 	}
 	doneIDs := map[int64]bool{}
 	for _, item := range doneItems {
 		doneIDs[item.ID] = true
 	}
-	for _, id := range []int64{artifactItem.ID, sourceItem.ID, inboxItem.ID} {
+	for _, id := range []int64{artifactItem.ID, sourceItem.ID} {
 		if !doneIDs[id] {
 			t.Fatalf("ListItemsByState(done) missing item %d: %+v", id, doneItems)
 		}
@@ -932,6 +932,67 @@ func TestItemTriageOperations(t *testing.T) {
 	}
 	if err := s.TriageItemSomeday(doneItem.ID); err == nil {
 		t.Fatal("expected done item triage rejection")
+	}
+}
+
+func TestUpdateItemStateInboxClearsDeferredTimes(t *testing.T) {
+	s := newTestStore(t)
+
+	visibleAfter := "2026-03-10T09:00:00Z"
+	followUpAt := "2026-03-10T10:00:00Z"
+	item, err := s.CreateItem("Deferred item", ItemOptions{
+		State:        ItemStateWaiting,
+		VisibleAfter: &visibleAfter,
+		FollowUpAt:   &followUpAt,
+	})
+	if err != nil {
+		t.Fatalf("CreateItem() error: %v", err)
+	}
+
+	if err := s.UpdateItemState(item.ID, ItemStateInbox); err != nil {
+		t.Fatalf("UpdateItemState(inbox) error: %v", err)
+	}
+
+	got, err := s.GetItem(item.ID)
+	if err != nil {
+		t.Fatalf("GetItem() error: %v", err)
+	}
+	if got.State != ItemStateInbox {
+		t.Fatalf("state = %q, want %q", got.State, ItemStateInbox)
+	}
+	if got.VisibleAfter != nil || got.FollowUpAt != nil {
+		t.Fatalf("timestamps after reopen = visible_after:%v follow_up_at:%v, want nil", got.VisibleAfter, got.FollowUpAt)
+	}
+}
+
+func TestUpdateItemInboxClearsDeferredTimesByDefault(t *testing.T) {
+	s := newTestStore(t)
+
+	visibleAfter := "2026-03-10T09:00:00Z"
+	followUpAt := "2026-03-10T10:00:00Z"
+	item, err := s.CreateItem("Deferred item", ItemOptions{
+		State:        ItemStateWaiting,
+		VisibleAfter: &visibleAfter,
+		FollowUpAt:   &followUpAt,
+	})
+	if err != nil {
+		t.Fatalf("CreateItem() error: %v", err)
+	}
+
+	state := ItemStateInbox
+	if err := s.UpdateItem(item.ID, ItemUpdate{State: &state}); err != nil {
+		t.Fatalf("UpdateItem(inbox) error: %v", err)
+	}
+
+	got, err := s.GetItem(item.ID)
+	if err != nil {
+		t.Fatalf("GetItem() error: %v", err)
+	}
+	if got.State != ItemStateInbox {
+		t.Fatalf("state = %q, want %q", got.State, ItemStateInbox)
+	}
+	if got.VisibleAfter != nil || got.FollowUpAt != nil {
+		t.Fatalf("timestamps after update = visible_after:%v follow_up_at:%v, want nil", got.VisibleAfter, got.FollowUpAt)
 	}
 }
 
@@ -1401,6 +1462,11 @@ func TestSourceItemUpsertAndSyncState(t *testing.T) {
 	if len(items) != 1 {
 		t.Fatalf("ListItemsByState(inbox) len = %d, want 1", len(items))
 	}
+	visibleAfter := "2026-03-10T09:00:00Z"
+	followUpAt := "2026-03-10T10:00:00Z"
+	if err := s.UpdateItemTimes(item.ID, &visibleAfter, &followUpAt); err != nil {
+		t.Fatalf("UpdateItemTimes() error: %v", err)
+	}
 
 	if err := s.SyncItemStateBySource("github", "owner/tabula#12", ItemStateDone); err != nil {
 		t.Fatalf("SyncItemStateBySource(done) error: %v", err)
@@ -1422,6 +1488,9 @@ func TestSourceItemUpsertAndSyncState(t *testing.T) {
 	}
 	if reopenedItem.State != ItemStateInbox {
 		t.Fatalf("reopened item state = %q, want %q", reopenedItem.State, ItemStateInbox)
+	}
+	if reopenedItem.VisibleAfter != nil || reopenedItem.FollowUpAt != nil {
+		t.Fatalf("reopened item timestamps = visible_after:%v follow_up_at:%v, want nil", reopenedItem.VisibleAfter, reopenedItem.FollowUpAt)
 	}
 
 	if _, err := s.GetItemBySource("github", "owner/tabula#404"); !errors.Is(err, sql.ErrNoRows) {

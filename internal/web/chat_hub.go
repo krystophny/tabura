@@ -111,6 +111,25 @@ func latestUserMessage(messages []store.ChatMessage) string {
 	return ""
 }
 
+func queuedUserMessage(messages []store.ChatMessage, messageID int64) string {
+	if messageID > 0 {
+		for i := len(messages) - 1; i >= 0; i-- {
+			if messages[i].ID != messageID {
+				continue
+			}
+			text := strings.TrimSpace(messages[i].ContentPlain)
+			if text == "" {
+				text = strings.TrimSpace(messages[i].ContentMarkdown)
+			}
+			if text != "" {
+				return text
+			}
+			break
+		}
+	}
+	return latestUserMessage(messages)
+}
+
 func (a *App) hubPrimaryProject() (store.Project, error) {
 	activeID, err := a.store.ActiveProjectID()
 	if err == nil && strings.TrimSpace(activeID) != "" {

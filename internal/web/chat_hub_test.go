@@ -635,7 +635,7 @@ func TestRunAssistantTurnNonHubExecutesHighConfidenceLocalIntent(t *testing.T) {
 		t.Fatalf("add user message: %v", err)
 	}
 
-	app.runAssistantTurn(session.ID, turnOutputModeVoice, false)
+	app.runAssistantTurn(session.ID, dequeuedTurn{outputMode: turnOutputModeVoice})
 
 	if got := latestAssistantMessage(t, app, session.ID); got != "Toggled silent mode." {
 		t.Fatalf("assistant message = %q, want %q", got, "Toggled silent mode.")
@@ -703,7 +703,7 @@ func TestRunAssistantTurnNonHubOpenReadmeUsesMultiActionPlanAndOpensCanvas(t *te
 		t.Fatalf("add user message: %v", err)
 	}
 
-	app.runAssistantTurn(session.ID, turnOutputModeVoice, false)
+	app.runAssistantTurn(session.ID, dequeuedTurn{outputMode: turnOutputModeVoice})
 
 	if llmCalls == 0 {
 		t.Fatalf("expected intent LLM to be called")

@@ -11,7 +11,7 @@ import (
 	"github.com/krystophny/tabura/internal/store"
 )
 
-func (a *App) runAssistantTurn(sessionID string, outputMode string, localOnly bool) {
+func (a *App) runAssistantTurn(sessionID string, turn dequeuedTurn) {
 	session, err := a.store.GetChatSession(sessionID)
 	if err != nil {
 		a.finishCompanionPendingTurn(sessionID, "assistant_turn_failed")
@@ -24,14 +24,14 @@ func (a *App) runAssistantTurn(sessionID string, outputMode string, localOnly bo
 		a.broadcastChatEvent(sessionID, map[string]interface{}{"type": "error", "error": err.Error()})
 		return
 	}
-	cursorCtx := a.chatCursorContexts.consume(sessionID)
 	positionCtx := a.chatCanvasPositions.consume(sessionID)
-	userText := latestUserMessage(messages)
+	cursorCtx := turn.cursor
+	userText := queuedUserMessage(messages, turn.messageID)
 	if project, projectErr := a.store.GetProjectByProjectKey(session.ProjectKey); projectErr == nil && isHubProject(project) {
-		a.runHubTurn(sessionID, session, messages, outputMode, localOnly)
+		a.runHubTurn(sessionID, session, messages, turn.outputMode, turn.localOnly)
 		return
 	}
-	if a.tryRunLocalSystemActionTurn(sessionID, session, messages, cursorCtx, outputMode, localOnly) {
+	if a.tryRunLocalSystemActionTurn(sessionID, session, userText, cursorCtx, turn.captureMode, turn.outputMode, turn.localOnly) {
 		return
 	}
 	if a.appServerClient == nil {
@@ -54,7 +54,7 @@ func (a *App) runAssistantTurn(sessionID string, outputMode string, localOnly bo
 	profile = a.appServerProfileForChatSession(session, profile)
 	appSess, resumed, sessErr := a.getOrCreateAppSession(sessionID, cwd, profile)
 	if sessErr != nil {
-		a.runAssistantTurnLegacy(sessionID, session, messages, cursorCtx, outputMode, profile)
+		a.runAssistantTurnLegacy(sessionID, session, messages, cursorCtx, positionCtx, turn.outputMode, profile)
 		return
 	}
 
@@ -62,9 +62,9 @@ func (a *App) runAssistantTurn(sessionID string, outputMode string, localOnly bo
 	companionCtx := a.loadCompanionPromptContext(session.ProjectKey)
 	var prompt string
 	if resumed {
-		prompt = buildTurnPromptForSessionWithCompanion(sessionID, messages, canvasCtx, companionCtx, outputMode, profile.Alias)
+		prompt = buildTurnPromptForSessionWithCompanion(sessionID, messages, canvasCtx, companionCtx, turn.outputMode, profile.Alias)
 	} else {
-		prompt = buildPromptFromHistoryForSessionWithCompanion(session.Mode, sessionID, messages, canvasCtx, companionCtx, outputMode, profile.Alias)
+		prompt = buildPromptFromHistoryForSessionWithCompanion(session.Mode, sessionID, messages, canvasCtx, companionCtx, turn.outputMode, profile.Alias)
 		_ = a.store.UpdateChatSessionThread(sessionID, appSess.ThreadID())
 	}
 	prompt = appendChatCursorPrompt(prompt, cursorCtx)
@@ -74,7 +74,7 @@ func (a *App) runAssistantTurn(sessionID string, outputMode string, localOnly bo
 		return
 	}
 	prompt = a.applyWorkspacePromptContext(session.ProjectKey, prompt)
-	prompt, err = a.applyPreAssistantPromptHook(context.Background(), sessionID, session.ProjectKey, outputMode, session.Mode, prompt)
+	prompt, err = a.applyPreAssistantPromptHook(context.Background(), sessionID, session.ProjectKey, turn.outputMode, session.Mode, prompt)
 	if err != nil {
 		errText := err.Error()
 		_, _ = a.store.AddChatMessage(sessionID, "system", errText, errText, "text")
@@ -152,7 +152,7 @@ func (a *App) runAssistantTurn(sessionID string, outputMode string, localOnly bo
 			"type":        ev.Type,
 			"thread_id":   ev.ThreadID,
 			"turn_id":     ev.TurnID,
-			"output_mode": outputMode,
+			"output_mode": turn.outputMode,
 		}
 		shouldBroadcast := true
 		switch ev.Type {
@@ -162,11 +162,11 @@ func (a *App) runAssistantTurn(sessionID string, outputMode string, localOnly bo
 			if strings.TrimSpace(ev.TurnID) != "" {
 				latestTurnID = ev.TurnID
 			}
-			a.markCompanionThinking(sessionID, session.ProjectKey, latestTurnID, outputMode, "assistant_turn_started")
+			a.markCompanionThinking(sessionID, session.ProjectKey, latestTurnID, turn.outputMode, "assistant_turn_started")
 		case "assistant_message":
 			latestMessage = ev.Message
 			latestTurnID = ev.TurnID
-			renderPlan := assistantRenderPlanForMode(ev.Message, outputMode)
+			renderPlan := assistantRenderPlanForMode(ev.Message, turn.outputMode)
 			persistAssistantSnapshot(ev.Message, renderPlan.RenderOnCanvas, renderPlan.AutoCanvas)
 			payload["message"] = ev.Message
 			payload["delta"] = ev.Delta
@@ -181,7 +181,7 @@ func (a *App) runAssistantTurn(sessionID string, outputMode string, localOnly bo
 				latestMessage = ev.Message
 			}
 			latestTurnID = ev.TurnID
-			renderPlan := assistantRenderPlanForMode(latestMessage, outputMode)
+			renderPlan := assistantRenderPlanForMode(latestMessage, turn.outputMode)
 			persistAssistantSnapshot(latestMessage, renderPlan.RenderOnCanvas, renderPlan.AutoCanvas)
 			payload["message"] = latestMessage
 			if renderPlan.RenderOnCanvas {
@@ -274,16 +274,15 @@ func (a *App) runAssistantTurn(sessionID string, outputMode string, localOnly bo
 	}
 
 	assistantText = a.finalizeAssistantResponse(sessionID, session.ProjectKey, assistantText,
-		&persistedAssistantID, &persistedAssistantText, appResp.TurnID, latestTurnID, appResp.ThreadID, outputMode)
+		&persistedAssistantID, &persistedAssistantText, appResp.TurnID, latestTurnID, appResp.ThreadID, turn.outputMode)
 	_ = assistantText
 }
 
-func (a *App) tryRunLocalSystemActionTurn(sessionID string, session store.ChatSession, messages []store.ChatMessage, cursorCtx *chatCursorContext, outputMode string, localOnly bool) bool {
-	userText := latestUserMessage(messages)
+func (a *App) tryRunLocalSystemActionTurn(sessionID string, session store.ChatSession, userText string, cursorCtx *chatCursorContext, captureMode string, outputMode string, localOnly bool) bool {
 	if strings.TrimSpace(userText) == "" {
 		return false
 	}
-	actionMessage, actionPayloads, handled := a.classifyAndExecuteSystemActionWithCursor(context.Background(), sessionID, session, userText, cursorCtx)
+	actionMessage, actionPayloads, handled := a.classifyAndExecuteSystemActionForTurn(context.Background(), sessionID, session, userText, cursorCtx, captureMode)
 	if !handled && !localOnly {
 		return false
 	}
@@ -332,12 +331,12 @@ func (a *App) tryRunLocalSystemActionTurn(sessionID string, session store.ChatSe
 
 // runAssistantTurnLegacy is the single-shot fallback when persistent session
 // fails to connect. Each call creates a new WS + thread.
-func (a *App) runAssistantTurnLegacy(sessionID string, session store.ChatSession, messages []store.ChatMessage, cursorCtx *chatCursorContext, outputMode string, profile appServerModelProfile) {
+func (a *App) runAssistantTurnLegacy(sessionID string, session store.ChatSession, messages []store.ChatMessage, cursorCtx *chatCursorContext, positionCtx []*chatCanvasPositionEvent, outputMode string, profile appServerModelProfile) {
 	profile = a.appServerProfileForChatSession(session, profile)
 	canvasCtx := a.resolveCanvasContext(session.ProjectKey)
 	prompt := buildPromptFromHistoryForSession(session.Mode, sessionID, messages, canvasCtx, outputMode, profile.Alias)
 	prompt = appendChatCursorPrompt(prompt, cursorCtx)
-	prompt = appendCanvasPositionPrompt(prompt, a.chatCanvasPositions.consume(sessionID))
+	prompt = appendCanvasPositionPrompt(prompt, positionCtx)
 	if strings.TrimSpace(prompt) == "" {
 		a.broadcastChatEvent(sessionID, map[string]interface{}{"type": "error", "error": "empty prompt"})
 		return

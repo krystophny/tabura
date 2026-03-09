@@ -5,7 +5,10 @@ import (
 	"database/sql"
 	"errors"
 	"testing"
+	"time"
 
+	"github.com/krystophny/tabura/internal/email"
+	"github.com/krystophny/tabura/internal/providerdata"
 	"github.com/krystophny/tabura/internal/store"
 )
 
@@ -43,6 +46,18 @@ func TestParseInlineCursorIntent_ItemAndWorkspaceTargets(t *testing.T) {
 			wantTriage: "waiting",
 		},
 		{
+			name: "item back to inbox",
+			text: "move this mail back to the inbox",
+			cursor: &chatCursorContext{
+				View:      "done",
+				ItemID:    42,
+				ItemTitle: "Fix login bug",
+				ItemState: store.ItemStateDone,
+			},
+			wantAction: "cursor_triage_item",
+			wantTriage: "inbox",
+		},
+		{
 			name: "workspace path",
 			text: "open this",
 			cursor: &chatCursorContext{
@@ -73,6 +88,22 @@ func TestParseInlineCursorIntent_ItemAndWorkspaceTargets(t *testing.T) {
 				t.Fatalf("path = %q, want %q", systemActionStringParam(action.Params, "path"), tc.wantPath)
 			}
 		})
+	}
+}
+
+func TestParseInlineTitledItemIntent_MoveBackToInbox(t *testing.T) {
+	action := parseInlineTitledItemIntent(`Move the item at Line 7 of "Hetzner Online GmbH - Rechnung 086000740636 (K0202503909)" back to the inbox.`)
+	if action == nil {
+		t.Fatal("expected titled item action")
+	}
+	if action.Action != "triage_item_by_title" {
+		t.Fatalf("action = %q", action.Action)
+	}
+	if got := systemActionTitle(action.Params); got != `Hetzner Online GmbH - Rechnung 086000740636 (K0202503909)` {
+		t.Fatalf("title = %q", got)
+	}
+	if got := systemActionCursorTriage(action.Params); got != "inbox" {
+		t.Fatalf("triage_action = %q", got)
 	}
 }
 
@@ -183,6 +214,177 @@ func TestClassifyAndExecuteSystemActionWithCursorMovesPointedItemToWaiting(t *te
 	}
 	if updated.State != store.ItemStateWaiting {
 		t.Fatalf("state = %q, want %q", updated.State, store.ItemStateWaiting)
+	}
+}
+
+func TestClassifyAndExecuteSystemActionWithCursorMovesDoneEmailBackToInbox(t *testing.T) {
+	app := newAuthedTestApp(t)
+	app.intentLLMURL = ""
+	app.intentClassifierURL = ""
+
+	account, err := app.store.CreateExternalAccount(store.SpherePrivate, store.ExternalProviderGmail, "Private Gmail", nil)
+	if err != nil {
+		t.Fatalf("CreateExternalAccount() error: %v", err)
+	}
+	provider := &fakeEmailSyncProvider{
+		listFunc: func(opts email.SearchOptions) ([]string, error) {
+			switch {
+			case opts.Folder == "INBOX":
+				return []string{"gmail-cursor"}, nil
+			case !opts.Since.IsZero():
+				return []string{"gmail-cursor"}, nil
+			default:
+				return nil, nil
+			}
+		},
+		messages: map[string]*providerdata.EmailMessage{
+			"gmail-cursor": {
+				ID:         "gmail-cursor",
+				ThreadID:   "thread-cursor",
+				Subject:    "Move me back",
+				Sender:     "Ada <ada@example.com>",
+				Recipients: []string{"chr.albert@gmail.com"},
+				Date:       time.Date(2026, time.March, 9, 21, 45, 0, 0, time.UTC),
+				Labels:     []string{"INBOX"},
+			},
+		},
+	}
+	app.newEmailSyncProvider = func(context.Context, store.ExternalAccount) (emailSyncProvider, error) {
+		return provider, nil
+	}
+
+	if _, err := app.syncEmailAccount(context.Background(), account); err != nil {
+		t.Fatalf("syncEmailAccount() error: %v", err)
+	}
+	item, err := app.store.GetItemBySource(store.ExternalProviderGmail, "message:gmail-cursor")
+	if err != nil {
+		t.Fatalf("GetItemBySource() error: %v", err)
+	}
+	if err := app.store.TriageItemDone(item.ID); err != nil {
+		t.Fatalf("TriageItemDone() error: %v", err)
+	}
+
+	project, err := app.ensureDefaultProjectRecord()
+	if err != nil {
+		t.Fatalf("ensure default project: %v", err)
+	}
+	session, err := app.store.GetOrCreateChatSession(project.ProjectKey)
+	if err != nil {
+		t.Fatalf("chat session: %v", err)
+	}
+
+	message, payloads, handled := app.classifyAndExecuteSystemActionWithCursor(
+		context.Background(),
+		session.ID,
+		session,
+		"move this mail back to the inbox",
+		&chatCursorContext{
+			View:      "done",
+			ItemID:    item.ID,
+			ItemTitle: item.Title,
+			ItemState: store.ItemStateDone,
+		},
+	)
+	if !handled {
+		t.Fatal("expected cursor command to be handled")
+	}
+	if message != `Moved item "Move me back" back to inbox.` {
+		t.Fatalf("message = %q", message)
+	}
+	if len(payloads) != 1 || strFromAny(payloads[0]["type"]) != "item_state_changed" {
+		t.Fatalf("payloads = %#v", payloads)
+	}
+	updated, err := app.store.GetItem(item.ID)
+	if err != nil {
+		t.Fatalf("GetItem() error: %v", err)
+	}
+	if updated.State != store.ItemStateInbox {
+		t.Fatalf("state = %q, want %q", updated.State, store.ItemStateInbox)
+	}
+	if len(provider.moveToInboxCalls) != 1 || len(provider.moveToInboxCalls[0]) != 1 || provider.moveToInboxCalls[0][0] != "gmail-cursor" {
+		t.Fatalf("move to inbox calls = %#v, want gmail-cursor", provider.moveToInboxCalls)
+	}
+}
+
+func TestClassifyAndExecuteSystemActionWithNamedItemMovesDoneEmailBackToInbox(t *testing.T) {
+	app := newAuthedTestApp(t)
+	app.intentLLMURL = ""
+	app.intentClassifierURL = ""
+
+	account, err := app.store.CreateExternalAccount(store.SpherePrivate, store.ExternalProviderGmail, "Private Gmail", nil)
+	if err != nil {
+		t.Fatalf("CreateExternalAccount() error: %v", err)
+	}
+	provider := &fakeEmailSyncProvider{
+		listFunc: func(opts email.SearchOptions) ([]string, error) {
+			switch {
+			case opts.Folder == "INBOX":
+				return []string{"gmail-titled"}, nil
+			case !opts.Since.IsZero():
+				return []string{"gmail-titled"}, nil
+			default:
+				return nil, nil
+			}
+		},
+		messages: map[string]*providerdata.EmailMessage{
+			"gmail-titled": {
+				ID:         "gmail-titled",
+				ThreadID:   "thread-titled",
+				Subject:    "Hetzner Online GmbH - Rechnung 086000740636 (K0202503909)",
+				Sender:     "Ada <ada@example.com>",
+				Recipients: []string{"chr.albert@gmail.com"},
+				Date:       time.Date(2026, time.March, 9, 22, 45, 0, 0, time.UTC),
+				Labels:     []string{"INBOX"},
+			},
+		},
+	}
+	app.newEmailSyncProvider = func(context.Context, store.ExternalAccount) (emailSyncProvider, error) {
+		return provider, nil
+	}
+	if _, err := app.syncEmailAccount(context.Background(), account); err != nil {
+		t.Fatalf("syncEmailAccount() error: %v", err)
+	}
+	item, err := app.store.GetItemBySource(store.ExternalProviderGmail, "message:gmail-titled")
+	if err != nil {
+		t.Fatalf("GetItemBySource() error: %v", err)
+	}
+	if err := app.store.TriageItemDone(item.ID); err != nil {
+		t.Fatalf("TriageItemDone() error: %v", err)
+	}
+
+	project, err := app.ensureDefaultProjectRecord()
+	if err != nil {
+		t.Fatalf("ensure default project: %v", err)
+	}
+	session, err := app.store.GetOrCreateChatSession(project.ProjectKey)
+	if err != nil {
+		t.Fatalf("chat session: %v", err)
+	}
+
+	message, payloads, handled := app.classifyAndExecuteSystemAction(
+		context.Background(),
+		session.ID,
+		session,
+		`Move the item at Line 7 of "Hetzner Online GmbH - Rechnung 086000740636 (K0202503909)" back to the inbox.`,
+	)
+	if !handled {
+		t.Fatal("expected named item command to be handled")
+	}
+	if message != `Moved item "Hetzner Online GmbH - Rechnung 086000740636 (K0202503909)" back to inbox.` {
+		t.Fatalf("message = %q", message)
+	}
+	if len(payloads) != 1 || strFromAny(payloads[0]["type"]) != "item_state_changed" {
+		t.Fatalf("payloads = %#v", payloads)
+	}
+	updated, err := app.store.GetItem(item.ID)
+	if err != nil {
+		t.Fatalf("GetItem() error: %v", err)
+	}
+	if updated.State != store.ItemStateInbox {
+		t.Fatalf("state = %q, want %q", updated.State, store.ItemStateInbox)
+	}
+	if len(provider.moveToInboxCalls) != 1 || provider.moveToInboxCalls[0][0] != "gmail-titled" {
+		t.Fatalf("moveToInboxCalls = %#v", provider.moveToInboxCalls)
 	}
 }
 

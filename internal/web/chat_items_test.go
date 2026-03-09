@@ -355,7 +355,7 @@ func TestRunAssistantTurnCaptureIdeaPersistsAssistantConfirmation(t *testing.T) 
 	}
 	app.chatCaptureModes.set(session.ID, chatCaptureModeText)
 
-	app.runAssistantTurn(session.ID, turnOutputModeVoice, false)
+	app.runAssistantTurn(session.ID, dequeuedTurn{outputMode: turnOutputModeVoice})
 
 	messages, err := app.store.ListChatMessages(session.ID, 10)
 	if err != nil {
