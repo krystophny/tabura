@@ -7,10 +7,24 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/krystophny/tabura/internal/bear"
 	"github.com/krystophny/tabura/internal/store"
 
 	_ "modernc.org/sqlite"
 )
+
+func TestBearNoteRefURL(t *testing.T) {
+	noteURL := bearNoteRefURL(bear.Note{ID: "note id/1"})
+	if noteURL == nil {
+		t.Fatal("bearNoteRefURL() = nil, want URL")
+	}
+	if *noteURL != "bear://x-callback-url/open-note?id=note+id%2F1" {
+		t.Fatalf("bearNoteRefURL() = %q", *noteURL)
+	}
+	if bearNoteRefURL(bear.Note{}) != nil {
+		t.Fatal("bearNoteRefURL() for empty id should be nil")
+	}
+}
 
 func TestParseInlineBearIntent(t *testing.T) {
 	action := parseInlineBearIntent("sync bear")
@@ -86,6 +100,9 @@ func TestClassifyAndExecuteSystemActionSyncBear(t *testing.T) {
 	}
 	if artifact.Kind != store.ArtifactKindMarkdown {
 		t.Fatalf("artifact.Kind = %q, want markdown", artifact.Kind)
+	}
+	if artifact.RefURL == nil || *artifact.RefURL != "bear://x-callback-url/open-note?id=note-1" {
+		t.Fatalf("artifact.RefURL = %v, want Bear open-note callback", artifact.RefURL)
 	}
 	var meta bearNoteMeta
 	if artifact.MetaJSON == nil || json.Unmarshal([]byte(*artifact.MetaJSON), &meta) != nil {
