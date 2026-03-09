@@ -27,22 +27,6 @@ body.file-sidebar-open .edge-right-tap {
   background: transparent;
 }
 
-.edge-left-tap.has-inbox-count::after {
-  content: attr(data-inbox-count);
-  position: absolute;
-  top: 0.8rem;
-  left: 6px;
-  min-width: 1.35rem;
-  padding: 0.12rem 0.22rem;
-  border: 1px solid #111827;
-  background: #ffffff;
-  color: #111827;
-  font-size: 0.72rem;
-  font-weight: 700;
-  line-height: 1.1;
-  text-align: center;
-}
-
 .edge-right-tap {
   position: fixed;
   top: 0;

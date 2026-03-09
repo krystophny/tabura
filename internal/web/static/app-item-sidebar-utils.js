@@ -100,9 +100,8 @@ export function normalizeItemSidebarCounts(rawCounts) {
 export function setInboxTriggerCount(count) {
   const edgeLeftTap = document.getElementById('edge-left-tap');
   if (!(edgeLeftTap instanceof HTMLElement)) return;
-  const value = Math.max(0, Number(count) || 0);
-  edgeLeftTap.dataset.inboxCount = value > 0 ? String(value) : '';
-  edgeLeftTap.classList.toggle('has-inbox-count', value > 0);
+  edgeLeftTap.dataset.inboxCount = '';
+  edgeLeftTap.classList.remove('has-inbox-count');
 }
 
 export function applyItemSidebarCounts(rawCounts) {
