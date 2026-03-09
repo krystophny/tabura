@@ -50,6 +50,12 @@ func stringPointer(value string) *string {
 	return &value
 }
 
+type exchangeEmailSyncFixture struct {
+	app         *App
+	projectID   string
+	workspaceID int64
+}
+
 func TestSourceSyncRunnerPollsGmailAndIMAPAccounts(t *testing.T) {
 	app := newAuthedTestApp(t)
 
@@ -246,8 +252,23 @@ func TestSourceSyncRunnerPollsGmailAndIMAPAccounts(t *testing.T) {
 }
 
 func TestSourceSyncRunnerPollsExchangeEmailAccounts(t *testing.T) {
-	app := newAuthedTestApp(t)
+	fixture := newExchangeEmailSyncFixture(t)
+	result, err := fixture.app.syncSourcesNow(context.Background())
+	if err != nil {
+		t.Fatalf("syncSourcesNow() error: %v", err)
+	}
+	if len(result.Accounts) != 1 {
+		t.Fatalf("len(result.Accounts) = %d, want 1", len(result.Accounts))
+	}
+	if result.Accounts[0].Skipped || result.Accounts[0].Err != nil {
+		t.Fatalf("result.Accounts[0] = %#v, want successful sync", result.Accounts[0])
+	}
+	assertExchangeEmailSyncArtifacts(t, fixture)
+}
 
+func newExchangeEmailSyncFixture(t *testing.T) exchangeEmailSyncFixture {
+	t.Helper()
+	app := newAuthedTestApp(t)
 	account, err := app.store.CreateExternalAccount(store.SphereWork, store.ExternalProviderExchange, "Work Exchange", map[string]any{
 		"client_id": "client-id",
 		"tenant_id": "tenant-id",
@@ -255,7 +276,6 @@ func TestSourceSyncRunnerPollsExchangeEmailAccounts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateExternalAccount(exchange) error: %v", err)
 	}
-
 	project, err := app.store.CreateProject("Contracts", "contracts", filepath.Join(t.TempDir(), "contracts"), "managed", "", "", false)
 	if err != nil {
 		t.Fatalf("CreateProject() error: %v", err)
@@ -267,8 +287,29 @@ func TestSourceSyncRunnerPollsExchangeEmailAccounts(t *testing.T) {
 	if _, err := app.store.SetContainerMapping(store.ExternalProviderExchange, "label", "Contracts", &workspace.ID, &project.ID, nil); err != nil {
 		t.Fatalf("SetContainerMapping() error: %v", err)
 	}
+	provider := exchangeEmailSyncProvider()
+	app.newEmailSyncProvider = func(_ context.Context, externalAccount store.ExternalAccount) (emailSyncProvider, error) {
+		if externalAccount.ID != account.ID {
+			t.Fatalf("unexpected exchange email account id: %d", externalAccount.ID)
+		}
+		return provider, nil
+	}
+	app.newContactSyncProvider = func(_ context.Context, externalAccount store.ExternalAccount) (contactSyncProvider, error) {
+		if externalAccount.ID != account.ID {
+			t.Fatalf("unexpected exchange contact account id: %d", externalAccount.ID)
+		}
+		return provider, nil
+	}
+	app.sourceSync = app.newSourceSyncRunner()
+	return exchangeEmailSyncFixture{
+		app:         app,
+		projectID:   project.ID,
+		workspaceID: workspace.ID,
+	}
+}
 
-	provider := &fakeEmailSyncProvider{
+func exchangeEmailSyncProvider() *fakeEmailSyncProvider {
+	return &fakeEmailSyncProvider{
 		listFunc: func(opts email.SearchOptions) ([]string, error) {
 			switch {
 			case opts.IsRead != nil && !*opts.IsRead:
@@ -300,43 +341,21 @@ func TestSourceSyncRunnerPollsExchangeEmailAccounts(t *testing.T) {
 			Organization: "Example Corp",
 		}},
 	}
-	app.newEmailSyncProvider = func(_ context.Context, externalAccount store.ExternalAccount) (emailSyncProvider, error) {
-		if externalAccount.ID != account.ID {
-			t.Fatalf("unexpected exchange email account id: %d", externalAccount.ID)
-		}
-		return provider, nil
-	}
-	app.newContactSyncProvider = func(_ context.Context, externalAccount store.ExternalAccount) (contactSyncProvider, error) {
-		if externalAccount.ID != account.ID {
-			t.Fatalf("unexpected exchange contact account id: %d", externalAccount.ID)
-		}
-		return provider, nil
-	}
-	app.sourceSync = app.newSourceSyncRunner()
+}
 
-	result, err := app.syncSourcesNow(context.Background())
-	if err != nil {
-		t.Fatalf("syncSourcesNow() error: %v", err)
-	}
-	if len(result.Accounts) != 1 {
-		t.Fatalf("len(result.Accounts) = %d, want 1", len(result.Accounts))
-	}
-	if result.Accounts[0].Skipped || result.Accounts[0].Err != nil {
-		t.Fatalf("result.Accounts[0] = %#v, want successful sync", result.Accounts[0])
-	}
-
-	item, err := app.store.GetItemBySource(store.ExternalProviderExchange, "message:exchange-1")
+func assertExchangeEmailSyncArtifacts(t *testing.T, fixture exchangeEmailSyncFixture) {
+	t.Helper()
+	item, err := fixture.app.store.GetItemBySource(store.ExternalProviderExchange, "message:exchange-1")
 	if err != nil {
 		t.Fatalf("GetItemBySource(exchange) error: %v", err)
 	}
-	if item.WorkspaceID == nil || *item.WorkspaceID != workspace.ID {
-		t.Fatalf("exchange item workspace_id = %v, want %d", item.WorkspaceID, workspace.ID)
+	if item.WorkspaceID == nil || *item.WorkspaceID != fixture.workspaceID {
+		t.Fatalf("exchange item workspace_id = %v, want %d", item.WorkspaceID, fixture.workspaceID)
 	}
-	if item.ProjectID == nil || *item.ProjectID != project.ID {
-		t.Fatalf("exchange item project_id = %v, want %q", item.ProjectID, project.ID)
+	if item.ProjectID == nil || *item.ProjectID != fixture.projectID {
+		t.Fatalf("exchange item project_id = %v, want %q", item.ProjectID, fixture.projectID)
 	}
-
-	itemArtifacts, err := app.store.ListItemArtifacts(item.ID)
+	itemArtifacts, err := fixture.app.store.ListItemArtifacts(item.ID)
 	if err != nil {
 		t.Fatalf("ListItemArtifacts(exchange) error: %v", err)
 	}
@@ -349,16 +368,14 @@ func TestSourceSyncRunnerPollsExchangeEmailAccounts(t *testing.T) {
 	if itemArtifacts[1].Artifact.Kind != store.ArtifactKindEmailThread || itemArtifacts[1].Role != "related" {
 		t.Fatalf("exchange related artifact = %+v, want related email_thread", itemArtifacts[1])
 	}
-
-	actionItem, err := app.store.GetItemBySource(store.ExternalProviderExchange, emailActionSourceRef("thread-exchange-1", "Schedule meeting about budget"))
+	actionItem, err := fixture.app.store.GetItemBySource(store.ExternalProviderExchange, emailActionSourceRef("thread-exchange-1", "Schedule meeting about budget"))
 	if err != nil {
 		t.Fatalf("GetItemBySource(exchange action) error: %v", err)
 	}
 	if actionItem.FollowUpAt == nil || *actionItem.FollowUpAt != "2026-03-12T09:00:00Z" {
 		t.Fatalf("exchange action follow_up_at = %v, want 2026-03-12T09:00:00Z", actionItem.FollowUpAt)
 	}
-
-	actor, err := app.store.GetActorByProviderRef(store.ExternalProviderExchange, "exchange-contact-1")
+	actor, err := fixture.app.store.GetActorByProviderRef(store.ExternalProviderExchange, "exchange-contact-1")
 	if err != nil {
 		t.Fatalf("GetActorByProviderRef(exchange) error: %v", err)
 	}
