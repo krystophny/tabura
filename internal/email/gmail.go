@@ -35,10 +35,12 @@ func tokenFile() string {
 
 // GmailClient provides access to Gmail API with rate limiting.
 type GmailClient struct {
-	rateLimiter *RateLimiter
-	config      *oauth2.Config
-	token       *oauth2.Token
-	mu          sync.Mutex
+	rateLimiter     *RateLimiter
+	config          *oauth2.Config
+	token           *oauth2.Token
+	credentialsPath string
+	tokenPath       string
+	mu              sync.Mutex
 }
 
 // Compile-time check that GmailClient implements EmailProvider.
@@ -47,9 +49,21 @@ var _ MessageActionProvider = (*GmailClient)(nil)
 
 // NewGmail creates a new Gmail client.
 func NewGmail() (*GmailClient, error) {
-	credBytes, err := os.ReadFile(credentialsFile())
+	return NewGmailWithFiles("", "")
+}
+
+// NewGmailWithFiles creates a Gmail client with explicit credential and token paths.
+func NewGmailWithFiles(credentialsPath, tokenPath string) (*GmailClient, error) {
+	if strings.TrimSpace(credentialsPath) == "" {
+		credentialsPath = credentialsFile()
+	}
+	if strings.TrimSpace(tokenPath) == "" {
+		tokenPath = tokenFile()
+	}
+
+	credBytes, err := os.ReadFile(credentialsPath)
 	if err != nil {
-		return nil, fmt.Errorf("configure Gmail credentials at %s first: %w", credentialsFile(), err)
+		return nil, fmt.Errorf("configure Gmail credentials at %s first: %w", credentialsPath, err)
 	}
 
 	config, err := google.ConfigFromJSON(credBytes, gmailScope)
@@ -58,12 +72,14 @@ func NewGmail() (*GmailClient, error) {
 	}
 
 	client := &GmailClient{
-		rateLimiter: NewRateLimiter(15000),
-		config:      config,
+		rateLimiter:     NewRateLimiter(15000),
+		config:          config,
+		credentialsPath: credentialsPath,
+		tokenPath:       tokenPath,
 	}
 
 	// Try to load existing token
-	if tokenBytes, err := os.ReadFile(tokenFile()); err == nil {
+	if tokenBytes, err := os.ReadFile(tokenPath); err == nil {
 		var token oauth2.Token
 		if json.Unmarshal(tokenBytes, &token) == nil {
 			client.token = &token
@@ -88,11 +104,11 @@ func (c *GmailClient) ExchangeCode(ctx context.Context, code string) error {
 	c.token = token
 
 	// Save token
-	if err := os.MkdirAll(configDir(), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(c.tokenPath), 0o755); err != nil {
 		return err
 	}
 	tokenBytes, _ := json.MarshalIndent(token, "", "  ")
-	return os.WriteFile(tokenFile(), tokenBytes, 0600)
+	return os.WriteFile(c.tokenPath, tokenBytes, 0o600)
 }
 
 func (c *GmailClient) getService(ctx context.Context) (*gmail.Service, error) {
@@ -100,7 +116,7 @@ func (c *GmailClient) getService(ctx context.Context) (*gmail.Service, error) {
 	defer c.mu.Unlock()
 
 	if c.token == nil {
-		return nil, fmt.Errorf("gmail is not authenticated; token file %s is missing", tokenFile())
+		return nil, fmt.Errorf("gmail is not authenticated; token file %s is missing", c.tokenPath)
 	}
 
 	// Refresh token if expired
@@ -113,7 +129,8 @@ func (c *GmailClient) getService(ctx context.Context) (*gmail.Service, error) {
 	if newToken.AccessToken != c.token.AccessToken {
 		c.token = newToken
 		tokenBytes, _ := json.MarshalIndent(newToken, "", "  ")
-		os.WriteFile(tokenFile(), tokenBytes, 0600)
+		_ = os.MkdirAll(filepath.Dir(c.tokenPath), 0o755)
+		_ = os.WriteFile(c.tokenPath, tokenBytes, 0o600)
 	}
 
 	return gmail.NewService(ctx, option.WithTokenSource(tokenSource))
