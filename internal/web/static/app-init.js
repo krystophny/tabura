@@ -58,10 +58,12 @@ const isMobileViewport = (...args) => refs.isMobileViewport(...args);
 const stepCanvasFile = (...args) => refs.stepCanvasFile(...args);
 const beginInkStroke = (...args) => refs.beginInkStroke(...args);
 const extendInkStroke = (...args) => refs.extendInkStroke(...args);
+const finalizeInkStroke = (...args) => refs.finalizeInkStroke(...args);
 const resetInkDraftState = (...args) => refs.resetInkDraftState(...args);
 const getEdgeTapSizePx = (...args) => refs.getEdgeTapSizePx(...args);
 const getTopEdgeTapSizePx = (...args) => refs.getTopEdgeTapSizePx(...args);
 const prefersTextComposer = (...args) => refs.prefersTextComposer(...args);
+const createPdfStickyNoteAt = (...args) => refs.createPdfStickyNoteAt(...args);
 const selectInteractionTool = (...args) => refs.selectInteractionTool(...args);
 const submitInkDraft = (...args) => refs.submitInkDraft(...args);
 const shouldStopInUiClick = (...args) => refs.shouldStopInUiClick(...args);
@@ -308,10 +310,11 @@ export function bindUi() {
     }, true);
     const finishInkPointer = (ev) => {
       if (state.inkDraft.activePointerId !== ev.pointerId) return;
-      extendInkStroke(ev);
-      resetInkDraftState();
+      if (!finalizeInkStroke(ev)) {
+        extendInkStroke(ev);
+        resetInkDraftState();
+      }
       setPenInkingState(false);
-      renderInkControls();
       ev.preventDefault();
     };
     canvasViewport.addEventListener('pointerup', finishInkPointer, true);
@@ -357,6 +360,7 @@ export function bindUi() {
       const liveSessionPointerMode = state.liveSessionActive
         && (state.liveSessionMode === LIVE_SESSION_MODE_DIALOGUE || state.liveSessionMode === LIVE_SESSION_MODE_MEETING);
       if (liveSessionPointerMode) {
+        if (prefersTextComposer() && state.hasArtifact && createPdfStickyNoteAt(x, y)) return;
         if (isVoiceInteractionTarget(target, x, y)) return;
         const sel = window.getSelection();
         if (sel && !sel.isCollapsed) return;
@@ -382,6 +386,7 @@ export function bindUi() {
         void handleStopAction();
         return;
       }
+      if (prefersTextComposer() && state.hasArtifact && createPdfStickyNoteAt(x, y)) return;
       if (isVoiceInteractionTarget(target, x, y)) return;
       const sel = window.getSelection();
       if (sel && !sel.isCollapsed) return;
