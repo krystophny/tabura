@@ -448,40 +448,50 @@ func (a *App) executeSyncTodoistAction() (string, map[string]interface{}, error)
 	if err != nil {
 		return "", nil, err
 	}
-	mappings, err := a.store.ListContainerMappings(store.ExternalProviderTodoist)
-	if err != nil {
-		return "", nil, err
-	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	syncedCount := 0
 	for _, account := range accounts {
-		client, err := todoistClientForAccount(account)
+		count, err := a.syncTodoistAccount(ctx, account)
 		if err != nil {
 			return "", nil, err
 		}
-		projects, err := client.ListProjects(ctx)
-		if err != nil {
-			return "", nil, err
-		}
-		projectNames := todoistProjectNameByID(projects)
-		tasks, err := client.ListTasks(ctx, todoist.ListTasksOptions{})
-		if err != nil {
-			return "", nil, err
-		}
-		for _, task := range tasks {
-			if _, err := a.persistTodoistTask(account, task, mappings, projectNames); err != nil {
-				return "", nil, err
-			}
-			syncedCount++
-		}
+		syncedCount += count
 	}
 
 	return fmt.Sprintf("Synced %d Todoist task(s).", syncedCount), map[string]interface{}{
 		"type":  "sync_todoist",
 		"count": syncedCount,
 	}, nil
+}
+
+func (a *App) syncTodoistAccount(ctx context.Context, account store.ExternalAccount) (int, error) {
+	mappings, err := a.store.ListContainerMappings(store.ExternalProviderTodoist)
+	if err != nil {
+		return 0, err
+	}
+	client, err := todoistClientForAccount(account)
+	if err != nil {
+		return 0, err
+	}
+	projects, err := client.ListProjects(ctx)
+	if err != nil {
+		return 0, err
+	}
+	projectNames := todoistProjectNameByID(projects)
+	tasks, err := client.ListTasks(ctx, todoist.ListTasksOptions{})
+	if err != nil {
+		return 0, err
+	}
+	syncedCount := 0
+	for _, task := range tasks {
+		if _, err := a.persistTodoistTask(account, task, mappings, projectNames); err != nil {
+			return 0, err
+		}
+		syncedCount++
+	}
+	return syncedCount, nil
 }
 
 func parseTodoistTaskDraft(raw string) (string, string) {

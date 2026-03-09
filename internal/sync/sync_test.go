@@ -176,3 +176,35 @@ func TestIntervalFromAccountConfig(t *testing.T) {
 		})
 	}
 }
+
+func TestEngineRunNowIgnoresIntervals(t *testing.T) {
+	source := fakeAccountSource{
+		accounts: []store.ExternalAccount{
+			{ID: 1, Provider: store.ExternalProviderTodoist, Label: "todo-a", Enabled: true},
+		},
+	}
+	provider := &fakeProvider{name: store.ExternalProviderTodoist}
+	engine := NewEngine(source, &fakeCleaner{}, fakeSink{}, Options{
+		DefaultInterval: 10 * time.Minute,
+	})
+	now := time.Date(2026, time.March, 9, 12, 0, 0, 0, time.UTC)
+	engine.now = func() time.Time { return now }
+	engine.sleep = func(_ context.Context, d time.Duration) error {
+		now = now.Add(d)
+		return nil
+	}
+	engine.Register(provider)
+
+	if _, err := engine.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce() error: %v", err)
+	}
+	if len(provider.calls) != 1 {
+		t.Fatalf("provider call count after RunOnce = %d, want 1", len(provider.calls))
+	}
+	if _, err := engine.RunNow(context.Background()); err != nil {
+		t.Fatalf("RunNow() error: %v", err)
+	}
+	if len(provider.calls) != 2 {
+		t.Fatalf("provider call count after RunNow = %d, want 2", len(provider.calls))
+	}
+}

@@ -600,132 +600,20 @@ func (a *App) executeSyncZoteroAction() (string, map[string]interface{}, error) 
 	if err != nil {
 		return "", nil, err
 	}
-	mappings, err := a.store.ListContainerMappings(store.ExternalProviderZotero)
-	if err != nil {
-		return "", nil, err
-	}
+	ctx, cancel := context.WithTimeout(context.Background(), zoteroSyncTimeout)
+	defer cancel()
 
 	result := zoteroSyncResult{}
 	for _, account := range accounts {
-		reader, cfg, err := zoteroReaderForAccount(account)
-		if errors.Is(err, zotero.ErrDatabaseNotFound) {
-			result.Skipped++
-			continue
-		}
+		synced, err := a.syncZoteroAccount(ctx, account)
 		if err != nil {
 			return "", nil, err
 		}
-
-		func() {
-			defer reader.Close()
-			ctx, cancel := context.WithTimeout(context.Background(), zoteroSyncTimeout)
-			defer cancel()
-
-			items, syncErr := reader.ListItems(ctx)
-			if syncErr != nil {
-				err = syncErr
-				return
-			}
-			if exportPath := strings.TrimSpace(cfg.CitationExportPath); exportPath != "" {
-				citationKeys, citationErr := reader.ResolveCitationKeys(exportPath)
-				if citationErr != nil && !errors.Is(citationErr, os.ErrNotExist) {
-					err = citationErr
-					return
-				}
-				for i := range items {
-					if key := strings.TrimSpace(citationKeys[items[i].Key]); key != "" {
-						items[i].CitationKey = key
-					}
-				}
-			}
-			collections, syncErr := reader.ListCollections(ctx)
-			if syncErr != nil {
-				err = syncErr
-				return
-			}
-			collectionNamesByKey := zoteroCollectionNamesByKey(collections)
-
-			for _, item := range items {
-				names := zoteroCollectionNames(item, collectionNamesByKey)
-				mapping, syncErr := a.zoteroCollectionMappingForAccount(account, mappings, names)
-				if syncErr != nil {
-					err = syncErr
-					return
-				}
-				inferredProjectID := a.zoteroProjectHintFromTags(item.Tags)
-				referenceArtifact, syncErr := a.upsertZoteroReferenceArtifact(account, item, names, mapping)
-				if syncErr != nil {
-					err = syncErr
-					return
-				}
-				result.ReferenceCount++
-
-				attachments, syncErr := reader.ListAttachments(ctx, item.Key)
-				if syncErr != nil {
-					err = syncErr
-					return
-				}
-				annotationByAttachment := map[string][]zotero.Annotation{}
-				for _, attachment := range attachments {
-					annotations, annErr := reader.ListAnnotations(ctx, attachment.Key)
-					if annErr != nil {
-						err = annErr
-						return
-					}
-					annotationByAttachment[strings.TrimSpace(attachment.Key)] = annotations
-				}
-
-				var readingItem *store.Item
-				if zoteroReadingItemWanted(item) {
-					allAnnotations := make([]zotero.Annotation, 0)
-					for _, annotations := range annotationByAttachment {
-						allAnnotations = append(allAnnotations, annotations...)
-					}
-					persisted, syncErr := a.persistZoteroReadingItem(account, referenceArtifact, item, mapping, inferredProjectID, allAnnotations)
-					if syncErr != nil {
-						err = syncErr
-						return
-					}
-					readingItem = &persisted
-					result.ReadingItemCount++
-				}
-
-				for _, attachment := range attachments {
-					if !strings.Contains(strings.ToLower(strings.TrimSpace(attachment.ContentType)), "pdf") {
-						continue
-					}
-					attachmentArtifact, syncErr := a.upsertZoteroAttachmentArtifact(account, reader, attachment, referenceArtifact.ID, item.Key, mapping)
-					if syncErr != nil {
-						err = syncErr
-						return
-					}
-					result.AttachmentCount++
-					if readingItem != nil {
-						if linkErr := a.store.LinkItemArtifact(readingItem.ID, attachmentArtifact.ID, "related"); linkErr != nil {
-							err = linkErr
-							return
-						}
-					}
-					for _, annotation := range annotationByAttachment[strings.TrimSpace(attachment.Key)] {
-						annotationArtifact, syncErr := a.upsertZoteroAnnotationArtifact(account, annotation, referenceArtifact.ID, item.Key, attachment.Key, mapping)
-						if syncErr != nil {
-							err = syncErr
-							return
-						}
-						result.AnnotationCount++
-						if readingItem != nil {
-							if linkErr := a.store.LinkItemArtifact(readingItem.ID, annotationArtifact.ID, "related"); linkErr != nil {
-								err = linkErr
-								return
-							}
-						}
-					}
-				}
-			}
-		}()
-		if err != nil {
-			return "", nil, err
-		}
+		result.ReferenceCount += synced.ReferenceCount
+		result.AttachmentCount += synced.AttachmentCount
+		result.AnnotationCount += synced.AnnotationCount
+		result.ReadingItemCount += synced.ReadingItemCount
+		result.Skipped += synced.Skipped
 	}
 
 	if result.ReferenceCount == 0 && result.Skipped > 0 {
@@ -752,6 +640,116 @@ func (a *App) executeSyncZoteroAction() (string, map[string]interface{}, error) 
 			"reading_items":    result.ReadingItemCount,
 			"skipped_accounts": result.Skipped,
 		}, nil
+}
+
+func (a *App) syncZoteroAccount(ctx context.Context, account store.ExternalAccount) (zoteroSyncResult, error) {
+	mappings, err := a.store.ListContainerMappings(store.ExternalProviderZotero)
+	if err != nil {
+		return zoteroSyncResult{}, err
+	}
+	reader, cfg, err := zoteroReaderForAccount(account)
+	if errors.Is(err, zotero.ErrDatabaseNotFound) {
+		return zoteroSyncResult{Skipped: 1}, nil
+	}
+	if err != nil {
+		return zoteroSyncResult{}, err
+	}
+	defer reader.Close()
+
+	ctx, cancel := context.WithTimeout(ctx, zoteroSyncTimeout)
+	defer cancel()
+
+	items, err := reader.ListItems(ctx)
+	if err != nil {
+		return zoteroSyncResult{}, err
+	}
+	if exportPath := strings.TrimSpace(cfg.CitationExportPath); exportPath != "" {
+		citationKeys, err := reader.ResolveCitationKeys(exportPath)
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
+			return zoteroSyncResult{}, err
+		}
+		for i := range items {
+			if key := strings.TrimSpace(citationKeys[items[i].Key]); key != "" {
+				items[i].CitationKey = key
+			}
+		}
+	}
+	collections, err := reader.ListCollections(ctx)
+	if err != nil {
+		return zoteroSyncResult{}, err
+	}
+	collectionNamesByKey := zoteroCollectionNamesByKey(collections)
+
+	result := zoteroSyncResult{}
+	for _, item := range items {
+		names := zoteroCollectionNames(item, collectionNamesByKey)
+		mapping, err := a.zoteroCollectionMappingForAccount(account, mappings, names)
+		if err != nil {
+			return zoteroSyncResult{}, err
+		}
+		inferredProjectID := a.zoteroProjectHintFromTags(item.Tags)
+		referenceArtifact, err := a.upsertZoteroReferenceArtifact(account, item, names, mapping)
+		if err != nil {
+			return zoteroSyncResult{}, err
+		}
+		result.ReferenceCount++
+
+		attachments, err := reader.ListAttachments(ctx, item.Key)
+		if err != nil {
+			return zoteroSyncResult{}, err
+		}
+		annotationByAttachment := map[string][]zotero.Annotation{}
+		for _, attachment := range attachments {
+			annotations, err := reader.ListAnnotations(ctx, attachment.Key)
+			if err != nil {
+				return zoteroSyncResult{}, err
+			}
+			annotationByAttachment[strings.TrimSpace(attachment.Key)] = annotations
+		}
+
+		var readingItem *store.Item
+		if zoteroReadingItemWanted(item) {
+			allAnnotations := make([]zotero.Annotation, 0)
+			for _, annotations := range annotationByAttachment {
+				allAnnotations = append(allAnnotations, annotations...)
+			}
+			persisted, err := a.persistZoteroReadingItem(account, referenceArtifact, item, mapping, inferredProjectID, allAnnotations)
+			if err != nil {
+				return zoteroSyncResult{}, err
+			}
+			readingItem = &persisted
+			result.ReadingItemCount++
+		}
+
+		for _, attachment := range attachments {
+			if !strings.Contains(strings.ToLower(strings.TrimSpace(attachment.ContentType)), "pdf") {
+				continue
+			}
+			attachmentArtifact, err := a.upsertZoteroAttachmentArtifact(account, reader, attachment, referenceArtifact.ID, item.Key, mapping)
+			if err != nil {
+				return zoteroSyncResult{}, err
+			}
+			result.AttachmentCount++
+			if readingItem != nil {
+				if err := a.store.LinkItemArtifact(readingItem.ID, attachmentArtifact.ID, "related"); err != nil {
+					return zoteroSyncResult{}, err
+				}
+			}
+			for _, annotation := range annotationByAttachment[strings.TrimSpace(attachment.Key)] {
+				annotationArtifact, err := a.upsertZoteroAnnotationArtifact(account, annotation, referenceArtifact.ID, item.Key, attachment.Key, mapping)
+				if err != nil {
+					return zoteroSyncResult{}, err
+				}
+				result.AnnotationCount++
+				if readingItem != nil {
+					if err := a.store.LinkItemArtifact(readingItem.ID, annotationArtifact.ID, "related"); err != nil {
+						return zoteroSyncResult{}, err
+					}
+				}
+			}
+		}
+	}
+	return result, nil
 }
 
 func (a *App) executeZoteroAction(action *SystemAction) (string, map[string]interface{}, error) {

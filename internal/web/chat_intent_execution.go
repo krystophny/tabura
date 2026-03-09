@@ -318,6 +318,8 @@ func (a *App) executeSystemAction(sessionID string, session store.ChatSession, a
 		return a.executeSomedayAction(session, action)
 	case "show_filtered_items":
 		return a.executeFilteredItemViewAction(action)
+	case "sync_sources":
+		return a.executeSourceSyncAction(session, action)
 	case "map_todoist_project", "sync_todoist", "create_todoist_task":
 		return a.executeTodoistAction(session, action)
 	case "sync_evernote":

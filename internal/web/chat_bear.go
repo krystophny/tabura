@@ -407,41 +407,17 @@ func (a *App) executeSyncBearAction() (string, map[string]interface{}, error) {
 	if err != nil {
 		return "", nil, err
 	}
-	mappings, err := a.store.ListContainerMappings(store.ExternalProviderBear)
-	if err != nil {
-		return "", nil, err
-	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
 	result := bearSyncResult{}
 	for _, account := range accounts {
-		client, err := bearClientForAccount(account)
+		synced, err := a.syncBearAccount(ctx, account)
 		if err != nil {
-			if errors.Is(err, bear.ErrDatabaseNotFound) {
-				result.Skipped++
-				continue
-			}
 			return "", nil, err
 		}
-		notes, err := client.ListNotes(ctx)
-		if err != nil {
-			if errors.Is(err, bear.ErrDatabaseNotFound) {
-				result.Skipped++
-				continue
-			}
-			return "", nil, err
-		}
-		for _, note := range notes {
-			mapping, err := a.bearTagMappingForAccount(account, mappings, note.Tags)
-			if err != nil {
-				return "", nil, err
-			}
-			if _, err := a.upsertBearArtifact(account, note, mapping); err != nil {
-				return "", nil, err
-			}
-			result.NoteCount++
-		}
+		result.NoteCount += synced.NoteCount
+		result.Skipped += synced.Skipped
 	}
 
 	if result.NoteCount == 0 && result.Skipped > 0 {
@@ -456,6 +432,39 @@ func (a *App) executeSyncBearAction() (string, map[string]interface{}, error) {
 		"note_count":       result.NoteCount,
 		"skipped_accounts": result.Skipped,
 	}, nil
+}
+
+func (a *App) syncBearAccount(ctx context.Context, account store.ExternalAccount) (bearSyncResult, error) {
+	mappings, err := a.store.ListContainerMappings(store.ExternalProviderBear)
+	if err != nil {
+		return bearSyncResult{}, err
+	}
+	client, err := bearClientForAccount(account)
+	if err != nil {
+		if errors.Is(err, bear.ErrDatabaseNotFound) {
+			return bearSyncResult{Skipped: 1}, nil
+		}
+		return bearSyncResult{}, err
+	}
+	notes, err := client.ListNotes(ctx)
+	if err != nil {
+		if errors.Is(err, bear.ErrDatabaseNotFound) {
+			return bearSyncResult{Skipped: 1}, nil
+		}
+		return bearSyncResult{}, err
+	}
+	result := bearSyncResult{}
+	for _, note := range notes {
+		mapping, err := a.bearTagMappingForAccount(account, mappings, note.Tags)
+		if err != nil {
+			return bearSyncResult{}, err
+		}
+		if _, err := a.upsertBearArtifact(account, note, mapping); err != nil {
+			return bearSyncResult{}, err
+		}
+		result.NoteCount++
+	}
+	return result, nil
 }
 
 func (a *App) executePromoteBearChecklistAction(session store.ChatSession) (string, map[string]interface{}, error) {
