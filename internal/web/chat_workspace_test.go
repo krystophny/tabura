@@ -392,11 +392,14 @@ func TestClassifyAndExecuteSystemActionWorkspaceManagement(t *testing.T) {
 	if !handled {
 		t.Fatal("expected list workspaces command to be handled")
 	}
-	if !strings.Contains(message, "Workspaces:") || !strings.Contains(message, "research lab") || !strings.Contains(message, "notes") {
+	if !strings.Contains(message, "Workspaces in private sphere:") || !strings.Contains(message, "research lab") || !strings.Contains(message, "notes") {
 		t.Fatalf("message = %q", message)
 	}
 	if len(payloads) != 1 || strFromAny(payloads[0]["type"]) != "list_workspaces" {
 		t.Fatalf("list payloads = %#v", payloads)
+	}
+	if got := strFromAny(payloads[0]["sphere"]); got != store.SpherePrivate {
+		t.Fatalf("payload sphere = %q, want %q", got, store.SpherePrivate)
 	}
 
 	message, payloads, handled = app.classifyAndExecuteSystemAction(context.Background(), session.ID, session, "show workspace details for notes")
