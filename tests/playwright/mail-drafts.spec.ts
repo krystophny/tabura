@@ -260,4 +260,117 @@ test.describe('mail drafts', () => {
     await expect(page.locator('#canvas-text')).toContainText('Thread: Client question');
     await expect(page.locator('#canvas-text')).toContainText('I can send the revised proposal this afternoon.');
   });
+
+  test('command center can launch reply from the current sidebar selection', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await waitReady(page);
+
+    await page.evaluate(() => {
+      (window as any).__setItemSidebarData({
+        inbox: [{
+          id: 812,
+          title: 'Reply to client',
+          state: 'inbox',
+          sphere: 'private',
+          artifact_id: 612,
+          source: 'exchange',
+          source_ref: 'msg-812',
+          artifact_title: 'Client question',
+          artifact_kind: 'email',
+          actor_name: 'Client',
+          created_at: '2026-03-10 10:00:00',
+          updated_at: '2026-03-10 10:05:00',
+        }],
+        waiting: [],
+        someday: [],
+        done: [],
+      });
+      (window as any).__setItemSidebarArtifacts({
+        612: {
+          id: 612,
+          kind: 'email',
+          title: 'Client question',
+          meta_json: JSON.stringify({
+            subject: 'Client question',
+            sender: 'Client <client@example.com>',
+            thread_id: 'thread-812',
+            body: 'Can you send the revised proposal?',
+          }),
+        },
+      });
+    });
+
+    await openInbox(page);
+    await page.locator('#pr-file-list .pr-file-item').first().click();
+
+    await clearLog(page);
+    await page.keyboard.press('Control+k');
+    await expect(page.locator('#command-center')).toBeVisible();
+    await expect(page.locator('#command-center-input')).toBeFocused();
+    await page.locator('#command-center-input').fill('reply');
+    await page.keyboard.press('Enter');
+    await waitForLogEntry(page, 'api_fetch', 'mail_draft_reply');
+
+    await expect(page.locator('#command-center')).toBeHidden();
+    await expect(page.locator('#canvas-text')).toHaveClass(/mail-draft-canvas/);
+    await expect(page.locator('[name="to"]')).toHaveValue('client@example.com');
+    await expect(page.locator('[name="subject"]')).toHaveValue('Re: Client question');
+  });
+
+  test('compose and reply hotkeys work from the sidebar without clicking action buttons', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await waitReady(page);
+
+    await page.evaluate(() => {
+      (window as any).__setItemSidebarData({
+        inbox: [{
+          id: 812,
+          title: 'Reply to client',
+          state: 'inbox',
+          sphere: 'private',
+          artifact_id: 612,
+          source: 'exchange',
+          source_ref: 'msg-812',
+          artifact_title: 'Client question',
+          artifact_kind: 'email',
+          actor_name: 'Client',
+          created_at: '2026-03-10 10:00:00',
+          updated_at: '2026-03-10 10:05:00',
+        }],
+        waiting: [],
+        someday: [],
+        done: [],
+      });
+      (window as any).__setItemSidebarArtifacts({
+        612: {
+          id: 612,
+          kind: 'email',
+          title: 'Client question',
+          meta_json: JSON.stringify({
+            subject: 'Client question',
+            sender: 'Client <client@example.com>',
+            thread_id: 'thread-812',
+            body: 'Can you send the revised proposal?',
+          }),
+        },
+      });
+    });
+
+    await openInbox(page);
+    await page.locator('#pr-file-list .pr-file-item').first().click();
+
+    await clearLog(page);
+    await page.keyboard.press('r');
+    await waitForLogEntry(page, 'api_fetch', 'mail_draft_reply');
+    await expect(page.locator('[name="subject"]')).toHaveValue('Re: Client question');
+
+    await page.locator('.sidebar-tab', { hasText: 'Inbox' }).click();
+    await page.locator('#pr-file-list .pr-file-item').first().click();
+
+    await clearLog(page);
+    await page.keyboard.press('c');
+    await waitForLogEntry(page, 'api_fetch', 'mail_draft_create');
+    await expect(page.locator('#canvas-text')).toHaveClass(/mail-draft-canvas/);
+    await expect(page.locator('.mail-draft-title')).toContainText('Draft email');
+  });
 });
