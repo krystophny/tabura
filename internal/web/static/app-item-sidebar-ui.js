@@ -31,6 +31,8 @@ const parentWorkspaceBrowserPath = (...args) => refs.parentWorkspaceBrowserPath(
 const workspaceCompanionEntries = (...args) => refs.workspaceCompanionEntries(...args);
 const openWorkspaceSidebarFile = (...args) => refs.openWorkspaceSidebarFile(...args);
 const openScanImportPicker = (...args) => refs.openScanImportPicker(...args);
+const createNewMailDraft = (...args) => refs.createNewMailDraft(...args);
+const replyToSidebarItem = (...args) => refs.replyToSidebarItem(...args);
 
 export async function openItemSidebarView(view = state.itemSidebarView, filters = null) {
   state.fileSidebarMode = 'items';
@@ -192,7 +194,7 @@ export async function openSidebarItem(item) {
 export function itemKindLabel(item) {
   const artifactKind = String(item?.artifact_kind || '').trim().toLowerCase();
   if (artifactKind === 'idea_note') return 'idea';
-  if (artifactKind === 'email') return 'email';
+  if (artifactKind === 'email' || artifactKind === 'email_thread' || artifactKind === 'email_draft') return 'email';
   if (artifactKind === 'github_pr') return 'review';
   if (artifactKind === 'github_issue') return 'task';
   if (artifactKind === 'plan_note') return 'task';
@@ -206,6 +208,7 @@ export function itemIconForRow(item) {
   const source = itemSourceLabel(item);
   if (artifactKind === 'github_pr') return { icon: 'symbol', text: 'R' };
   if (artifactKind === 'email') return { icon: 'symbol', text: '@' };
+  if (artifactKind === 'email_draft') return { icon: 'symbol', text: 'M' };
   if (artifactKind === 'idea_note') return { icon: 'symbol', text: 'I' };
   if (source === 'github') return { icon: 'symbol', text: '#' };
   return { icon: 'symbol', text: 'T' };
@@ -503,6 +506,39 @@ export function renderItemSidebarList(list) {
     return;
   }
   const items = Array.isArray(state.itemSidebarItems) ? state.itemSidebarItems : [];
+  const activeItem = items.find((entry) => Number(entry?.id || 0) === Number(state.itemSidebarActiveItemID || 0)) || null;
+  const actions = document.createElement('div');
+  actions.className = 'sidebar-actions';
+  const newMailButton = document.createElement('button');
+  newMailButton.type = 'button';
+  newMailButton.className = 'edge-btn';
+  newMailButton.id = 'new-mail-trigger';
+  newMailButton.textContent = 'New Mail';
+  newMailButton.addEventListener('click', () => {
+    void createNewMailDraft();
+  });
+  actions.appendChild(newMailButton);
+  if (activeItem && ['email', 'email_thread'].includes(String(activeItem?.artifact_kind || '').trim().toLowerCase())) {
+    const replyButton = document.createElement('button');
+    replyButton.type = 'button';
+    replyButton.className = 'edge-btn';
+    replyButton.id = 'reply-mail-trigger';
+    replyButton.textContent = 'Reply';
+    replyButton.addEventListener('click', () => {
+      void replyToSidebarItem(activeItem);
+    });
+    actions.appendChild(replyButton);
+  }
+  const scanButton = document.createElement('button');
+  scanButton.id = 'scan-upload-trigger';
+  scanButton.type = 'button';
+  scanButton.className = 'edge-btn';
+  scanButton.textContent = 'Scan Notes';
+  scanButton.addEventListener('click', () => {
+    openScanImportPicker();
+  });
+  actions.appendChild(scanButton);
+  list.appendChild(actions);
   if (items.length === 0) {
     list.appendChild(renderSidebarRow({
       icon: 'symbol',
@@ -511,21 +547,6 @@ export function renderItemSidebarList(list) {
       onClick: () => {},
     }));
     return;
-  }
-  const activeItem = items.find((entry) => Number(entry?.id || 0) === Number(state.itemSidebarActiveItemID || 0)) || null;
-  if (activeItem) {
-    const actions = document.createElement('div');
-    actions.className = 'sidebar-actions';
-    const scanButton = document.createElement('button');
-    scanButton.id = 'scan-upload-trigger';
-    scanButton.type = 'button';
-    scanButton.className = 'edge-btn';
-    scanButton.textContent = 'Scan Notes';
-    scanButton.addEventListener('click', () => {
-      openScanImportPicker();
-    });
-    actions.appendChild(scanButton);
-    list.appendChild(actions);
   }
   items.forEach((item) => {
     const icon = itemIconForRow(item);

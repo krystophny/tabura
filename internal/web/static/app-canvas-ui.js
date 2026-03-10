@@ -279,7 +279,7 @@ export function paneIdForCanvasKind(kind) {
   const normalized = String(kind || '').trim().toLowerCase();
   if (normalized === 'image_artifact' || normalized === 'image') return 'canvas-image';
   if (normalized === 'pdf_artifact' || normalized === 'pdf') return 'canvas-pdf';
-  if (normalized === 'text_artifact' || normalized === 'text') return 'canvas-text';
+  if (normalized === 'text_artifact' || normalized === 'text' || normalized === 'email_draft') return 'canvas-text';
   return '';
 }
 
@@ -299,7 +299,7 @@ export function isRealCanvasArtifactEvent(payload) {
   if (kind === 'image_artifact' || kind === 'image' || kind === 'pdf_artifact' || kind === 'pdf') {
     return true;
   }
-  if (kind !== 'text_artifact' && kind !== 'text') return false;
+  if (kind !== 'text_artifact' && kind !== 'text' && kind !== 'email_draft') return false;
 
   const meta = payload?.meta;
   if (meta && typeof meta === 'object' && typeof meta.real_artifact === 'boolean') {

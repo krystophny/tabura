@@ -48,6 +48,9 @@ type IMAPClient struct {
 	mailboxCache     []string
 	mailboxCacheTime time.Time
 	mailboxCacheMu   sync.RWMutex
+
+	smtpConfig SMTPConfig
+	smtpSend   SMTPSender
 }
 
 // Compile-time check that IMAPClient implements EmailProvider.
@@ -76,6 +79,16 @@ func NewIMAPClient(name, host string, port int, username, password string, useTL
 		startTLS: startTLS,
 		poolSize: DefaultPoolSize,
 		pool:     make(chan *imapclient.Client, DefaultPoolSize),
+		smtpSend: defaultSMTPSender,
+	}
+}
+
+func (c *IMAPClient) ConfigureDraftTransport(cfg SMTPConfig) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.smtpConfig = cfg
+	if c.smtpSend == nil {
+		c.smtpSend = defaultSMTPSender
 	}
 }
 

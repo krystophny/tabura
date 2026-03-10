@@ -171,6 +171,14 @@ export const state = {
     scratchPath: '',
     saving: false,
   },
+  mailDraft: {
+    artifactId: 0,
+    itemId: 0,
+    saveTimer: null,
+    saving: false,
+    sending: false,
+    status: '',
+  },
   reasoningEffortsByAlias: {
     codex: ['low', 'medium', 'high', 'xhigh'],
     gpt: ['low', 'medium', 'high', 'xhigh'],

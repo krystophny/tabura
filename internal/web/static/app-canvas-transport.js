@@ -17,6 +17,7 @@ const showCanvasColumn = (...args) => refs.showCanvasColumn(...args);
 const hideCanvasColumn = (...args) => refs.hideCanvasColumn(...args);
 const isMobileSilent = (...args) => refs.isMobileSilent(...args);
 const exitArtifactEditMode = (...args) => refs.exitArtifactEditMode(...args);
+const resetMailDraftState = (...args) => refs.resetMailDraftState(...args);
 
 export function applyCanvasArtifactEvent(payload) {
   clearWelcomeSurface();
@@ -25,6 +26,9 @@ export function applyCanvasArtifactEvent(payload) {
     exitArtifactEditMode({ applyChanges: false });
   }
   const kind = String(payload?.kind || '').trim().toLowerCase();
+  if (kind !== 'email_draft') {
+    resetMailDraftState();
+  }
   if (kind === 'clear_canvas') {
     state.currentCanvasArtifact = {
       kind: '',

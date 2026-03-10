@@ -19,6 +19,7 @@ import * as edgePanelsModule from './app-edge-panels.js';
 import * as bugReportModule from './app-bug-report.js';
 import * as annotationsModule from './app-annotations.js';
 import * as dictationModule from './app-dictation.js';
+import * as mailDraftsModule from './app-mail-drafts.js';
 import * as initModule from './app-init.js';
 import * as startupModule from './app-startup.js';
 
@@ -43,6 +44,7 @@ setAppRefs({
   ...bugReportModule,
   ...annotationsModule,
   ...dictationModule,
+  ...mailDraftsModule,
   ...initModule,
   ...startupModule,
 });
