@@ -52,9 +52,14 @@ function activeDraftText() {
   return String(getPreviousArtifactText() || dictationState().draftText || '').trim();
 }
 
-function dictationDispatchPrompt(targetLabel, draftText) {
+function dictationDraftLabel(targetLabel) {
   const label = String(targetLabel || 'draft').trim();
-  return `Use this dictated ${label.toLowerCase()} draft as the content to dispatch.\n\n${draftText}`;
+  if (!label) return 'draft';
+  return label.toLowerCase().endsWith('draft') ? label : `${label} draft`;
+}
+
+function dictationDispatchPrompt(targetLabel, draftText) {
+  return `Use this dictated ${dictationDraftLabel(targetLabel).toLowerCase()} as the content to dispatch.\n\n${draftText}`;
 }
 
 function dictationCanvasPayload() {
@@ -84,6 +89,33 @@ async function requestDictation(path, options = {}) {
   }
   const payload = await resp.json();
   return normalizeDictationResponse(payload);
+}
+
+export async function startDictationMode(options = {}) {
+  const prompt = String(options?.prompt || '').trim();
+  if (!prompt) return false;
+  const targetKind = String(options?.targetKind || '').trim();
+  const artifactTitle = Object.prototype.hasOwnProperty.call(options || {}, 'artifactTitle')
+    ? String(options?.artifactTitle || '').trim()
+    : String(getActiveArtifactTitle() || '').trim();
+  const successText = String(options?.successText || '').trim();
+  try {
+    const next = await requestDictation('/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt,
+        target_kind: targetKind,
+        artifact_title: artifactTitle,
+      }),
+    });
+    applyDictationState(next);
+    showStatus(successText || `${next.targetLabel.toLowerCase()} dictation ready`);
+    return true;
+  } catch (err) {
+    showStatus(`dictation failed: ${String(err?.message || err)}`);
+    return false;
+  }
 }
 
 export function ensureDictationUi() {
@@ -119,7 +151,7 @@ export function renderDictationUi() {
   const target = root.querySelector('.dictation-indicator-target');
   if (target) {
     const transcriptState = current.transcript ? 'Listening for more voice input.' : 'Waiting for speech.';
-    target.textContent = `${current.targetLabel} draft. ${transcriptState}`;
+    target.textContent = `${dictationDraftLabel(current.targetLabel)}. ${transcriptState}`;
   }
   const sendButton = root.querySelector('#dictation-send');
   if (sendButton instanceof HTMLButtonElement) {
@@ -134,22 +166,8 @@ export async function maybeHandleDictationCommand(text) {
   if (!['take a letter', 'draft a reply', 'write my review', 'dictate'].includes(normalized)) {
     return false;
   }
-  try {
-    const next = await requestDictation('/start', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        prompt: trimmed,
-        artifact_title: String(getActiveArtifactTitle() || '').trim(),
-      }),
-    });
-    applyDictationState(next);
-    showStatus(`${next.targetLabel.toLowerCase()} dictation ready`);
-    return true;
-  } catch (err) {
-    showStatus(`dictation failed: ${String(err?.message || err)}`);
-    return true;
-  }
+  await startDictationMode({ prompt: trimmed });
+  return true;
 }
 
 export function isDictationActive() {

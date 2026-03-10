@@ -211,6 +211,7 @@
       scratch_path: '',
     };
     function dictationLabel(targetKind) {
+      if (targetKind === 'email_draft') return 'Email Draft';
       if (targetKind === 'email_reply') return 'Email Reply';
       if (targetKind === 'review_comment') return 'Review Comment';
       return 'Document Section';
@@ -218,7 +219,8 @@
     function dictationTargetForPrompt(prompt, artifactTitle) {
       const combined = String(`${prompt || ''}\n${artifactTitle || ''}`).toLowerCase();
       if (combined.includes('review') || combined.includes('.diff') || combined.includes('pr ')) return 'review_comment';
-      if (combined.includes('reply') || combined.includes('email') || combined.includes('thread') || combined.includes('letter')) return 'email_reply';
+      if (combined.includes('reply') || combined.includes('thread')) return 'email_reply';
+      if (combined.includes('email') || combined.includes('letter')) return 'email_draft';
       return 'document_section';
     }
     function dictationDraftForState(current) {
@@ -227,6 +229,9 @@
       const paragraphs = transcript
         ? transcript.split(/\n\s*\n/).map((part) => part.trim().replace(/\s+/g, ' ')).filter(Boolean)
         : [];
+      if (current?.target_kind === 'email_draft') {
+        return `# Email Draft\n\n${title ? `Subject: ${title}\n\n` : ''}${paragraphs.join('\n\n') || 'Start speaking to build the message.'}`;
+      }
       if (current?.target_kind === 'email_reply') {
         return `# Email Reply Draft\n\n${title ? `Thread: ${title}\n\n` : ''}${paragraphs.join('\n\n') || 'Start speaking to build the reply.'}`;
       }
@@ -2080,7 +2085,10 @@
       if (u.includes('/api/chat/sessions') && u.includes('/dictation/start') && opts?.method === 'POST') {
         let body = {};
         try { body = JSON.parse(String(opts?.body || '{}')); } catch (_) { body = {}; }
-        const targetKind = dictationTargetForPrompt(body.prompt, body.artifact_title);
+        const requestedTargetKind = String(body.target_kind || '').trim().toLowerCase();
+        const targetKind = ['document_section', 'email_draft', 'email_reply', 'review_comment'].includes(requestedTargetKind)
+          ? requestedTargetKind
+          : dictationTargetForPrompt(body.prompt, body.artifact_title);
         dictationState = {
           active: true,
           target_kind: targetKind,

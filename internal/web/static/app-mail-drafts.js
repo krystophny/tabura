@@ -7,6 +7,7 @@ const { refs, state } = context;
 const applyCanvasArtifactEvent = (...args) => refs.applyCanvasArtifactEvent(...args);
 const loadItemSidebarView = (...args) => refs.loadItemSidebarView(...args);
 const showStatus = (...args) => refs.showStatus(...args);
+const startDictationMode = (...args) => refs.startDictationMode(...args);
 
 const MAIL_DRAFT_EDITOR_ID = 'mail-draft-editor';
 const MAIL_DRAFT_STATUS_ID = 'mail-draft-status';
@@ -131,6 +132,38 @@ export async function replyToSidebarItem(item) {
     showStatus(`reply draft failed: ${String(err?.message || err || 'unknown error')}`);
     return false;
   }
+}
+
+function mailAuthoringUsesDictation() {
+  return String(state.interaction?.tool || '').trim().toLowerCase() === 'prompt'
+    && String(state.interaction?.surface || '').trim().toLowerCase() === 'annotate';
+}
+
+function mailReplyArtifactTitle(item) {
+  return String(item?.artifact_title || item?.title || '').trim();
+}
+
+export async function launchNewMailAuthoring() {
+  if (!mailAuthoringUsesDictation()) {
+    return createNewMailDraft();
+  }
+  return startDictationMode({
+    prompt: 'take a letter',
+    targetKind: 'email_draft',
+    successText: 'email draft dictation ready',
+  });
+}
+
+export async function launchReplyAuthoring(item) {
+  if (!mailAuthoringUsesDictation()) {
+    return replyToSidebarItem(item);
+  }
+  return startDictationMode({
+    prompt: 'draft a reply',
+    targetKind: 'email_reply',
+    artifactTitle: mailReplyArtifactTitle(item),
+    successText: 'email reply dictation ready',
+  });
 }
 
 export async function openMailDraftArtifact(artifactID) {

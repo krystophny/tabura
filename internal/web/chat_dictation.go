@@ -14,6 +14,7 @@ import (
 
 const (
 	dictationTargetDocumentSection = "document_section"
+	dictationTargetEmailDraft      = "email_draft"
 	dictationTargetEmailReply      = "email_reply"
 	dictationTargetReviewComment   = "review_comment"
 )
@@ -73,6 +74,8 @@ func (t *dictationSessionTracker) delete(sessionID string) {
 
 func normalizeDictationTargetKind(raw string) string {
 	switch strings.TrimSpace(strings.ToLower(raw)) {
+	case dictationTargetEmailDraft:
+		return dictationTargetEmailDraft
 	case dictationTargetEmailReply:
 		return dictationTargetEmailReply
 	case dictationTargetReviewComment:
@@ -84,6 +87,8 @@ func normalizeDictationTargetKind(raw string) string {
 
 func dictationTargetLabel(kind string) string {
 	switch normalizeDictationTargetKind(kind) {
+	case dictationTargetEmailDraft:
+		return "Email Draft"
 	case dictationTargetEmailReply:
 		return "Email Reply"
 	case dictationTargetReviewComment:
@@ -98,8 +103,10 @@ func inferDictationTargetKind(prompt, artifactTitle string) string {
 	switch {
 	case strings.Contains(combined, "review"), strings.Contains(combined, "pull request"), strings.Contains(combined, ".diff"), strings.Contains(combined, "pr "):
 		return dictationTargetReviewComment
-	case strings.Contains(combined, "reply"), strings.Contains(combined, "email"), strings.Contains(combined, "thread"), strings.Contains(combined, "letter"):
+	case strings.Contains(combined, "reply"), strings.Contains(combined, "thread"):
 		return dictationTargetEmailReply
+	case strings.Contains(combined, "email"), strings.Contains(combined, "letter"):
+		return dictationTargetEmailDraft
 	default:
 		return dictationTargetDocumentSection
 	}
@@ -136,6 +143,8 @@ func shapeDictationDraft(targetKind, artifactTitle, transcript string) string {
 	parts := dictationParagraphs(transcript)
 	if len(parts) == 0 {
 		switch kind {
+		case dictationTargetEmailDraft:
+			return "# Email Draft\n\nStart speaking to build the message."
 		case dictationTargetEmailReply:
 			return "# Email Reply Draft\n\nStart speaking to build the reply."
 		case dictationTargetReviewComment:
@@ -146,6 +155,12 @@ func shapeDictationDraft(targetKind, artifactTitle, transcript string) string {
 	}
 	var b strings.Builder
 	switch kind {
+	case dictationTargetEmailDraft:
+		b.WriteString("# Email Draft\n\n")
+		if title != "" {
+			fmt.Fprintf(&b, "Subject: %s\n\n", title)
+		}
+		b.WriteString(strings.Join(parts, "\n\n"))
 	case dictationTargetEmailReply:
 		b.WriteString("# Email Reply Draft\n\n")
 		if title != "" {
