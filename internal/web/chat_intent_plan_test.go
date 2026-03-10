@@ -976,6 +976,99 @@ func TestExecuteSystemActionPlanPrefersTopLevelSiblingForPlaceholder(t *testing.
 	}
 }
 
+func TestClassifyAndExecuteSystemActionUsesClarificationContextForOpenFileFollowUp(t *testing.T) {
+	llm := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		if strings.TrimSpace(r.URL.Path) != "/v1/chat/completions" {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+		var payload map[string]interface{}
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			http.Error(w, "invalid json", http.StatusBadRequest)
+			return
+		}
+		messages, _ := payload["messages"].([]interface{})
+		if len(messages) == 0 {
+			http.Error(w, "missing messages", http.StatusBadRequest)
+			return
+		}
+		last, _ := messages[len(messages)-1].(map[string]interface{})
+		content := strings.TrimSpace(strFromAny(last["content"]))
+		responseContent := `{}`
+		if strings.Contains(content, "Open README") && strings.Contains(content, "The root one") {
+			responseContent = `{"action":"open_file_canvas","path":"README.md"}`
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"choices": []map[string]interface{}{
+				{
+					"message": map[string]interface{}{
+						"content": responseContent,
+					},
+				},
+			},
+		})
+	}))
+	defer llm.Close()
+
+	app := newAuthedTestApp(t)
+	app.intentClassifierURL = ""
+	app.intentLLMURL = llm.URL
+
+	project, err := app.ensureDefaultProjectRecord()
+	if err != nil {
+		t.Fatalf("ensure default project: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(project.RootPath, "README.md"), []byte("root readme"), 0o644); err != nil {
+		t.Fatalf("write README.md: %v", err)
+	}
+
+	showCalls := 0
+	var observed map[string]interface{}
+	canvasServer := setupMockCanvasShowServer(t, &showCalls, &observed)
+	defer canvasServer.Close()
+	port, err := extractPort(canvasServer.URL)
+	if err != nil {
+		t.Fatalf("extract canvas port: %v", err)
+	}
+	app.tunnels.setPort(app.canvasSessionIDForProject(project), port)
+
+	session, err := app.store.GetOrCreateChatSession(project.ProjectKey)
+	if err != nil {
+		t.Fatalf("chat session: %v", err)
+	}
+	if _, err := app.store.AddChatMessage(session.ID, "user", "Open README", "Open README", "text"); err != nil {
+		t.Fatalf("add first user message: %v", err)
+	}
+	if _, err := app.store.AddChatMessage(session.ID, "assistant", "Which README should I open?", "Which README should I open?", "text"); err != nil {
+		t.Fatalf("add assistant clarification: %v", err)
+	}
+	if _, err := app.store.AddChatMessage(session.ID, "user", "The root one", "The root one", "text"); err != nil {
+		t.Fatalf("add follow-up user message: %v", err)
+	}
+
+	message, payloads, handled := app.classifyAndExecuteSystemAction(context.Background(), session.ID, session, "The root one")
+	if !handled {
+		t.Fatal("expected contextual follow-up to be handled")
+	}
+	if len(payloads) == 0 {
+		t.Fatal("expected open_file_canvas payloads")
+	}
+	if showCalls < 1 {
+		t.Fatalf("canvas_artifact_show calls = %d, want >= 1", showCalls)
+	}
+	if got := strings.TrimSpace(strFromAny(observed["title"])); got != "README.md" {
+		t.Fatalf("canvas title = %q, want README.md", got)
+	}
+	if !strings.Contains(message, "README.md") {
+		t.Fatalf("assistant message = %q, want README.md mention", message)
+	}
+}
+
 func stringSliceContains(items []string, needle string) bool {
 	target := strings.TrimSpace(strings.ToLower(needle))
 	for _, item := range items {

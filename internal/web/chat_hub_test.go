@@ -812,6 +812,84 @@ func TestHubRunTurnUsesIntentLLMFallbackOnLowIntentConfidence(t *testing.T) {
 	}
 }
 
+func TestHubRunTurnPreservesClarificationContextForLocalLLM(t *testing.T) {
+	llm := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		if strings.TrimSpace(r.URL.Path) != "/v1/chat/completions" {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+		var payload map[string]interface{}
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			http.Error(w, "invalid json", http.StatusBadRequest)
+			return
+		}
+		messages, _ := payload["messages"].([]interface{})
+		if len(messages) == 0 {
+			http.Error(w, "missing messages", http.StatusBadRequest)
+			return
+		}
+		last, _ := messages[len(messages)-1].(map[string]interface{})
+		content := strings.TrimSpace(strFromAny(last["content"]))
+		reply := "I lost the original request."
+		if strings.Contains(content, "Show me my contacts") && strings.Contains(content, "On the canvas") {
+			reply = "Showing your contacts on canvas."
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"choices": []map[string]interface{}{
+				{
+					"message": map[string]interface{}{
+						"content": reply,
+					},
+				},
+			},
+		})
+	}))
+	defer llm.Close()
+
+	app, err := New(t.TempDir(), "", "", "", "", "", "", false)
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	app.intentClassifierURL = ""
+	app.intentLLMURL = llm.URL
+	t.Cleanup(func() {
+		_ = app.Shutdown(context.Background())
+	})
+
+	hub, err := app.ensureHubProject()
+	if err != nil {
+		t.Fatalf("ensure hub project: %v", err)
+	}
+	session, err := app.store.GetOrCreateChatSession(hub.ProjectKey)
+	if err != nil {
+		t.Fatalf("hub session: %v", err)
+	}
+	if _, err := app.store.AddChatMessage(session.ID, "user", "Show me my contacts", "Show me my contacts", "text"); err != nil {
+		t.Fatalf("add first user message: %v", err)
+	}
+	if _, err := app.store.AddChatMessage(session.ID, "assistant", "Where should I show them?", "Where should I show them?", "text"); err != nil {
+		t.Fatalf("add assistant clarification: %v", err)
+	}
+	if _, err := app.store.AddChatMessage(session.ID, "user", "On the canvas", "On the canvas", "text"); err != nil {
+		t.Fatalf("add follow-up user message: %v", err)
+	}
+	messages, err := app.store.ListChatMessages(session.ID, 100)
+	if err != nil {
+		t.Fatalf("list messages: %v", err)
+	}
+
+	app.runHubTurn(session.ID, session, messages, turnOutputModeSilent, false)
+
+	if got := latestAssistantMessage(t, app, session.ID); got != "Showing your contacts on canvas." {
+		t.Fatalf("assistant message = %q, want %q", got, "Showing your contacts on canvas.")
+	}
+}
+
 func TestHubRunTurnFallsBackToSparkWhenLocalIntentExecutionFails(t *testing.T) {
 	const assistantReply = "All systems nominal."
 	wsServer := setupMockAppServerStatusServer(t, assistantReply)
