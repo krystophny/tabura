@@ -44,6 +44,14 @@ async function waitForLogEntry(page: Page, type: string, action?: string) {
   }).toBe(true);
 }
 
+async function setInteractionTool(page: Page, tool: 'pointer' | 'highlight' | 'ink' | 'text_note' | 'prompt') {
+  await page.evaluate((mode) => {
+    (window as any).__setRuntimeState?.({ tool: mode });
+    const app = (window as any)._taburaApp;
+    if (app?.getState) app.getState().interaction.tool = mode;
+  }, tool);
+}
+
 test.describe('mail drafts', () => {
   test('new mail remains available in an empty inbox and supports save, reopen, suggestions, and send', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
@@ -169,5 +177,87 @@ test.describe('mail drafts', () => {
     await expect(page.locator('.mail-draft-account')).toContainText('exchange');
     await expect(page.locator('[name="to"]')).toHaveValue('client@example.com');
     await expect(page.locator('[name="subject"]')).toHaveValue('Re: Client question');
+  });
+
+  test('new mail starts dictation authoring when the prompt tool is active', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await waitReady(page);
+
+    await page.evaluate(() => {
+      (window as any).__setItemSidebarData({
+        inbox: [],
+        waiting: [],
+        someday: [],
+        done: [],
+      });
+    });
+    await setInteractionTool(page, 'prompt');
+    await openInbox(page);
+
+    await clearLog(page);
+    await page.locator('#new-mail-trigger').click();
+    await waitForLogEntry(page, 'api_fetch', 'dictation_start');
+    await expect(page.locator('#dictation-indicator')).toContainText('Email Draft');
+
+    await page.evaluate(async () => {
+      await (window as any)._taburaApp.appendDictationTranscript('Hello team. Sending the updated status shortly.');
+    });
+    await expect(page.locator('#canvas-text')).toContainText('Email Draft');
+    await expect(page.locator('#canvas-text')).toContainText('Hello team. Sending the updated status shortly.');
+  });
+
+  test('reply starts dictation authoring when the prompt tool is active', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await waitReady(page);
+
+    await page.evaluate(() => {
+      (window as any).__setItemSidebarData({
+        inbox: [{
+          id: 812,
+          title: 'Reply to client',
+          state: 'inbox',
+          sphere: 'private',
+          artifact_id: 612,
+          source: 'exchange',
+          source_ref: 'msg-812',
+          artifact_title: 'Client question',
+          artifact_kind: 'email',
+          actor_name: 'Client',
+          created_at: '2026-03-10 10:00:00',
+          updated_at: '2026-03-10 10:05:00',
+        }],
+        waiting: [],
+        someday: [],
+        done: [],
+      });
+      (window as any).__setItemSidebarArtifacts({
+        612: {
+          id: 612,
+          kind: 'email',
+          title: 'Client question',
+          meta_json: JSON.stringify({
+            subject: 'Client question',
+            sender: 'Client <client@example.com>',
+            thread_id: 'thread-812',
+            body: 'Can you send the revised proposal?',
+          }),
+        },
+      });
+    });
+    await setInteractionTool(page, 'prompt');
+    await openInbox(page);
+    await page.locator('#pr-file-list .pr-file-item').first().click();
+
+    await clearLog(page);
+    await page.locator('#reply-mail-trigger').click();
+    await waitForLogEntry(page, 'api_fetch', 'dictation_start');
+    await expect(page.locator('#dictation-indicator')).toContainText('Email Reply');
+
+    await page.evaluate(async () => {
+      await (window as any)._taburaApp.appendDictationTranscript('I can send the revised proposal this afternoon.');
+    });
+    await expect(page.locator('#canvas-text')).toContainText('Email Reply Draft');
+    await expect(page.locator('#canvas-text')).toContainText('Thread: Client question');
+    await expect(page.locator('#canvas-text')).toContainText('I can send the revised proposal this afternoon.');
   });
 });

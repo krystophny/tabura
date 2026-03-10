@@ -17,7 +17,7 @@ func TestInferDictationTargetKind(t *testing.T) {
 		want          string
 	}{
 		{name: "review prompt", prompt: "write my review", want: dictationTargetReviewComment},
-		{name: "email reply prompt", prompt: "take a letter", want: dictationTargetEmailReply},
+		{name: "email draft prompt", prompt: "take a letter", want: dictationTargetEmailDraft},
 		{name: "email artifact", prompt: "dictate", artifactTitle: "Email Thread", want: dictationTargetEmailReply},
 		{name: "fallback document", prompt: "dictate", artifactTitle: "notes.md", want: dictationTargetDocumentSection},
 	}
@@ -38,6 +38,10 @@ func TestShapeDictationDraftByTarget(t *testing.T) {
 	email := shapeDictationDraft(dictationTargetEmailReply, "Customer thread", "Thanks for the update.\n\nI'll send a revision tomorrow.")
 	if !strings.Contains(email, "# Email Reply Draft") || !strings.Contains(email, "Thread: Customer thread") {
 		t.Fatalf("email draft = %q", email)
+	}
+	message := shapeDictationDraft(dictationTargetEmailDraft, "Quarterly update", "Here's the latest status.\n\nI'll send the full details later today.")
+	if !strings.Contains(message, "# Email Draft") || !strings.Contains(message, "Subject: Quarterly update") {
+		t.Fatalf("message draft = %q", message)
 	}
 	review := shapeDictationDraft(dictationTargetReviewComment, "PR #12", "This branch looks good.\n\nPlease tighten the nil check.")
 	if !strings.Contains(review, "# Review Comment Draft") || !strings.Contains(review, "- This branch looks good.") {

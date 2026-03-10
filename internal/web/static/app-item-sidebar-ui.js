@@ -31,8 +31,8 @@ const parentWorkspaceBrowserPath = (...args) => refs.parentWorkspaceBrowserPath(
 const workspaceCompanionEntries = (...args) => refs.workspaceCompanionEntries(...args);
 const openWorkspaceSidebarFile = (...args) => refs.openWorkspaceSidebarFile(...args);
 const openScanImportPicker = (...args) => refs.openScanImportPicker(...args);
-const createNewMailDraft = (...args) => refs.createNewMailDraft(...args);
-const replyToSidebarItem = (...args) => refs.replyToSidebarItem(...args);
+const launchNewMailAuthoring = (...args) => refs.launchNewMailAuthoring(...args);
+const launchReplyAuthoring = (...args) => refs.launchReplyAuthoring(...args);
 
 export async function openItemSidebarView(view = state.itemSidebarView, filters = null) {
   state.fileSidebarMode = 'items';
@@ -515,7 +515,7 @@ export function renderItemSidebarList(list) {
   newMailButton.id = 'new-mail-trigger';
   newMailButton.textContent = 'New Mail';
   newMailButton.addEventListener('click', () => {
-    void createNewMailDraft();
+    void launchNewMailAuthoring();
   });
   actions.appendChild(newMailButton);
   if (activeItem && ['email', 'email_thread'].includes(String(activeItem?.artifact_kind || '').trim().toLowerCase())) {
@@ -525,7 +525,7 @@ export function renderItemSidebarList(list) {
     replyButton.id = 'reply-mail-trigger';
     replyButton.textContent = 'Reply';
     replyButton.addEventListener('click', () => {
-      void replyToSidebarItem(activeItem);
+      void launchReplyAuthoring(activeItem);
     });
     actions.appendChild(replyButton);
   }
