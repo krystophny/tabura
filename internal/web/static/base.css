@@ -24,6 +24,7 @@
   --safe-area-bottom: env(safe-area-inset-bottom, 0px);
   --chat-content-font-size: 1rem;
   --file-sidebar-width: min(86vw, 340px);
+  --file-sidebar-close-strip-width: 30px;
   --panel-slide-duration: 0ms;
   --panel-slide-ease: linear;
 }
