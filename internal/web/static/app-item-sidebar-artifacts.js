@@ -199,6 +199,72 @@ function buildEmailThreadArtifactMarkdown(title, artifactMeta) {
   return detail.join('\n');
 }
 
+function threadEscapeHtml(text) {
+  return String(text)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+export function buildEmailThreadHTML(title, artifactMeta) {
+  const subject = String(artifactMeta?.subject || title || 'Email thread').trim() || 'Email thread';
+  const messages = Array.isArray(artifactMeta?.messages) ? artifactMeta.messages : [];
+  if (messages.length === 0) {
+    return null;
+  }
+  const parts = [];
+  parts.push(`<div class="thread-subject"><h1>${threadEscapeHtml(subject)}</h1></div>`);
+  const participants = sidebarJoinList(artifactMeta?.participants);
+  if (participants) {
+    parts.push(`<div class="thread-participants">Participants: ${threadEscapeHtml(participants)}</div>`);
+  }
+  messages.forEach((entry, index) => {
+    const sender = String(entry?.sender || '').trim() || `Message ${index + 1}`;
+    const date = String(entry?.date || '').trim();
+    const recipients = sidebarJoinList(entry?.recipients);
+    const body = sidebarEmailBody(entry);
+    const snippet = body ? String(body).slice(0, 80).replace(/\n/g, ' ').trim() : '';
+    const isLast = index === messages.length - 1;
+    const openAttr = isLast ? ' open' : '';
+    const sentClass = String(entry?.sent || '').trim() === 'true' ? ' thread-message-sent' : '';
+    parts.push(`<details class="thread-message${sentClass}" data-message-index="${index}"${openAttr}>`);
+    parts.push(`<summary class="thread-message-summary">`);
+    parts.push(`<strong>${threadEscapeHtml(sender)}</strong>`);
+    if (date) parts.push(` <span class="thread-date">${threadEscapeHtml(date)}</span>`);
+    if (snippet && !isLast) parts.push(` <span class="thread-snippet">${threadEscapeHtml(snippet)}</span>`);
+    parts.push(`</summary>`);
+    parts.push(`<div class="thread-message-body">`);
+    parts.push(`<div class="thread-message-headers">`);
+    parts.push(`From: ${threadEscapeHtml(sender)}`);
+    if (recipients) parts.push(`<br>To: ${threadEscapeHtml(recipients)}`);
+    if (date) parts.push(`<br>Date: ${threadEscapeHtml(date)}`);
+    parts.push(`</div>`);
+    if (body) {
+      parts.push(`<div class="thread-message-content">${threadEscapeHtml(body).replace(/\n/g, '<br>')}</div>`);
+    }
+    parts.push(`</div>`);
+    parts.push(`</details>`);
+  });
+  const activeDrafts = Array.isArray(artifactMeta?.active_drafts) ? artifactMeta.active_drafts : [];
+  activeDrafts.forEach((draftInfo) => {
+    const draftId = Number(draftInfo?.artifact_id || draftInfo || 0);
+    if (draftId <= 0) return;
+    const draftSubject = String(draftInfo?.subject || '').trim() || 'Draft';
+    parts.push(`<details class="thread-message thread-message-draft" data-draft-id="${draftId}">`);
+    parts.push(`<summary class="thread-message-summary">`);
+    parts.push(`<strong>${threadEscapeHtml(draftSubject)}</strong>`);
+    parts.push(` <span class="thread-draft-badge">Draft</span>`);
+    parts.push(`</summary>`);
+    parts.push(`<div class="thread-message-body">`);
+    parts.push(`<p><a href="#" class="thread-draft-open" data-draft-id="${draftId}">Open draft</a></p>`);
+    parts.push(`</div>`);
+    parts.push(`</details>`);
+  });
+  return parts.join('\n');
+}
+
 function buildSidebarCanvasMeta(item, artifactKind) {
   const normalizedKind = String(artifactKind || item?.artifact_kind || '').trim().toLowerCase();
   if (normalizedKind !== 'email' && normalizedKind !== 'email_thread') {
@@ -256,13 +322,17 @@ export async function openSidebarArtifactItem(item) {
     return openMailDraftArtifact(artifactID);
   }
   if (artifactID <= 0) {
-    applyCanvasArtifactEvent({
+    const noArtifactEvent = {
       kind: 'text_artifact',
       event_id: `sidebar-item-${Number(item?.id || 0)}-${Date.now()}`,
       title: String(item?.title || 'Item'),
       text: buildSidebarItemFallbackText(item),
       meta: fallbackMeta,
-    });
+    };
+    if (fallbackArtifactKind === 'email_thread') {
+      noArtifactEvent.threadMeta = parseSidebarArtifactMeta(item?.artifact_meta_json || '');
+    }
+    applyCanvasArtifactEvent(noArtifactEvent);
     return true;
   }
   const resp = await fetch(apiURL(`artifacts/${encodeURIComponent(String(artifactID))}`), { cache: 'no-store' });
@@ -294,12 +364,16 @@ export async function openSidebarArtifactItem(item) {
       return true;
     }
   }
-  applyCanvasArtifactEvent({
+  const textEvent = {
     kind: 'text_artifact',
     event_id: `sidebar-item-${artifactID}-${Date.now()}`,
     title: String(artifact?.title || item?.artifact_title || item?.title || 'Item'),
     text: buildSidebarItemFallbackText(item, artifact),
     meta: buildSidebarCanvasMeta(item, artifactKind),
-  });
+  };
+  if (artifactKind === 'email_thread') {
+    textEvent.threadMeta = parseSidebarArtifactMeta(artifact?.meta_json || '');
+  }
+  applyCanvasArtifactEvent(textEvent);
   return true;
 }
