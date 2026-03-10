@@ -347,7 +347,7 @@ func (a *App) runHubTurn(sessionID string, session store.ChatSession, messages [
 		return
 	}
 
-	assistantText, localLLMErr := a.hubReplyWithLocalLLM(ctx, userText)
+	assistantText, localLLMErr := a.hubReplyWithLocalLLM(ctx, messages, userText)
 	if localLLMErr == nil {
 		if actions, _ := parseSystemActions(assistantText); len(actions) > 0 {
 			if executeClassifiedAction(actions) {
@@ -401,12 +401,12 @@ func (a *App) runHubTurn(sessionID string, session store.ChatSession, messages [
 	finalizeHubAssistantText(resp.Message, resp.TurnID, resp.ThreadID)
 }
 
-func (a *App) hubReplyWithLocalLLM(ctx context.Context, userText string) (string, error) {
+func (a *App) hubReplyWithLocalLLM(ctx context.Context, messages []store.ChatMessage, userText string) (string, error) {
 	baseURL := strings.TrimRight(strings.TrimSpace(a.intentLLMURL), "/")
 	if baseURL == "" {
 		return "", errors.New("local llm url is empty")
 	}
-	trimmedText := strings.TrimSpace(userText)
+	trimmedText := contextualizeClarificationReply(messages, userText)
 	if trimmedText == "" {
 		return "", errors.New("hub user text is empty")
 	}

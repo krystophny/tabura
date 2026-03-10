@@ -469,8 +469,33 @@ func requestRequiresOpenCanvasAction(text string) bool {
 		return false
 	}
 	prefixes := []string{"open ", "show ", "display "}
+	hasPrefix := false
 	for _, prefix := range prefixes {
 		if strings.HasPrefix(lower, prefix) {
+			hasPrefix = true
+			break
+		}
+	}
+	if !hasPrefix {
+		return false
+	}
+	if strings.Contains(lower, " file") || strings.Contains(lower, " document") || strings.Contains(lower, " diff") || strings.Contains(lower, " path") {
+		return true
+	}
+	for _, rawHint := range extractOpenRequestHints(text) {
+		hint := normalizeOpenHintToken(rawHint)
+		if hint == "" {
+			continue
+		}
+		if strings.Contains(hint, "/") || strings.Contains(hint, ".") {
+			return true
+		}
+		base := filepath.Base(hint)
+		if len(base) >= 4 && base == strings.ToUpper(base) {
+			return true
+		}
+		switch base {
+		case "readme", "license", "makefile", "dockerfile", "compose", "claude", "agents":
 			return true
 		}
 	}
@@ -733,6 +758,7 @@ func (a *App) classifyAndExecuteSystemActionForTurn(ctx context.Context, session
 	if trimmedText == "" {
 		return "", nil, false
 	}
+	intentText := trimmedText
 	tryExecutePlan := func(actions []*SystemAction) (string, []map[string]interface{}, bool) {
 		enforced := enforceRoutingPolicy(trimmedText, actions)
 		if len(enforced) == 0 {
@@ -928,15 +954,16 @@ func (a *App) classifyAndExecuteSystemActionForTurn(ctx context.Context, session
 		}
 		return message, payloads, true
 	}
+	intentText = a.contextualizeClarificationReplyForSession(sessionID, trimmedText)
 	if strings.TrimSpace(a.intentLLMURL) != "" {
-		llmActions, llmErr := a.classifyIntentPlanWithLLM(ctx, trimmedText)
+		llmActions, llmErr := a.classifyIntentPlanWithLLM(ctx, intentText)
 		if llmErr == nil {
 			if message, payloads, ok := tryExecutePlan(llmActions); ok {
 				return message, payloads, true
 			}
 		}
-		if requestRequiresOpenCanvasAction(trimmedText) {
-			if fallbackPlan := buildOpenCanvasFallbackPlan(trimmedText); len(fallbackPlan) > 0 {
+		if requestRequiresOpenCanvasAction(intentText) {
+			if fallbackPlan := buildOpenCanvasFallbackPlan(intentText); len(fallbackPlan) > 0 {
 				if message, payloads, ok := tryExecutePlan(fallbackPlan); ok {
 					return message, payloads, true
 				}
@@ -945,7 +972,7 @@ func (a *App) classifyAndExecuteSystemActionForTurn(ctx context.Context, session
 		}
 	}
 
-	localAction, localConfidence, localErr := a.classifyIntentLocally(ctx, trimmedText)
+	localAction, localConfidence, localErr := a.classifyIntentLocally(ctx, intentText)
 	if localErr == nil && localAction != nil && localConfidence >= intentClassifierMinConfidence {
 		if normalized := normalizeSystemActionForExecution(localAction, trimmedText); normalized != nil {
 			if isItemSystemAction(normalized.Action) && strings.TrimSpace(systemActionStringParam(normalized.Params, "capture_mode")) == "" {
