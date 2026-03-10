@@ -1,11 +1,15 @@
 import { AnnotationLayer, GlobalWorkerOptions, TextLayer, getDocument } from './vendor/pdf.mjs';
 import { apiURL } from './paths.js';
-import { state } from './app-context.js';
 import { renderTextArtifact, sanitizeHtml } from './canvas-content.js';
-import { launchNewMailAuthoring, launchReplyAuthoring, launchReplyAllAuthoring, launchForwardAuthoring, openMailDraftArtifact, renderMailDraftArtifact } from './app-mail-drafts.js';
+import { openMailDraftArtifact, renderMailDraftArtifact } from './app-mail-drafts.js';
 import { buildEmailThreadHTML } from './app-item-sidebar-artifacts.js';
+import {
+  renderCanvasApprovalActions,
+  renderCanvasMailActions,
+} from './canvas-actions.js';
 
 export { escapeHtml, sanitizeHtml } from './canvas-content.js';
+export { resolveCanvasApprovalRequest } from './canvas-actions.js';
 
 const PDFJS_WORKER_URL = new URL('./vendor/pdf.worker.mjs', import.meta.url).toString();
 const PDFJS_STANDARD_FONTS_URL = new URL('./vendor/standard_fonts/', import.meta.url).toString();
@@ -48,73 +52,6 @@ function dispatchCanvasRendered(event) {
 
 function dispatchCanvasCleared() {
   document.dispatchEvent(new CustomEvent('tabura:canvas-cleared'));
-}
-
-function activeCanvasMailItem(event) {
-  const meta = event?.meta && typeof event.meta === 'object' ? event.meta : {};
-  const itemID = Number(meta?.item_id || 0);
-  if (itemID <= 0) return null;
-  const items = Array.isArray(state.itemSidebarItems) ? state.itemSidebarItems : [];
-  const item = items.find((entry) => Number(entry?.id || 0) === itemID) || null;
-  const artifactKind = String(item?.artifact_kind || meta?.artifact_kind || '').trim().toLowerCase();
-  if (artifactKind !== 'email' && artifactKind !== 'email_thread') return null;
-  return item;
-}
-
-function renderCanvasMailActions(root, event) {
-  if (!(root instanceof HTMLElement)) return;
-  const item = activeCanvasMailItem(event);
-  if (!item) return;
-
-  const actions = document.createElement('div');
-  actions.className = 'canvas-mail-actions';
-
-  const label = document.createElement('span');
-  label.className = 'canvas-mail-actions-label';
-  label.textContent = 'Mail actions';
-  actions.appendChild(label);
-
-  const newMailButton = document.createElement('button');
-  newMailButton.type = 'button';
-  newMailButton.className = 'edge-btn';
-  newMailButton.id = 'canvas-new-mail-trigger';
-  newMailButton.textContent = 'New Mail';
-  newMailButton.addEventListener('click', () => {
-    void launchNewMailAuthoring();
-  });
-  actions.appendChild(newMailButton);
-
-  const replyButton = document.createElement('button');
-  replyButton.type = 'button';
-  replyButton.className = 'edge-btn';
-  replyButton.id = 'canvas-reply-mail-trigger';
-  replyButton.textContent = 'Reply';
-  replyButton.addEventListener('click', () => {
-    void launchReplyAuthoring(item);
-  });
-  actions.appendChild(replyButton);
-
-  const replyAllButton = document.createElement('button');
-  replyAllButton.type = 'button';
-  replyAllButton.className = 'edge-btn';
-  replyAllButton.id = 'canvas-reply-all-mail-trigger';
-  replyAllButton.textContent = 'Reply All';
-  replyAllButton.addEventListener('click', () => {
-    void launchReplyAllAuthoring(item);
-  });
-  actions.appendChild(replyAllButton);
-
-  const forwardButton = document.createElement('button');
-  forwardButton.type = 'button';
-  forwardButton.className = 'edge-btn';
-  forwardButton.id = 'canvas-forward-mail-trigger';
-  forwardButton.textContent = 'Forward';
-  forwardButton.addEventListener('click', () => {
-    void launchForwardAuthoring(item);
-  });
-  actions.appendChild(forwardButton);
-
-  root.append(actions);
 }
 
 export function getEls() {
@@ -904,6 +841,7 @@ export function renderCanvas(event) {
     e.text.style.display = '';
     e.text.classList.add('is-active');
     e.text.classList.remove('mail-draft-canvas');
+    delete e.text.dataset.approvalRequestId;
     clearTextInteractionHandlers();
     activeTextEventId = event.event_id;
     activePdfEvent = null;
@@ -933,6 +871,7 @@ export function renderCanvas(event) {
       previousArtifactTitle = nextState.previousArtifactTitle;
     }
     renderCanvasMailActions(e.text, event);
+    renderCanvasApprovalActions(e.text, event);
     dispatchCanvasRendered(event);
   } else if (event.kind === 'email_draft') {
     hideAll();
@@ -982,6 +921,7 @@ export function clearCanvas() {
   hideAll();
   const e = getEls();
   if (e.text) e.text.classList.remove('mail-draft-canvas');
+  if (e.text) delete e.text.dataset.approvalRequestId;
   cancelPdfRender({ destroyDocument: true });
   activeTextEventId = null;
   activeArtifactTitle = '';
