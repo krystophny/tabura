@@ -1,6 +1,7 @@
 import { AnnotationLayer, GlobalWorkerOptions, TextLayer, getDocument } from './vendor/pdf.mjs';
 import { apiURL } from './paths.js';
 import { renderTextArtifact } from './canvas-content.js';
+import { renderMailDraftArtifact } from './app-mail-drafts.js';
 
 export { escapeHtml, sanitizeHtml } from './canvas-content.js';
 
@@ -833,6 +834,7 @@ export function renderCanvas(event) {
     hideAll();
     e.text.style.display = '';
     e.text.classList.add('is-active');
+    e.text.classList.remove('mail-draft-canvas');
     clearTextInteractionHandlers();
     activeTextEventId = event.event_id;
     activePdfEvent = null;
@@ -845,9 +847,23 @@ export function renderCanvas(event) {
     previousBlockTexts = nextState.previousBlockTexts;
     previousArtifactTitle = nextState.previousArtifactTitle;
     dispatchCanvasRendered(event);
+  } else if (event.kind === 'email_draft') {
+    hideAll();
+    e.text.style.display = '';
+    e.text.classList.add('is-active');
+    clearTextInteractionHandlers();
+    activeTextEventId = null;
+    activePdfEvent = null;
+    activeArtifactTitle = event.title || '';
+    previousArtifactText = String(event?.draft?.body || '');
+    previousBlockTexts = [];
+    previousArtifactTitle = activeArtifactTitle;
+    renderMailDraftArtifact(e.text, event);
+    dispatchCanvasRendered(event);
   } else if (event.kind === 'image_artifact') {
     clearTextInteractionHandlers();
     hideAll();
+    e.text.classList.remove('mail-draft-canvas');
     e.image.style.display = '';
     e.image.classList.add('is-active');
     const state = (window._taburaApp || {}).getState ? window._taburaApp.getState() : {};
@@ -861,6 +877,7 @@ export function renderCanvas(event) {
   } else if (event.kind === 'pdf_artifact') {
     clearTextInteractionHandlers();
     hideAll();
+    e.text.classList.remove('mail-draft-canvas');
     e.pdf.style.display = '';
     e.pdf.classList.add('is-active');
     void renderPdfSurface(event);
@@ -876,6 +893,8 @@ export function renderCanvas(event) {
 export function clearCanvas() {
   clearTextInteractionHandlers();
   hideAll();
+  const e = getEls();
+  if (e.text) e.text.classList.remove('mail-draft-canvas');
   cancelPdfRender({ destroyDocument: true });
   activeTextEventId = null;
   activeArtifactTitle = '';

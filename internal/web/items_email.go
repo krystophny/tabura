@@ -69,10 +69,19 @@ type emailSyncAccountConfig struct {
 	Username        string                    `json:"username"`
 	TLS             bool                      `json:"tls"`
 	StartTLS        bool                      `json:"starttls"`
+	FromAddress     string                    `json:"from_address"`
+	FromName        string                    `json:"from_name"`
 	TokenPath       string                    `json:"token_path"`
 	TokenFile       string                    `json:"token_file"`
 	CredentialsPath string                    `json:"credentials_path"`
 	CredentialsFile string                    `json:"credentials_file"`
+	SMTPHost        string                    `json:"smtp_host"`
+	SMTPPort        int                       `json:"smtp_port"`
+	SMTPTLS         bool                      `json:"smtp_tls"`
+	SMTPStartTLS    bool                      `json:"smtp_starttls"`
+	SMTPUsername    string                    `json:"smtp_username"`
+	SMTPCredential  string                    `json:"smtp_credential_ref"`
+	DraftsMailbox   string                    `json:"drafts_mailbox"`
 	SyncMaxResults  int64                     `json:"sync_max_results"`
 	SyncWindowDays  int                       `json:"sync_window_days"`
 	FollowUpRules   []emailFollowUpRuleConfig `json:"follow_up_rules"`
@@ -94,10 +103,16 @@ func decodeEmailSyncAccountConfig(account store.ExternalAccount) (emailSyncAccou
 	}
 	cfg.Host = strings.TrimSpace(cfg.Host)
 	cfg.Username = strings.TrimSpace(cfg.Username)
+	cfg.FromAddress = strings.TrimSpace(cfg.FromAddress)
+	cfg.FromName = strings.TrimSpace(cfg.FromName)
 	cfg.TokenPath = strings.TrimSpace(cfg.TokenPath)
 	cfg.TokenFile = strings.TrimSpace(cfg.TokenFile)
 	cfg.CredentialsPath = strings.TrimSpace(cfg.CredentialsPath)
 	cfg.CredentialsFile = strings.TrimSpace(cfg.CredentialsFile)
+	cfg.SMTPHost = strings.TrimSpace(cfg.SMTPHost)
+	cfg.SMTPUsername = strings.TrimSpace(cfg.SMTPUsername)
+	cfg.SMTPCredential = strings.TrimSpace(cfg.SMTPCredential)
+	cfg.DraftsMailbox = strings.TrimSpace(cfg.DraftsMailbox)
 	filteredRules := make([]emailFollowUpRuleConfig, 0, len(cfg.FollowUpRules))
 	for _, rule := range cfg.FollowUpRules {
 		if rule.empty() {
@@ -151,9 +166,20 @@ func gmailCredentialsPathForAccount(cfg emailSyncAccountConfig) string {
 	return filepath.Join(configDir, "gmail_credentials.json")
 }
 
-func (a *App) emailSyncProviderForAccount(ctx context.Context, account store.ExternalAccount, cfg emailSyncAccountConfig) (emailSyncProvider, error) {
-	if a != nil && a.newEmailSyncProvider != nil {
-		return a.newEmailSyncProvider(ctx, account)
+func (a *App) smtpPasswordForAccount(ctx context.Context, account store.ExternalAccount, cfg emailSyncAccountConfig) (string, error) {
+	if strings.TrimSpace(cfg.SMTPCredential) == "" {
+		password, _, err := a.store.ResolveExternalAccountPasswordForAccount(ctx, account)
+		return password, err
+	}
+	tempAccount := account
+	tempAccount.ConfigJSON = fmt.Sprintf(`{"credential_ref":%q}`, strings.TrimSpace(cfg.SMTPCredential))
+	password, _, err := a.store.ResolveExternalAccountPasswordForAccount(ctx, tempAccount)
+	return password, err
+}
+
+func (a *App) emailProviderForAccount(ctx context.Context, account store.ExternalAccount, cfg emailSyncAccountConfig) (email.EmailProvider, error) {
+	if a != nil && a.newEmailProvider != nil {
+		return a.newEmailProvider(ctx, account)
 	}
 	switch account.Provider {
 	case store.ExternalProviderGmail:
@@ -170,7 +196,23 @@ func (a *App) emailSyncProviderForAccount(ctx context.Context, account store.Ext
 			return nil, err
 		}
 		useTLS := cfg.TLS || cfg.Port == 993
-		return email.NewIMAPClient(account.Label, cfg.Host, cfg.Port, cfg.Username, password, useTLS, cfg.StartTLS), nil
+		client := email.NewIMAPClient(account.Label, cfg.Host, cfg.Port, cfg.Username, password, useTLS, cfg.StartTLS)
+		smtpPassword, err := a.smtpPasswordForAccount(ctx, account, cfg)
+		if err != nil && strings.TrimSpace(cfg.SMTPHost) != "" {
+			return nil, err
+		}
+		client.ConfigureDraftTransport(email.SMTPConfig{
+			Host:      firstNonEmpty(cfg.SMTPHost, cfg.Host),
+			Port:      firstPositive(cfg.SMTPPort, cfg.Port),
+			Username:  firstNonEmpty(cfg.SMTPUsername, cfg.Username),
+			Password:  smtpPassword,
+			TLS:       cfg.SMTPTLS,
+			StartTLS:  cfg.SMTPStartTLS,
+			From:      firstNonEmpty(cfg.FromAddress, cfg.SMTPUsername, cfg.Username),
+			FromName:  cfg.FromName,
+			DraftsBox: cfg.DraftsMailbox,
+		})
+		return client, nil
 	case store.ExternalProviderExchange:
 		exchangeConfig, err := decodeExchangeAccountConfig(account)
 		if err != nil {
@@ -182,11 +224,27 @@ func (a *App) emailSyncProviderForAccount(ctx context.Context, account store.Ext
 	}
 }
 
+func (a *App) emailSyncProviderForAccount(ctx context.Context, account store.ExternalAccount, cfg emailSyncAccountConfig) (emailSyncProvider, error) {
+	if a != nil && a.newEmailSyncProvider != nil {
+		return a.newEmailSyncProvider(ctx, account)
+	}
+	return a.emailProviderForAccount(ctx, account, cfg)
+}
+
 func emailSyncMaxResults(cfg emailSyncAccountConfig) int64 {
 	if cfg.SyncMaxResults > 0 {
 		return cfg.SyncMaxResults
 	}
 	return emailSyncDefaultMaxResults
+}
+
+func firstPositive(values ...int) int {
+	for _, value := range values {
+		if value > 0 {
+			return value
+		}
+	}
+	return 0
 }
 
 func emailSyncSince(now time.Time, latestRemoteUpdatedAt *string, cfg emailSyncAccountConfig) time.Time {

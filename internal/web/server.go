@@ -19,6 +19,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/krystophny/tabura/internal/appserver"
 	tabcalendar "github.com/krystophny/tabura/internal/calendar"
+	"github.com/krystophny/tabura/internal/email"
 	"github.com/krystophny/tabura/internal/extensions"
 	"github.com/krystophny/tabura/internal/ics"
 	"github.com/krystophny/tabura/internal/modelprofile"
@@ -91,6 +92,7 @@ type App struct {
 	newGoogleCalendarReader func(context.Context) (googleCalendarReader, error)
 	newICSCalendarReader    func() (icsCalendarReader, error)
 	newEmailSyncProvider    func(context.Context, store.ExternalAccount) (emailSyncProvider, error)
+	newEmailProvider        func(context.Context, store.ExternalAccount) (email.EmailProvider, error)
 	newContactSyncProvider  func(context.Context, store.ExternalAccount) (contactSyncProvider, error)
 	scanExtractor           scanExtractProvider
 

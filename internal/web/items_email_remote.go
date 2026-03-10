@@ -47,6 +47,27 @@ func emailMessageBindingForItem(bindings []store.ExternalBinding, item store.Ite
 	return nil
 }
 
+func mailReplyBindingForItem(bindings []store.ExternalBinding, item store.Item) *store.ExternalBinding {
+	source := strings.ToLower(strings.TrimSpace(stringFromPointer(item.Source)))
+	for i := range bindings {
+		binding := bindings[i]
+		if binding.ObjectType != emailBindingObjectType && binding.ObjectType != emailThreadBindingObjectType {
+			continue
+		}
+		if source != "" && strings.ToLower(strings.TrimSpace(binding.Provider)) != source {
+			continue
+		}
+		return &binding
+	}
+	for i := range bindings {
+		binding := bindings[i]
+		if binding.ObjectType == emailBindingObjectType || binding.ObjectType == emailThreadBindingObjectType {
+			return &binding
+		}
+	}
+	return nil
+}
+
 func (a *App) syncRemoteEmailItemState(ctx context.Context, item store.Item, nextState string) error {
 	if a == nil || !emailBackedItem(item) {
 		return nil

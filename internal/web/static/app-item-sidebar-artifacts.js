@@ -6,6 +6,7 @@ const { refs, SIDEBAR_IMAGE_EXTENSIONS } = context;
 
 const applyCanvasArtifactEvent = (...args) => refs.applyCanvasArtifactEvent(...args);
 const normalizeDisplayText = (...args) => refs.normalizeDisplayText(...args);
+const openMailDraftArtifact = (...args) => refs.openMailDraftArtifact(...args);
 
 export function parseSidebarArtifactMeta(raw) {
   const text = String(raw || '').trim();
@@ -239,6 +240,9 @@ export async function openSidebarArtifactItem(item) {
   const artifactID = Number(item?.artifact_id || 0);
   const fallbackArtifactKind = String(item?.artifact_kind || '').trim().toLowerCase();
   const fallbackSurfaceDefault = (fallbackArtifactKind === 'email' || fallbackArtifactKind === 'email_thread') ? 'annotate' : '';
+  if (artifactID > 0 && fallbackArtifactKind === 'email_draft') {
+    return openMailDraftArtifact(artifactID);
+  }
   if (artifactID <= 0) {
     applyCanvasArtifactEvent({
       kind: 'text_artifact',

@@ -155,7 +155,7 @@ export async function refreshItemSidebarCounts() {
 }
 
 export function isEmailSidebarItem(item) {
-  return String(item?.artifact_kind || '').trim().toLowerCase() === 'email';
+  return ['email', 'email_thread', 'email_draft'].includes(String(item?.artifact_kind || '').trim().toLowerCase());
 }
 
 export function isGitHubPRSidebarItem(item) {
