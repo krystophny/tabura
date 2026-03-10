@@ -11,7 +11,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -21,7 +20,10 @@ import (
 	"github.com/krystophny/tabura/internal/store"
 )
 
-const taburaVersion = "0.1.8"
+const (
+	taburaVersion            = "0.1.8"
+	taburaBugReportOwnerRepo = "krystophny/tabura"
+)
 
 type bugReportRequest struct {
 	Trigger          string          `json:"trigger"`
@@ -233,8 +235,7 @@ func (a *App) createGitHubIssueFromBugReport(workspace bugReportWorkspace, bundl
 	if err != nil {
 		return ghIssueListItem{}, 0, err
 	}
-	ownerRepo := a.resolveBugReportGitHubRepo(workspace, workspaceID)
-	if err := a.ensureGitHubLabels(workspace.DirPath, ownerRepo, map[string]struct {
+	if err := a.ensureGitHubLabels("", taburaBugReportOwnerRepo, map[string]struct {
 		Color       string
 		Description string
 	}{
@@ -244,8 +245,8 @@ func (a *App) createGitHubIssueFromBugReport(workspace bugReportWorkspace, bundl
 		return ghIssueListItem{}, 0, err
 	}
 	issue, err := a.createGitHubIssueInWorkspaceWithRepo(
-		workspace.DirPath,
-		ownerRepo,
+		"",
+		taburaBugReportOwnerRepo,
 		bugReportIssueTitle(bundle),
 		bugReportIssueBody(bundle, toBugReportRelativePath(workspace.DirPath, bundlePath)),
 		[]string{"bug", "p0"},
@@ -254,49 +255,18 @@ func (a *App) createGitHubIssueFromBugReport(workspace bugReportWorkspace, bundl
 	if err != nil {
 		return ghIssueListItem{}, 0, err
 	}
-	if ownerRepo == "" {
-		ownerRepo = bugReportOwnerRepoFromIssueURL(issue.URL)
-	}
-	source := "github"
-	sourceRef := githubIssueSourceRef(ownerRepo, issue.Number)
-	if ownerRepo == "" {
-		source = "bug_report"
-		sourceRef = legacyBugReportIssueSourceRef(issue.Number)
-	}
 	item, err := a.store.CreateItem(strings.TrimSpace(issue.Title), store.ItemOptions{
 		WorkspaceID: workspaceID,
-		Source:      &source,
-		SourceRef:   &sourceRef,
+		Source:      optionalTrimmedString("github"),
+		SourceRef:   optionalTrimmedString(githubIssueSourceRef(taburaBugReportOwnerRepo, issue.Number)),
 	})
 	if err != nil {
 		return ghIssueListItem{}, 0, err
 	}
-	if ownerRepo != "" {
-		if err := a.syncGitHubIssueArtifact(item, ownerRepo, issue); err != nil {
-			return ghIssueListItem{}, 0, err
-		}
+	if err := a.syncGitHubIssueArtifact(item, taburaBugReportOwnerRepo, issue); err != nil {
+		return ghIssueListItem{}, 0, err
 	}
 	return issue, item.ID, nil
-}
-
-func (a *App) resolveBugReportGitHubRepo(workspace bugReportWorkspace, workspaceID *int64) string {
-	if workspaceID != nil && *workspaceID > 0 {
-		if ownerRepo, err := a.store.GitHubRepoForWorkspace(*workspaceID); err == nil {
-			ownerRepo = strings.TrimSpace(ownerRepo)
-			if ownerRepo != "" {
-				return ownerRepo
-			}
-		}
-	}
-	if ownerRepo := bugReportGitRemoteOwnerRepo(workspace.DirPath); ownerRepo != "" {
-		return ownerRepo
-	}
-	if root := strings.TrimSpace(a.localProjectDir); root != "" {
-		if ownerRepo := bugReportGitRemoteOwnerRepo(root); ownerRepo != "" {
-			return ownerRepo
-		}
-	}
-	return ""
 }
 
 func (a *App) ensureBugReportWorkspaceID(workspace bugReportWorkspace) (*int64, error) {
@@ -415,27 +385,6 @@ func bugReportCanvasArtifactTitle(raw json.RawMessage) string {
 		}
 	}
 	return ""
-}
-
-func bugReportOwnerRepoFromIssueURL(raw string) string {
-	parsed, err := url.Parse(strings.TrimSpace(raw))
-	if err != nil || !strings.EqualFold(parsed.Host, "github.com") {
-		return ""
-	}
-	return normalizeBugReportGitHubOwnerRepo(parsed.Path)
-}
-
-func bugReportGitRemoteOwnerRepo(dirPath string) string {
-	clean := strings.TrimSpace(dirPath)
-	if clean == "" {
-		return ""
-	}
-	cmd := exec.Command("git", "-C", clean, "remote", "get-url", "origin")
-	output, err := cmd.Output()
-	if err != nil {
-		return ""
-	}
-	return normalizeBugReportGitHubOwnerRepo(string(output))
 }
 
 func normalizeBugReportGitHubOwnerRepo(raw string) string {
