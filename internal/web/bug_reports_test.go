@@ -31,8 +31,8 @@ func TestHandleBugReportCreateWritesBundleUnderWorkspaceArtifacts(t *testing.T) 
 	var ghCalls [][]string
 	app.ghCommandRunner = func(_ context.Context, cwd string, args ...string) (string, error) {
 		ghCalls = append(ghCalls, append([]string{cwd}, args...))
-		if cwd != workspaceDir {
-			t.Fatalf("gh cwd = %q, want %q", cwd, workspaceDir)
+		if cwd != "" {
+			t.Fatalf("gh cwd = %q, want empty bug-report gh context", cwd)
 		}
 		if len(args) >= 3 && args[0] == "label" && args[1] == "list" {
 			return `[{"name":"bug"}]`, nil
@@ -41,10 +41,10 @@ func TestHandleBugReportCreateWritesBundleUnderWorkspaceArtifacts(t *testing.T) 
 			return "", nil
 		}
 		if len(args) >= 2 && args[0] == "issue" && args[1] == "create" {
-			return "https://github.com/owner/tabula/issues/77\n", nil
+			return "https://github.com/krystophny/tabura/issues/77\n", nil
 		}
 		if len(args) >= 2 && args[0] == "issue" && args[1] == "view" {
-			return `{"number":77,"title":"Bug report: The indicator froze after the tap","url":"https://github.com/owner/tabula/issues/77","state":"OPEN","labels":[{"name":"bug"},{"name":"p0"}],"assignees":[]}`, nil
+			return `{"number":77,"title":"Bug report: The indicator froze after the tap","url":"https://github.com/krystophny/tabura/issues/77","state":"OPEN","labels":[{"name":"bug"},{"name":"p0"}],"assignees":[]}`, nil
 		}
 		t.Fatalf("unexpected gh invocation: %v", args)
 		return "", nil
@@ -96,7 +96,7 @@ func TestHandleBugReportCreateWritesBundleUnderWorkspaceArtifacts(t *testing.T) 
 	if got := intFromAny(payload["issue_number"], 0); got != 77 {
 		t.Fatalf("issue_number = %d, want 77", got)
 	}
-	if got := strFromAny(payload["issue_url"]); got != "https://github.com/owner/tabula/issues/77" {
+	if got := strFromAny(payload["issue_url"]); got != "https://github.com/krystophny/tabura/issues/77" {
 		t.Fatalf("issue_url = %q", got)
 	}
 	if got := strFromAny(payload["issue_title"]); got != "Bug report: The indicator froze after the tap" {
@@ -144,7 +144,7 @@ func TestHandleBugReportCreateWritesBundleUnderWorkspaceArtifacts(t *testing.T) 
 	if got := strFromAny(bundle["annotated_image"]); got != annotatedPath {
 		t.Fatalf("bundle annotated_image = %q, want %q", got, annotatedPath)
 	}
-	if got := strFromAny(bundle["github_issue_url"]); got != "https://github.com/owner/tabula/issues/77" {
+	if got := strFromAny(bundle["github_issue_url"]); got != "https://github.com/krystophny/tabura/issues/77" {
 		t.Fatalf("bundle github_issue_url = %q", got)
 	}
 	if got := intFromAny(bundle["github_issue_number"], 0); got != 77 {
@@ -160,7 +160,7 @@ func TestHandleBugReportCreateWritesBundleUnderWorkspaceArtifacts(t *testing.T) 
 	if got := strFromAny(canvasState["artifact_title"]); got != "README.md" {
 		t.Fatalf("canvas_state.artifact_title = %q, want %q", got, "README.md")
 	}
-	item, err := app.store.GetItemBySource("github", "owner/tabula#77")
+	item, err := app.store.GetItemBySource("github", "krystophny/tabura#77")
 	if err != nil {
 		t.Fatalf("GetItemBySource() error: %v", err)
 	}
@@ -188,6 +188,7 @@ func TestHandleBugReportCreateWritesBundleUnderWorkspaceArtifacts(t *testing.T) 
 		t.Fatal("missing gh issue create call")
 	}
 	for _, needle := range []string{
+		"--repo krystophny/tabura",
 		"--label bug",
 		"--label p0",
 		"--title Bug report: The indicator froze after the tap",
@@ -217,17 +218,17 @@ func TestHandleBugReportCreateFallsBackToWorkspaceSphere(t *testing.T) {
 		t.Fatalf("SetActiveWorkspace() error: %v", err)
 	}
 	app.ghCommandRunner = func(_ context.Context, cwd string, args ...string) (string, error) {
-		if cwd != workspaceDir {
-			t.Fatalf("gh cwd = %q, want %q", cwd, workspaceDir)
+		if cwd != "" {
+			t.Fatalf("gh cwd = %q, want empty bug-report gh context", cwd)
 		}
 		if len(args) >= 3 && args[0] == "label" && args[1] == "list" {
 			return `[{"name":"bug"},{"name":"p0"}]`, nil
 		}
 		if len(args) >= 2 && args[0] == "issue" && args[1] == "create" {
-			return "https://github.com/owner/tabula/issues/88\n", nil
+			return "https://github.com/krystophny/tabura/issues/88\n", nil
 		}
 		if len(args) >= 2 && args[0] == "issue" && args[1] == "view" {
-			return `{"number":88,"title":"Bug report: Sphere fallback","url":"https://github.com/owner/tabula/issues/88","state":"OPEN","labels":[{"name":"bug"},{"name":"p0"}],"assignees":[]}`, nil
+			return `{"number":88,"title":"Bug report: Sphere fallback","url":"https://github.com/krystophny/tabura/issues/88","state":"OPEN","labels":[{"name":"bug"},{"name":"p0"}],"assignees":[]}`, nil
 		}
 		t.Fatalf("unexpected gh invocation: %v", args)
 		return "", nil
@@ -284,17 +285,17 @@ func TestHandleBugReportCreateUsesLocalProjectFallback(t *testing.T) {
 		_ = app.Shutdown(context.Background())
 	})
 	app.ghCommandRunner = func(_ context.Context, cwd string, args ...string) (string, error) {
-		if cwd != localProjectDir {
-			t.Fatalf("gh cwd = %q, want %q", cwd, localProjectDir)
+		if cwd != "" {
+			t.Fatalf("gh cwd = %q, want empty bug-report gh context", cwd)
 		}
 		if len(args) >= 3 && args[0] == "label" && args[1] == "list" {
 			return `[{"name":"bug"},{"name":"p0"}]`, nil
 		}
 		if len(args) >= 2 && args[0] == "issue" && args[1] == "create" {
-			return "https://github.com/owner/tabula/issues/91\n", nil
+			return "https://github.com/krystophny/tabura/issues/91\n", nil
 		}
 		if len(args) >= 2 && args[0] == "issue" && args[1] == "view" {
-			return `{"number":91,"title":"Bug report: Local project fallback","url":"https://github.com/owner/tabula/issues/91","state":"OPEN","labels":[{"name":"bug"},{"name":"p0"}],"assignees":[]}`, nil
+			return `{"number":91,"title":"Bug report: Local project fallback","url":"https://github.com/krystophny/tabura/issues/91","state":"OPEN","labels":[{"name":"bug"},{"name":"p0"}],"assignees":[]}`, nil
 		}
 		t.Fatalf("unexpected gh invocation: %v", args)
 		return "", nil
@@ -315,12 +316,70 @@ func TestHandleBugReportCreateUsesLocalProjectFallback(t *testing.T) {
 	if workspace.Sphere != store.SphereWork {
 		t.Fatalf("workspace.Sphere = %q, want %q", workspace.Sphere, store.SphereWork)
 	}
-	item, err := app.store.GetItemBySource("github", "owner/tabula#91")
+	item, err := app.store.GetItemBySource("github", "krystophny/tabura#91")
 	if err != nil {
 		t.Fatalf("GetItemBySource() error: %v", err)
 	}
 	if item.WorkspaceID == nil || *item.WorkspaceID != workspace.ID {
 		t.Fatalf("item.WorkspaceID = %v, want %d", item.WorkspaceID, workspace.ID)
+	}
+}
+
+func TestHandleBugReportCreateUsesCanonicalRepoFromNonGitWorkspace(t *testing.T) {
+	app := newAuthedTestApp(t)
+	workspaceDir := t.TempDir()
+	workspace, err := app.store.CreateWorkspace("Hub", workspaceDir, store.SpherePrivate)
+	if err != nil {
+		t.Fatalf("CreateWorkspace() error: %v", err)
+	}
+	if err := app.store.SetActiveWorkspace(workspace.ID); err != nil {
+		t.Fatalf("SetActiveWorkspace() error: %v", err)
+	}
+	var calls [][]string
+	app.ghCommandRunner = func(_ context.Context, cwd string, args ...string) (string, error) {
+		calls = append(calls, append([]string{cwd}, args...))
+		if cwd != "" {
+			t.Fatalf("gh cwd = %q, want empty bug-report gh context", cwd)
+		}
+		if len(args) >= 3 && args[0] == "label" && args[1] == "list" {
+			return `[{"name":"bug"},{"name":"p0"}]`, nil
+		}
+		if len(args) >= 2 && args[0] == "issue" && args[1] == "create" {
+			return "https://github.com/krystophny/tabura/issues/104\n", nil
+		}
+		if len(args) >= 2 && args[0] == "issue" && args[1] == "view" {
+			return `{"number":104,"title":"Bug report: Submission should work outside git repos","url":"https://github.com/krystophny/tabura/issues/104","state":"OPEN","labels":[{"name":"bug"},{"name":"p0"}],"assignees":[]}`, nil
+		}
+		t.Fatalf("unexpected gh invocation: %v", args)
+		return "", nil
+	}
+
+	rr := doAuthedJSONRequest(t, app.Router(), "POST", "/api/bugs/report", map[string]any{
+		"note":                "Submission should work outside git repos.",
+		"screenshot_data_url": testPNGDataURL,
+	})
+	if rr.Code != 200 {
+		t.Fatalf("POST /api/bugs/report status = %d, want 200: %s", rr.Code, rr.Body.String())
+	}
+	payload := decodeJSONResponse(t, rr)
+	if got := intFromAny(payload["issue_number"], 0); got != 104 {
+		t.Fatalf("issue_number = %d, want 104", got)
+	}
+	if got := strFromAny(payload["issue_url"]); got != "https://github.com/krystophny/tabura/issues/104" {
+		t.Fatalf("issue_url = %q", got)
+	}
+	if _, err := app.store.GetItemBySource("github", "krystophny/tabura#104"); err != nil {
+		t.Fatalf("GetItemBySource() error: %v", err)
+	}
+	createCall := ""
+	for _, call := range calls {
+		if len(call) > 2 && call[1] == "issue" && call[2] == "create" {
+			createCall = strings.Join(call[1:], " ")
+			break
+		}
+	}
+	if !strings.Contains(createCall, "--repo krystophny/tabura") {
+		t.Fatalf("create call = %q, want canonical repo flag", createCall)
 	}
 }
 
@@ -336,7 +395,7 @@ func TestHandleBugReportCreateSucceedsWhenIssueCreationFails(t *testing.T) {
 	}
 	app.ghCommandRunner = func(_ context.Context, _ string, args ...string) (string, error) {
 		if len(args) >= 2 && args[0] == "label" && args[1] == "list" {
-			return "", errors.New("gh label list failed: fatal: not a git repository (or any of the parent directories): .git")
+			return "", errors.New("gh label list failed: permission denied")
 		}
 		t.Fatalf("unexpected gh invocation: %v", args)
 		return "", nil
@@ -361,8 +420,8 @@ func TestHandleBugReportCreateSucceedsWhenIssueCreationFails(t *testing.T) {
 		t.Fatalf("issue_number = %d, want 0 on github failure", got)
 	}
 	issueErr := strFromAny(payload["issue_error"])
-	if !strings.Contains(strings.ToLower(issueErr), "not a git repository") {
-		t.Fatalf("issue_error = %q, want git repository error", issueErr)
+	if !strings.Contains(strings.ToLower(issueErr), "permission denied") {
+		t.Fatalf("issue_error = %q, want github failure", issueErr)
 	}
 	bundleBytes, err := os.ReadFile(filepath.Join(workspaceDir, filepath.FromSlash(bundlePath)))
 	if err != nil {
