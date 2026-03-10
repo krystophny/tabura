@@ -367,6 +367,9 @@ func (s *Store) ListArtifactItems(artifactID int64) ([]Item, error) {
 		   i.follow_up_at,
 		   i.source,
 		   i.source_ref,
+		   i.review_target,
+		   i.reviewer,
+		   i.reviewed_at,
 		   i.created_at,
 		   i.updated_at
 		 FROM item_artifacts ia
