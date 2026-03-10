@@ -93,6 +93,15 @@ func TestClassifyAndExecuteSystemActionCreateGitHubIssuePromotesExistingItem(t *
 	if !handled {
 		t.Fatal("expected GitHub issue action to be handled")
 	}
+	requireConfirmationRequired(t, message, payloads, "artifact")
+	if len(calls) != 0 {
+		t.Fatalf("gh call count before confirm = %d, want 0", len(calls))
+	}
+
+	message, payloads, handled = confirmNextAction(t, app, session)
+	if !handled {
+		t.Fatal("expected GitHub issue confirmation to be handled")
+	}
 	if message != "Created GitHub issue #77: https://github.com/owner/tabula/issues/77" {
 		t.Fatalf("message = %q", message)
 	}
@@ -198,6 +207,11 @@ func TestClassifyAndExecuteSystemActionCreateGitHubIssueCreatesLinkedItem(t *tes
 	if !handled {
 		t.Fatal("expected GitHub issue creation to be handled")
 	}
+	requireConfirmationRequired(t, message, payloads, "artifact")
+	message, payloads, handled = confirmNextAction(t, app, session)
+	if !handled {
+		t.Fatal("expected GitHub issue confirmation to be handled")
+	}
 	if message != "Created GitHub issue #91: https://github.com/owner/tabula/issues/91" {
 		t.Fatalf("message = %q", message)
 	}
@@ -239,6 +253,11 @@ func TestClassifyAndExecuteSystemActionCreateGitHubIssueRejectsMissingWorkspace(
 	if !handled {
 		t.Fatal("expected missing-workspace command to be handled")
 	}
+	requireConfirmationRequired(t, message, payloads, "artifact")
+	message, payloads, handled = confirmNextAction(t, app, session)
+	if !handled {
+		t.Fatal("expected missing-workspace confirmation to be handled")
+	}
 	if len(payloads) != 0 {
 		t.Fatalf("payloads = %#v, want none", payloads)
 	}
@@ -272,6 +291,11 @@ func TestClassifyAndExecuteSystemActionCreateGitHubIssueRejectsMissingRemote(t *
 	message, payloads, handled := app.classifyAndExecuteSystemAction(context.Background(), session.ID, session, "create a GitHub issue from this")
 	if !handled {
 		t.Fatal("expected missing-remote command to be handled")
+	}
+	requireConfirmationRequired(t, message, payloads, "artifact")
+	message, payloads, handled = confirmNextAction(t, app, session)
+	if !handled {
+		t.Fatal("expected missing-remote confirmation to be handled")
 	}
 	if len(payloads) != 0 {
 		t.Fatalf("payloads = %#v, want none", payloads)
@@ -323,6 +347,11 @@ func TestClassifyAndExecuteSystemActionCreateGitHubIssueSurfacesCreateFailure(t 
 	message, payloads, handled := app.classifyAndExecuteSystemAction(context.Background(), session.ID, session, "create a GitHub issue from this")
 	if !handled {
 		t.Fatal("expected create failure to be handled")
+	}
+	requireConfirmationRequired(t, message, payloads, "artifact")
+	message, payloads, handled = confirmNextAction(t, app, session)
+	if !handled {
+		t.Fatal("expected create-failure confirmation to be handled")
 	}
 	if len(payloads) != 0 {
 		t.Fatalf("payloads = %#v, want none", payloads)
@@ -382,6 +411,14 @@ func TestClassifyAndExecuteSystemActionCreateGitHubIssueRejectsDuplicateLinkedIt
 	message, payloads, handled := app.classifyAndExecuteSystemAction(context.Background(), session.ID, session, "create a GitHub issue from this")
 	if !handled {
 		t.Fatal("expected duplicate command to be handled")
+	}
+	requireConfirmationRequired(t, message, payloads, "artifact")
+	if ghCalls != 0 {
+		t.Fatalf("gh call count before confirm = %d, want 0", ghCalls)
+	}
+	message, payloads, handled = confirmNextAction(t, app, session)
+	if !handled {
+		t.Fatal("expected duplicate confirmation to be handled")
 	}
 	if ghCalls != 0 {
 		t.Fatalf("gh call count = %d, want 0", ghCalls)
