@@ -21,6 +21,11 @@ export default defineConfig({
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
     {
+      name: 'firefox-bug-report',
+      use: { ...devices['Desktop Firefox'] },
+      grep: /firefox-bug-report/,
+    },
+    {
       name: 'webkit',
       use: { ...devices['Desktop Safari'] },
       grep: /safari-recorder/,
