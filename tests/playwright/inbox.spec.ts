@@ -64,11 +64,18 @@ test.describe('item inbox sidebar', () => {
       const pane = document.getElementById('pr-file-pane');
       const canvas = document.getElementById('canvas-column');
       const backdrop = document.getElementById('pr-file-drawer-backdrop');
-      if (!(pane instanceof HTMLElement) || !(canvas instanceof HTMLElement) || !(backdrop instanceof HTMLElement)) {
+      const edgeTop = document.getElementById('edge-top');
+      if (
+        !(pane instanceof HTMLElement)
+        || !(canvas instanceof HTMLElement)
+        || !(backdrop instanceof HTMLElement)
+        || !(edgeTop instanceof HTMLElement)
+      ) {
         return null;
       }
       const paneRect = pane.getBoundingClientRect();
       const canvasRect = canvas.getBoundingClientRect();
+      const edgeTopRect = edgeTop.getBoundingClientRect();
       return {
         paneLeft: Math.round(paneRect.left),
         paneRight: Math.round(paneRect.right),
@@ -77,6 +84,8 @@ test.describe('item inbox sidebar', () => {
         canvasLeft: Math.round(canvasRect.left),
         canvasWidth: Math.round(canvasRect.width),
         backdropDisplay: getComputedStyle(backdrop).display,
+        edgeTopLeft: Math.round(edgeTopRect.left),
+        edgeTopRight: Math.round(edgeTopRect.right),
       };
     });
 
@@ -97,6 +106,23 @@ test.describe('item inbox sidebar', () => {
     expect(layout?.canvasWidth ?? 0).toBeLessThan(before.width);
     expect(layout?.canvasWidth ?? 0).toBeGreaterThan(600);
     expect(layout?.backdropDisplay).toBe('none');
+
+    await page.evaluate(() => {
+      document.getElementById('edge-top')?.classList.add('edge-pinned');
+    });
+
+    await expect.poll(readLayout).toMatchObject({
+      canvasLeft: 340,
+      edgeTopLeft: 340,
+    });
+
+    const pinnedLayout = await readLayout();
+    expect(pinnedLayout).not.toBeNull();
+    expect(pinnedLayout?.edgeTopLeft).toBe(pinnedLayout?.canvasLeft);
+    expect(pinnedLayout?.edgeTopRight).toBeGreaterThan(pinnedLayout?.edgeTopLeft ?? 0);
+
+    await page.locator('.sidebar-tab', { hasText: 'Waiting' }).click();
+    await expect(page.locator('.sidebar-tab.is-active')).toContainText('Waiting');
   });
 
   test('switches between waiting, someday, done, and files tabs', async ({ page }) => {
