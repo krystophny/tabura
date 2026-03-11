@@ -360,12 +360,13 @@ func TestClassifyAndExecuteSystemActionWorkspaceManagement(t *testing.T) {
 	if err != nil {
 		t.Fatalf("chat session: %v", err)
 	}
+	createBaseDir := project.RootPath
 
 	message, payloads, handled := app.classifyAndExecuteSystemAction(context.Background(), session.ID, session, "create workspace ./notes")
 	if !handled {
 		t.Fatal("expected create workspace command to be handled")
 	}
-	expectedDir := filepath.Join(app.cwdForProjectKey(session.ProjectKey), "notes")
+	expectedDir := filepath.Join(createBaseDir, "notes")
 	if message != "Created workspace notes at "+expectedDir+"." {
 		t.Fatalf("message = %q", message)
 	}
