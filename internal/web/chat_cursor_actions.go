@@ -13,6 +13,11 @@ import (
 
 var titledItemInboxCommandPattern = regexp.MustCompile(`(?i)^(?:move|bring|put)\s+(?:the\s+)?(?:item|mail|message)\s+(?:at\s+line\s+\d+\s+of\s+)?["“]?(.+?)["”]?\s+back\s+to\s+(?:the\s+)?inbox(?:\s*[.!?])?$`)
 
+type titledItemIntent struct {
+	Title        string
+	TriageAction string
+}
+
 func parseInlineCursorIntent(text string, cursor *chatCursorContext) *SystemAction {
 	cursor = normalizeChatCursorContext(cursor)
 	if cursor == nil {
@@ -110,7 +115,7 @@ func parseInlineCursorIntent(text string, cursor *chatCursorContext) *SystemActi
 	return nil
 }
 
-func parseInlineTitledItemIntent(text string) *SystemAction {
+func parseInlineTitledItemIntent(text string) *titledItemIntent {
 	match := titledItemInboxCommandPattern.FindStringSubmatch(strings.TrimSpace(text))
 	if len(match) != 2 {
 		return nil
@@ -119,12 +124,9 @@ func parseInlineTitledItemIntent(text string) *SystemAction {
 	if title == "" {
 		return nil
 	}
-	return &SystemAction{
-		Action: "triage_item_by_title",
-		Params: map[string]interface{}{
-			"title":         title,
-			"triage_action": "inbox",
-		},
+	return &titledItemIntent{
+		Title:        title,
+		TriageAction: "inbox",
 	}
 }
 
@@ -150,10 +152,6 @@ func systemActionPathFlag(params map[string]interface{}) bool {
 	default:
 		return false
 	}
-}
-
-func systemActionTitle(params map[string]interface{}) string {
-	return strings.TrimSpace(systemActionStringParam(params, "title"))
 }
 
 func (a *App) resolveItemByTitle(title string, preferredState string) (store.Item, error) {
@@ -292,37 +290,34 @@ func (a *App) executeCursorAction(ctx context.Context, session store.ChatSession
 	}
 }
 
-func (a *App) executeTitledItemAction(ctx context.Context, session store.ChatSession, action *SystemAction) (string, map[string]interface{}, error) {
-	switch strings.ToLower(strings.TrimSpace(action.Action)) {
-	case "triage_item_by_title":
-		title := systemActionTitle(action.Params)
-		if title == "" {
-			return "", nil, errors.New("title is required")
-		}
-		triageAction := systemActionCursorTriage(action.Params)
-		item, err := a.resolveItemByTitle(title, store.ItemStateDone)
-		if err != nil {
+func (a *App) executeTitledItemIntent(ctx context.Context, _ store.ChatSession, intent *titledItemIntent) (string, map[string]interface{}, error) {
+	if intent == nil {
+		return "", nil, errors.New("titled item intent is required")
+	}
+	title := strings.TrimSpace(intent.Title)
+	if title == "" {
+		return "", nil, errors.New("title is required")
+	}
+	item, err := a.resolveItemByTitle(title, store.ItemStateDone)
+	if err != nil {
+		return "", nil, err
+	}
+	payload := map[string]interface{}{
+		"type":    "item_state_changed",
+		"item_id": item.ID,
+		"view":    item.State,
+	}
+	switch strings.ToLower(strings.TrimSpace(intent.TriageAction)) {
+	case "inbox":
+		if err := a.syncRemoteEmailItemState(ctx, item, store.ItemStateInbox); err != nil {
 			return "", nil, err
 		}
-		payload := map[string]interface{}{
-			"type":    "item_state_changed",
-			"item_id": item.ID,
-			"view":    item.State,
+		if err := a.store.UpdateItemState(item.ID, store.ItemStateInbox); err != nil {
+			return "", nil, err
 		}
-		switch triageAction {
-		case "inbox":
-			if err := a.syncRemoteEmailItemState(ctx, item, store.ItemStateInbox); err != nil {
-				return "", nil, err
-			}
-			if err := a.store.UpdateItemState(item.ID, store.ItemStateInbox); err != nil {
-				return "", nil, err
-			}
-			payload["view"] = store.ItemStateInbox
-			return fmt.Sprintf("Moved item %q back to inbox.", item.Title), payload, nil
-		default:
-			return "", nil, fmt.Errorf("unsupported titled item triage action: %s", triageAction)
-		}
+		payload["view"] = store.ItemStateInbox
+		return fmt.Sprintf("Moved item %q back to inbox.", item.Title), payload, nil
 	default:
-		return "", nil, fmt.Errorf("unsupported titled item action: %s", action.Action)
+		return "", nil, fmt.Errorf("unsupported titled item triage action: %s", intent.TriageAction)
 	}
 }

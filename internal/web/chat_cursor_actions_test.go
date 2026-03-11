@@ -92,17 +92,14 @@ func TestParseInlineCursorIntent_ItemAndWorkspaceTargets(t *testing.T) {
 }
 
 func TestParseInlineTitledItemIntent_MoveBackToInbox(t *testing.T) {
-	action := parseInlineTitledItemIntent(`Move the item at Line 7 of "Hetzner Online GmbH - Rechnung 086000740636 (K0202503909)" back to the inbox.`)
-	if action == nil {
+	intent := parseInlineTitledItemIntent(`Move the item at Line 7 of "Hetzner Online GmbH - Rechnung 086000740636 (K0202503909)" back to the inbox.`)
+	if intent == nil {
 		t.Fatal("expected titled item action")
 	}
-	if action.Action != "triage_item_by_title" {
-		t.Fatalf("action = %q", action.Action)
-	}
-	if got := systemActionTitle(action.Params); got != `Hetzner Online GmbH - Rechnung 086000740636 (K0202503909)` {
+	if got := intent.Title; got != `Hetzner Online GmbH - Rechnung 086000740636 (K0202503909)` {
 		t.Fatalf("title = %q", got)
 	}
-	if got := systemActionCursorTriage(action.Params); got != "inbox" {
+	if got := intent.TriageAction; got != "inbox" {
 		t.Fatalf("triage_action = %q", got)
 	}
 }

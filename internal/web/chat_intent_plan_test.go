@@ -121,6 +121,33 @@ func TestClassifyIntentPlanWithLLMMultiAction(t *testing.T) {
 	}
 }
 
+func TestClassifyIntentPlanWithLLMCanonicalAction(t *testing.T) {
+	llm := setupMockIntentLLMServer(
+		t,
+		200,
+		`{"kind":"canonical_action","action":"delegate_actor","actor":"Codex"}`,
+	)
+	defer llm.Close()
+
+	app := newAuthedTestApp(t)
+	app.intentClassifierURL = ""
+	app.intentLLMURL = llm.URL
+
+	actions, err := app.classifyIntentPlanWithLLM(context.Background(), "delegate this to Codex")
+	if err != nil {
+		t.Fatalf("classifyIntentPlanWithLLM returned error: %v", err)
+	}
+	if len(actions) != 1 {
+		t.Fatalf("actions length = %d, want 1", len(actions))
+	}
+	if actions[0].Action != "delegate_item" {
+		t.Fatalf("action[0] = %q, want delegate_item", actions[0].Action)
+	}
+	if got := systemActionActorName(actions[0].Params); got != "Codex" {
+		t.Fatalf("actor = %q, want Codex", got)
+	}
+}
+
 func TestFirstShellPathFromOutput(t *testing.T) {
 	if got := firstShellPathFromOutput("(no output)\n./README.md\n"); got != "README.md" {
 		t.Fatalf("firstShellPathFromOutput returned %q, want README.md", got)

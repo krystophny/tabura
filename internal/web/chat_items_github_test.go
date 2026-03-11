@@ -16,8 +16,11 @@ func TestParseInlineGitHubIssueActions(t *testing.T) {
 		if len(actions) != 1 {
 			t.Fatalf("action count = %d, want 1", len(actions))
 		}
-		if actions[0].Action != "create_github_issue" {
-			t.Fatalf("action = %q, want create_github_issue", actions[0].Action)
+		if actions[0].Action != canonicalActionDispatchExecute {
+			t.Fatalf("action = %q, want %q", actions[0].Action, canonicalActionDispatchExecute)
+		}
+		if got := systemActionStringParam(actions[0].Params, "target"); got != "github_issue" {
+			t.Fatalf("target = %q, want github_issue", got)
 		}
 		if got := systemActionStringListParam(actions[0].Params, "labels"); strings.Join(got, ",") != "bug,parser" {
 			t.Fatalf("labels = %v, want [bug parser]", got)
@@ -32,14 +35,14 @@ func TestParseInlineGitHubIssueActions(t *testing.T) {
 		if len(actions) != 2 {
 			t.Fatalf("action count = %d, want 2", len(actions))
 		}
-		if actions[0].Action != "split_items" {
-			t.Fatalf("first action = %q, want split_items", actions[0].Action)
+		if actions[0].Action != canonicalActionTrackItem {
+			t.Fatalf("first action = %q, want %q", actions[0].Action, canonicalActionTrackItem)
 		}
 		if got := systemActionSplitCount(actions[0].Params); got != 0 {
 			t.Fatalf("split count = %d, want 0", got)
 		}
-		if actions[1].Action != "create_github_issue" {
-			t.Fatalf("second action = %q, want create_github_issue", actions[1].Action)
+		if actions[1].Action != canonicalActionDispatchExecute {
+			t.Fatalf("second action = %q, want %q", actions[1].Action, canonicalActionDispatchExecute)
 		}
 	})
 }

@@ -390,10 +390,11 @@ func parseInlineIdeaRefinementIntent(text string) *SystemAction {
 		return nil
 	}
 	return &SystemAction{
-		Action: "refine_idea_note",
+		Action: canonicalActionCompose,
 		Params: map[string]interface{}{
-			"kind": kind,
-			"text": strings.TrimSpace(text),
+			"kind":   kind,
+			"target": "idea_note",
+			"text":   strings.TrimSpace(text),
 		},
 	}
 }
