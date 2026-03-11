@@ -25,6 +25,45 @@ async function waitReady(page: Page) {
   await waitWsReady(page);
 }
 
+async function seedTwoProjects(page: Page) {
+  await page.evaluate(() => {
+    (window as any).__setProjects([
+      {
+        id: 'test',
+        name: 'Test',
+        kind: 'managed',
+        sphere: 'private',
+        project_key: '/tmp/test',
+        root_path: '/tmp/test',
+        chat_session_id: 'chat-1',
+        canvas_session_id: 'local',
+        chat_mode: 'chat',
+        chat_model: 'spark',
+        chat_model_reasoning_effort: 'low',
+        unread: false,
+        review_pending: false,
+        run_state: { active_turns: 0, queued_turns: 0, is_working: false, status: 'idle' },
+      },
+      {
+        id: 'notes',
+        name: 'Notes',
+        kind: 'managed',
+        sphere: 'private',
+        project_key: '/tmp/notes',
+        root_path: '/tmp/notes',
+        chat_session_id: 'chat-2',
+        canvas_session_id: 'notes',
+        chat_mode: 'chat',
+        chat_model: 'spark',
+        chat_model_reasoning_effort: 'low',
+        unread: false,
+        review_pending: false,
+        run_state: { active_turns: 0, queued_turns: 0, is_working: false, status: 'idle' },
+      },
+    ], 'test');
+  });
+}
+
 async function injectCanvasModuleRef(page: Page) {
   await page.evaluate(async () => {
     const mod = await import('../../internal/web/static/canvas.js');
@@ -1602,20 +1641,29 @@ test.describe('system_action model and project switching', () => {
   });
 
   test('switch_project triggers project activate API', async ({ page }) => {
+    await seedTwoProjects(page);
     await clearLog(page);
 
     await injectChatEvent(page, {
       type: 'system_action',
       action: {
         type: 'switch_project',
-        project_id: 'test',
+        project_id: 'notes',
       },
     });
-    await page.waitForTimeout(500);
 
-    const log = await getLog(page);
-    const activateCalls = log.filter(e => e.type === 'api_fetch' && e.action === 'project_activate');
-    expect(activateCalls.length).toBeGreaterThan(0);
+    await expect.poll(async () => {
+      const log = await getLog(page);
+      return log.some(
+        (entry) => entry.type === 'api_fetch'
+          && entry.action === 'project_activate'
+          && String(entry.payload?.project_id || '') === 'notes',
+      );
+    }, { timeout: 5_000 }).toBe(true);
+
+    await expect.poll(async () => {
+      return page.evaluate(() => (window as any)._taburaApp?.getState?.().activeProjectId || '');
+    }, { timeout: 5_000 }).toBe('notes');
   });
 });
 
