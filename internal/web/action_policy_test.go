@@ -31,6 +31,14 @@ func confirmNextAction(t *testing.T, app *App, session store.ChatSession) (strin
 	return app.classifyAndExecuteSystemAction(context.Background(), session.ID, session, "confirm")
 }
 
+func requireConfirmationFailureMessage(t *testing.T, got string, wantErr string) {
+	t.Helper()
+	want := "Confirmation failed: " + wantErr
+	if got != want {
+		t.Fatalf("message = %q, want %q", got, want)
+	}
+}
+
 func TestIsDestructiveShellCommand(t *testing.T) {
 	cases := []struct {
 		command string

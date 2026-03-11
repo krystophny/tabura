@@ -261,9 +261,7 @@ func TestClassifyAndExecuteSystemActionCreateGitHubIssueRejectsMissingWorkspace(
 	if len(payloads) != 0 {
 		t.Fatalf("payloads = %#v, want none", payloads)
 	}
-	if message != "I couldn't create the GitHub issue: workspace has no GitHub origin remote" {
-		t.Fatalf("message = %q", message)
-	}
+	requireConfirmationFailureMessage(t, message, "workspace has no GitHub origin remote")
 }
 
 func TestClassifyAndExecuteSystemActionCreateGitHubIssueRejectsMissingRemote(t *testing.T) {
@@ -300,9 +298,7 @@ func TestClassifyAndExecuteSystemActionCreateGitHubIssueRejectsMissingRemote(t *
 	if len(payloads) != 0 {
 		t.Fatalf("payloads = %#v, want none", payloads)
 	}
-	if message != "I couldn't create the GitHub issue: workspace has no GitHub origin remote" {
-		t.Fatalf("message = %q", message)
-	}
+	requireConfirmationFailureMessage(t, message, "workspace has no GitHub origin remote")
 	items, err := app.store.ListItemsByState(store.ItemStateInbox)
 	if err != nil {
 		t.Fatalf("ListItemsByState(inbox) error: %v", err)
@@ -356,9 +352,7 @@ func TestClassifyAndExecuteSystemActionCreateGitHubIssueSurfacesCreateFailure(t 
 	if len(payloads) != 0 {
 		t.Fatalf("payloads = %#v, want none", payloads)
 	}
-	if message != "I couldn't create the GitHub issue: gh issue create failed: permission denied" {
-		t.Fatalf("message = %q", message)
-	}
+	requireConfirmationFailureMessage(t, message, "gh issue create failed: permission denied")
 }
 
 func TestClassifyAndExecuteSystemActionCreateGitHubIssueRejectsDuplicateLinkedItem(t *testing.T) {
@@ -426,9 +420,7 @@ func TestClassifyAndExecuteSystemActionCreateGitHubIssueRejectsDuplicateLinkedIt
 	if len(payloads) != 0 {
 		t.Fatalf("payloads = %#v, want none", payloads)
 	}
-	if message != "I couldn't create the GitHub issue: item is already linked to github owner/tabula#77" {
-		t.Fatalf("message = %q", message)
-	}
+	requireConfirmationFailureMessage(t, message, "item is already linked to github owner/tabula#77")
 
 	gotLinked, err := app.store.GetItem(linkedItem.ID)
 	if err != nil {

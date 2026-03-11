@@ -560,9 +560,7 @@ func TestClassifyAndExecuteSystemActionDelegateItemSurfacesMissingActor(t *testi
 	if len(payloads) != 0 {
 		t.Fatalf("payloads = %#v, want none", payloads)
 	}
-	if message != `I couldn't create the item: actor "Missing" not found` {
-		t.Fatalf("message = %q", message)
-	}
+	requireConfirmationFailureMessage(t, message, `actor "Missing" not found`)
 }
 
 func TestClassifyAndExecuteSystemActionArtifactConfirmationCanBeCanceled(t *testing.T) {
