@@ -11,6 +11,28 @@ func normalizeOptionalContextQuery(value string) string {
 	return strings.TrimSpace(value)
 }
 
+func splitContextQueryTerms(query string) []string {
+	cleanQuery := normalizeOptionalContextQuery(query)
+	if cleanQuery == "" {
+		return nil
+	}
+	rawTerms := strings.FieldsFunc(cleanQuery, func(r rune) bool {
+		return r == '+' || r == ','
+	})
+	terms := make([]string, 0, len(rawTerms))
+	for _, term := range rawTerms {
+		clean := normalizeOptionalContextQuery(term)
+		if clean == "" {
+			continue
+		}
+		terms = append(terms, clean)
+	}
+	if len(terms) > 0 {
+		return terms
+	}
+	return []string{cleanQuery}
+}
+
 func placeholders(count int) string {
 	if count <= 0 {
 		return ""
@@ -132,18 +154,25 @@ func (s *Store) ListWorkspacesByContextPrefix(prefix string) ([]Workspace, error
 	if cleanPrefix == "" {
 		return nil, errors.New("context is required")
 	}
-	contextIDs, err := s.resolveContextQueryIDs(cleanPrefix)
-	if err != nil {
-		return nil, err
+	terms := splitContextQueryTerms(cleanPrefix)
+	clauses := make([]string, 0, len(terms))
+	args := []any{}
+	for _, term := range terms {
+		contextIDs, err := s.resolveContextQueryIDs(term)
+		if err != nil {
+			return nil, err
+		}
+		if len(contextIDs) == 0 {
+			return []Workspace{}, nil
+		}
+		clause, clauseArgs := contextLinkExistsClause("context_workspaces", "workspace_id", "workspaces.id", contextIDs)
+		clauses = append(clauses, clause)
+		args = append(args, clauseArgs...)
 	}
-	if len(contextIDs) == 0 {
-		return []Workspace{}, nil
-	}
-	clause, args := contextLinkExistsClause("context_workspaces", "workspace_id", "workspaces.id", contextIDs)
 	rows, err := s.db.Query(
 		`SELECT id, name, dir_path, project_id, `+scopedContextSelect("context_workspaces", "workspace_id", "workspaces.id")+` AS sphere, is_active, is_daily, daily_date, mcp_url, canvas_session_id, chat_model, chat_model_reasoning_effort, created_at, updated_at
 		 FROM workspaces
-		 WHERE `+clause,
+		 WHERE `+strings.Join(clauses, ` AND `),
 		args...,
 	)
 	if err != nil {
