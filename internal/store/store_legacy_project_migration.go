@@ -32,6 +32,40 @@ func sameProjectID(current *string, want string) bool {
 	return current != nil && strings.TrimSpace(*current) == strings.TrimSpace(want)
 }
 
+func (s *Store) linkedWorkspaceForProject(project Project) (Workspace, bool, error) {
+	projectID := strings.TrimSpace(project.ID)
+	if projectID == "" {
+		return Workspace{}, false, nil
+	}
+	workspaces, err := s.ListWorkspacesForProject(projectID)
+	if err != nil {
+		return Workspace{}, false, err
+	}
+	for _, workspace := range workspaces {
+		if strings.TrimSpace(workspace.DirPath) != "" {
+			return workspace, true, nil
+		}
+	}
+	return Workspace{}, false, nil
+}
+
+func (s *Store) workspaceForProject(project Project) (Workspace, error) {
+	if workspace, ok, err := s.linkedWorkspaceForProject(project); err != nil {
+		return Workspace{}, err
+	} else if ok {
+		return workspace, nil
+	}
+	rootPath := normalizeProjectPath(project.RootPath)
+	if rootPath != "" {
+		if workspaceID, err := s.FindWorkspaceContainingPath(rootPath); err != nil {
+			return Workspace{}, err
+		} else if workspaceID != nil {
+			return s.GetWorkspace(*workspaceID)
+		}
+	}
+	return s.ensureWorkspaceForLegacyProject(project)
+}
+
 func (s *Store) ensureWorkspaceForLegacyProject(project Project) (Workspace, error) {
 	projectID := strings.TrimSpace(project.ID)
 	if projectID == "" {
@@ -40,6 +74,12 @@ func (s *Store) ensureWorkspaceForLegacyProject(project Project) (Workspace, err
 	rootPath := normalizeProjectPath(project.RootPath)
 	if rootPath == "" {
 		return Workspace{}, errors.New("project path is required")
+	}
+
+	if workspace, ok, err := s.linkedWorkspaceForProject(project); err != nil {
+		return Workspace{}, err
+	} else if ok {
+		return workspace, nil
 	}
 
 	workspace, err := s.GetWorkspaceByPath(rootPath)

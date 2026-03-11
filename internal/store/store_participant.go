@@ -85,12 +85,7 @@ func (s *Store) resolveParticipantSessionWorkspace(ref string) (Workspace, error
 		return Workspace{}, sql.ErrNoRows
 	}
 	if project, err := s.GetProjectByProjectKey(cleanRef); err == nil {
-		if workspaceID, findErr := s.FindWorkspaceContainingPath(project.RootPath); findErr != nil {
-			return Workspace{}, findErr
-		} else if workspaceID != nil {
-			return s.GetWorkspace(*workspaceID)
-		}
-		return s.ensureWorkspaceForLegacyProject(project)
+		return s.workspaceForProject(project)
 	} else if !errors.Is(err, sql.ErrNoRows) {
 		return Workspace{}, err
 	}

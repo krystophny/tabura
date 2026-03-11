@@ -16,6 +16,13 @@ func (a *App) cwdForProjectKey(projectKey string) string {
 	key := strings.TrimSpace(projectKey)
 	if key != "" {
 		if project, err := a.store.GetProjectByProjectKey(key); err == nil {
+			if workspaces, workspaceErr := a.store.ListWorkspacesForProject(project.ID); workspaceErr == nil {
+				for _, workspace := range workspaces {
+					if dirPath := strings.TrimSpace(workspace.DirPath); dirPath != "" {
+						return dirPath
+					}
+				}
+			}
 			root := strings.TrimSpace(project.RootPath)
 			if root != "" {
 				return root

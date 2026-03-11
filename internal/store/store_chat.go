@@ -58,12 +58,7 @@ func (s *Store) resolveChatSessionWorkspace(ref string) (Workspace, error) {
 	cleanRef := strings.TrimSpace(ref)
 	if cleanRef != "" {
 		if project, err := s.GetProjectByProjectKey(cleanRef); err == nil {
-			if workspaceID, findErr := s.FindWorkspaceContainingPath(project.RootPath); findErr != nil {
-				return Workspace{}, findErr
-			} else if workspaceID != nil {
-				return s.GetWorkspace(*workspaceID)
-			}
-			return s.ensureWorkspaceForLegacyProject(project)
+			return s.workspaceForProject(project)
 		} else if !errors.Is(err, sql.ErrNoRows) {
 			return Workspace{}, err
 		}
@@ -90,7 +85,7 @@ func (s *Store) resolveChatSessionWorkspace(ref string) (Workspace, error) {
 		if err != nil {
 			return Workspace{}, err
 		}
-		return s.ensureWorkspaceForLegacyProject(project)
+		return s.workspaceForProject(project)
 	}
 	return Workspace{}, sql.ErrNoRows
 }

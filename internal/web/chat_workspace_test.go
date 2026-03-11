@@ -507,6 +507,36 @@ func TestApplyWorkspacePromptContextIncludesActiveWorkspaceSummary(t *testing.T)
 	}
 }
 
+func TestCwdForProjectKeyPrefersLinkedWorkspaceDir(t *testing.T) {
+	app := newAuthedTestApp(t)
+
+	project, err := app.ensureDefaultProjectRecord()
+	if err != nil {
+		t.Fatalf("ensure default project: %v", err)
+	}
+	session, err := app.chatSessionForProject(project)
+	if err != nil {
+		t.Fatalf("chat session: %v", err)
+	}
+	workspace, err := app.store.GetWorkspace(session.WorkspaceID)
+	if err != nil {
+		t.Fatalf("GetWorkspace() error: %v", err)
+	}
+
+	relocatedRoot := filepath.Join(t.TempDir(), "workspace-relocated")
+	if err := os.MkdirAll(relocatedRoot, 0o755); err != nil {
+		t.Fatalf("MkdirAll(relocatedRoot) error: %v", err)
+	}
+	workspace, err = app.store.UpdateWorkspaceLocation(workspace.ID, workspace.Name, relocatedRoot)
+	if err != nil {
+		t.Fatalf("UpdateWorkspaceLocation() error: %v", err)
+	}
+
+	if got := app.cwdForProjectKey(project.ProjectKey); got != workspace.DirPath {
+		t.Fatalf("cwdForProjectKey() = %q, want %q", got, workspace.DirPath)
+	}
+}
+
 func initGitTestRepo(t *testing.T, name string) string {
 	t.Helper()
 	root := filepath.Join(t.TempDir(), name)

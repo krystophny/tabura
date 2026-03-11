@@ -485,6 +485,11 @@ type chatTurnOptions struct {
 }
 
 func (a *App) getOrCreateAppSession(sessionID string, cwd string, profile appServerModelProfile) (*appserver.Session, bool, error) {
+	resolvedCWD, err := a.workspaceDirForChatSessionID(sessionID)
+	if err != nil {
+		return nil, false, err
+	}
+	cwd = resolvedCWD
 	a.mu.Lock()
 	s := a.chatAppSessions[sessionID]
 	a.mu.Unlock()
