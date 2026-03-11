@@ -194,6 +194,10 @@ func (a *App) executeSystemAction(sessionID string, session store.ChatSession, a
 	if action == nil {
 		return "", nil, errors.New("system action is required")
 	}
+	action = translateCanonicalActionForExecution(action)
+	if action == nil {
+		return "", nil, errors.New("system action is required")
+	}
 	switch action.Action {
 	case "switch_project":
 		targetName := systemActionStringParam(action.Params, "name")
@@ -225,8 +229,6 @@ func (a *App) executeSystemAction(sessionID string, session store.ChatSession, a
 		}, nil
 	case "cursor_open_item", "cursor_triage_item", "cursor_open_path":
 		return a.executeCursorAction(context.Background(), session, action)
-	case "triage_item_by_title":
-		return a.executeTitledItemAction(context.Background(), session, action)
 	case "list_workspaces":
 		return a.executeListWorkspacesAction(session, action)
 	case "create_workspace":

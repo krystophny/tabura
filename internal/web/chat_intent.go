@@ -141,9 +141,37 @@ func parseSystemActionObject(obj map[string]interface{}) *SystemAction {
 	if obj == nil {
 		return nil
 	}
+	kind := normalizeIntentResponseKind(fmt.Sprint(obj["kind"]))
+	if kind == "" {
+		kind = normalizeIntentResponseKind(fmt.Sprint(obj["type"]))
+	}
+	if kind == intentKindDialogue {
+		return nil
+	}
+	if kind == intentKindCanonicalAction {
+		action := normalizeCanonicalActionName(fmt.Sprint(obj["action"]))
+		if action == "" {
+			action = normalizeCanonicalActionName(fmt.Sprint(obj["canonical_action"]))
+		}
+		if action == "" {
+			return nil
+		}
+		params := make(map[string]interface{}, len(obj))
+		for key, value := range obj {
+			trimmed := strings.TrimSpace(key)
+			if strings.EqualFold(trimmed, "action") || strings.EqualFold(trimmed, "canonical_action") || strings.EqualFold(trimmed, "kind") || strings.EqualFold(trimmed, "type") {
+				continue
+			}
+			params[key] = value
+		}
+		return &SystemAction{Action: action, Params: params}
+	}
 	action := normalizeSystemActionName(fmt.Sprint(obj["action"]))
 	if action == "" {
 		action = normalizeSystemActionName(fmt.Sprint(obj["intent"]))
+	}
+	if action == "" && kind == intentKindSystemCommand {
+		action = normalizeSystemActionName(fmt.Sprint(obj["command"]))
 	}
 	if action == "" {
 		return nil
@@ -240,7 +268,7 @@ func systemActionStringParam(params map[string]interface{}, key string) string {
 
 func normalizeSystemActionName(raw string) string {
 	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "switch_project", "switch_workspace", "list_workspace_items", "list_workspaces", "create_workspace", "create_workspace_from_git", "rename_workspace", "delete_workspace", "show_workspace_details", "workspace_watch_start", "workspace_watch_stop", "workspace_watch_status", "batch_work", "batch_configure", "review_policy", "batch_limit", "batch_status", "assign_workspace_project", "show_workspace_project", "create_project", "list_project_workspaces", "link_workspace_artifact", "list_linked_artifacts", "switch_model", "toggle_silent", "toggle_live_dialogue", "cancel_work", "show_status", "shell", "open_file_canvas", "show_calendar", "show_briefing", "make_item", "delegate_item", "snooze_item", "split_items", "reassign_workspace", "reassign_project", "clear_workspace", "clear_project", "capture_idea", "refine_idea_note", "promote_idea", "apply_idea_promotion", "create_github_issue", "create_github_issue_split", "print_item", "review_someday", "triage_someday", "promote_someday", "toggle_someday_review_nudge", "show_filtered_items", "sync_project", "sync_sources", "map_todoist_project", "sync_todoist", "create_todoist_task", "sync_evernote", "sync_bear", "promote_bear_checklist", "sync_zotero", "cursor_open_item", "cursor_triage_item", "cursor_open_path", "triage_item_by_title":
+	case "switch_project", "switch_workspace", "list_workspace_items", "list_workspaces", "create_workspace", "create_workspace_from_git", "rename_workspace", "delete_workspace", "show_workspace_details", "workspace_watch_start", "workspace_watch_stop", "workspace_watch_status", "batch_work", "batch_configure", "review_policy", "batch_limit", "batch_status", "assign_workspace_project", "show_workspace_project", "create_project", "list_project_workspaces", "link_workspace_artifact", "list_linked_artifacts", "switch_model", "toggle_silent", "toggle_live_dialogue", "cancel_work", "show_status", "shell", "open_file_canvas", "show_calendar", "show_briefing", "make_item", "delegate_item", "snooze_item", "split_items", "reassign_workspace", "reassign_project", "clear_workspace", "clear_project", "capture_idea", "refine_idea_note", "promote_idea", "apply_idea_promotion", "create_github_issue", "create_github_issue_split", "print_item", "review_someday", "triage_someday", "promote_someday", "toggle_someday_review_nudge", "show_filtered_items", "sync_project", "sync_sources", "map_todoist_project", "sync_todoist", "create_todoist_task", "sync_evernote", "sync_bear", "promote_bear_checklist", "sync_zotero", "cursor_open_item", "cursor_triage_item", "cursor_open_path":
 		return strings.ToLower(strings.TrimSpace(raw))
 	default:
 		return ""
@@ -360,6 +388,10 @@ func (a *App) classifyIntentLocally(ctx context.Context, text string) (*SystemAc
 }
 
 func normalizeSystemActionForExecution(action *SystemAction, fallbackText string) *SystemAction {
+	if action == nil {
+		return nil
+	}
+	action = translateCanonicalActionForExecution(action)
 	if action == nil {
 		return nil
 	}
@@ -674,15 +706,14 @@ func (a *App) classifyAndExecuteSystemActionForTurn(ctx context.Context, session
 		return message, payloads, true
 	}
 	if titledItemAction := parseInlineTitledItemIntent(trimmedText); titledItemAction != nil {
-		enforced := enforceRoutingPolicy(trimmedText, []*SystemAction{titledItemAction})
-		if len(enforced) == 0 {
-			return "", nil, false
-		}
-		message, payloads, err := a.executeSystemActionPlan(sessionID, session, trimmedText, enforced)
+		message, payload, err := a.executeTitledItemIntent(context.Background(), session, titledItemAction)
 		if err != nil {
 			return "I couldn't resolve the named item: " + err.Error(), nil, true
 		}
-		return message, payloads, true
+		if payload == nil {
+			return message, nil, true
+		}
+		return message, []map[string]interface{}{payload}, true
 	}
 	if inlineItemAction := parseInlineItemIntentWithCaptureMode(trimmedText, time.Now().UTC(), captureMode); inlineItemAction != nil {
 		enforced := enforceRoutingPolicy(trimmedText, []*SystemAction{inlineItemAction})
@@ -691,7 +722,14 @@ func (a *App) classifyAndExecuteSystemActionForTurn(ctx context.Context, session
 		}
 		message, payloads, err := a.executeSystemActionPlan(sessionID, session, trimmedText, enforced)
 		if err != nil {
-			return itemActionFailurePrefix(inlineItemAction.Action) + err.Error(), nil, true
+			failureAction := inlineItemAction.Action
+			copied := copySystemActions([]*SystemAction{inlineItemAction})
+			if len(copied) == 1 {
+				if normalized := normalizeSystemActionForExecution(copied[0], trimmedText); normalized != nil {
+					failureAction = normalized.Action
+				}
+			}
+			return itemActionFailurePrefix(failureAction) + err.Error(), nil, true
 		}
 		return message, payloads, true
 	}

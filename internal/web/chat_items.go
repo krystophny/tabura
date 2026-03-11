@@ -68,8 +68,9 @@ func parseInlineItemIntentWithCaptureMode(text string, now time.Time, captureMod
 	}
 	if ideaText, ok := extractIdeaCaptureText(text); ok {
 		return &SystemAction{
-			Action: "capture_idea",
+			Action: canonicalActionAnnotateCapture,
 			Params: map[string]interface{}{
+				"target":       "idea_note",
 				"text":         text,
 				"idea_text":    ideaText,
 				"capture_mode": normalizeChatCaptureMode(captureMode),
@@ -90,13 +91,13 @@ func parseInlineItemIntentWithCaptureMode(text string, now time.Time, captureMod
 	}
 	switch normalized {
 	case "make this an item", "track this", "add to inbox", "mach das zu einem item", "mach daraus ein item", "fuege das zum posteingang hinzu":
-		return &SystemAction{Action: "make_item", Params: map[string]interface{}{}}
+		return &SystemAction{Action: canonicalActionTrackItem, Params: map[string]interface{}{}}
 	case "print this item", "print this for me", "druck das aus", "druck dieses item aus":
-		return &SystemAction{Action: "print_item", Params: map[string]interface{}{}}
+		return &SystemAction{Action: canonicalActionDispatchExecute, Params: map[string]interface{}{"target": "print"}}
 	case "later", "remind me later", "spaeter", "erinnere mich spaeter":
 		visibleAfter := defaultReminderTime(now)
 		return &SystemAction{
-			Action: "snooze_item",
+			Action: canonicalActionTrackItem,
 			Params: map[string]interface{}{"visible_after": visibleAfter},
 		}
 	}
@@ -105,7 +106,7 @@ func parseInlineItemIntentWithCaptureMode(text string, now time.Time, captureMod
 		actor := cleanActorReference(match[1])
 		if actor != "" {
 			return &SystemAction{
-				Action: "delegate_item",
+				Action: canonicalActionDelegateActor,
 				Params: map[string]interface{}{"actor": actor},
 			}
 		}
@@ -113,7 +114,7 @@ func parseInlineItemIntentWithCaptureMode(text string, now time.Time, captureMod
 
 	if visibleAfter, ok := parseReminderVisibleAfter(text, now); ok {
 		return &SystemAction{
-			Action: "snooze_item",
+			Action: canonicalActionTrackItem,
 			Params: map[string]interface{}{"visible_after": visibleAfter},
 		}
 	}
@@ -121,7 +122,7 @@ func parseInlineItemIntentWithCaptureMode(text string, now time.Time, captureMod
 	if match := itemSplitPattern.FindStringSubmatch(strings.TrimSpace(text)); len(match) == 2 {
 		if count, ok := parseItemSplitCount(match[1]); ok && count > 0 {
 			return &SystemAction{
-				Action: "split_items",
+				Action: canonicalActionTrackItem,
 				Params: map[string]interface{}{"count": count},
 			}
 		}
@@ -278,7 +279,7 @@ func parseItemSplitCount(raw string) (int, bool) {
 
 func isItemSystemAction(action string) bool {
 	switch strings.ToLower(strings.TrimSpace(action)) {
-	case "make_item", "delegate_item", "snooze_item", "split_items", "reassign_workspace", "reassign_project", "clear_workspace", "clear_project", "capture_idea", "refine_idea_note", "promote_idea", "apply_idea_promotion", "create_github_issue", "create_github_issue_split", "print_item", "review_someday", "triage_someday", "promote_someday", "toggle_someday_review_nudge", "show_filtered_items":
+	case canonicalActionAnnotateCapture, canonicalActionCompose, canonicalActionBundleReview, canonicalActionDispatchExecute, canonicalActionTrackItem, canonicalActionDelegateActor, "make_item", "delegate_item", "snooze_item", "split_items", "reassign_workspace", "reassign_project", "clear_workspace", "clear_project", "capture_idea", "refine_idea_note", "promote_idea", "apply_idea_promotion", "create_github_issue", "create_github_issue_split", "print_item", "review_someday", "triage_someday", "promote_someday", "toggle_someday_review_nudge", "show_filtered_items":
 		return true
 	default:
 		return false
@@ -287,6 +288,18 @@ func isItemSystemAction(action string) bool {
 
 func itemActionFailurePrefix(action string) string {
 	switch strings.ToLower(strings.TrimSpace(action)) {
+	case canonicalActionAnnotateCapture:
+		return "I couldn't capture the note: "
+	case canonicalActionCompose:
+		return "I couldn't update the note: "
+	case canonicalActionBundleReview:
+		return "I couldn't open the review bundle: "
+	case canonicalActionDispatchExecute:
+		return "I couldn't execute the artifact action: "
+	case canonicalActionTrackItem:
+		return "I couldn't track the item: "
+	case canonicalActionDelegateActor:
+		return "I couldn't delegate the item: "
 	case "create_github_issue", "create_github_issue_split":
 		return "I couldn't create the GitHub issue: "
 	case "capture_idea":

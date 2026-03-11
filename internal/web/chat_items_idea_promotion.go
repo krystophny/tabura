@@ -85,8 +85,12 @@ func parseInlineIdeaPromotionIntent(text string) *SystemAction {
 		return nil
 	}
 	return &SystemAction{
-		Action: "promote_idea",
-		Params: map[string]interface{}{"target": target},
+		Action: canonicalActionDispatchExecute,
+		Params: map[string]interface{}{
+			"target":           "idea_promotion",
+			"promotion_target": target,
+			"mode":             "preview",
+		},
 	}
 }
 
@@ -114,8 +118,10 @@ func parseInlineIdeaPromotionApplyIntent(text string) *SystemAction {
 		return nil
 	}
 	params := map[string]interface{}{
-		"target":      target,
-		"disposition": ideaPromotionDispositionFromText(normalized),
+		"target":           "idea_promotion",
+		"promotion_target": target,
+		"mode":             "apply",
+		"disposition":      ideaPromotionDispositionFromText(normalized),
 	}
 	if selection := parseIdeaPromotionSelection(normalized); len(selection) > 0 {
 		values := make([]interface{}, 0, len(selection))
@@ -125,7 +131,7 @@ func parseInlineIdeaPromotionApplyIntent(text string) *SystemAction {
 		params["selected"] = values
 	}
 	return &SystemAction{
-		Action: "apply_idea_promotion",
+		Action: canonicalActionDispatchExecute,
 		Params: params,
 	}
 }

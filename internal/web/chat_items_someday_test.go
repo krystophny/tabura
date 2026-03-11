@@ -19,14 +19,14 @@ func TestParseInlineItemIntentSomedayCommands(t *testing.T) {
 		wantEnabled bool
 		checkBool   bool
 	}{
-		{text: "review my someday list", wantAction: "review_someday"},
-		{text: "zeige irgendwann", wantAction: "review_someday"},
-		{text: "what's in someday?", wantAction: "review_someday"},
-		{text: "not now", wantAction: "triage_someday"},
-		{text: "nicht jetzt", wantAction: "triage_someday"},
-		{text: "bring this back", wantAction: "promote_someday"},
-		{text: "move this mail back to the inbox", wantAction: "promote_someday"},
-		{text: "hol das zurück", wantAction: "promote_someday"},
+		{text: "review my someday list", wantAction: canonicalActionBundleReview},
+		{text: "zeige irgendwann", wantAction: canonicalActionBundleReview},
+		{text: "what's in someday?", wantAction: canonicalActionBundleReview},
+		{text: "not now", wantAction: canonicalActionBundleReview},
+		{text: "nicht jetzt", wantAction: canonicalActionBundleReview},
+		{text: "bring this back", wantAction: canonicalActionBundleReview},
+		{text: "move this mail back to the inbox", wantAction: canonicalActionBundleReview},
+		{text: "hol das zurück", wantAction: canonicalActionBundleReview},
 		{text: "turn off someday reminders", wantAction: "toggle_someday_review_nudge", wantEnabled: false, checkBool: true},
 		{text: "schalte irgendwann erinnerungen aus", wantAction: "toggle_someday_review_nudge", wantEnabled: false, checkBool: true},
 		{text: "enable someday reminders", wantAction: "toggle_someday_review_nudge", wantEnabled: true, checkBool: true},
@@ -51,6 +51,8 @@ func TestParseInlineItemIntentSomedayCommands(t *testing.T) {
 				if got != tc.wantEnabled {
 					t.Fatalf("enabled = %v, want %v", got, tc.wantEnabled)
 				}
+			} else if got := systemActionStringParam(action.Params, "target"); got != "someday" {
+				t.Fatalf("target = %q, want someday", got)
 			}
 		})
 	}

@@ -24,14 +24,27 @@ func parseInlineGitHubIssueActions(text string) []*SystemAction {
 	params := parseGitHubIssueCommandParams(text)
 	if isSplitGitHubIssueCommand(normalized) {
 		return []*SystemAction{
-			{Action: "split_items", Params: map[string]interface{}{"count": 0}},
-			{Action: "create_github_issue", Params: params},
+			{Action: canonicalActionTrackItem, Params: map[string]interface{}{"count": 0}},
+			{
+				Action: canonicalActionDispatchExecute,
+				Params: func() map[string]interface{} {
+					out := map[string]interface{}{}
+					for key, value := range params {
+						out[key] = value
+					}
+					out["target"] = "github_issue"
+					out["mode"] = "create"
+					return out
+				}(),
+			},
 		}
 	}
 	if !isCreateGitHubIssueCommand(normalized) {
 		return nil
 	}
-	return []*SystemAction{{Action: "create_github_issue", Params: params}}
+	params["target"] = "github_issue"
+	params["mode"] = "create"
+	return []*SystemAction{{Action: canonicalActionDispatchExecute, Params: params}}
 }
 
 func isSplitGitHubIssueCommand(normalized string) bool {

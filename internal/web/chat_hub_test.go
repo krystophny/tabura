@@ -159,6 +159,7 @@ func TestParseSystemAction(t *testing.T) {
 		{name: "open file canvas", raw: `{"action":"open_file_canvas","path":"README.md"}`, wantAction: "open_file_canvas"},
 		{name: "show calendar", raw: `{"action":"show_calendar","view":"week"}`, wantAction: "show_calendar"},
 		{name: "multi action array", raw: `{"actions":[{"action":"shell","command":"ls -1"},{"action":"open_file_canvas","path":"README.md"}]}`, wantAction: "shell"},
+		{name: "canonical action", raw: `{"kind":"canonical_action","action":"delegate_actor","actor":"Codex"}`, wantAction: canonicalActionDelegateActor},
 	}
 	for _, tc := range cases {
 		tc := tc
@@ -174,6 +175,30 @@ func TestParseSystemAction(t *testing.T) {
 				t.Fatalf("action = %q, want %q", action.Action, tc.wantAction)
 			}
 		})
+	}
+}
+
+func TestIntentPromptsSeparateSystemCommandsFromCanonicalActions(t *testing.T) {
+	for name, prompt := range map[string]string{
+		"hub": hubSystemPrompt,
+		"llm": intentLLMSystemPrompt,
+	} {
+		if !strings.Contains(prompt, "System commands:") {
+			t.Fatalf("%s prompt missing system command section", name)
+		}
+		if !strings.Contains(prompt, "Canonical artifact actions:") {
+			t.Fatalf("%s prompt missing canonical action section", name)
+		}
+		if !strings.Contains(prompt, "kind\":\"canonical_action") {
+			t.Fatalf("%s prompt missing canonical_action schema", name)
+		}
+		lowerPrompt := strings.ToLower(prompt)
+		if !strings.Contains(lowerPrompt, "do not emit legacy artifact intents such as") {
+			t.Fatalf("%s prompt missing legacy-intent rejection", name)
+		}
+		if !strings.Contains(lowerPrompt, "triage_item_by_title") {
+			t.Fatalf("%s prompt should explicitly forbid triage_item_by_title", name)
+		}
 	}
 }
 

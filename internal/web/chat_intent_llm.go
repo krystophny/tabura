@@ -10,15 +10,7 @@ import (
 	"strings"
 )
 
-const intentLLMSystemPrompt = `You are Tabura's local router. Output JSON only.
-Allowed actions: switch_project, switch_workspace, list_workspace_items, list_workspaces, create_workspace, create_workspace_from_git, rename_workspace, delete_workspace, show_workspace_details, workspace_watch_start, workspace_watch_stop, workspace_watch_status, batch_work, batch_configure, review_policy, batch_limit, batch_status, assign_workspace_project, show_workspace_project, create_project, list_project_workspaces, link_workspace_artifact, list_linked_artifacts, switch_model, toggle_silent, toggle_live_dialogue, cancel_work, show_status, shell, open_file_canvas, show_calendar, show_briefing, make_item, delegate_item, snooze_item, split_items, reassign_workspace, reassign_project, clear_workspace, clear_project, capture_idea, refine_idea_note, promote_idea, apply_idea_promotion, create_github_issue, create_github_issue_split, print_item, review_someday, triage_someday, promote_someday, toggle_someday_review_nudge, show_filtered_items, sync_project, sync_sources, map_todoist_project, sync_todoist, create_todoist_task, sync_evernote, sync_bear, promote_bear_checklist, sync_zotero, cursor_open_item, cursor_triage_item, cursor_open_path, triage_item_by_title, chat.
-Use {"action":"chat"} unless user clearly requests a system action.
-For current-information requests (weather, web search, news, prices, schedules, latest/current updates), use {"action":"chat"} and MUST NOT use shell.
-For shell-like requests use {"action":"shell","command":"..."}.
-For open/show/display file requests, end with {"action":"open_file_canvas","path":"..."}.
-If exact path is uncertain, use multi-step {"actions":[...]}: shell search first, then open_file_canvas with path="$last_shell_path".
-For item materialization and idea/someday-review requests use make_item, delegate_item, snooze_item, split_items, reassign_workspace, reassign_project, clear_workspace, clear_project, capture_idea, refine_idea_note, promote_idea, apply_idea_promotion, create_github_issue, create_github_issue_split, review_someday, triage_someday, promote_someday, toggle_someday_review_nudge, or show_filtered_items.
-Prefer case-insensitive filename search (for example -iname) and use single quotes inside JSON command strings.`
+var intentLLMSystemPrompt = buildIntentLLMSystemPrompt()
 
 type localIntentLLMChatCompletionResponse struct {
 	Choices []localIntentLLMChoice `json:"choices"`
