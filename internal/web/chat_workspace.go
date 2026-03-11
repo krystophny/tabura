@@ -485,6 +485,7 @@ func (a *App) executeListWorkspacesAction(_ store.ChatSession, action *SystemAct
 	if err != nil {
 		return "", nil, err
 	}
+	workspaces = filterExplicitWorkspaces(workspaces)
 	items, err := a.store.ListItems()
 	if err != nil {
 		return "", nil, err

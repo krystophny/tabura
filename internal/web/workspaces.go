@@ -53,6 +53,7 @@ func (a *App) handleWorkspaceList(w http.ResponseWriter, r *http.Request) {
 		}
 		workspaces = filtered
 	}
+	workspaces = filterExplicitWorkspaces(workspaces)
 	writeAPIData(w, http.StatusOK, map[string]any{
 		"workspaces": workspaces,
 	})

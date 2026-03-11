@@ -214,11 +214,9 @@ func (a *App) resolveBugReportWorkspace() (bugReportWorkspace, error) {
 	if err != nil {
 		return bugReportWorkspace{}, err
 	}
-	for _, workspace := range workspaces {
-		if workspace.IsActive {
-			id := workspace.ID
-			return bugReportWorkspace{Name: workspace.Name, DirPath: workspace.DirPath, ID: &id, Sphere: workspace.Sphere}, nil
-		}
+	if workspace := activeExplicitWorkspace(workspaces); workspace != nil {
+		id := workspace.ID
+		return bugReportWorkspace{Name: workspace.Name, DirPath: workspace.DirPath, ID: &id, Sphere: workspace.Sphere}, nil
 	}
 	if root := strings.TrimSpace(a.localProjectDir); root != "" {
 		name := filepath.Base(root)
