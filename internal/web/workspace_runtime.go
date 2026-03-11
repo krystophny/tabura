@@ -222,7 +222,7 @@ func (a *App) ensureTodayDailyWorkspace() (store.Workspace, error) {
 			}
 		}
 	case isNoRows(activeErr):
-		if err := a.setActiveWorkspaceTracked(workspace.ID, "workspace_switch"); err != nil {
+		if err := a.store.SetActiveWorkspace(workspace.ID); err != nil {
 			return store.Workspace{}, err
 		}
 		workspace, err = a.store.GetWorkspace(workspace.ID)
