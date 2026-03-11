@@ -22,6 +22,36 @@ func (a *App) projectForWorkspace(workspace store.Workspace) (*store.Project, er
 	return &project, nil
 }
 
+func (a *App) workspaceForChatSession(session store.ChatSession) (store.Workspace, error) {
+	if session.WorkspaceID <= 0 {
+		return store.Workspace{}, errors.New("chat session workspace is required")
+	}
+	workspace, err := a.store.GetWorkspace(session.WorkspaceID)
+	if err != nil {
+		return store.Workspace{}, err
+	}
+	if strings.TrimSpace(workspace.DirPath) == "" {
+		return store.Workspace{}, errors.New("workspace path is required")
+	}
+	return workspace, nil
+}
+
+func (a *App) workspaceDirForChatSession(session store.ChatSession) (string, error) {
+	workspace, err := a.workspaceForChatSession(session)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(workspace.DirPath), nil
+}
+
+func (a *App) workspaceDirForChatSessionID(sessionID string) (string, error) {
+	session, err := a.store.GetChatSession(sessionID)
+	if err != nil {
+		return "", err
+	}
+	return a.workspaceDirForChatSession(session)
+}
+
 func (a *App) resolveChatSessionTarget(projectID, projectKey string, workspaceID *int64) (store.Workspace, *store.Project, error) {
 	if workspaceID != nil {
 		workspace, err := a.store.GetWorkspace(*workspaceID)

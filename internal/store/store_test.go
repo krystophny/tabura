@@ -521,6 +521,78 @@ func TestStoreChatSessionsKeyToWorkspace(t *testing.T) {
 	}
 }
 
+func TestGetOrCreateChatSessionPrefersLinkedWorkspaceOverLegacyProjectPath(t *testing.T) {
+	s := newTestStore(t)
+	projectRoot := filepath.Join(t.TempDir(), "project-root")
+	project, err := s.CreateProject("Alpha", "alpha-key", projectRoot, "managed", "", "", false)
+	if err != nil {
+		t.Fatalf("CreateProject() error: %v", err)
+	}
+	workspace, err := s.CreateWorkspace("Alpha", project.RootPath)
+	if err != nil {
+		t.Fatalf("CreateWorkspace() error: %v", err)
+	}
+	workspace, err = s.SetWorkspaceProject(workspace.ID, &project.ID)
+	if err != nil {
+		t.Fatalf("SetWorkspaceProject() error: %v", err)
+	}
+
+	relocatedRoot := filepath.Join(t.TempDir(), "workspace-relocated")
+	if err := os.MkdirAll(relocatedRoot, 0o755); err != nil {
+		t.Fatalf("MkdirAll(relocatedRoot) error: %v", err)
+	}
+	workspace, err = s.UpdateWorkspaceLocation(workspace.ID, workspace.Name, relocatedRoot)
+	if err != nil {
+		t.Fatalf("UpdateWorkspaceLocation() error: %v", err)
+	}
+
+	session, err := s.GetOrCreateChatSession(project.ProjectKey)
+	if err != nil {
+		t.Fatalf("GetOrCreateChatSession() error: %v", err)
+	}
+	if session.WorkspaceID != workspace.ID {
+		t.Fatalf("workspace_id = %d, want %d", session.WorkspaceID, workspace.ID)
+	}
+
+	workspaces, err := s.ListWorkspacesForProject(project.ID)
+	if err != nil {
+		t.Fatalf("ListWorkspacesForProject() error: %v", err)
+	}
+	if len(workspaces) != 1 {
+		t.Fatalf("linked workspace count = %d, want 1", len(workspaces))
+	}
+	if workspaces[0].DirPath != relocatedRoot {
+		t.Fatalf("linked workspace dir_path = %q, want %q", workspaces[0].DirPath, relocatedRoot)
+	}
+}
+
+func TestGetOrCreateChatSessionCreatesWorkspaceForLegacyProjectFallback(t *testing.T) {
+	s := newTestStore(t)
+	projectRoot := filepath.Join(t.TempDir(), "project-root")
+	project, err := s.CreateProject("Alpha", "alpha-key", projectRoot, "managed", "", "", false)
+	if err != nil {
+		t.Fatalf("CreateProject() error: %v", err)
+	}
+
+	session, err := s.GetOrCreateChatSession(project.ProjectKey)
+	if err != nil {
+		t.Fatalf("GetOrCreateChatSession() error: %v", err)
+	}
+	if session.WorkspaceID <= 0 {
+		t.Fatalf("workspace_id = %d, want positive id", session.WorkspaceID)
+	}
+	workspace, err := s.GetWorkspace(session.WorkspaceID)
+	if err != nil {
+		t.Fatalf("GetWorkspace() error: %v", err)
+	}
+	if workspace.DirPath != project.RootPath {
+		t.Fatalf("workspace dir_path = %q, want %q", workspace.DirPath, project.RootPath)
+	}
+	if workspace.ProjectID == nil || *workspace.ProjectID != project.ID {
+		t.Fatalf("workspace project_id = %v, want %q", workspace.ProjectID, project.ID)
+	}
+}
+
 func TestStoreSchemaAndHelperNormalizers(t *testing.T) {
 	s := newTestStore(t)
 

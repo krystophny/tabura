@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -19,8 +21,14 @@ func newCompanionAppServerClient(t *testing.T, assistantMessage string) *appserv
 }
 
 func newCompanionAppServerClientWithCapture(t *testing.T, assistantMessage string) (*appserver.Client, <-chan string) {
+	client, promptCh, _ := newCompanionAppServerClientWithSessionCapture(t, assistantMessage)
+	return client, promptCh
+}
+
+func newCompanionAppServerClientWithSessionCapture(t *testing.T, assistantMessage string) (*appserver.Client, <-chan string, <-chan string) {
 	t.Helper()
 	promptCh := make(chan string, 4)
+	cwdCh := make(chan string, 4)
 	upgrader := websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := upgrader.Upgrade(w, r, nil)
@@ -46,6 +54,12 @@ func newCompanionAppServerClientWithCapture(t *testing.T, assistantMessage strin
 				})
 			case "initialized":
 			case "thread/start":
+				if cwd := appServerThreadStartCWD(msg); strings.TrimSpace(cwd) != "" {
+					select {
+					case cwdCh <- cwd:
+					default:
+					}
+				}
 				_ = conn.WriteJSON(map[string]interface{}{
 					"id": msg["id"],
 					"result": map[string]interface{}{
@@ -93,7 +107,7 @@ func newCompanionAppServerClientWithCapture(t *testing.T, assistantMessage strin
 	if err != nil {
 		t.Fatalf("new appserver client: %v", err)
 	}
-	return client, promptCh
+	return client, promptCh, cwdCh
 }
 
 func appServerPromptFromRPC(msg map[string]interface{}) string {
@@ -111,6 +125,15 @@ func appServerPromptFromRPC(msg map[string]interface{}) string {
 	}
 	text, _ := first["text"].(string)
 	return strings.TrimSpace(text)
+}
+
+func appServerThreadStartCWD(msg map[string]interface{}) string {
+	params, _ := msg["params"].(map[string]interface{})
+	if params == nil {
+		return ""
+	}
+	cwd, _ := params["cwd"].(string)
+	return strings.TrimSpace(cwd)
 }
 
 func waitForAssistantMessage(t *testing.T, app *App, sessionID, want string) {
@@ -132,6 +155,17 @@ func waitForCapturedPrompt(t *testing.T, promptCh <-chan string) string {
 		return prompt
 	case <-time.After(2 * time.Second):
 		t.Fatal("timed out waiting for captured prompt")
+		return ""
+	}
+}
+
+func waitForCapturedThreadStartCWD(t *testing.T, cwdCh <-chan string) string {
+	t.Helper()
+	select {
+	case cwd := <-cwdCh:
+		return cwd
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for captured thread/start cwd")
 		return ""
 	}
 }
@@ -664,5 +698,73 @@ func TestCompanionResponseTriggerIncludesProjectScopedCompanionContext(t *testin
 	}
 	if strings.Contains(prompt, "Zeus") || strings.Contains(prompt, "Mallory") {
 		t.Fatalf("prompt leaked cross-project context: %q", prompt)
+	}
+}
+
+func TestCompanionResponseTriggerUsesWorkspaceDirForAppSession(t *testing.T) {
+	t.Setenv("TABURA_INTENT_LLM_URL", "off")
+	app := newAuthedTestApp(t)
+	client, _, cwdCh := newCompanionAppServerClientWithSessionCapture(t, "Companion reply.")
+	app.appServerClient = client
+
+	project, err := app.ensureDefaultProjectRecord()
+	if err != nil {
+		t.Fatalf("ensure default project: %v", err)
+	}
+	cfg := app.loadCompanionConfig(project)
+	cfg.CompanionEnabled = true
+	cfg.DirectedSpeechGateEnabled = true
+	if err := app.saveCompanionConfig(project.ID, cfg); err != nil {
+		t.Fatalf("save companion config: %v", err)
+	}
+	setLivePolicyForTest(t, app, LivePolicyMeeting)
+
+	session, err := app.chatSessionForProject(project)
+	if err != nil {
+		t.Fatalf("chat session: %v", err)
+	}
+	workspace, err := app.store.GetWorkspace(session.WorkspaceID)
+	if err != nil {
+		t.Fatalf("GetWorkspace() error: %v", err)
+	}
+	relocatedRoot := filepath.Join(t.TempDir(), "workspace-relocated")
+	if err := os.MkdirAll(relocatedRoot, 0o755); err != nil {
+		t.Fatalf("MkdirAll(relocatedRoot) error: %v", err)
+	}
+	workspace, err = app.store.UpdateWorkspaceLocation(workspace.ID, workspace.Name, relocatedRoot)
+	if err != nil {
+		t.Fatalf("UpdateWorkspaceLocation() error: %v", err)
+	}
+	if err := app.store.SetActiveWorkspace(workspace.ID); err != nil {
+		t.Fatalf("SetActiveWorkspace() error: %v", err)
+	}
+
+	participantSession, err := app.store.AddParticipantSession(project.ProjectKey, "{}")
+	if err != nil {
+		t.Fatalf("add participant session: %v", err)
+	}
+	if err := app.store.AddParticipantEvent(participantSession.ID, 0, "session_started", "{}"); err != nil {
+		t.Fatalf("add participant event: %v", err)
+	}
+	seg, err := app.store.AddParticipantSegment(store.ParticipantSegment{
+		SessionID:   participantSession.ID,
+		StartTS:     100,
+		EndTS:       101,
+		Text:        "Tabura, tell me something helpful.",
+		CommittedAt: 102,
+		Status:      "final",
+	})
+	if err != nil {
+		t.Fatalf("add participant segment: %v", err)
+	}
+	if err := app.store.AddParticipantEvent(participantSession.ID, seg.ID, "segment_committed", `{"text":"Tabura, tell me something helpful."}`); err != nil {
+		t.Fatalf("add participant committed event: %v", err)
+	}
+
+	app.maybeTriggerCompanionResponse(participantSession.ID, seg)
+
+	waitForAssistantMessage(t, app, session.ID, "Companion reply.")
+	if got := waitForCapturedThreadStartCWD(t, cwdCh); got != workspace.DirPath {
+		t.Fatalf("thread/start cwd = %q, want %q", got, workspace.DirPath)
 	}
 }
