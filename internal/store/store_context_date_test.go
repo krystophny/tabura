@@ -137,6 +137,82 @@ func TestDailyWorkspaceItemsInheritAndRefreshDateContexts(t *testing.T) {
 	}
 }
 
+func TestDateAndTopicContextQueriesCanBeCombined(t *testing.T) {
+	s := newTestStore(t)
+
+	plasmaWorkspace, err := s.EnsureDailyWorkspace("2026-03-11", filepath.Join(t.TempDir(), "daily", "2026", "03", "11", "plasma"))
+	if err != nil {
+		t.Fatalf("EnsureDailyWorkspace(plasma) error: %v", err)
+	}
+	healthWorkspace, err := s.CreateWorkspace("Health notes", filepath.Join(t.TempDir(), "health"))
+	if err != nil {
+		t.Fatalf("CreateWorkspace(health) error: %v", err)
+	}
+
+	workRootID := contextIDByNameForTest(t, s, "work")
+	workRoot, err := s.GetContext(workRootID)
+	if err != nil {
+		t.Fatalf("GetContext(work) error: %v", err)
+	}
+	privateRootID := contextIDByNameForTest(t, s, "private")
+	privateRoot, err := s.GetContext(privateRootID)
+	if err != nil {
+		t.Fatalf("GetContext(private) error: %v", err)
+	}
+	plasmaContext, err := s.CreateContext("work/plasma", &workRoot.ID)
+	if err != nil {
+		t.Fatalf("CreateContext(work/plasma) error: %v", err)
+	}
+	healthContext, err := s.CreateContext("private/health", &privateRoot.ID)
+	if err != nil {
+		t.Fatalf("CreateContext(private/health) error: %v", err)
+	}
+	marchDay := mustGetContextByName(t, s, "2026/03/11")
+	if err := s.LinkContextToWorkspace(plasmaContext.ID, plasmaWorkspace.ID); err != nil {
+		t.Fatalf("LinkContextToWorkspace(plasma) error: %v", err)
+	}
+	if err := s.LinkContextToWorkspace(marchDay.ID, healthWorkspace.ID); err != nil {
+		t.Fatalf("LinkContextToWorkspace(march day) error: %v", err)
+	}
+	if err := s.LinkContextToWorkspace(healthContext.ID, healthWorkspace.ID); err != nil {
+		t.Fatalf("LinkContextToWorkspace(health) error: %v", err)
+	}
+
+	past := time.Now().UTC().Add(-1 * time.Hour).Format(time.RFC3339)
+	plasmaItem, err := s.CreateItem("Plasma daily item", ItemOptions{
+		State:        ItemStateInbox,
+		WorkspaceID:  &plasmaWorkspace.ID,
+		VisibleAfter: &past,
+	})
+	if err != nil {
+		t.Fatalf("CreateItem(plasma) error: %v", err)
+	}
+	_, err = s.CreateItem("Health daily item", ItemOptions{
+		State:        ItemStateInbox,
+		WorkspaceID:  &healthWorkspace.ID,
+		VisibleAfter: &past,
+	})
+	if err != nil {
+		t.Fatalf("CreateItem(health) error: %v", err)
+	}
+
+	workspaces, err := s.ListWorkspacesByContextPrefix("2026/03/11 + work/plasma")
+	if err != nil {
+		t.Fatalf("ListWorkspacesByContextPrefix(combined) error: %v", err)
+	}
+	if len(workspaces) != 1 || workspaces[0].ID != plasmaWorkspace.ID {
+		t.Fatalf("ListWorkspacesByContextPrefix(combined) = %+v, want workspace %d", workspaces, plasmaWorkspace.ID)
+	}
+
+	items, err := s.ListItemsByContextPrefix("2026/03/11 + work/plasma")
+	if err != nil {
+		t.Fatalf("ListItemsByContextPrefix(combined) error: %v", err)
+	}
+	if len(items) != 1 || items[0].ID != plasmaItem.ID {
+		t.Fatalf("ListItemsByContextPrefix(combined) = %+v, want item %d", items, plasmaItem.ID)
+	}
+}
+
 func mustGetContextByName(t *testing.T, s *Store, name string) Context {
 	t.Helper()
 	contextID := contextIDByNameForTest(t, s, name)

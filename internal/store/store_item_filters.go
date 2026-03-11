@@ -53,11 +53,13 @@ func (s *Store) prepareItemListFilter(filter ItemListFilter) (ItemListFilter, er
 	if normalized.Context == "" {
 		return normalized, nil
 	}
-	contextIDs, err := s.resolveContextQueryIDs(normalized.Context)
-	if err != nil {
-		return ItemListFilter{}, err
+	for _, term := range splitContextQueryTerms(normalized.Context) {
+		contextIDs, err := s.resolveContextQueryIDs(term)
+		if err != nil {
+			return ItemListFilter{}, err
+		}
+		normalized.resolvedContextGroups = append(normalized.resolvedContextGroups, contextIDs)
 	}
-	normalized.resolvedContextIDs = contextIDs
 	normalized.contextResolved = true
 	return normalized, nil
 }
@@ -95,15 +97,21 @@ func appendItemFilterClauses(parts []string, args []any, filter ItemListFilter, 
 		args = append(args, *filter.ProjectID)
 	}
 	if filter.contextResolved {
-		if len(filter.resolvedContextIDs) == 0 {
+		if len(filter.resolvedContextGroups) == 0 {
 			parts = append(parts, "0=1")
 			return parts, args
 		}
-		contextItemMatch, contextItemArgs := contextLinkExistsClause("context_items", "item_id", outerColumn("id"), filter.resolvedContextIDs)
-		contextWorkspaceMatch, contextWorkspaceArgs := contextLinkExistsClause("context_workspaces", "workspace_id", outerColumn("workspace_id"), filter.resolvedContextIDs)
-		parts = append(parts, `(`+contextItemMatch+` OR `+contextWorkspaceMatch+`)`)
-		args = append(args, contextItemArgs...)
-		args = append(args, contextWorkspaceArgs...)
+		for _, contextIDs := range filter.resolvedContextGroups {
+			if len(contextIDs) == 0 {
+				parts = append(parts, "0=1")
+				return parts, args
+			}
+			contextItemMatch, contextItemArgs := contextLinkExistsClause("context_items", "item_id", outerColumn("id"), contextIDs)
+			contextWorkspaceMatch, contextWorkspaceArgs := contextLinkExistsClause("context_workspaces", "workspace_id", outerColumn("workspace_id"), contextIDs)
+			parts = append(parts, `(`+contextItemMatch+` OR `+contextWorkspaceMatch+`)`)
+			args = append(args, contextItemArgs...)
+			args = append(args, contextWorkspaceArgs...)
+		}
 		return parts, args
 	}
 	if filter.ContextID != nil {

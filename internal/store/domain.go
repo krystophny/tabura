@@ -87,15 +87,15 @@ type ItemOptions struct {
 }
 
 type ItemListFilter struct {
-	Sphere              string  `json:"sphere,omitempty"`
-	Source              string  `json:"source,omitempty"`
-	WorkspaceID         *int64  `json:"workspace_id,omitempty"`
-	WorkspaceUnassigned bool    `json:"workspace_unassigned,omitempty"`
-	ProjectID           *string `json:"project_id,omitempty"`
-	ContextID           *int64  `json:"context_id,omitempty"`
-	Context             string  `json:"context,omitempty"`
-	resolvedContextIDs  []int64
-	contextResolved     bool
+	Sphere                string  `json:"sphere,omitempty"`
+	Source                string  `json:"source,omitempty"`
+	WorkspaceID           *int64  `json:"workspace_id,omitempty"`
+	WorkspaceUnassigned   bool    `json:"workspace_unassigned,omitempty"`
+	ProjectID             *string `json:"project_id,omitempty"`
+	ContextID             *int64  `json:"context_id,omitempty"`
+	Context               string  `json:"context,omitempty"`
+	resolvedContextGroups [][]int64
+	contextResolved       bool
 }
 
 type Context struct {
