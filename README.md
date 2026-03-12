@@ -127,16 +127,14 @@ Until upstream release catches up, Tabura docs and service integration assume:
 
 If you build voxtype from source for Tabura STT, use that branch.
 
-On macOS, voxtype requires building from source with platform patches
-(upstream is Linux-only). Use the provided build script:
+On macOS, build voxtype from source using the provided script:
 
 ```bash
 scripts/build-voxtype-macos.sh
 ```
 
-This clones the pinned branch, patches Linux-only dependencies (evdev,
-inotify) to be platform-conditional, and builds with Metal GPU support
-on Apple Silicon. Requires Rust (`rustup`) and `cmake`.
+This clones the pinned branch and builds with Metal GPU support on
+Apple Silicon. Requires Rust (`rustup`) and `cmake`.
 
 ## LAN HTTPS For Voice Capture
 

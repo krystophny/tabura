@@ -25,10 +25,9 @@ print_help() {
     cat <<USAGE
 Usage: scripts/build-voxtype-macos.sh [options]
 
-Builds voxtype from source on macOS with patches for platform compatibility.
-Voxtype is a Rust application that provides local OpenAI-compatible STT.
-Upstream is Linux-only; this script patches evdev/inotify deps to be
-Linux-conditional so the service mode compiles on macOS.
+Builds voxtype from source on macOS.
+Voxtype provides local OpenAI-compatible speech-to-text.
+The pinned branch includes macOS support with Metal GPU acceleration.
 
 Options:
   --yes       Non-interactive mode
@@ -67,89 +66,6 @@ log "Cloning $VOXTYPE_REPO (branch: $VOXTYPE_BRANCH)"
 git clone --depth 1 --branch "$VOXTYPE_BRANCH" "$VOXTYPE_REPO" "$BUILD_DIR/voxtype"
 
 cd "$BUILD_DIR/voxtype"
-
-# --- Apply macOS compatibility patches ---
-
-log "Patching Cargo.toml: making evdev/inotify Linux-conditional"
-
-# Remove evdev and inotify from unconditional [dependencies].
-# Use awk for reliable multi-line Cargo.toml editing.
-awk '
-    /^evdev[[:space:]]*=/ { next }
-    /^inotify[[:space:]]*=.*Watch .dev.input/ { next }
-    { print }
-' Cargo.toml > Cargo.toml.tmp
-mv Cargo.toml.tmp Cargo.toml
-
-# Append Linux-only dependency section before [features].
-awk '
-    /^\[features\]/ {
-        print "[target.'\''cfg(target_os = \"linux\")'\''.dependencies]"
-        print "evdev = \"0.12\""
-        print "inotify = \"0.10\""
-        print ""
-    }
-    { print }
-' Cargo.toml > Cargo.toml.tmp
-mv Cargo.toml.tmp Cargo.toml
-
-log "Patching src/error.rs: gating From<evdev::Error> impl"
-
-# Guard the From<evdev::Error> impl with cfg(target_os = "linux").
-awk '
-    /^impl From<evdev::Error>/ {
-        print "#[cfg(target_os = \"linux\")]"
-    }
-    { print }
-' src/error.rs > src/error.rs.tmp
-mv src/error.rs.tmp src/error.rs
-
-log "Patching src/hotkey/mod.rs: adding non-Linux stub"
-
-# Replace the hotkey module with a version that has platform guards.
-cat > src/hotkey/mod.rs <<'HOTKEY_MOD'
-//! Hotkey detection module (Linux-only, stubbed on other platforms)
-
-#[cfg(target_os = "linux")]
-pub mod evdev_listener;
-
-use crate::config::HotkeyConfig;
-use crate::error::HotkeyError;
-use tokio::sync::mpsc;
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum HotkeyEvent {
-    Pressed {
-        model_override: Option<String>,
-    },
-    Released,
-    Cancel,
-}
-
-#[async_trait::async_trait]
-pub trait HotkeyListener: Send + Sync {
-    async fn start(&mut self) -> Result<mpsc::Receiver<HotkeyEvent>, HotkeyError>;
-    async fn stop(&mut self) -> Result<(), HotkeyError>;
-}
-
-#[cfg(target_os = "linux")]
-pub fn create_listener(
-    config: &HotkeyConfig,
-    secondary_model: Option<String>,
-) -> Result<Box<dyn HotkeyListener>, HotkeyError> {
-    let mut listener = evdev_listener::EvdevListener::new(config)?;
-    listener.set_secondary_model(secondary_model);
-    Ok(Box::new(listener))
-}
-
-#[cfg(not(target_os = "linux"))]
-pub fn create_listener(
-    _config: &HotkeyConfig,
-    _secondary_model: Option<String>,
-) -> Result<Box<dyn HotkeyListener>, HotkeyError> {
-    Err(HotkeyError::NoKeyboard)
-}
-HOTKEY_MOD
 
 # --- Build ---
 
