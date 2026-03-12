@@ -7,7 +7,6 @@ import (
 	"reflect"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -553,6 +552,3 @@ func mergeStringInterfaceParams(dst map[string]interface{}, extra map[string]int
 	}
 	return dst
 }
-
-// defaultTurnTimeout is the per-turn read timeout when no ctx deadline is set.
-const defaultTurnTimeout = 120 * time.Second

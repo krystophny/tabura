@@ -8,12 +8,22 @@ snapshot_all() {
   (
     cd "$REPO_ROOT"
     {
-      find cmd internal deploy/systemd/user scripts -type f \
-        \( -name '*.go' -o -name '*.js' -o -name '*.css' -o -name '*.html' -o -name '*.json' -o -name '*.service' -o -name '*.sh' \) \
-        -printf '%p\t%T@\t%s\n' 2>/dev/null
+      if [[ "$(uname)" == "Darwin" ]]; then
+        find cmd internal deploy/launchd scripts -type f \
+          \( -name '*.go' -o -name '*.js' -o -name '*.css' -o -name '*.html' -o -name '*.json' -o -name '*.plist' -o -name '*.sh' \) \
+          -exec stat -f '%N	%m	%z' {} + 2>/dev/null
+      else
+        find cmd internal deploy/systemd/user scripts -type f \
+          \( -name '*.go' -o -name '*.js' -o -name '*.css' -o -name '*.html' -o -name '*.json' -o -name '*.service' -o -name '*.sh' \) \
+          -printf '%p\t%T@\t%s\n' 2>/dev/null
+      fi
       for f in go.mod go.sum; do
         if [[ -f "$f" ]]; then
-          stat -c '%n\t%Y\t%s' "$f"
+          if [[ "$(uname)" == "Darwin" ]]; then
+            stat -f '%N	%m	%z' "$f"
+          else
+            stat -c '%n	%Y	%s' "$f"
+          fi
         fi
       done
     } | sort

@@ -13,8 +13,6 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-const defaultPromptTimeout = 90 * time.Second
-
 type Client struct {
 	URL    string
 	Dialer *websocket.Dialer
@@ -120,14 +118,12 @@ func (c *Client) SendPromptStream(ctx context.Context, req PromptRequest, onEven
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	timeout := req.Timeout
-	if timeout <= 0 {
-		timeout = defaultPromptTimeout
-	}
-	if _, hasDeadline := ctx.Deadline(); !hasDeadline {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, timeout)
-		defer cancel()
+	if req.Timeout > 0 {
+		if _, hasDeadline := ctx.Deadline(); !hasDeadline {
+			var cancel context.CancelFunc
+			ctx, cancel = context.WithTimeout(ctx, req.Timeout)
+			defer cancel()
+		}
 	}
 
 	dialer := c.Dialer
@@ -610,7 +606,7 @@ func setReadDeadline(ctx context.Context, conn *websocket.Conn) error {
 	if deadline, ok := ctx.Deadline(); ok {
 		return conn.SetReadDeadline(deadline)
 	}
-	return conn.SetReadDeadline(time.Now().Add(defaultPromptTimeout))
+	return conn.SetReadDeadline(time.Time{})
 }
 
 func setWriteDeadline(ctx context.Context, conn *websocket.Conn) error {
