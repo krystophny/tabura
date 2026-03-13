@@ -116,6 +116,7 @@ install_linux() {
   local unit_src="$REPO_ROOT/deploy/systemd/user"
   local unit_dst="$HOME/.config/systemd/user"
   local effective_llm_url="${REUSE_LLM_URL:-http://127.0.0.1:8426}"
+  local web_host="${TABURA_WEB_HOST:-127.0.0.1}"
   local -a core_units=(
     tabura-codex-app-server.service
     tabura-piper-tts.service
@@ -135,6 +136,7 @@ install_linux() {
     fi
     sed -e "s|@@REPO_ROOT@@|${REPO_ROOT}|g" \
         -e "s|@@LLAMA_SERVER_BIN@@|${LLAMA_SERVER_BIN_RESOLVED}|g" \
+        -e "s|@@TABURA_WEB_HOST@@|${web_host}|g" \
         -e "s|@@TABURA_INTENT_LLM_URL@@|${effective_llm_url}|g" \
         "$f" > "$unit_dst/$base"
   done
@@ -227,6 +229,7 @@ install_macos() {
   local data_root="$HOME/Library/Application Support/tabura"
   local bin_path codex_path web_data_dir piper_model_dir piper_venv_dir
   local effective_llm_url="${REUSE_LLM_URL:-http://127.0.0.1:8426}"
+  local web_host="${TABURA_WEB_HOST:-127.0.0.1}"
 
   [ -d "$plist_src" ] || fail "launchd templates not found: $plist_src"
 
@@ -270,6 +273,7 @@ install_macos() {
       -e "s|@@CODEX_PATH@@|${codex_path}|g" \
       -e "s|@@PROJECT_DIR@@|${REPO_ROOT}|g" \
       -e "s|@@WEB_DATA_DIR@@|${web_data_dir}|g" \
+      -e "s|@@TABURA_WEB_HOST@@|${web_host}|g" \
       -e "s|@@VENV_DIR@@|${piper_venv_dir}|g" \
       -e "s|@@SCRIPT_DIR@@|${REPO_ROOT}/scripts|g" \
       -e "s|@@PIPER_MODEL_DIR@@|${piper_model_dir}|g" \
@@ -319,6 +323,7 @@ activate_launchd() {
 
 activate_direct() {
   local pidfile="/tmp/tabura-pids.txt"
+  local web_host="${TABURA_WEB_HOST:-127.0.0.1}"
   : > "$pidfile"
 
   for name in "$@"; do
@@ -341,7 +346,7 @@ activate_direct() {
         TABURA_INTENT_LLM_PROFILE_OPTIONS=qwen3.5-9b,qwen3.5-4b \
         nohup "$bin_path" server \
           --project-dir "$REPO_ROOT" --data-dir "$web_data_dir" \
-          --web-host 127.0.0.1 --web-port 8420 \
+          --web-host "$web_host" --web-port 8420 \
           --mcp-host 127.0.0.1 --mcp-port 9420 \
           --app-server-url ws://127.0.0.1:8787 \
           --tts-url http://127.0.0.1:8424 \

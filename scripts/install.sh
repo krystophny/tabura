@@ -753,6 +753,7 @@ UNIT
     fi
 
     local effective_llm_url="${REUSE_LLM_URL:-http://127.0.0.1:8426}"
+    local web_host="${TABURA_WEB_HOST:-127.0.0.1}"
 
     cat >"${systemd_dir}/tabura-web.service" <<UNIT
 [Unit]
@@ -766,7 +767,7 @@ Environment=TABURA_INTENT_LLM_URL=${effective_llm_url}
 Environment=TABURA_INTENT_LLM_MODEL=local
 Environment=TABURA_INTENT_LLM_PROFILE=qwen3.5-9b
 Environment=TABURA_INTENT_LLM_PROFILE_OPTIONS=qwen3.5-9b,qwen3.5-4b
-ExecStart=${BIN_PATH} server --project-dir ${PROJECT_DIR} --data-dir ${WEB_DATA_DIR} --web-host 127.0.0.1 --web-port 8420 --mcp-host 127.0.0.1 --mcp-port 9420 --app-server-url ws://127.0.0.1:8787 --tts-url http://127.0.0.1:8424
+ExecStart=${BIN_PATH} server --project-dir ${PROJECT_DIR} --data-dir ${WEB_DATA_DIR} --web-host ${web_host} --web-port 8420 --mcp-host 127.0.0.1 --mcp-port 9420 --app-server-url ws://127.0.0.1:8787 --tts-url http://127.0.0.1:8424
 Restart=on-failure
 RestartSec=2
 
@@ -790,11 +791,13 @@ install_services_linux() {
 substitute_launchd_template() {
     local src="$1" dst="$2"
     local effective_llm_url="${REUSE_LLM_URL:-http://127.0.0.1:8426}"
+    local web_host="${TABURA_WEB_HOST:-127.0.0.1}"
     sed \
         -e "s|@@BIN_PATH@@|${BIN_PATH}|g" \
         -e "s|@@CODEX_PATH@@|${CODEX_PATH}|g" \
         -e "s|@@PROJECT_DIR@@|${PROJECT_DIR}|g" \
         -e "s|@@WEB_DATA_DIR@@|${WEB_DATA_DIR}|g" \
+        -e "s|@@TABURA_WEB_HOST@@|${web_host}|g" \
         -e "s|@@VENV_DIR@@|${VENV_DIR}|g" \
         -e "s|@@SCRIPT_DIR@@|${SCRIPT_DIR}|g" \
         -e "s|@@PIPER_MODEL_DIR@@|${MODEL_DIR}|g" \

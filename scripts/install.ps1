@@ -29,6 +29,7 @@ $LlmDir = Join-Path $DataRoot "llm"
 $LlmModelDir = Join-Path $LlmDir "models"
 $LlmSetupScript = Join-Path $ScriptDir "setup-local-llm.sh"
 $SkipLlm = $env:TABURA_INSTALL_SKIP_LLM -eq "1"
+$WebHost = if ($env:TABURA_WEB_HOST) { $env:TABURA_WEB_HOST } else { "127.0.0.1" }
 
 function Write-Log {
     param([string]$Message)
@@ -302,7 +303,7 @@ function Setup-LocalLlm {
 function Write-TaskFiles {
     param([string]$CodexPath)
 
-    $webCmd = 'set "TABURA_INTENT_LLM_URL=http://127.0.0.1:8426" && set "TABURA_INTENT_LLM_MODEL=local" && set "TABURA_INTENT_LLM_PROFILE=qwen3.5-9b" && set "TABURA_INTENT_LLM_PROFILE_OPTIONS=qwen3.5-9b,qwen3.5-4b" && "' + $BinaryPath + '" server --project-dir "' + $ProjectDir + '" --data-dir "' + $WebDataDir + '" --web-host 127.0.0.1 --web-port 8420 --mcp-host 127.0.0.1 --mcp-port 9420 --app-server-url ws://127.0.0.1:8787 --tts-url http://127.0.0.1:8424'
+    $webCmd = 'set "TABURA_INTENT_LLM_URL=http://127.0.0.1:8426" && set "TABURA_INTENT_LLM_MODEL=local" && set "TABURA_INTENT_LLM_PROFILE=qwen3.5-9b" && set "TABURA_INTENT_LLM_PROFILE_OPTIONS=qwen3.5-9b,qwen3.5-4b" && "' + $BinaryPath + '" server --project-dir "' + $ProjectDir + '" --data-dir "' + $WebDataDir + '" --web-host ' + $WebHost + ' --web-port 8420 --mcp-host 127.0.0.1 --mcp-port 9420 --app-server-url ws://127.0.0.1:8787 --tts-url http://127.0.0.1:8424'
     $piperCmd = 'set "PIPER_MODEL_DIR=' + $ModelDir + '" && "' + (Join-Path $PiperVenv 'Scripts\python.exe') + '" -m uvicorn piper_tts_server:app --app-dir "' + $ScriptDir + '" --host 127.0.0.1 --port 8424'
     $codexCmd = '"' + $CodexPath + '" app-server --listen ws://127.0.0.1:8787'
 

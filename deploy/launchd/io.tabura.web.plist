@@ -13,7 +13,7 @@
     <string>--data-dir</string>
     <string>@@WEB_DATA_DIR@@</string>
     <string>--web-host</string>
-    <string>127.0.0.1</string>
+    <string>@@TABURA_WEB_HOST@@</string>
     <string>--web-port</string>
     <string>8420</string>
     <string>--mcp-host</string>
