@@ -280,7 +280,9 @@ export async function activateLiveSession(mode) {
   if (normalized !== LIVE_SESSION_MODE_DIALOGUE && normalized !== LIVE_SESSION_MODE_MEETING) return false;
   if (!activeProject()) return false;
   const wasMeeting = isMeetingLiveSession();
-  await updateLivePolicy(normalized);
+  if (normalizeLivePolicy(state.livePolicy) !== normalized) {
+    await updateLivePolicy(normalized);
+  }
   if (state.liveSessionActive) {
     stopLiveSession();
     applyLiveSessionStateSnapshot();

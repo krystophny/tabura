@@ -2,6 +2,7 @@ package web
 
 import (
 	"errors"
+	"log"
 	"net/http"
 	"strings"
 )
@@ -190,12 +191,14 @@ func (a *App) handleLivePolicyPost(w http.ResponseWriter, r *http.Request) {
 	}
 	policy, err := decodeLivePolicyRequest(r)
 	if err != nil {
+		log.Printf("live policy update rejected: err=%v", err)
 		http.Error(w, "invalid JSON", http.StatusBadRequest)
 		return
 	}
 	current := a.LivePolicy()
 	changed, err := a.setLivePolicy(policy)
 	if err != nil {
+		log.Printf("live policy update failed: current=%s requested=%s err=%v", current.String(), policy.String(), err)
 		http.Error(w, "failed to save live policy", http.StatusInternalServerError)
 		return
 	}
