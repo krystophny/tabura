@@ -733,7 +733,8 @@ export function hasVisibleCanvasArtifact() {
 }
 
 export function shouldShowCompanionIdleSurface() {
-  if (!state.companionEnabled) return false;
+  const dialogueCompanionActive = state.liveSessionActive && state.liveSessionMode === 'dialogue';
+  if (!state.companionEnabled && !dialogueCompanionActive) return false;
   if (hasVisibleCanvasArtifact()) return false;
   if (state.liveSessionActive && state.liveSessionMode !== 'dialogue') return false;
   return true;

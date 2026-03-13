@@ -453,8 +453,36 @@ test('silent mode keeps dialogue listening active without speaking', async ({ pa
   expect(log.some((entry) => entry.type === 'tts')).toBe(false);
 });
 
-test('dialogue barge-in interrupts TTS and starts recording', async ({ page }) => {
+test('dialogue shows the companion robot by default', async ({ page }) => {
   await setDialogueMode(page, true);
+
+  await expect.poll(async () => page.evaluate(() => {
+    const surface = document.getElementById('companion-idle-surface');
+    if (!(surface instanceof HTMLElement)) return null;
+    return {
+      hidden: surface.getAttribute('aria-hidden'),
+      display: surface.style.display || window.getComputedStyle(surface).display,
+      surface: surface.dataset.surface || '',
+    };
+  })).toEqual({
+    hidden: 'false',
+    display: 'block',
+    surface: 'robot',
+  });
+});
+
+test('dialogue barge-in interrupts TTS and starts recording with connected turn intelligence', async ({ page }) => {
+  await setDialogueMode(page, true);
+  await injectTurnEvent(page, {
+    type: 'turn_ready',
+    session_id: 'test-session',
+    profile: 'balanced',
+    eval_logging_enabled: true,
+  });
+  await expect.poll(async () => page.evaluate(() => {
+    const app = (window as any)._taburaApp;
+    return Boolean(app?.getState?.().dialogueDiagnostics?.connected);
+  })).toBe(true);
   await page.evaluate(() => {
     (window as any).__setTTSPlaybackDelayMs(750);
     (window as any).__setVadDbFrames([

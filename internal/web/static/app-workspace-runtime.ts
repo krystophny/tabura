@@ -288,6 +288,13 @@ export async function activateLiveSession(mode) {
     applyLiveSessionStateSnapshot();
   }
   if (normalized === LIVE_SESSION_MODE_MEETING) {
+    applyCompanionState({
+      project_key: activeProjectKey(),
+      companion_enabled: true,
+      idle_surface: state.companionIdleSurface,
+      state: state.companionRuntimeState,
+      reason: state.companionRuntimeReason,
+    });
     await updateCompanionConfig({ companion_enabled: true });
     try {
       const started = await startLiveSession(LIVE_SESSION_MODE_MEETING, state.chatWs);
@@ -299,6 +306,13 @@ export async function activateLiveSession(mode) {
       throw err;
     }
   }
+  applyCompanionState({
+    project_key: activeProjectKey(),
+    companion_enabled: true,
+    idle_surface: state.companionIdleSurface,
+    state: state.companionRuntimeState,
+    reason: state.companionRuntimeReason,
+  });
   await updateCompanionConfig({ companion_enabled: true }).catch(() => {});
   const started = await startLiveSession(LIVE_SESSION_MODE_DIALOGUE, state.chatWs);
   applyLiveSessionStateSnapshot();

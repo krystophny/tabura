@@ -12,6 +12,7 @@ export const LIVE_SESSION_HOTWORD_DEFAULT = 'Alexa';
 
 const BARGE_IN_THRESHOLD = 0.75;
 const BARGE_IN_CONSECUTIVE_FRAMES = 3;
+const BARGE_IN_FALLBACK_GRACE_MS = 220;
 
 const hooks = {
   canStartDialogueListen: null,
@@ -38,7 +39,9 @@ const state = {
   dialogueSessionToken: 0,
   dialogueRetryCount: 0,
   ttsBargeInMode: false,
+  ttsBargeInArmedAt: 0,
   bargeInConsecutive: 0,
+  bargeInPending: false,
   meetingCapture: null,
   meetingSessionID: '',
 };
@@ -76,12 +79,32 @@ function clearDialogueSileroVAD() {
 function closeDialogueListenWindow() {
   clearDialogueSileroVAD();
   state.ttsBargeInMode = false;
+  state.ttsBargeInArmedAt = 0;
   state.bargeInConsecutive = 0;
+  state.bargeInPending = false;
   if (state.dialogueListenActive) {
     state.dialogueListenActive = false;
   }
   sendTurnListenState(false);
   notifyStateChange();
+}
+
+function pauseDialogueListenForCapture() {
+  if (state.dialogueListenSileroVAD) {
+    try { state.dialogueListenSileroVAD.pause(); } catch (_) {}
+  }
+  state.dialogueListenActive = false;
+  state.ttsBargeInMode = false;
+  state.ttsBargeInArmedAt = 0;
+  state.bargeInConsecutive = 0;
+  sendTurnListenState(false);
+  notifyStateChange();
+}
+
+function localBargeInFallbackArmed() {
+  if (!state.ttsBargeInMode) return false;
+  if (state.ttsBargeInArmedAt <= 0) return true;
+  return (Date.now() - state.ttsBargeInArmedAt) >= BARGE_IN_FALLBACK_GRACE_MS;
 }
 
 function canStartDialogueListen() {
@@ -128,7 +151,6 @@ async function startSileroDialogueMonitor(stream, token) {
         if (state.ttsBargeInMode) {
           if (isTurnIntelligenceConnected()) {
             sendTurnSpeechStart(true);
-            return;
           }
           return;
         }
@@ -146,8 +168,8 @@ async function startSileroDialogueMonitor(stream, token) {
           : (probs && typeof probs.isSpeech === 'number' ? probs.isSpeech : 0);
         if (isTurnIntelligenceConnected()) {
           sendTurnSpeechProbability(p, true);
-          return;
         }
+        if (!localBargeInFallbackArmed()) return;
         if (p >= BARGE_IN_THRESHOLD) {
           state.bargeInConsecutive += 1;
           if (state.bargeInConsecutive >= BARGE_IN_CONSECUTIVE_FRAMES) {
@@ -183,6 +205,11 @@ async function startSileroDialogueMonitor(stream, token) {
 }
 
 function fireBargeIn() {
+  if (!state.dialogueListenActive || !state.ttsBargeInMode || state.bargeInPending) {
+    return;
+  }
+  state.bargeInPending = true;
+  pauseDialogueListenForCapture();
   if (typeof hooks.onDialogueBargeIn === 'function') {
     hooks.onDialogueBargeIn();
   }
@@ -349,14 +376,7 @@ export function onLiveSessionTTSPlaybackComplete() {
 
 export function onDialogueSpeechDetected() {
   if (!state.dialogueListenActive) return;
-  if (state.dialogueListenSileroVAD) {
-    state.dialogueListenSileroVAD.pause();
-  }
-  state.dialogueListenActive = false;
-  state.ttsBargeInMode = false;
-  state.bargeInConsecutive = 0;
-  sendTurnListenState(false);
-  notifyStateChange();
+  pauseDialogueListenForCapture();
   if (typeof hooks.onDialogueSpeechDetected === 'function') {
     hooks.onDialogueSpeechDetected();
   }
@@ -367,7 +387,9 @@ export function resumeDialogueListen() {
   if (state.dialogueListenSileroVAD) {
     state.dialogueListenActive = true;
     state.ttsBargeInMode = false;
+    state.ttsBargeInArmedAt = 0;
     state.bargeInConsecutive = 0;
+    state.bargeInPending = false;
     state.dialogueListenSileroVAD.start();
     sendTurnListenState(true);
     notifyStateChange();
@@ -378,7 +400,11 @@ export function resumeDialogueListen() {
 
 export function setDialogueTTSBargeInMode(active) {
   state.ttsBargeInMode = Boolean(active);
+  state.ttsBargeInArmedAt = state.ttsBargeInMode ? Date.now() : 0;
   state.bargeInConsecutive = 0;
+  if (!state.ttsBargeInMode) {
+    state.bargeInPending = false;
+  }
 }
 
 export function handleLiveSessionMessage(message) {
