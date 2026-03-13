@@ -14,6 +14,7 @@ export const WS_URL = (() => {
   return url.toString().replace(/\/$/, '');
 })();
 const SESSION_COOKIE_NAME = 'tabura_session';
+const preseededSessionToken = String(process.env.TABURA_TEST_SESSION_TOKEN || '').trim();
 
 function usesManagedServer(): boolean {
   return process.env.E2E_MANAGED_SERVER === '1'
@@ -54,6 +55,9 @@ const testPassword = loadTestPassword();
 // ---------------------------------------------------------------------------
 
 export async function authenticate(): Promise<string> {
+  if (preseededSessionToken) {
+    return preseededSessionToken;
+  }
   const setupResp = await fetch(`${SERVER_URL}/api/setup`);
   const setup = (await setupResp.json()) as Record<string, unknown>;
 

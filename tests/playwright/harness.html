@@ -209,6 +209,8 @@
       started_at: '2026-03-08T14:00:00Z',
       tts_enabled: true,
       turn_intelligence_enabled: true,
+      turn_policy_profile: 'balanced',
+      turn_eval_logging_enabled: true,
       silent_mode: false,
       live_policy: harnessParams.get('live_policy') === 'meeting' ? 'meeting' : 'dialogue',
       tool: 'pointer',
@@ -287,6 +289,15 @@
       }
       if (Object.prototype.hasOwnProperty.call(next, 'active_sphere')) {
         runtimeState.active_sphere = String(next.active_sphere || '').trim().toLowerCase() === 'work' ? 'work' : 'private';
+      }
+      if (Object.prototype.hasOwnProperty.call(next, 'turn_policy_profile')) {
+        const normalized = String(next.turn_policy_profile || '').trim().toLowerCase();
+        runtimeState.turn_policy_profile = ['balanced', 'patient', 'assertive'].includes(normalized)
+          ? normalized
+          : 'balanced';
+      }
+      if (Object.prototype.hasOwnProperty.call(next, 'turn_eval_logging_enabled')) {
+        runtimeState.turn_eval_logging_enabled = Boolean(next.turn_eval_logging_enabled);
       }
     };
     window.__getRuntimeState = () => ({ ...runtimeState });
@@ -1476,6 +1487,15 @@
         if (typeof body?.active_sphere === 'string') {
           runtimeState.active_sphere = String(body.active_sphere).trim().toLowerCase() === 'work' ? 'work' : 'private';
         }
+        if (typeof body?.turn_policy_profile === 'string') {
+          const normalized = String(body.turn_policy_profile).trim().toLowerCase();
+          runtimeState.turn_policy_profile = ['balanced', 'patient', 'assertive'].includes(normalized)
+            ? normalized
+            : 'balanced';
+        }
+        if (Object.prototype.hasOwnProperty.call(body, 'turn_eval_logging_enabled')) {
+          runtimeState.turn_eval_logging_enabled = Boolean(body.turn_eval_logging_enabled);
+        }
         window.__harnessLog.push({
           type: 'api_fetch',
           action: 'runtime_preferences',
@@ -1490,6 +1510,8 @@
           tool: runtimeState.tool,
           startup_behavior: runtimeState.startup_behavior,
           active_sphere: runtimeState.active_sphere,
+          turn_policy_profile: runtimeState.turn_policy_profile,
+          turn_eval_logging_enabled: runtimeState.turn_eval_logging_enabled,
         }), { status: 200 });
       }
       if (u.includes('/api/live-policy') && opts?.method === 'POST') {
@@ -2702,11 +2724,36 @@
         this.onopen = null;
         this.onmessage = null;
         this.onclose = null;
-        this.__turnState = { pendingText: '', playing: false, playedMs: 0, speechFrames: 0 };
+        this.__turnState = {
+          pendingText: '',
+          playing: false,
+          playedMs: 0,
+          speechFrames: 0,
+          profile: runtimeState.turn_policy_profile,
+          evalLoggingEnabled: runtimeState.turn_eval_logging_enabled,
+        };
         // Track all WS instances for test injection
         if (!window.__mockWsSessions) window.__mockWsSessions = [];
         window.__mockWsSessions.push(this);
-        setTimeout(() => { if (this.onopen) this.onopen({}); }, 10);
+        setTimeout(() => {
+          if (this.onopen) this.onopen({});
+          if (this.url.includes('/ws/turn/') && this.onmessage) {
+            this.onmessage({ data: JSON.stringify({
+              type: 'turn_ready',
+              session_id: 'chat-local',
+              profile: this.__turnState.profile,
+              eval_logging_enabled: this.__turnState.evalLoggingEnabled,
+              metrics: {
+                profile: this.__turnState.profile,
+                eval_logging_enabled: this.__turnState.evalLoggingEnabled,
+                actions: {},
+                playback_active: false,
+                played_audio_ms: 0,
+                pending_text_chars: 0,
+              },
+            }) });
+          }
+        }, 10);
       }
       send(data) {
         if (data instanceof ArrayBuffer || data instanceof Blob) {
@@ -2729,6 +2776,43 @@
               turnState.pendingText = '';
               turnState.speechFrames = 0;
               window.__harnessLog.push({ type: 'turn', action: 'reset' });
+              if (ws.onmessage) {
+                ws.onmessage({ data: JSON.stringify({
+                  type: 'turn_metrics',
+                  metrics: {
+                    profile: turnState.profile,
+                    eval_logging_enabled: turnState.evalLoggingEnabled,
+                    actions: {},
+                    playback_active: turnState.playing,
+                    played_audio_ms: turnState.playedMs,
+                    pending_text_chars: 0,
+                    metadata: { last_update: 'reset' },
+                  },
+                }) });
+              }
+            } else if (msg.type === 'turn_config') {
+              if (typeof msg.profile === 'string') {
+                const normalized = String(msg.profile).trim().toLowerCase();
+                turnState.profile = ['balanced', 'patient', 'assertive'].includes(normalized) ? normalized : 'balanced';
+              }
+              if (Object.prototype.hasOwnProperty.call(msg, 'eval_logging_enabled')) {
+                turnState.evalLoggingEnabled = Boolean(msg.eval_logging_enabled);
+              }
+              window.__harnessLog.push({ type: 'turn', action: 'config', profile: turnState.profile, eval_logging_enabled: turnState.evalLoggingEnabled });
+              if (ws.onmessage) {
+                ws.onmessage({ data: JSON.stringify({
+                  type: 'turn_metrics',
+                  metrics: {
+                    profile: turnState.profile,
+                    eval_logging_enabled: turnState.evalLoggingEnabled,
+                    actions: {},
+                    playback_active: turnState.playing,
+                    played_audio_ms: turnState.playedMs,
+                    pending_text_chars: normalizeHarnessTurnText(turnState.pendingText).length,
+                    metadata: { last_update: 'profile' },
+                  },
+                }) });
+              }
             } else if (msg.type === 'turn_listen_state') {
               if (!msg.active) {
                 turnState.pendingText = '';

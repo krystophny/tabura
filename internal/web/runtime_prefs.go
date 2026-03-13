@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/tabura/internal/turn"
 )
 
 type runtimeYoloRequest struct {
@@ -16,10 +17,12 @@ type runtimeDisclaimerAckRequest struct {
 }
 
 type runtimePreferencesRequest struct {
-	SilentMode      *bool  `json:"silent_mode"`
-	Tool            string `json:"tool"`
-	StartupBehavior string `json:"startup_behavior"`
-	ActiveSphere    string `json:"active_sphere"`
+	SilentMode             *bool  `json:"silent_mode"`
+	Tool                   string `json:"tool"`
+	StartupBehavior        string `json:"startup_behavior"`
+	ActiveSphere           string `json:"active_sphere"`
+	TurnPolicyProfile      string `json:"turn_policy_profile"`
+	TurnEvalLoggingEnabled *bool  `json:"turn_eval_logging_enabled"`
 }
 
 func normalizeRuntimeTool(raw string) string {
@@ -56,6 +59,17 @@ func normalizeRuntimeActiveSphere(raw string) string {
 		return store.SpherePrivate
 	default:
 		return ""
+	}
+}
+
+func normalizeRuntimeTurnPolicyProfile(raw string) string {
+	switch turn.Profile(strings.ToLower(strings.TrimSpace(raw))) {
+	case turn.ProfilePatient:
+		return string(turn.ProfilePatient)
+	case turn.ProfileAssertive:
+		return string(turn.ProfileAssertive)
+	default:
+		return string(turn.ProfileBalanced)
 	}
 }
 
@@ -110,6 +124,31 @@ func (a *App) runtimeActiveSphere() string {
 	return sphere
 }
 
+func (a *App) runtimeTurnPolicyProfile() string {
+	if a == nil || a.store == nil {
+		return string(turn.ProfileBalanced)
+	}
+	value, err := a.store.AppState(appStateTurnPolicyProfileKey)
+	if err != nil {
+		return string(turn.ProfileBalanced)
+	}
+	return normalizeRuntimeTurnPolicyProfile(value)
+}
+
+func (a *App) runtimeTurnEvalLoggingEnabled() bool {
+	if a == nil || a.store == nil {
+		return true
+	}
+	value, err := a.store.AppState(appStateTurnEvalLoggingKey)
+	if err != nil {
+		return true
+	}
+	if strings.TrimSpace(value) == "" {
+		return true
+	}
+	return parseBoolString(value, true)
+}
+
 func (a *App) setSilentModeEnabled(enabled bool) error {
 	if a == nil || a.store == nil {
 		return nil
@@ -139,6 +178,23 @@ func (a *App) setRuntimeActiveSphere(sphere string) error {
 		return nil
 	}
 	return a.setActiveSphereTracked(sphere, "sphere_switch")
+}
+
+func (a *App) setRuntimeTurnPolicyProfile(profile string) error {
+	if a == nil || a.store == nil {
+		return nil
+	}
+	return a.store.SetAppState(appStateTurnPolicyProfileKey, normalizeRuntimeTurnPolicyProfile(profile))
+}
+
+func (a *App) setRuntimeTurnEvalLoggingEnabled(enabled bool) error {
+	if a == nil || a.store == nil {
+		return nil
+	}
+	if enabled {
+		return a.store.SetAppState(appStateTurnEvalLoggingKey, "true")
+	}
+	return a.store.SetAppState(appStateTurnEvalLoggingKey, "false")
 }
 
 func (a *App) handleRuntimePreferencesUpdate(w http.ResponseWriter, r *http.Request) {
@@ -174,12 +230,26 @@ func (a *App) handleRuntimePreferencesUpdate(w http.ResponseWriter, r *http.Requ
 			return
 		}
 	}
+	if strings.TrimSpace(req.TurnPolicyProfile) != "" {
+		if err := a.setRuntimeTurnPolicyProfile(req.TurnPolicyProfile); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+	if req.TurnEvalLoggingEnabled != nil {
+		if err := a.setRuntimeTurnEvalLoggingEnabled(*req.TurnEvalLoggingEnabled); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
 	writeJSON(w, map[string]interface{}{
-		"ok":               true,
-		"silent_mode":      a.silentModeEnabled(),
-		"tool":             a.runtimeTool(),
-		"startup_behavior": a.runtimeStartupBehavior(),
-		"active_sphere":    a.runtimeActiveSphere(),
+		"ok":                        true,
+		"silent_mode":               a.silentModeEnabled(),
+		"tool":                      a.runtimeTool(),
+		"startup_behavior":          a.runtimeStartupBehavior(),
+		"active_sphere":             a.runtimeActiveSphere(),
+		"turn_policy_profile":       a.runtimeTurnPolicyProfile(),
+		"turn_eval_logging_enabled": a.runtimeTurnEvalLoggingEnabled(),
 	})
 }
 

@@ -10,8 +10,25 @@ type TurnActionPayload = {
   rollback_audio_ms?: number;
 };
 
+type TurnMetricsPayload = {
+  type?: string;
+  metrics?: Record<string, any>;
+};
+
+type TurnReadyPayload = {
+  type?: string;
+  session_id?: string;
+  profile?: string;
+  eval_logging_enabled?: boolean;
+  metrics?: Record<string, any>;
+};
+
 type TurnClientConfig = {
   onAction?: (payload: TurnActionPayload) => void;
+  onMetrics?: (payload: TurnMetricsPayload) => void;
+  onReady?: (payload: TurnReadyPayload) => void;
+  profile?: string;
+  evalLoggingEnabled?: boolean;
 };
 
 const state = {
@@ -20,10 +37,25 @@ const state = {
   sessionId: '',
   connected: false,
   onAction: null as ((payload: TurnActionPayload) => void) | null,
+  onMetrics: null as ((payload: TurnMetricsPayload) => void) | null,
+  onReady: null as ((payload: TurnReadyPayload) => void) | null,
+  profile: 'balanced',
+  evalLoggingEnabled: true,
 };
 
 export function configureTurnIntelligence(config: TurnClientConfig = {}) {
   state.onAction = typeof config?.onAction === 'function' ? config.onAction : null;
+  state.onMetrics = typeof config?.onMetrics === 'function' ? config.onMetrics : null;
+  state.onReady = typeof config?.onReady === 'function' ? config.onReady : null;
+  if (typeof config?.profile === 'string' && config.profile.trim()) {
+    state.profile = config.profile.trim().toLowerCase();
+  }
+  if (typeof config?.evalLoggingEnabled === 'boolean') {
+    state.evalLoggingEnabled = config.evalLoggingEnabled;
+  }
+  if (state.connected) {
+    sendTurnConfig(state.profile, state.evalLoggingEnabled);
+  }
 }
 
 export function openTurnWs(sessionId: string) {
@@ -38,13 +70,40 @@ export function openTurnWs(sessionId: string) {
   ws.onopen = () => {
     if (token !== state.token || targetSessionId !== state.sessionId) return;
     state.connected = true;
+    sendTurnConfig(state.profile, state.evalLoggingEnabled);
   };
   ws.onmessage = (event) => {
     if (token !== state.token || targetSessionId !== state.sessionId) return;
     if (typeof event.data !== 'string') return;
-    let payload: TurnActionPayload | null = null;
+    let payload: Record<string, any> | null = null;
     try { payload = JSON.parse(event.data); } catch (_) { return; }
-    if (!payload || payload.type !== 'turn_action') return;
+    if (!payload || typeof payload.type !== 'string') return;
+    if (payload.type === 'turn_ready') {
+      if (typeof payload.profile === 'string' && payload.profile.trim()) {
+        state.profile = payload.profile.trim().toLowerCase();
+      }
+      if (typeof payload.eval_logging_enabled === 'boolean') {
+        state.evalLoggingEnabled = payload.eval_logging_enabled;
+      }
+      if (typeof state.onReady === 'function') {
+        state.onReady(payload);
+      }
+      return;
+    }
+    if (payload.type === 'turn_metrics') {
+      const metrics = payload.metrics as Record<string, any> | undefined;
+      if (metrics && typeof metrics.profile === 'string' && metrics.profile.trim()) {
+        state.profile = metrics.profile.trim().toLowerCase();
+      }
+      if (metrics && typeof metrics.eval_logging_enabled === 'boolean') {
+        state.evalLoggingEnabled = metrics.eval_logging_enabled;
+      }
+      if (typeof state.onMetrics === 'function') {
+        state.onMetrics(payload);
+      }
+      return;
+    }
+    if (payload.type !== 'turn_action') return;
     if (typeof state.onAction === 'function') {
       state.onAction(payload);
     }
@@ -79,6 +138,17 @@ export function sendTurnEvent(payload: Record<string, any>) {
   if (!ws || ws.readyState !== WebSocket.OPEN) return false;
   ws.send(JSON.stringify(payload || {}));
   return true;
+}
+
+export function sendTurnConfig(profile = state.profile, evalLoggingEnabled = state.evalLoggingEnabled) {
+  const normalizedProfile = String(profile || state.profile || 'balanced').trim().toLowerCase() || 'balanced';
+  state.profile = normalizedProfile;
+  state.evalLoggingEnabled = Boolean(evalLoggingEnabled);
+  return sendTurnEvent({
+    type: 'turn_config',
+    profile: normalizedProfile,
+    eval_logging_enabled: state.evalLoggingEnabled,
+  });
 }
 
 export function sendTurnListenState(active: boolean) {

@@ -31,31 +31,33 @@ import (
 )
 
 const (
-	DefaultHost                 = "127.0.0.1"
-	DefaultPort                 = 8420
-	DefaultAppServerURL         = "ws://127.0.0.1:8787"
-	DefaultSTTURL               = "http://127.0.0.1:8427"
-	DefaultSTTAllowedLanguages  = "en,de"
-	DefaultSTTFallbackLanguage  = "en"
-	DefaultSTTPreVADThresholdDB = -58.0
-	DefaultSTTPreVADMinSpeechMS = 120
-	DefaultCerebrasSecretFile   = "cerebras-api-key"
-	DefaultGeminiSecretFile     = "gemini-api-key"
-	SessionCookie               = "tabura_session"
-	cookieMaxAgeSec             = 60 * 60 * 24 * 365
-	DaemonPort                  = 9420
-	LocalSessionID              = "local"
-	DefaultSparkReasoningEffort = "low"
-	SparkModel                  = modelprofile.ModelSpark
-	mcpToolsCallTimeout         = 45 * time.Second
-	appStateDefaultChatModelKey = "default_chat_model"
-	appStateYoloModeKey         = "safety.yolo_mode"
-	appStateDisclaimerAckKey    = "safety.disclaimer_ack.version"
-	appStateDisclaimerAckAtKey  = "safety.disclaimer_ack.timestamp"
-	appStateSilentModeKey       = "runtime.silent_mode"
-	appStateToolKey             = "runtime.tool"
-	appStateStartupBehaviorKey  = "runtime.startup_behavior"
-	disclaimerVersionCurrent    = "2026-03-03-v1"
+	DefaultHost                  = "127.0.0.1"
+	DefaultPort                  = 8420
+	DefaultAppServerURL          = "ws://127.0.0.1:8787"
+	DefaultSTTURL                = "http://127.0.0.1:8427"
+	DefaultSTTAllowedLanguages   = "en,de"
+	DefaultSTTFallbackLanguage   = "en"
+	DefaultSTTPreVADThresholdDB  = -58.0
+	DefaultSTTPreVADMinSpeechMS  = 120
+	DefaultCerebrasSecretFile    = "cerebras-api-key"
+	DefaultGeminiSecretFile      = "gemini-api-key"
+	SessionCookie                = "tabura_session"
+	cookieMaxAgeSec              = 60 * 60 * 24 * 365
+	DaemonPort                   = 9420
+	LocalSessionID               = "local"
+	DefaultSparkReasoningEffort  = "low"
+	SparkModel                   = modelprofile.ModelSpark
+	mcpToolsCallTimeout          = 45 * time.Second
+	appStateDefaultChatModelKey  = "default_chat_model"
+	appStateYoloModeKey          = "safety.yolo_mode"
+	appStateDisclaimerAckKey     = "safety.disclaimer_ack.version"
+	appStateDisclaimerAckAtKey   = "safety.disclaimer_ack.timestamp"
+	appStateSilentModeKey        = "runtime.silent_mode"
+	appStateToolKey              = "runtime.tool"
+	appStateStartupBehaviorKey   = "runtime.startup_behavior"
+	appStateTurnPolicyProfileKey = "runtime.turn_policy_profile"
+	appStateTurnEvalLoggingKey   = "runtime.turn_eval_logging_enabled"
+	disclaimerVersionCurrent     = "2026-03-03-v1"
 )
 
 //go:embed static/* static/vendor/*
@@ -603,6 +605,8 @@ func (a *App) handleRuntime(w http.ResponseWriter, r *http.Request) {
 		"stt_url":                     a.sttURL,
 		"tts_enabled":                 a.ttsURL != "",
 		"turn_intelligence_enabled":   true,
+		"turn_policy_profile":         a.runtimeTurnPolicyProfile(),
+		"turn_eval_logging_enabled":   a.runtimeTurnEvalLoggingEnabled(),
 		"silent_mode":                 a.silentModeEnabled(),
 		"live_policy":                 a.LivePolicy().String(),
 		"tool":                        a.runtimeTool(),

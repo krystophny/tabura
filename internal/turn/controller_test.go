@@ -112,3 +112,58 @@ func TestContinuationTimeoutEmitsFinalize(t *testing.T) {
 		t.Fatal("timed out waiting for continuation finalize")
 	}
 }
+
+func TestSetProfileAffectsContinuationBehavior(t *testing.T) {
+	patient := NewController(Callbacks{}, WithProfile(ProfilePatient))
+	defer patient.Close()
+	patientDecision := patient.ConsumeSegment(Segment{
+		Text:       "I think",
+		DurationMS: 320,
+	})
+	if patientDecision.Action != ActionContinueListen {
+		t.Fatalf("patient action = %q, want %q", patientDecision.Action, ActionContinueListen)
+	}
+	if patientDecision.WaitMS < 800 {
+		t.Fatalf("patient wait_ms = %d, want >= 800", patientDecision.WaitMS)
+	}
+
+	assertive := NewController(Callbacks{}, WithProfile(ProfileAssertive))
+	defer assertive.Close()
+	assertiveDecision := assertive.ConsumeSegment(Segment{
+		Text:       "I think",
+		DurationMS: 320,
+	})
+	if assertiveDecision.Action != ActionContinueListen {
+		t.Fatalf("assertive action = %q, want %q", assertiveDecision.Action, ActionContinueListen)
+	}
+	if assertiveDecision.WaitMS >= patientDecision.WaitMS {
+		t.Fatalf("assertive wait_ms = %d, want less than patient wait_ms %d", assertiveDecision.WaitMS, patientDecision.WaitMS)
+	}
+}
+
+func TestMetricsSnapshotIncludesProfileAndLogging(t *testing.T) {
+	controller := NewController(Callbacks{}, WithProfile(ProfileAssertive), WithEvalLogging(false))
+	defer controller.Close()
+
+	controller.UpdatePlayback(true, 220)
+	controller.ConsumeSegment(Segment{
+		Text:       "I think",
+		DurationMS: 300,
+	})
+	metrics := controller.SnapshotMetrics()
+	if metrics.Profile != ProfileAssertive {
+		t.Fatalf("profile = %q, want %q", metrics.Profile, ProfileAssertive)
+	}
+	if metrics.EvalLoggingEnabled {
+		t.Fatal("eval logging enabled = true, want false")
+	}
+	if !metrics.PlaybackActive {
+		t.Fatal("playback active = false, want true")
+	}
+	if metrics.PendingTextChars == 0 {
+		t.Fatal("pending text chars = 0, want > 0")
+	}
+	if metrics.Actions[string(ActionContinueListen)] == 0 {
+		t.Fatalf("continue_listening count = %d, want > 0", metrics.Actions[string(ActionContinueListen)])
+	}
+}

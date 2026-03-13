@@ -697,6 +697,10 @@ async function stopBugReportVoiceNote(cancel = false) {
 }
 
 async function snapshotBugReportContext(trigger, runtime) {
+  const app = (window as any)._taburaApp;
+  const dialogueDiagnostics = typeof app?.getDialogueDiagnostics === 'function'
+    ? app.getDialogueDiagnostics()
+    : null;
   return {
     trigger,
     timestamp: formatNow(),
@@ -709,6 +713,7 @@ async function snapshotBugReportContext(trigger, runtime) {
     recentEvents: recentEvents.slice(),
     browserLogs: browserLogs.slice(),
     device: await buildDeviceState(),
+    dialogueDiagnostics,
     screenshotDataURL: '',
     strokes: [],
     voiceTranscript: '',
@@ -769,6 +774,7 @@ async function saveBugReport() {
     recent_events: pendingReport.recentEvents,
     browser_logs: pendingReport.browserLogs,
     device: pendingReport.device,
+    dialogue_diagnostics: pendingReport.dialogueDiagnostics,
     note: note instanceof HTMLTextAreaElement ? note.value.trim() : '',
     voice_transcript: pendingReport.voiceTranscript,
     screenshot_data_url: pendingReport.screenshotDataURL,

@@ -1,5 +1,6 @@
 import * as env from './app-env.js';
 import * as context from './app-context.js';
+import { applyTurnRuntimePreferences } from './app-runtime-dialogue.js';
 
 const { marked, apiURL, wsURL, renderCanvas, clearCanvas, getLocationFromSelection, clearLineHighlight, escapeHtml, sanitizeHtml, getActiveArtifactTitle, getActiveTextEventId, getPreviousArtifactText, getUiState, setUiMode, showIndicatorMode, hideIndicator, showTextInput, hideTextInput, showOverlay, hideOverlay, updateOverlay, isOverlayVisible, isTextInputVisible, isRecording, setRecording, getInputAnchor, setInputAnchor, getAnchorFromPoint, buildContextPrefix, getLastInputPosition, setLastInputPosition, configureLiveSession, getLiveSessionSnapshot, handleLiveSessionMessage, isLiveSessionListenActive, LIVE_SESSION_HOTWORD_DEFAULT, LIVE_SESSION_MODE_DIALOGUE, LIVE_SESSION_MODE_MEETING, onLiveSessionTTSPlaybackComplete, cancelLiveSessionListen, resumeDialogueListen, setDialogueTTSBargeInMode, startLiveSession, stopLiveSession, initHotword, startHotwordMonitor, stopHotwordMonitor, isHotwordActive, onHotwordDetected, setHotwordThreshold, setHotwordAudioContext, getPreRollAudio, getHotwordMicStream, initVAD, ensureVADLoaded, float32ToWav } = env;
 const { refs, state, getState, isVoiceTurn, COMPANION_VIEW_PATH_PREFIX, COMPANION_TRANSCRIPT_VIEW_PATH, COMPANION_SUMMARY_VIEW_PATH, COMPANION_REFERENCES_VIEW_PATH, MEETING_TRANSCRIPT_LABEL, MEETING_SUMMARY_LABEL, MEETING_REFERENCES_LABEL, MEETING_SUMMARY_ITEMS_PANEL_ID, CHAT_CTRL_LONG_PRESS_MS, ARTIFACT_EDIT_LONG_TAP_MS, ITEM_SIDEBAR_VIEWS, ITEM_SIDEBAR_GESTURE_CANCEL_PX, ITEM_SIDEBAR_GESTURE_COMMIT_PX, ITEM_SIDEBAR_GESTURE_LONG_PX, ITEM_SIDEBAR_DEFAULT_LATER_HOUR_UTC, ITEM_SIDEBAR_MENU_ID, DEV_UI_RELOAD_POLL_MS, ASSISTANT_ACTIVITY_POLL_MS, CHAT_WS_STALE_THRESHOLD_MS, ACTIVE_TURN_NO_ID_CLEAR_GRACE_MS, ACTIVE_TURN_ACTIVITY_CLEAR_GRACE_MS, PROJECT_CHAT_MODEL_ALIASES, PROJECT_CHAT_MODEL_REASONING_EFFORTS, TTS_SILENT_STORAGE_KEY, YOLO_MODE_STORAGE_KEY, SOMEDAY_REVIEW_NUDGE_ENABLED_STORAGE_KEY, SOMEDAY_REVIEW_NUDGE_LAST_SHOWN_STORAGE_KEY, SOMEDAY_REVIEW_NUDGE_INTERVAL_MS, ACTIVE_PROJECT_STORAGE_KEY, ACTIVE_SPHERE_STORAGE_KEY, LAST_VIEW_STORAGE_KEY, RUNTIME_RELOAD_CONTEXT_STORAGE_KEY, SIDEBAR_IMAGE_EXTENSIONS, PANEL_MOTION_WATCH_QUERIES, VOICE_LIFECYCLE, COMPANION_IDLE_SURFACES, COMPANION_RUNTIME_STATES, TOOL_PALETTE_MODES } = context;
@@ -8,7 +9,6 @@ let runtimeReloadBootID = '';
 let runtimeReloadTimer = null;
 let runtimeReloadInFlight = false;
 let runtimeReloadRequested = false;
-let panelMotionWatchersAttached = false;
 let suppressClickUntil = 0;
 const MATH_SEGMENT_TOKEN_PREFIX = '@@TABURA_CHAT_MATH_SEGMENT_';
 const renderEdgeTopModelButtons = (...args) => refs.renderEdgeTopModelButtons(...args);
@@ -40,131 +40,8 @@ const shouldStopInUiClick = (...args) => refs.shouldStopInUiClick(...args);
 const maybePersistDictationDraft = (...args) => refs.maybePersistDictationDraft(...args);
 const hasLocalStopCapableWork = (...args) => refs.hasLocalStopCapableWork(...args);
 
-export function mediaQueryMatches(query) {
-  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
-  try {
-    return window.matchMedia(query).matches;
-  } catch (_) {
-    return false;
-  }
-}
-
-export function shouldEnablePanelMotion() {
-  if (mediaQueryMatches('(prefers-reduced-motion: reduce)')) return false;
-  if (mediaQueryMatches('(monochrome)')) return false;
-  if (mediaQueryMatches('(update: slow)')) return false;
-  return true;
-}
-
-export function syncPanelMotionMode() {
-  document.body.classList.toggle('panel-motion-enabled', shouldEnablePanelMotion());
-}
-
-export function initPanelMotionMode() {
-  syncPanelMotionMode();
-  if (panelMotionWatchersAttached) return;
-  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
-  panelMotionWatchersAttached = true;
-  PANEL_MOTION_WATCH_QUERIES.forEach((query) => {
-    let mql = null;
-    try {
-      mql = window.matchMedia(query);
-    } catch (_) {
-      mql = null;
-    }
-    if (!mql) return;
-    const onChange = () => syncPanelMotionMode();
-    if (typeof mql.addEventListener === 'function') {
-      mql.addEventListener('change', onChange);
-      return;
-    }
-    if (typeof mql.addListener === 'function') {
-      mql.addListener(onChange);
-    }
-  });
-}
-
 export function isMobileSilent() {
   return state.ttsSilent && window.matchMedia('(max-width: 767px)').matches;
-}
-
-// iPhone corner-radius profiles for bottom-edge frame rounding.
-const IPHONE_CORNER_RADIUS_PROFILES = [
-  { shortSide: 375, longSide: 812, dpr: 3, radius: 44 },
-  { shortSide: 390, longSide: 844, dpr: 3, radius: 47 },
-  { shortSide: 393, longSide: 852, dpr: 3, radius: 55 },
-  { shortSide: 402, longSide: 874, dpr: 3, radius: 62 },
-  { shortSide: 414, longSide: 896, dpr: 2, radius: 41 },
-  { shortSide: 428, longSide: 926, dpr: 3, radius: 53 },
-  { shortSide: 430, longSide: 932, dpr: 3, radius: 55 },
-  { shortSide: 440, longSide: 956, dpr: 3, radius: 62 },
-];
-
-export function isIPhoneStandalone() {
-  const ua = String(navigator.userAgent || '').toLowerCase();
-  const plat = String(navigator.platform || '').toLowerCase();
-  const isIPhone = /iphone/.test(ua) || plat === 'iphone' || (plat === 'macintel' && navigator.maxTouchPoints > 1);
-  if (!isIPhone) return false;
-  try {
-    return (navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches;
-  } catch (_) {
-    return false;
-  }
-}
-
-export function applyIPhoneFrameCorners() {
-  const root = document.documentElement;
-  if (!isIPhoneStandalone()) {
-    root.style.removeProperty('--cue-corner-radius');
-    return;
-  }
-  const short = Math.min(Math.round(screen.width), Math.round(screen.height));
-  const long = Math.max(Math.round(screen.width), Math.round(screen.height));
-  const dpr = Math.max(1, Math.round(devicePixelRatio || 1));
-  const match = IPHONE_CORNER_RADIUS_PROFILES.find(
-    (p) => p.shortSide === short && p.longSide === long && p.dpr === dpr,
-  );
-  const r = match ? match.radius : (dpr >= 3 ? 55 : 44);
-  root.style.setProperty('--cue-corner-radius', `0 0 ${r}px ${r}px`);
-}
-
-let syncKeyboardStateNow = null;
-
-export function setSyncKeyboardStateNow(sync) {
-  syncKeyboardStateNow = typeof sync === 'function' ? sync : null;
-}
-
-export function isFocusedTextInput() {
-  const el = document.activeElement;
-  if (!el) return false;
-  if (el instanceof HTMLTextAreaElement) return true;
-  if (el instanceof HTMLInputElement) {
-    const type = String(el.type || 'text').toLowerCase();
-    return ![
-      'button', 'checkbox', 'color', 'file', 'hidden',
-      'image', 'radio', 'range', 'reset', 'submit',
-    ].includes(type);
-  }
-  return el instanceof HTMLElement && el.isContentEditable;
-}
-
-export function clearKeyboardOpenState() {
-  const inputRow = document.querySelector('.chat-pane-input-row');
-  if (inputRow) inputRow.classList.remove('keyboard-open');
-  document.body.classList.remove('keyboard-open');
-  if (isIPhoneStandalone()) applyIPhoneFrameCorners();
-}
-
-export function settleKeyboardAfterSubmit() {
-  clearKeyboardOpenState();
-  const sync = syncKeyboardStateNow;
-  if (typeof sync !== 'function') return;
-  [0, 100, 220, 380, 600, 900, 1300].forEach((delay) => {
-    window.setTimeout(() => {
-      if (syncKeyboardStateNow !== sync) return;
-      sync();
-    }, delay);
-  });
 }
 
 export function setTTSSilentMode(silent, { persist = true, pinPanel = true } = {}) {
@@ -492,6 +369,7 @@ export function applyRuntimePreferences(runtime) {
   state.livePolicy = String(runtime?.live_policy || state.livePolicy || LIVE_SESSION_MODE_DIALOGUE).trim().toLowerCase() === LIVE_SESSION_MODE_MEETING
     ? LIVE_SESSION_MODE_MEETING
     : LIVE_SESSION_MODE_DIALOGUE;
+  applyTurnRuntimePreferences(runtime);
   state.interaction.tool = normalizeInteractionTool(runtime?.tool || 'pointer');
   state.interaction.toolPinned = false;
   state.interaction.conversation = interactionConversationMode();
@@ -528,6 +406,7 @@ export async function updateRuntimePreferences(patch) {
   state.interaction.conversation = interactionConversationMode();
   state.activeSphere = normalizeActiveSphere(payload?.active_sphere || state.activeSphere || readPersistedActiveSphere());
   persistActiveSpherePreference(state.activeSphere);
+  applyTurnRuntimePreferences(payload);
   syncInteractionBodyState();
   renderEdgeTopProjects();
   renderInteractionSurfaceToggle();

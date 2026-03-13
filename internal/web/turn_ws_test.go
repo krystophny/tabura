@@ -71,10 +71,48 @@ func TestTurnWSProducesYieldAndFinalizeActions(t *testing.T) {
 		}
 		return payload
 	}
+	readUntilType := func(want string) map[string]any {
+		t.Helper()
+		for i := 0; i < 6; i++ {
+			payload := readMessage()
+			if strFromAny(payload["type"]) == want {
+				return payload
+			}
+		}
+		t.Fatalf("did not receive websocket payload type %q", want)
+		return nil
+	}
 
 	ready := readMessage()
 	if ready["type"] != "turn_ready" {
 		t.Fatalf("ready type = %#v, want turn_ready", ready["type"])
+	}
+	if ready["profile"] != "balanced" {
+		t.Fatalf("profile = %#v, want balanced", ready["profile"])
+	}
+	if metrics, ok := ready["metrics"].(map[string]any); !ok {
+		t.Fatalf("ready metrics missing: %#v", ready["metrics"])
+	} else if metrics["profile"] != "balanced" {
+		t.Fatalf("ready metrics profile = %#v, want balanced", metrics["profile"])
+	}
+
+	if err := clientConn.WriteJSON(map[string]any{
+		"type":                 "turn_config",
+		"profile":              "patient",
+		"eval_logging_enabled": false,
+	}); err != nil {
+		t.Fatalf("WriteJSON(turn_config): %v", err)
+	}
+	metricsUpdate := readUntilType("turn_metrics")
+	metricsPayload, ok := metricsUpdate["metrics"].(map[string]any)
+	if !ok {
+		t.Fatalf("metrics payload missing: %#v", metricsUpdate["metrics"])
+	}
+	if metricsPayload["profile"] != "patient" {
+		t.Fatalf("metrics profile = %#v, want patient", metricsPayload["profile"])
+	}
+	if got, ok := metricsPayload["eval_logging_enabled"].(bool); !ok || got {
+		t.Fatalf("eval_logging_enabled = %#v, want false", metricsPayload["eval_logging_enabled"])
 	}
 
 	if err := clientConn.WriteJSON(map[string]any{
@@ -91,7 +129,7 @@ func TestTurnWSProducesYieldAndFinalizeActions(t *testing.T) {
 		t.Fatalf("WriteJSON(turn_speech_start): %v", err)
 	}
 
-	yield := readMessage()
+	yield := readUntilType("turn_action")
 	if yield["type"] != "turn_action" {
 		t.Fatalf("yield type = %#v, want turn_action", yield["type"])
 	}
@@ -109,7 +147,7 @@ func TestTurnWSProducesYieldAndFinalizeActions(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("WriteJSON(turn_transcript_segment #1): %v", err)
 	}
-	continueMsg := readMessage()
+	continueMsg := readUntilType("turn_action")
 	if continueMsg["action"] != "continue_listening" {
 		t.Fatalf("continue action = %#v, want continue_listening", continueMsg["action"])
 	}
@@ -121,7 +159,7 @@ func TestTurnWSProducesYieldAndFinalizeActions(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("WriteJSON(turn_transcript_segment #2): %v", err)
 	}
-	finalize := readMessage()
+	finalize := readUntilType("turn_action")
 	if finalize["action"] != "finalize_user_turn" {
 		t.Fatalf("finalize action = %#v, want finalize_user_turn", finalize["action"])
 	}

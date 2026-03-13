@@ -1,7 +1,9 @@
 import { getState, setAppRefs } from './app-context.js';
 import * as ttsModule from './app-tts.js';
 import * as interactionModule from './app-interaction.js';
+import * as runtimeShellModule from './app-runtime-shell.js';
 import * as runtimeUiModule from './app-runtime-ui.js';
+import * as dialogueDiagnosticsModule from './app-dialogue-diagnostics.js';
 import * as voiceModule from './app-voice.js';
 import * as itemSidebarUtilsModule from './app-item-sidebar-utils.js';
 import * as itemSidebarArtifactsModule from './app-item-sidebar-artifacts.js';
@@ -26,7 +28,9 @@ import * as startupModule from './app-startup.js';
 setAppRefs({
   ...ttsModule,
   ...interactionModule,
+  ...runtimeShellModule,
   ...runtimeUiModule,
+  ...dialogueDiagnosticsModule,
   ...voiceModule,
   ...itemSidebarUtilsModule,
   ...itemSidebarArtifactsModule,
@@ -61,6 +65,10 @@ window._taburaApp = {
   sttSendBlob: voiceModule.sttSendBlob,
   sttStop: voiceModule.sttStop,
   sttCancel: voiceModule.sttCancel,
+  getDialogueDiagnostics: dialogueDiagnosticsModule.getDialogueDiagnostics,
+  clearDialogueDiagnostics: dialogueDiagnosticsModule.clearDialogueDiagnostics,
+  setDialogueTurnProfile: dialogueDiagnosticsModule.setDialogueTurnProfile,
+  setDialogueEvalLogging: dialogueDiagnosticsModule.setDialogueEvalLogging,
   appendDictationTranscript: dictationModule.maybeHandleDictationTranscript,
   sendDictationDraft: dictationModule.sendDictationDraft,
   fetchProjects: workspaceRuntimeModule.fetchProjects,

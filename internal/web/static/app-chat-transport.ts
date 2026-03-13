@@ -96,6 +96,9 @@ const openWorkspaceSidebarFile = (...args) => refs.openWorkspaceSidebarFile(...a
 export function closeChatWs() {
   state.chatWsToken += 1;
   state.chatWsLastMessageAt = 0;
+  if (state.dialogueDiagnostics) {
+    state.dialogueDiagnostics.connected = false;
+  }
   closeTurnWs();
   if (state.chatWs) {
     try { state.chatWs.close(); } catch (_) {}
@@ -186,6 +189,9 @@ export function openChatWs() {
   const turnToken = state.chatWsToken + 1;
   state.chatWsToken = turnToken;
   const targetSessionID = state.chatSessionId;
+  if (state.dialogueDiagnostics) {
+    state.dialogueDiagnostics.sessionId = targetSessionID;
+  }
   openTurnWs(targetSessionID);
   const ws = new WebSocket(wsURL(`chat/${encodeURIComponent(targetSessionID)}`));
   ws.binaryType = 'arraybuffer';

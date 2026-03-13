@@ -2,6 +2,7 @@ package web
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"strings"
 	"sync"
@@ -15,12 +16,31 @@ type turnWSConn struct {
 	conn       *websocket.Conn
 	writeMu    sync.Mutex
 	controller *turn.Controller
+	sessionID  string
 }
 
-func newTurnWSConn(ws *websocket.Conn) *turnWSConn {
-	conn := &turnWSConn{conn: ws}
+func newTurnWSConn(ws *websocket.Conn, sessionID string, profile string, evalLoggingEnabled bool) *turnWSConn {
+	conn := &turnWSConn{
+		conn:      ws,
+		sessionID: strings.TrimSpace(sessionID),
+	}
 	conn.controller = turn.NewController(turn.Callbacks{
 		OnAction: func(signal turn.Signal) {
+			metrics := conn.controller.SnapshotMetrics()
+			if metrics.EvalLoggingEnabled {
+				log.Printf(
+					"turn action session=%s profile=%s action=%s reason=%s text=%q rollback_audio_ms=%d playback_active=%t played_audio_ms=%d pending_chars=%d",
+					conn.sessionID,
+					metrics.Profile,
+					signal.Action,
+					strings.TrimSpace(signal.Reason),
+					strings.TrimSpace(signal.Text),
+					signal.RollbackAudioMS,
+					metrics.PlaybackActive,
+					metrics.PlayedAudioMS,
+					metrics.PendingTextChars,
+				)
+			}
 			_ = conn.writeJSON(map[string]any{
 				"type":                "turn_action",
 				"action":              string(signal.Action),
@@ -31,7 +51,33 @@ func newTurnWSConn(ws *websocket.Conn) *turnWSConn {
 				"rollback_audio_ms":   signal.RollbackAudioMS,
 			})
 		},
-	})
+		OnMetrics: func(metrics turn.Metrics) {
+			if metrics.EvalLoggingEnabled {
+				lastUpdate := ""
+				if metrics.Metadata != nil {
+					lastUpdate = strings.TrimSpace(toString(metrics.Metadata["last_update"]))
+				}
+				if lastUpdate == "action" || lastUpdate == "profile" || lastUpdate == "eval_logging" || lastUpdate == "reset" {
+					log.Printf(
+						"turn metrics session=%s profile=%s last_action=%s last_reason=%s playback_active=%t played_audio_ms=%d speech_starts=%d overlap_yields=%d continuation_timeouts=%d",
+						conn.sessionID,
+						metrics.Profile,
+						strings.TrimSpace(metrics.LastAction),
+						strings.TrimSpace(metrics.LastReason),
+						metrics.PlaybackActive,
+						metrics.PlayedAudioMS,
+						metrics.SpeechStarts,
+						metrics.SpeechOverlapYields,
+						metrics.ContinuationTimeouts,
+					)
+				}
+			}
+			_ = conn.writeJSON(map[string]any{
+				"type":    "turn_metrics",
+				"metrics": metrics,
+			})
+		},
+	}, turn.WithProfile(turn.Profile(profile)), turn.WithEvalLogging(evalLoggingEnabled))
 	return conn
 }
 
@@ -58,16 +104,34 @@ func (a *App) handleTurnWS(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	conn := newTurnWSConn(ws)
+	conn := newTurnWSConn(ws, sessionID, a.runtimeTurnPolicyProfile(), a.runtimeTurnEvalLoggingEnabled())
 	defer func() {
+		metrics := conn.controller.SnapshotMetrics()
+		if metrics.EvalLoggingEnabled {
+			log.Printf(
+				"turn session closed session=%s profile=%s last_action=%s last_reason=%s speech_starts=%d overlap_yields=%d playback_interruptions=%d continuation_timeouts=%d",
+				sessionID,
+				metrics.Profile,
+				strings.TrimSpace(metrics.LastAction),
+				strings.TrimSpace(metrics.LastReason),
+				metrics.SpeechStarts,
+				metrics.SpeechOverlapYields,
+				metrics.PlaybackInterruptions,
+				metrics.ContinuationTimeouts,
+			)
+		}
 		conn.controller.Close()
 		_ = ws.Close()
 	}()
+	metrics := conn.controller.SnapshotMetrics()
 	_ = conn.writeJSON(map[string]any{
 		"type":                 "turn_ready",
 		"session_id":           sessionID,
 		"turn_intelligence":    true,
 		"turn_endpoint_authed": true,
+		"profile":              metrics.Profile,
+		"eval_logging_enabled": metrics.EvalLoggingEnabled,
+		"metrics":              metrics,
 	})
 	for {
 		mt, data, err := ws.ReadMessage()
@@ -94,6 +158,8 @@ func handleTurnWSTextMessage(conn *turnWSConn, data []byte) {
 		SpeechProb           float64 `json:"speech_prob"`
 		Playing              *bool   `json:"playing"`
 		PlayedMS             int     `json:"played_ms"`
+		Profile              string  `json:"profile"`
+		EvalLoggingEnabled   *bool   `json:"eval_logging_enabled"`
 	}
 	if err := json.Unmarshal(data, &msg); err != nil {
 		return
@@ -101,6 +167,13 @@ func handleTurnWSTextMessage(conn *turnWSConn, data []byte) {
 	switch strings.TrimSpace(msg.Type) {
 	case "turn_reset":
 		conn.controller.Reset()
+	case "turn_config":
+		if strings.TrimSpace(msg.Profile) != "" {
+			conn.controller.SetProfile(turn.Profile(msg.Profile))
+		}
+		if msg.EvalLoggingEnabled != nil {
+			conn.controller.SetEvalLogging(*msg.EvalLoggingEnabled)
+		}
 	case "turn_listen_state":
 		if msg.Active != nil && !*msg.Active {
 			conn.controller.Reset()
@@ -120,5 +193,14 @@ func handleTurnWSTextMessage(conn *turnWSConn, data []byte) {
 			return
 		}
 		conn.controller.UpdatePlayback(*msg.Playing, msg.PlayedMS)
+	}
+}
+
+func toString(value any) string {
+	switch t := value.(type) {
+	case string:
+		return t
+	default:
+		return ""
 	}
 }

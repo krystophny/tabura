@@ -1,10 +1,15 @@
 import * as env from './app-env.js';
 import * as context from './app-context.js';
+import {
+  clearDialogueDiagnostics,
+  pushDialogueDiagnosticEvent,
+} from './app-dialogue-diagnostics.js';
 import { DialogueTurnController } from './dialogue-turn-policy.js';
 import {
   configureTurnIntelligence,
   isTurnIntelligenceConnected,
   resetTurnIntelligence,
+  sendTurnConfig,
   sendTurnTranscriptSegment,
 } from './turn-client.js';
 
@@ -53,6 +58,7 @@ function submitDialogueTurn(text) {
     resetTurnIntelligence();
     return;
   }
+  pushDialogueDiagnosticEvent('submit_dialogue_turn', { text: String(text || '').trim() });
   showStatus('sending...');
   state.voiceTranscriptSubmitInFlight = true;
   state.voiceAwaitingTurn = true;
@@ -70,6 +76,7 @@ function reopenDialogueListen(reason) {
   setVoiceLifecycle(VOICE_LIFECYCLE.IDLE, reason);
   updateAssistantActivityIndicator();
   showStatus('listening...');
+  pushDialogueDiagnosticEvent('reopen_dialogue_listen', { reason: String(reason || '').trim() });
   window.setTimeout(() => {
     if (!isDialogueLiveSession()) {
       dialogueTurnController.reset();
@@ -87,6 +94,15 @@ function handleTurnAction(payload: Record<string, any> = {}) {
     return;
   }
   const action = String(payload?.action || '').trim().toLowerCase();
+  state.dialogueDiagnostics.lastAction = {
+    action,
+    reason: String(payload?.reason || '').trim(),
+    text: String(payload?.text || '').trim(),
+    wait_ms: Number(payload?.wait_ms || 0),
+    rollback_audio_ms: Number(payload?.rollback_audio_ms || 0),
+    interrupt_assistant: payload?.interrupt_assistant === true,
+  };
+  pushDialogueDiagnosticEvent('turn_action', state.dialogueDiagnostics.lastAction);
   if (action === 'yield') {
     const interruptedAssistant = payload?.interrupt_assistant === true;
     if (interruptedAssistant) {
@@ -125,8 +141,49 @@ const dialogueTurnController = new DialogueTurnController({
 });
 
 configureTurnIntelligence({
+  profile: state.turnPolicyProfile,
+  evalLoggingEnabled: state.turnEvalLoggingEnabled !== false,
   onAction(payload) {
     handleTurnAction(payload || {});
+  },
+  onReady(payload) {
+    const metrics = payload?.metrics || null;
+    if (!state.dialogueDiagnostics) clearDialogueDiagnostics();
+    state.dialogueDiagnostics.connected = true;
+    state.dialogueDiagnostics.sessionId = String(payload?.session_id || state.chatSessionId || '').trim();
+    state.dialogueDiagnostics.profile = String(payload?.profile || state.turnPolicyProfile || 'balanced').trim().toLowerCase() || 'balanced';
+    state.dialogueDiagnostics.evalLoggingEnabled = payload?.eval_logging_enabled !== false;
+    state.dialogueDiagnostics.readyAt = Date.now();
+    if (metrics) {
+      state.dialogueDiagnostics.lastMetrics = metrics;
+    }
+    pushDialogueDiagnosticEvent('turn_ready', {
+      session_id: state.dialogueDiagnostics.sessionId,
+      profile: state.dialogueDiagnostics.profile,
+      eval_logging_enabled: state.dialogueDiagnostics.evalLoggingEnabled,
+    });
+  },
+  onMetrics(payload) {
+    const metrics = payload?.metrics || null;
+    if (!metrics) return;
+    if (!state.dialogueDiagnostics) clearDialogueDiagnostics();
+    state.dialogueDiagnostics.connected = isTurnIntelligenceConnected();
+    state.dialogueDiagnostics.profile = String(metrics?.profile || state.turnPolicyProfile || 'balanced').trim().toLowerCase() || 'balanced';
+    state.dialogueDiagnostics.evalLoggingEnabled = metrics?.eval_logging_enabled !== false;
+    state.dialogueDiagnostics.lastMetrics = metrics;
+    const lastUpdate = String(metrics?.metadata?.last_update || '').trim();
+    if (lastUpdate && ['action', 'profile', 'eval_logging', 'reset', 'playback'].includes(lastUpdate)) {
+      pushDialogueDiagnosticEvent('turn_metrics', {
+        last_update: lastUpdate,
+        last_action: String(metrics?.last_action || '').trim(),
+        last_reason: String(metrics?.last_reason || '').trim(),
+        playback_active: Boolean(metrics?.playback_active),
+        played_audio_ms: Number(metrics?.played_audio_ms || 0),
+        speech_starts: Number(metrics?.speech_starts || 0),
+        overlap_yields: Number(metrics?.speech_overlap_yields || 0),
+        continuation_timeouts: Number(metrics?.continuation_timeouts || 0),
+      });
+    }
   },
 });
 

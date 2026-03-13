@@ -48,6 +48,12 @@ func TestRuntimeIncludesSafetyPreferences(t *testing.T) {
 	if got := strFromAny(payload["active_sphere"]); got != "private" {
 		t.Fatalf("active_sphere = %q, want %q", got, "private")
 	}
+	if got := strFromAny(payload["turn_policy_profile"]); got != "balanced" {
+		t.Fatalf("turn_policy_profile = %q, want %q", got, "balanced")
+	}
+	if got := boolFromAny(payload["turn_eval_logging_enabled"]); !got {
+		t.Fatalf("turn_eval_logging_enabled = %v, want true", got)
+	}
 	if got := strFromAny(payload["disclaimer_version"]); got != disclaimerVersionCurrent {
 		t.Fatalf("disclaimer_version = %q, want %q", got, disclaimerVersionCurrent)
 	}
@@ -107,10 +113,12 @@ func TestRuntimeDisclaimerAckClearsRequiredFlag(t *testing.T) {
 func TestRuntimePreferenceUpdatePersists(t *testing.T) {
 	app := newAuthedTestApp(t)
 	rr := doAuthedJSONRequest(t, app.Router(), http.MethodPatch, "/api/runtime/preferences", map[string]any{
-		"silent_mode":      true,
-		"tool":             "text_note",
-		"startup_behavior": "resume_active",
-		"active_sphere":    "work",
+		"silent_mode":               true,
+		"tool":                      "text_note",
+		"startup_behavior":          "resume_active",
+		"active_sphere":             "work",
+		"turn_policy_profile":       "patient",
+		"turn_eval_logging_enabled": false,
 	})
 	if rr.Code != http.StatusOK {
 		t.Fatalf("preference update status=%d body=%s", rr.Code, rr.Body.String())
@@ -135,6 +143,12 @@ func TestRuntimePreferenceUpdatePersists(t *testing.T) {
 	}
 	if got := strFromAny(payload["active_sphere"]); got != "work" {
 		t.Fatalf("active_sphere = %q, want %q", got, "work")
+	}
+	if got := strFromAny(payload["turn_policy_profile"]); got != "patient" {
+		t.Fatalf("turn_policy_profile = %q, want %q", got, "patient")
+	}
+	if got := boolFromAny(payload["turn_eval_logging_enabled"]); got {
+		t.Fatalf("turn_eval_logging_enabled = %v, want false", got)
 	}
 }
 

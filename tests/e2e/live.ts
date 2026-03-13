@@ -45,6 +45,10 @@ async function collectPageState(page: Page): Promise<Record<string, unknown>> {
       fileSidebarOpen: document.body?.classList.contains('file-sidebar-open') || false,
       edgeTopClass: edgeTop?.className || '',
       edgeRightClass: edgeRight?.className || '',
+      dialogueDiagnostics:
+        typeof (window as any)._taburaApp?.getDialogueDiagnostics === 'function'
+          ? (window as any)._taburaApp.getDialogueDiagnostics()
+          : null,
       viewport: {
         width: window.innerWidth,
         height: window.innerHeight,

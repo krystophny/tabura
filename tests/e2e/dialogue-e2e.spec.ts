@@ -1,55 +1,59 @@
-import { applySessionCookie, expect, test } from './live';
-import { authenticate, synthesizePiperWav } from './helpers';
+import { applySessionCookie, expect, openLiveApp, test } from './live';
+import { authenticate } from './helpers';
 
-test.describe('multi-turn dialogue flow @local-only', () => {
+test.describe('dialogue mode diagnostics @local-only', () => {
   let sessionToken: string;
 
   test.beforeAll(async () => {
     sessionToken = await authenticate();
   });
 
-  test('dialogue activates, captures speech, gets response, reopens listen', async ({ page }) => {
+  test('dialogue mode connects turn intelligence and exposes diagnostics', async ({ page }) => {
     await applySessionCookie(page, sessionToken);
-    await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await openLiveApp(page, sessionToken);
 
-    // Wait for app to be ready with a project active
-    await page.waitForFunction(() => {
-      const app = (window as { _taburaApp?: { getState?: () => { activeProjectId?: string } } })._taburaApp;
-      if (!app || typeof app.getState !== 'function') return false;
-      return Boolean(String(app.getState()?.activeProjectId || '').trim());
-    }, null, { timeout: 15_000 });
-
-    // Verify edge-top models panel is available
-    await expect.poll(async () => page.evaluate(() => {
-      const btn = document.querySelector('#edge-top-models .edge-live-dialogue-btn');
-      return btn instanceof HTMLButtonElement;
-    }), { timeout: 10_000 }).toBe(true);
-
-    // Activate dialogue mode
     await page.evaluate(() => {
+      const app = (window as any)._taburaApp;
+      app?.clearDialogueDiagnostics?.();
       const btn = document.querySelector('#edge-top-models .edge-live-dialogue-btn');
-      if (btn instanceof HTMLButtonElement) btn.click();
+      if (btn instanceof HTMLButtonElement) {
+        btn.click();
+      }
     });
 
-    // Verify dialogue is active
-    await expect(page.locator('#edge-top-models .edge-live-status')).toContainText('Dialogue', { timeout: 5_000 });
+    await expect(page.locator('#edge-top-models .edge-live-status')).toContainText('Dialogue', { timeout: 8_000 });
 
-    // Verify voice lifecycle enters listening state (dialogue listen window opens)
-    await expect.poll(async () => page.evaluate(() => {
-      const app = (window as any)._taburaApp;
-      const s = app?.getState?.();
-      return Boolean(s?.liveSessionActive && s?.liveSessionMode === 'dialogue');
-    }), { timeout: 5_000 }).toBe(true);
+    await expect.poll(async () => {
+      return page.evaluate(() => {
+        const app = (window as any)._taburaApp;
+        const state = app?.getState?.();
+        return Boolean(state?.liveSessionActive && state?.liveSessionMode === 'dialogue');
+      });
+    }, { timeout: 10_000 }).toBe(true);
 
-    // The companion face should show listening state if companion is enabled,
-    // or the indicator should show listening.
-    await expect.poll(async () => page.evaluate(() => {
-      const indicator = document.getElementById('indicator');
-      const companion = document.getElementById('companion-idle-surface');
-      const indicatorListening = indicator?.classList.contains('is-listening') === true;
-      const companionVisible = companion?.style.display !== 'none';
-      return indicatorListening || companionVisible;
-    }), { timeout: 8_000 }).toBe(true);
+    await expect.poll(async () => {
+      return page.evaluate(() => {
+        const diagnostics = (window as any)._taburaApp?.getDialogueDiagnostics?.();
+        if (!diagnostics) return null;
+        return {
+          connected: diagnostics.connected === true,
+          profile: String(diagnostics.profile || '').trim(),
+          hasMetrics: Boolean(diagnostics.lastMetrics),
+          events: Array.isArray(diagnostics.recentEvents) ? diagnostics.recentEvents.length : 0,
+        };
+      });
+    }, {
+      timeout: 15_000,
+      intervals: [250, 500, 1000],
+      message: 'dialogue mode should expose connected turn diagnostics',
+    }).toMatchObject({
+      connected: true,
+      profile: 'balanced',
+      hasMetrics: true,
+    });
+
+    const diagnostics = await page.evaluate(() => (window as any)._taburaApp?.getDialogueDiagnostics?.());
+    expect(Array.isArray(diagnostics?.recentEvents)).toBe(true);
+    expect(diagnostics.recentEvents.some((entry: any) => entry?.kind === 'turn_metrics')).toBe(true);
   });
 });

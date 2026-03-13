@@ -26,49 +26,51 @@ const (
 )
 
 type bugReportRequest struct {
-	Trigger          string          `json:"trigger"`
-	Timestamp        string          `json:"timestamp"`
-	PageURL          string          `json:"page_url"`
-	Version          string          `json:"version"`
-	BootID           string          `json:"boot_id"`
-	StartedAt        string          `json:"started_at"`
-	ActiveMode       string          `json:"active_mode"`
-	ActiveSphere     string          `json:"active_sphere"`
-	CanvasState      json.RawMessage `json:"canvas_state"`
-	RecentEvents     []string        `json:"recent_events"`
-	BrowserLogs      []string        `json:"browser_logs"`
-	Device           map[string]any  `json:"device"`
-	Note             string          `json:"note"`
-	VoiceTranscript  string          `json:"voice_transcript"`
-	ScreenshotData   string          `json:"screenshot_data_url"`
-	AnnotatedDataURL string          `json:"annotated_data_url"`
+	Trigger             string          `json:"trigger"`
+	Timestamp           string          `json:"timestamp"`
+	PageURL             string          `json:"page_url"`
+	Version             string          `json:"version"`
+	BootID              string          `json:"boot_id"`
+	StartedAt           string          `json:"started_at"`
+	ActiveMode          string          `json:"active_mode"`
+	ActiveSphere        string          `json:"active_sphere"`
+	CanvasState         json.RawMessage `json:"canvas_state"`
+	RecentEvents        []string        `json:"recent_events"`
+	BrowserLogs         []string        `json:"browser_logs"`
+	Device              map[string]any  `json:"device"`
+	DialogueDiagnostics json.RawMessage `json:"dialogue_diagnostics"`
+	Note                string          `json:"note"`
+	VoiceTranscript     string          `json:"voice_transcript"`
+	ScreenshotData      string          `json:"screenshot_data_url"`
+	AnnotatedDataURL    string          `json:"annotated_data_url"`
 }
 
 type bugReportBundle struct {
-	Trigger          string          `json:"trigger"`
-	Timestamp        string          `json:"timestamp"`
-	PageURL          string          `json:"page_url,omitempty"`
-	Version          string          `json:"version"`
-	BootID           string          `json:"boot_id,omitempty"`
-	StartedAt        string          `json:"started_at,omitempty"`
-	GitSHA           string          `json:"git_sha,omitempty"`
-	ActiveMode       string          `json:"active_mode,omitempty"`
-	ActiveWorkspace  string          `json:"active_workspace,omitempty"`
-	ActiveSphere     string          `json:"active_sphere,omitempty"`
-	CanvasState      json.RawMessage `json:"canvas_state,omitempty"`
-	RecentEvents     []string        `json:"recent_events,omitempty"`
-	BrowserLogs      []string        `json:"browser_logs,omitempty"`
-	Device           map[string]any  `json:"device,omitempty"`
-	Note             string          `json:"note,omitempty"`
-	VoiceTranscript  string          `json:"voice_transcript,omitempty"`
-	ScreenshotPath   string          `json:"screenshot,omitempty"`
-	AnnotatedPath    string          `json:"annotated_image,omitempty"`
-	WorkspaceDirPath string          `json:"workspace_dir_path,omitempty"`
-	GitHubIssueURL   string          `json:"github_issue_url,omitempty"`
-	GitHubIssueNo    int             `json:"github_issue_number,omitempty"`
-	GitHubIssueError string          `json:"github_issue_error,omitempty"`
-	ItemID           int64           `json:"item_id,omitempty"`
-	IssueLabels      []string        `json:"issue_labels,omitempty"`
+	Trigger             string          `json:"trigger"`
+	Timestamp           string          `json:"timestamp"`
+	PageURL             string          `json:"page_url,omitempty"`
+	Version             string          `json:"version"`
+	BootID              string          `json:"boot_id,omitempty"`
+	StartedAt           string          `json:"started_at,omitempty"`
+	GitSHA              string          `json:"git_sha,omitempty"`
+	ActiveMode          string          `json:"active_mode,omitempty"`
+	ActiveWorkspace     string          `json:"active_workspace,omitempty"`
+	ActiveSphere        string          `json:"active_sphere,omitempty"`
+	CanvasState         json.RawMessage `json:"canvas_state,omitempty"`
+	RecentEvents        []string        `json:"recent_events,omitempty"`
+	BrowserLogs         []string        `json:"browser_logs,omitempty"`
+	Device              map[string]any  `json:"device,omitempty"`
+	DialogueDiagnostics json.RawMessage `json:"dialogue_diagnostics,omitempty"`
+	Note                string          `json:"note,omitempty"`
+	VoiceTranscript     string          `json:"voice_transcript,omitempty"`
+	ScreenshotPath      string          `json:"screenshot,omitempty"`
+	AnnotatedPath       string          `json:"annotated_image,omitempty"`
+	WorkspaceDirPath    string          `json:"workspace_dir_path,omitempty"`
+	GitHubIssueURL      string          `json:"github_issue_url,omitempty"`
+	GitHubIssueNo       int             `json:"github_issue_number,omitempty"`
+	GitHubIssueError    string          `json:"github_issue_error,omitempty"`
+	ItemID              int64           `json:"item_id,omitempty"`
+	IssueLabels         []string        `json:"issue_labels,omitempty"`
 }
 
 type bugReportFile struct {
@@ -138,25 +140,26 @@ func (a *App) handleBugReportCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	timestamp := normalizeBugReportTimestamp(req.Timestamp)
 	bundle := bugReportBundle{
-		Trigger:          strings.TrimSpace(req.Trigger),
-		Timestamp:        timestamp,
-		PageURL:          strings.TrimSpace(req.PageURL),
-		Version:          firstNonEmpty(strings.TrimSpace(req.Version), taburaVersion),
-		BootID:           strings.TrimSpace(req.BootID),
-		StartedAt:        strings.TrimSpace(req.StartedAt),
-		GitSHA:           resolveGitSHA(workspace.DirPath),
-		ActiveMode:       strings.TrimSpace(req.ActiveMode),
-		ActiveWorkspace:  workspace.Name,
-		ActiveSphere:     workspace.Sphere,
-		CanvasState:      normalizeBugReportRawJSON(req.CanvasState),
-		RecentEvents:     cleanBugReportLines(req.RecentEvents),
-		BrowserLogs:      cleanBugReportLines(req.BrowserLogs),
-		Device:           req.Device,
-		Note:             strings.TrimSpace(req.Note),
-		VoiceTranscript:  strings.TrimSpace(req.VoiceTranscript),
-		ScreenshotPath:   toBugReportRelativePath(workspace.DirPath, screenshotPath),
-		AnnotatedPath:    toBugReportRelativePath(workspace.DirPath, annotatedPath),
-		WorkspaceDirPath: workspace.DirPath,
+		Trigger:             strings.TrimSpace(req.Trigger),
+		Timestamp:           timestamp,
+		PageURL:             strings.TrimSpace(req.PageURL),
+		Version:             firstNonEmpty(strings.TrimSpace(req.Version), taburaVersion),
+		BootID:              strings.TrimSpace(req.BootID),
+		StartedAt:           strings.TrimSpace(req.StartedAt),
+		GitSHA:              resolveGitSHA(workspace.DirPath),
+		ActiveMode:          strings.TrimSpace(req.ActiveMode),
+		ActiveWorkspace:     workspace.Name,
+		ActiveSphere:        workspace.Sphere,
+		CanvasState:         normalizeBugReportRawJSON(req.CanvasState),
+		RecentEvents:        cleanBugReportLines(req.RecentEvents),
+		BrowserLogs:         cleanBugReportLines(req.BrowserLogs),
+		Device:              req.Device,
+		DialogueDiagnostics: normalizeBugReportRawJSON(req.DialogueDiagnostics),
+		Note:                strings.TrimSpace(req.Note),
+		VoiceTranscript:     strings.TrimSpace(req.VoiceTranscript),
+		ScreenshotPath:      toBugReportRelativePath(workspace.DirPath, screenshotPath),
+		AnnotatedPath:       toBugReportRelativePath(workspace.DirPath, annotatedPath),
+		WorkspaceDirPath:    workspace.DirPath,
 	}
 	bundlePath := filepath.Join(reportDir, "bundle.json")
 	if err := writeBugReportBundle(bundlePath, bundle); err != nil {
