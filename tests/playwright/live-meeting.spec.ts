@@ -164,6 +164,22 @@ async function clearCanvas(page: Page) {
   })).toBe(false);
 }
 
+async function pinEdgeTop(page: Page) {
+  await page.evaluate(() => {
+    document.getElementById('edge-top')?.classList.add('edge-pinned');
+  });
+}
+
+async function openRuntimeMore(page: Page) {
+  await page.evaluate(() => {
+    const button = document.querySelector('#edge-top-models .edge-runtime-more-btn');
+    if (!(button instanceof HTMLButtonElement)) {
+      throw new Error('more button missing');
+    }
+    button.click();
+  });
+}
+
 async function switchSidebarToFiles(page: Page) {
   await page.getByRole('button', { name: 'Files' }).click();
   await expect(page.locator('.sidebar-tab.is-active')).toContainText('Files');
@@ -298,6 +314,7 @@ test('meeting tap stays cursor-only and does not start local capture', async ({ 
 test('black mode toggle updates the meeting idle surface preference', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await waitReady(page);
+  await pinEdgeTop(page);
   await switchToProject(page, 'test');
   await setHarnessMeetingState(page, { enabled: true, idleSurface: 'robot', runtimeState: 'idle' });
   await clearCanvas(page);
@@ -305,6 +322,7 @@ test('black mode toggle updates the meeting idle surface preference', async ({ p
     (window as any)._taburaApp?.syncCompanionIdleSurface?.();
   });
 
+  await openRuntimeMore(page);
   const blackButton = page.locator('#edge-top-models .edge-companion-surface-btn');
   await expect(blackButton).toHaveAttribute('aria-pressed', 'false');
   await page.evaluate(() => {

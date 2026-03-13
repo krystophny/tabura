@@ -155,7 +155,6 @@ test('Live panel swaps Dialogue/Meeting choices for active status and Stop', asy
   await waitForEdgeButtons(page);
   await expect(page.locator('#edge-top .edge-panel-title')).toHaveText('Workspaces');
   await expect(page.locator('#edge-top-models')).toHaveAttribute('aria-label', 'Workspace runtime controls');
-  await expect(page.locator('#edge-top-models .edge-live-label')).toHaveText('Live');
   await expect(page.locator('#edge-top-models .edge-live-dialogue-btn')).toBeVisible();
   await expect(page.locator('#edge-top-models .edge-live-meeting-btn')).toBeVisible();
 

@@ -78,6 +78,16 @@ async function refreshWorkspaceRuntimeState(page: Page) {
   });
 }
 
+async function openRuntimeMore(page: Page) {
+  await page.evaluate(() => {
+    const button = document.querySelector('#edge-top-models .edge-runtime-more-btn');
+    if (!(button instanceof HTMLButtonElement)) {
+      throw new Error('more button missing');
+    }
+    button.click();
+  });
+}
+
 test.beforeEach(async ({ page }) => {
   await page.goto('/tests/playwright/harness.html');
   await page.waitForFunction(() => {
@@ -249,11 +259,13 @@ test('system actions route through ordinary projects', async ({ page }) => {
 
 test('temporary tasks discard back to the remaining active project', async ({ page }) => {
   await seedTwoProjects(page);
+  await openRuntimeMore(page);
   await expect(page.locator('#edge-top-models .edge-temp-task-btn')).toBeVisible();
 
   await page.locator('#edge-top-models .edge-temp-task-btn').click();
   await expect(page.locator('#edge-top-projects .edge-project-btn.is-active')).toContainText('Task 1');
 
+  await openRuntimeMore(page);
   await page.locator('#edge-top-models .edge-temp-discard-btn').click();
 
   await expect.poll(async () => {

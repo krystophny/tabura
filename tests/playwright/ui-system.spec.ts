@@ -64,6 +64,22 @@ async function seedTwoProjects(page: Page) {
   });
 }
 
+async function pinEdgeTop(page: Page) {
+  await page.evaluate(() => {
+    document.getElementById('edge-top')?.classList.add('edge-pinned');
+  });
+}
+
+async function openRuntimeMore(page: Page) {
+  await page.evaluate(() => {
+    const button = document.querySelector('#edge-top-models .edge-runtime-more-btn');
+    if (!(button instanceof HTMLButtonElement)) {
+      throw new Error('more button missing');
+    }
+    button.click();
+  });
+}
+
 async function injectCanvasModuleRef(page: Page) {
   await page.evaluate(async () => {
     const mod = await import('../../internal/web/static/canvas.js');
@@ -1159,6 +1175,8 @@ test.describe('mode_changed event', () => {
   });
 
   test('execution policy control stays explicit when mode changes', async ({ page }) => {
+    await pinEdgeTop(page);
+    await openRuntimeMore(page);
     const autoButton = page.locator('#edge-top-models .edge-yolo-btn');
     await expect(autoButton).toHaveText('Auto');
     await expect(autoButton).toHaveAttribute('title', /Execution policy: default/);
@@ -1166,6 +1184,7 @@ test.describe('mode_changed event', () => {
     await injectChatEvent(page, { type: 'mode_changed', mode: 'review' });
     await page.waitForTimeout(100);
 
+    await openRuntimeMore(page);
     await expect(autoButton).toHaveAttribute('title', /Execution policy: reviewed/);
     await expect(page.locator('#edge-top-models')).not.toContainText('yolo');
   });

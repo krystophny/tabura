@@ -239,17 +239,13 @@ body.panel-motion-enabled {
   margin-left: 0.35rem;
 }
 
-.edge-live-label,
 .edge-live-status,
-.edge-live-hotword,
 .edge-live-stop-btn,
 .edge-live-dialogue-btn,
 .edge-live-meeting-btn {
   margin-left: 0.35rem;
 }
 
-.edge-live-label,
-.edge-live-hotword,
 .edge-live-status {
   cursor: default;
 }
@@ -260,13 +256,43 @@ body.panel-motion-enabled {
   color: #f9fafb;
 }
 
-.edge-live-hotword {
+.edge-runtime-more {
+  position: relative;
+  margin-left: 0.35rem;
+}
+
+.edge-runtime-more.is-open > .edge-runtime-more-btn {
+  background: #111827;
+  border-color: #111827;
+  color: #f9fafb;
+}
+
+.edge-runtime-more > .edge-runtime-more-btn.has-active-menu-item:not(.is-active) {
   border-color: #0f766e;
   color: #0f766e;
 }
 
-.edge-yolo-btn {
-  margin-left: 0.35rem;
+.edge-runtime-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.4rem);
+  min-width: 9.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.45rem;
+  border: 1px solid rgba(17, 24, 39, 0.16);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 18px 40px rgba(17, 24, 39, 0.16);
+  z-index: 20;
+}
+
+.edge-runtime-menu-btn {
+  margin-left: 0;
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
 }
 
 .edge-yolo-btn.is-active {

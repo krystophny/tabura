@@ -245,6 +245,16 @@ function normalizeLivePolicy(policy) {
     ? LIVE_SESSION_MODE_MEETING
     : LIVE_SESSION_MODE_DIALOGUE;
 }
+
+let runtimeMenuOpen = false;
+let runtimeMenuCleanup: null | (() => void) = null;
+
+function teardownRuntimeMenu() {
+  if (typeof runtimeMenuCleanup === 'function') {
+    runtimeMenuCleanup();
+  }
+  runtimeMenuCleanup = null;
+}
 export async function updateLivePolicy(policy) {
   const nextPolicy = normalizeLivePolicy(policy);
   const resp = await fetch(apiURL('live-policy'), {
@@ -394,6 +404,7 @@ export function renderEdgeTopProjects() {
 export function renderEdgeTopModelButtons() {
   const host = document.getElementById('edge-top-models');
   if (!(host instanceof HTMLElement)) return;
+  teardownRuntimeMenu();
   host.innerHTML = '';
   const sphereWrap = document.createElement('div');
   sphereWrap.className = 'edge-sphere-toggle';
@@ -489,24 +500,15 @@ export function renderEdgeTopModelButtons() {
   effortWrap.appendChild(effortSelect);
   host.appendChild(effortWrap);
 
-  const liveLabel = document.createElement('span');
-  liveLabel.className = 'edge-project-btn edge-model-btn edge-live-label';
-  liveLabel.textContent = 'Live';
-  host.appendChild(liveLabel);
-
   const liveDisabled = !project || state.projectSwitchInFlight || state.projectModelSwitchInFlight;
   if (state.liveSessionActive) {
     const liveStatus = document.createElement('span');
     liveStatus.className = 'edge-project-btn edge-model-btn edge-live-status';
     liveStatus.textContent = liveSessionStatusSummary();
-    host.appendChild(liveStatus);
-
     if (state.hotwordEnabled) {
-      const hotwordBadge = document.createElement('span');
-      hotwordBadge.className = 'edge-project-btn edge-model-btn edge-live-hotword';
-      hotwordBadge.textContent = state.liveSessionHotword || LIVE_SESSION_HOTWORD_DEFAULT;
-      host.appendChild(hotwordBadge);
+      liveStatus.title = `Live session hotword: ${state.liveSessionHotword || LIVE_SESSION_HOTWORD_DEFAULT}`;
     }
+    host.appendChild(liveStatus);
 
     const stopButton = document.createElement('button');
     stopButton.type = 'button';
@@ -570,22 +572,6 @@ export function renderEdgeTopModelButtons() {
     host.appendChild(meetingButton);
   }
 
-  const yoloButton = document.createElement('button');
-  yoloButton.type = 'button';
-  yoloButton.className = 'edge-project-btn edge-model-btn edge-yolo-btn';
-  yoloButton.textContent = 'Auto';
-  yoloButton.title = `Execution policy: ${currentExecutionPolicy(project)}`;
-  yoloButton.setAttribute('aria-label', 'Autonomous execution policy');
-  yoloButton.setAttribute('aria-pressed', state.yoloMode ? 'true' : 'false');
-  if (state.yoloMode) {
-    yoloButton.classList.add('is-active');
-  }
-  yoloButton.disabled = state.projectSwitchInFlight || state.projectModelSwitchInFlight;
-  yoloButton.addEventListener('click', () => {
-    toggleYoloMode();
-  });
-  host.appendChild(yoloButton);
-
   const silentButton = document.createElement('button');
   silentButton.type = 'button';
   silentButton.className = 'edge-project-btn edge-model-btn edge-silent-btn';
@@ -600,6 +586,68 @@ export function renderEdgeTopModelButtons() {
   });
   host.appendChild(silentButton);
 
+  const runtimeMore = document.createElement('div');
+  runtimeMore.className = 'edge-runtime-more';
+  const runtimeMoreButton = document.createElement('button');
+  runtimeMoreButton.type = 'button';
+  runtimeMoreButton.className = 'edge-project-btn edge-model-btn edge-runtime-more-btn';
+  runtimeMoreButton.textContent = 'More';
+  runtimeMoreButton.setAttribute('aria-label', 'More runtime controls');
+  runtimeMoreButton.setAttribute('aria-haspopup', 'menu');
+  runtimeMoreButton.setAttribute('aria-expanded', 'false');
+  runtimeMore.appendChild(runtimeMoreButton);
+
+  const runtimeMenu = document.createElement('div');
+  runtimeMenu.className = 'edge-runtime-menu';
+  runtimeMenu.hidden = !runtimeMenuOpen;
+  runtimeMenu.setAttribute('role', 'menu');
+
+  const closeRuntimeMenu = () => {
+    runtimeMenuOpen = false;
+    runtimeMore.classList.remove('is-open');
+    runtimeMoreButton.classList.remove('is-active');
+    runtimeMoreButton.setAttribute('aria-expanded', 'false');
+    runtimeMenu.hidden = true;
+  };
+  const openRuntimeMenu = () => {
+    runtimeMenuOpen = true;
+    runtimeMore.classList.add('is-open');
+    runtimeMoreButton.classList.add('is-active');
+    runtimeMoreButton.setAttribute('aria-expanded', 'true');
+    runtimeMenu.hidden = false;
+  };
+  const toggleRuntimeMenu = () => {
+    if (runtimeMenuOpen) {
+      closeRuntimeMenu();
+      return;
+    }
+    openRuntimeMenu();
+  };
+  const appendRuntimeMenuButton = (button) => {
+    button.classList.add('edge-runtime-menu-btn');
+    button.setAttribute('role', 'menuitem');
+    runtimeMenu.appendChild(button);
+  };
+  const hasActiveOverflowSetting = () => state.yoloMode || state.companionIdleSurface === COMPANION_IDLE_SURFACES.BLACK;
+
+  const yoloButton = document.createElement('button');
+  yoloButton.type = 'button';
+  yoloButton.className = 'edge-project-btn edge-model-btn edge-yolo-btn';
+  yoloButton.textContent = 'Auto';
+  yoloButton.title = `Execution policy: ${currentExecutionPolicy(project)}`;
+  yoloButton.setAttribute('aria-label', 'Autonomous execution policy');
+  yoloButton.setAttribute('aria-pressed', state.yoloMode ? 'true' : 'false');
+  if (state.yoloMode) {
+    yoloButton.classList.add('is-active');
+    runtimeMoreButton.classList.add('has-active-menu-item');
+  }
+  yoloButton.disabled = state.projectSwitchInFlight || state.projectModelSwitchInFlight;
+  yoloButton.addEventListener('click', () => {
+    closeRuntimeMenu();
+    toggleYoloMode();
+  });
+  appendRuntimeMenuButton(yoloButton);
+
   const blackButton = document.createElement('button');
   blackButton.type = 'button';
   blackButton.className = 'edge-project-btn edge-model-btn edge-companion-surface-btn';
@@ -607,12 +655,14 @@ export function renderEdgeTopModelButtons() {
   blackButton.setAttribute('aria-pressed', state.companionIdleSurface === COMPANION_IDLE_SURFACES.BLACK ? 'true' : 'false');
   if (state.companionIdleSurface === COMPANION_IDLE_SURFACES.BLACK) {
     blackButton.classList.add('is-active');
+    runtimeMoreButton.classList.add('has-active-menu-item');
   }
   blackButton.disabled = !project || state.projectSwitchInFlight || state.projectModelSwitchInFlight;
   blackButton.addEventListener('click', () => {
+    closeRuntimeMenu();
     void toggleCompanionIdleSurfacePreference();
   });
-  host.appendChild(blackButton);
+  appendRuntimeMenuButton(blackButton);
 
   const temporarySourceProjectID = project ? String(project.id || '').trim() : '';
   const temporaryButtons = isTemporaryProjectKind(project?.kind)
@@ -646,9 +696,47 @@ export function renderEdgeTopModelButtons() {
     button.className = `edge-project-btn edge-model-btn ${action.className}`;
     button.textContent = action.label;
     button.disabled = state.projectSwitchInFlight || state.projectModelSwitchInFlight;
-    button.addEventListener('click', action.onClick);
-    host.appendChild(button);
+    button.addEventListener('click', () => {
+      closeRuntimeMenu();
+      action.onClick();
+    });
+    appendRuntimeMenuButton(button);
   }
+
+  runtimeMore.appendChild(runtimeMenu);
+  host.appendChild(runtimeMore);
+  if (runtimeMenuOpen) {
+    openRuntimeMenu();
+  } else {
+    closeRuntimeMenu();
+  }
+  if (hasActiveOverflowSetting()) {
+    runtimeMoreButton.classList.add('has-active-menu-item');
+  }
+  const handleRuntimeMenuDocumentClick = (event) => {
+    if (!runtimeMore.contains(event.target as Node)) {
+      closeRuntimeMenu();
+    }
+  };
+  const handleRuntimeMenuKeydown = (event) => {
+    if (event.key === 'Escape') {
+      closeRuntimeMenu();
+    }
+  };
+  runtimeMoreButton.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    toggleRuntimeMenu();
+  });
+  runtimeMenu.addEventListener('click', (event) => {
+    event.stopPropagation();
+  });
+  document.addEventListener('click', handleRuntimeMenuDocumentClick);
+  document.addEventListener('keydown', handleRuntimeMenuKeydown);
+  runtimeMenuCleanup = () => {
+    document.removeEventListener('click', handleRuntimeMenuDocumentClick);
+    document.removeEventListener('keydown', handleRuntimeMenuKeydown);
+  };
   renderToolPalette();
 }
 
