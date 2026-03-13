@@ -553,6 +553,38 @@ test('dialogue barge-in interrupts TTS and starts recording with connected turn 
   })).toBe(true);
 });
 
+test('dialogue barge-in interrupts TTS and starts recording without turn intelligence', async ({ page }) => {
+  await setDialogueMode(page, true);
+  await page.evaluate(() => {
+    (window as any).__setTTSPlaybackDelayMs(750);
+    (window as any).__setVadDbFrames([
+      ...Array.from({ length: 8 }, () => -80),
+      ...Array.from({ length: 12 }, () => -12),
+      ...Array.from({ length: 12 }, () => -80),
+    ]);
+  });
+  await clearLog(page);
+
+  await triggerVoiceAssistantTTS(page, 'conv-barge-local-1', 'Please interrupt me if you need to.');
+
+  await expect.poll(async () => {
+    const log = await getLog(page);
+    return log.some((entry) => entry.type === 'recorder' && entry.action === 'start');
+  }, { timeout: 5_000 }).toBe(true);
+
+  await expect.poll(async () => page.evaluate(() => {
+    const app = (window as any)._taburaApp;
+    const state = app?.getState?.();
+    return {
+      recording: Boolean(state?.chatVoiceCapture),
+      speaking: Boolean(state?.ttsPlaying),
+    };
+  })).toEqual({
+    recording: true,
+    speaking: false,
+  });
+});
+
 test('dialogue listen shows hard error when VAD is unavailable', async ({ page }) => {
   // Remove the VAD mock so initVAD returns null (real bundle does not exist)
   await page.evaluate(() => {

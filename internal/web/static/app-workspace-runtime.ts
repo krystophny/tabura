@@ -528,7 +528,7 @@ export function renderEdgeTopModelButtons() {
     if (state.livePolicy === LIVE_SESSION_MODE_DIALOGUE) {
       dialogueButton.classList.add('is-active');
     }
-    dialogueButton.disabled = liveDisabled || !state.ttsEnabled;
+    dialogueButton.disabled = liveDisabled;
     dialogueButton.addEventListener('click', () => {
       void activateLiveSession(LIVE_SESSION_MODE_DIALOGUE)
         .then((started) => {

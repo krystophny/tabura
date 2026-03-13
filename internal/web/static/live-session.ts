@@ -40,7 +40,6 @@ const state = {
   dialogueListenActive: false,
   dialogueListenSileroVAD: null,
   dialogueSessionToken: 0,
-  dialogueRetryCount: 0,
   ttsBargeInMode: false,
   ttsBargeInArmedAt: 0,
   bargeInConsecutive: 0,
@@ -93,13 +92,12 @@ function closeDialogueListenWindow() {
 }
 
 function pauseDialogueListenForCapture() {
-  if (state.dialogueListenSileroVAD) {
-    try { state.dialogueListenSileroVAD.pause(); } catch (_) {}
-  }
+  clearDialogueSileroVAD();
   state.dialogueListenActive = false;
   state.ttsBargeInMode = false;
   state.ttsBargeInArmedAt = 0;
   state.bargeInConsecutive = 0;
+  state.bargeInPending = false;
   sendTurnListenState(false);
   notifyStateChange();
 }
@@ -124,15 +122,6 @@ function nextDialogueToken() {
 }
 
 function fireDialogueListenError(message) {
-  if (state.dialogueRetryCount < 1 && state.active && state.mode === LIVE_SESSION_MODE_DIALOGUE) {
-    state.dialogueRetryCount += 1;
-    closeDialogueListenWindow();
-    window.setTimeout(() => {
-      if (!state.active || state.mode !== LIVE_SESSION_MODE_DIALOGUE) return;
-      void openDialogueListenWindow();
-    }, 1500);
-    return;
-  }
   closeDialogueListenWindow();
   if (typeof hooks.onDialogueListenError === 'function') {
     hooks.onDialogueListenError(message);
@@ -145,17 +134,19 @@ async function startSileroDialogueMonitor(stream, token) {
     const handleDialogueSpeechDetected = (via) => {
       if (token !== state.dialogueSessionToken) return;
       if (!state.dialogueListenActive) return;
+      const interruptedAssistant = Boolean(state.ttsBargeInMode);
+      if (interruptedAssistant && !localBargeInFallbackArmed()) return;
       recordDialogueVoiceDiagnostic('dialogue_listen_speech_detected', {
         via: String(via || '').trim() || 'unknown',
-        barge_in: Boolean(state.ttsBargeInMode),
+        barge_in: interruptedAssistant,
       });
-      if (state.ttsBargeInMode) {
-        if (isTurnIntelligenceConnected()) {
-          sendTurnSpeechStart(true);
-        }
+      if (isTurnIntelligenceConnected()) {
+        sendTurnSpeechStart(interruptedAssistant);
+      }
+      if (interruptedAssistant) {
+        fireBargeIn();
         return;
       }
-      sendTurnSpeechStart(false);
       onDialogueSpeechDetected();
     };
     const instance = await initVAD({
@@ -195,7 +186,7 @@ async function startSileroDialogueMonitor(stream, token) {
           state.bargeInConsecutive += 1;
           if (state.bargeInConsecutive >= BARGE_IN_CONSECUTIVE_FRAMES) {
             state.bargeInConsecutive = 0;
-            fireBargeIn();
+            handleDialogueSpeechDetected('frame_probability_fallback');
           }
         } else {
           state.bargeInConsecutive = 0;
@@ -215,7 +206,6 @@ async function startSileroDialogueMonitor(stream, token) {
 
     state.dialogueListenSileroVAD = instance;
     instance.start();
-    state.dialogueRetryCount = 0;
     notifyStateChange();
   } catch (err) {
     if (token === state.dialogueSessionToken && state.dialogueListenActive) {
@@ -405,17 +395,6 @@ export function onDialogueSpeechDetected() {
 
 export function resumeDialogueListen() {
   if (!canStartDialogueListen()) return;
-  if (state.dialogueListenSileroVAD) {
-    state.dialogueListenActive = true;
-    state.ttsBargeInMode = false;
-    state.ttsBargeInArmedAt = 0;
-    state.bargeInConsecutive = 0;
-    state.bargeInPending = false;
-    state.dialogueListenSileroVAD.start();
-    sendTurnListenState(true);
-    notifyStateChange();
-    return;
-  }
   void openDialogueListenWindow();
 }
 

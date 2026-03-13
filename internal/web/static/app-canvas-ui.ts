@@ -196,9 +196,6 @@ export function deriveVoiceLifecycle() {
   if (isRecording()) return VOICE_LIFECYCLE.RECORDING;
   if (state.chatVoiceCapture?.stopping) return VOICE_LIFECYCLE.STOPPING_RECORDING;
   if (state.voiceAwaitingTurn) return VOICE_LIFECYCLE.AWAITING_TURN;
-  if (state.liveSessionActive && String(state.liveSessionMode || '').trim().toLowerCase() === 'dialogue' && !state.ttsEnabled) {
-    return VOICE_LIFECYCLE.IDLE;
-  }
   if (isLiveSessionListenActive()) return VOICE_LIFECYCLE.LISTENING;
   if (hasLocalStopCapableWork()) return VOICE_LIFECYCLE.ASSISTANT_WORKING;
   if (isTTSSpeaking()) return VOICE_LIFECYCLE.TTS_PLAYING;
@@ -222,7 +219,6 @@ export function isUiReadyForStatus() {
 }
 
 export function canStartLiveDialogueListen() {
-  if (!state.ttsEnabled) return false;
   if (!isDialogueLiveSession()) return false;
   const mode = syncVoiceLifecycle('can-start-live-dialogue');
   if (mode === VOICE_LIFECYCLE.RECORDING || mode === VOICE_LIFECYCLE.STOPPING_RECORDING) return false;
