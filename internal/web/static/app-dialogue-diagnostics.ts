@@ -132,5 +132,3 @@ export async function setDialogueEvalLogging(enabled) {
   pushDialogueDiagnosticEvent('eval_logging_updated', { enabled: state.turnEvalLoggingEnabled });
   return state.turnEvalLoggingEnabled;
 }
-
-clearDialogueDiagnostics();
