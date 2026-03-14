@@ -1,7 +1,7 @@
 .companion-idle-surface {
-  --companion-bg: radial-gradient(circle at top, #f5f1e8 0%, #e7e1d5 42%, #d8d0c1 100%);
-  --companion-panel: rgba(255, 252, 246, 0.78);
-  --companion-panel-border: rgba(17, 17, 17, 0.14);
+  --companion-bg: #ffffff;
+  --companion-panel: rgba(255, 255, 255, 0.92);
+  --companion-panel-border: rgba(17, 17, 17, 0.12);
   --companion-face: #111111;
   --companion-face-soft: rgba(17, 17, 17, 0.12);
   --companion-face-accent: #1d4ed8;
