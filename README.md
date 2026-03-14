@@ -21,7 +21,7 @@ Legal notice: Tabura is provided "as is" and "as available" without warranties, 
 - **Model download policy**: [`docs/model-download-policy.md`](docs/model-download-policy.md)
 - **Meeting notes privacy**: [`docs/meeting-notes-privacy.md`](docs/meeting-notes-privacy.md)
 - **Third-party licenses**: [`THIRD_PARTY_LICENSES.md`](THIRD_PARTY_LICENSES.md)
-- **Current release notes (v0.2.0)**: [`docs/release-v0.2.0.md`](docs/release-v0.2.0.md)
+- **Current release notes (v0.2.1)**: [`docs/release-v0.2.1.md`](docs/release-v0.2.1.md)
 
 ## Install
 
