@@ -203,7 +203,29 @@ export function typesetMath(root, attempt = 0) {
 
 let statusBarTimer = null;
 
+function shouldSuppressDialogueStatus(text) {
+  const normalized = String(text || '').trim().toLowerCase();
+  if (!normalized) return false;
+  if (!(state.liveSessionActive && state.liveSessionMode === 'dialogue')) return false;
+  if (!shouldShowCompanionIdleSurface()) return false;
+  return normalized === 'listening...'
+    || normalized === 'recording...'
+    || normalized === 'transcribing...'
+    || normalized === 'sending...'
+    || normalized === 'ready';
+}
+
 export function showStatus(text) {
+  if (shouldSuppressDialogueStatus(text)) {
+    const bar = document.getElementById('status-bar');
+    if (bar) {
+      if (statusBarTimer) window.clearTimeout(statusBarTimer);
+      statusBarTimer = null;
+      bar.classList.remove('is-visible');
+      bar.style.display = 'none';
+    }
+    return;
+  }
   const el = document.getElementById('status-text');
   if (el) el.textContent = text;
   const statusEl = document.getElementById('status-label');
