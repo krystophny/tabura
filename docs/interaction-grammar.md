@@ -133,7 +133,7 @@ The registered fast-path families include:
 - calendar and briefing requests
 - cursor, titled-item, item, workspace, and project commands
 - GitHub issue and artifact-linking commands
-- runtime control commands such as `toggle_silent`, `toggle_live_dialogue`, `cancel_work`, `show_status`, and `switch_model`
+- runtime control commands such as `toggle_silent`, `toggle_live_dialogue`, `cancel_work`, and `show_status`
 - direct UI loopback controls for `system_action` events and push-to-talk hold/release
 
 The backend registry in `internal/web/chat_intent_fast.go` is authoritative for these boundaries.

@@ -703,8 +703,22 @@ func TestProjectChatModelUpdate(t *testing.T) {
 		"/api/projects/"+projectID+"/chat-model",
 		map[string]any{"model": "gpt"},
 	)
-	if rrUpdate.Code != http.StatusOK {
-		t.Fatalf("expected update 200, got %d: %s", rrUpdate.Code, rrUpdate.Body.String())
+	if rrUpdate.Code != http.StatusBadRequest {
+		t.Fatalf("expected update 400, got %d: %s", rrUpdate.Code, rrUpdate.Body.String())
+	}
+	if !strings.Contains(rrUpdate.Body.String(), "spark is the only default dialogue model") {
+		t.Fatalf("expected spark-only error, got %q", rrUpdate.Body.String())
+	}
+
+	rrSpark := doAuthedJSONRequest(
+		t,
+		app.Router(),
+		http.MethodPost,
+		"/api/projects/"+projectID+"/chat-model",
+		map[string]any{"model": "spark"},
+	)
+	if rrSpark.Code != http.StatusOK {
+		t.Fatalf("expected spark update 200, got %d: %s", rrSpark.Code, rrSpark.Body.String())
 	}
 	var updatePayload struct {
 		OK      bool `json:"ok"`
@@ -714,7 +728,7 @@ func TestProjectChatModelUpdate(t *testing.T) {
 			ChatModelReasoningEffort string `json:"chat_model_reasoning_effort"`
 		} `json:"project"`
 	}
-	if err := json.Unmarshal(rrUpdate.Body.Bytes(), &updatePayload); err != nil {
+	if err := json.Unmarshal(rrSpark.Body.Bytes(), &updatePayload); err != nil {
 		t.Fatalf("decode update response: %v", err)
 	}
 	if !updatePayload.OK {
@@ -723,11 +737,11 @@ func TestProjectChatModelUpdate(t *testing.T) {
 	if updatePayload.Project.ID != projectID {
 		t.Fatalf("expected updated project id %q, got %q", projectID, updatePayload.Project.ID)
 	}
-	if updatePayload.Project.ChatModel != "gpt" {
-		t.Fatalf("expected chat model gpt, got %q", updatePayload.Project.ChatModel)
+	if updatePayload.Project.ChatModel != "spark" {
+		t.Fatalf("expected chat model spark, got %q", updatePayload.Project.ChatModel)
 	}
-	if updatePayload.Project.ChatModelReasoningEffort != "high" {
-		t.Fatalf("expected gpt reasoning effort high, got %q", updatePayload.Project.ChatModelReasoningEffort)
+	if updatePayload.Project.ChatModelReasoningEffort != "low" {
+		t.Fatalf("expected spark reasoning effort low, got %q", updatePayload.Project.ChatModelReasoningEffort)
 	}
 
 	rrEffortUpdate := doAuthedJSONRequest(
@@ -736,7 +750,7 @@ func TestProjectChatModelUpdate(t *testing.T) {
 		http.MethodPost,
 		"/api/projects/"+projectID+"/chat-model",
 		map[string]any{
-			"model":            "gpt",
+			"model":            "spark",
 			"reasoning_effort": "extra_high",
 		},
 	)
@@ -998,8 +1012,11 @@ func TestProjectChatModelUpdateAllowsDefaultProject(t *testing.T) {
 		"/api/projects/"+project.ID+"/chat-model",
 		map[string]any{"model": "gpt"},
 	)
-	if rr.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), "spark is the only default dialogue model") {
+		t.Fatalf("expected spark-only error, got %q", rr.Body.String())
 	}
 }
 

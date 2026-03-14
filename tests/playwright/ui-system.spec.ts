@@ -38,7 +38,7 @@ async function seedTwoProjects(page: Page) {
         chat_session_id: 'chat-1',
         canvas_session_id: 'local',
         chat_mode: 'chat',
-        chat_model: 'codex',
+        chat_model: 'spark',
         chat_model_reasoning_effort: 'low',
         unread: false,
         review_pending: false,
@@ -54,7 +54,7 @@ async function seedTwoProjects(page: Page) {
         chat_session_id: 'chat-2',
         canvas_session_id: 'notes',
         chat_mode: 'chat',
-        chat_model: 'codex',
+        chat_model: 'spark',
         chat_model_reasoning_effort: 'low',
         unread: false,
         review_pending: false,
@@ -1621,42 +1621,9 @@ test.describe('project state persistence', () => {
 });
 
 
-// =============================================================================
-// System action: switch_model updates UI without extra API call
-// =============================================================================
-
 test.describe('system_action model and project switching', () => {
   test.beforeEach(async ({ page }) => {
     await waitReady(page);
-  });
-
-  test('switch_model updates model button and effort select', async ({ page }) => {
-    await clearLog(page);
-
-    await injectChatEvent(page, {
-      type: 'system_action',
-      action: {
-        type: 'switch_model',
-        project_id: 'test',
-        alias: 'gpt',
-        effort: 'high',
-      },
-    });
-    await page.waitForTimeout(300);
-
-    // Model should be updated in state
-    const model = await page.evaluate(() => {
-      const s = (window as any)._taburaApp?.getState?.();
-      const p = s.projects?.find((p: any) => p.id === 'test');
-      return { alias: p?.chat_model, effort: p?.chat_model_reasoning_effort };
-    });
-    expect(model.alias).toBe('gpt');
-    expect(model.effort).toBe('high');
-
-    // No extra API call for chat-model
-    const log = await getLog(page);
-    const modelApiCalls = log.filter(e => e.type === 'api_fetch' && e.action === 'project_chat_model');
-    expect(modelApiCalls.length).toBe(0);
   });
 
   test('switch_project triggers project activate API', async ({ page }) => {

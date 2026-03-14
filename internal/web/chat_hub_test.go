@@ -123,7 +123,6 @@ func TestParseSystemAction(t *testing.T) {
 		{name: "switch workspace", raw: `{"action":"switch_workspace","workspace":"tabula"}`, wantAction: "switch_workspace"},
 		{name: "list workspace items", raw: `{"action":"list_workspace_items","workspace":"tabula"}`, wantAction: "list_workspace_items"},
 		{name: "create workspace from git", raw: `{"action":"create_workspace_from_git","repo_url":"git@github.com:user/repo.git"}`, wantAction: "create_workspace_from_git"},
-		{name: "switch model", raw: `{"action":"switch_model","alias":"gpt","effort":"high"}`, wantAction: "switch_model"},
 		{name: "toggle silent", raw: `{"action":"toggle_silent"}`, wantAction: "toggle_silent"},
 		{name: "toggle live dialogue", raw: `{"action":"toggle_live_dialogue"}`, wantAction: "toggle_live_dialogue"},
 		{name: "cancel work", raw: `{"action":"cancel_work"}`, wantAction: "cancel_work"},
@@ -299,7 +298,7 @@ func TestExecuteSystemActionOpenFileCanvasShowsArtifact(t *testing.T) {
 	}
 }
 
-func TestSwitchModelTargetsActiveProject(t *testing.T) {
+func TestSwitchModelActionIsUnsupported(t *testing.T) {
 	app := newAuthedTestApp(t)
 	project, err := app.ensureDefaultProjectRecord()
 	if err != nil {
@@ -313,35 +312,18 @@ func TestSwitchModelTargetsActiveProject(t *testing.T) {
 		t.Fatalf("project session: %v", err)
 	}
 
-	msg, payload, err := app.executeSystemAction(session.ID, session, &SystemAction{
+	_, _, err = app.executeSystemAction(session.ID, session, &SystemAction{
 		Action: "switch_model",
 		Params: map[string]interface{}{
 			"alias":  "gpt",
 			"effort": "xhigh",
 		},
 	})
-	if err != nil {
-		t.Fatalf("execute switch_model: %v", err)
+	if err == nil {
+		t.Fatal("expected switch_model action to be unsupported")
 	}
-	if payload == nil {
-		t.Fatalf("expected switch_model payload")
-	}
-	if got := strings.TrimSpace(payload["type"].(string)); got != "switch_model" {
-		t.Fatalf("action payload type = %q, want switch_model", got)
-	}
-	if !strings.Contains(strings.ToLower(msg), "model") {
-		t.Fatalf("expected model update message, got %q", msg)
-	}
-
-	updatedProject, err := app.store.GetProject(project.ID)
-	if err != nil {
-		t.Fatalf("reload project: %v", err)
-	}
-	if updatedProject.ChatModel != "gpt" {
-		t.Fatalf("project chat model = %q, want gpt", updatedProject.ChatModel)
-	}
-	if updatedProject.ChatModelReasoningEffort != "xhigh" {
-		t.Fatalf("project reasoning effort = %q, want xhigh", updatedProject.ChatModelReasoningEffort)
+	if !strings.Contains(err.Error(), "unsupported action") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 

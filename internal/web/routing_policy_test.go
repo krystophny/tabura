@@ -59,7 +59,7 @@ func TestRouteProfileForRoutingUsesSparkFallbackWithConfiguredEffort(t *testing.
 func TestEnforceRoutingPolicyNormalizesButDoesNotDropActions(t *testing.T) {
 	actions := []*SystemAction{
 		{Action: "toggle_silent", Params: map[string]interface{}{}},
-		{Action: "switch_model", Params: map[string]interface{}{"alias": "gpt"}},
+		{Action: "show_status", Params: map[string]interface{}{}},
 	}
 	enforced := enforceRoutingPolicy("use GPT for this", actions)
 	if len(enforced) != 2 {

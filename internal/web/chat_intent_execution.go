@@ -340,25 +340,6 @@ func (a *App) executeSystemAction(sessionID string, session store.ChatSession, a
 		return a.executeDeleteWorkspaceAction(session, action)
 	case "show_workspace_details":
 		return a.executeShowWorkspaceDetailsAction(session, action)
-	case "switch_model":
-		targetProject, err := a.systemActionTargetProject(session)
-		if err != nil {
-			return "", nil, err
-		}
-		updated, err := a.updateProjectChatModel(
-			targetProject.ID,
-			systemActionStringParam(action.Params, "alias"),
-			systemActionStringParam(action.Params, "effort"),
-		)
-		if err != nil {
-			return "", nil, err
-		}
-		return fmt.Sprintf("Model for %s set to %s (%s).", updated.Name, updated.ChatModel, updated.ChatModelReasoningEffort), map[string]interface{}{
-			"type":       "switch_model",
-			"project_id": updated.ID,
-			"alias":      updated.ChatModel,
-			"effort":     updated.ChatModelReasoningEffort,
-		}, nil
 	case "toggle_silent":
 		return "Toggled silent mode.", map[string]interface{}{"type": "toggle_silent"}, nil
 	case "toggle_live_dialogue":

@@ -74,22 +74,20 @@ SCENARIO_FEEDBACK = "instant_feedback_gate"
 
 INTENT_SYSTEM_PROMPT = """You are Tabura Hub intent router.
 Return JSON only with this schema:
-{"action":"switch_project|switch_model|toggle_silent|toggle_conversation|cancel_work|show_status|delegate|chat","alias":"codex|gpt|spark","effort":"low|medium|high|xhigh","name":"","task":""}
+{"action":"switch_project|toggle_silent|toggle_conversation|cancel_work|show_status|delegate|chat","model":"gpt|spark|none","name":"","task":""}
 Rules:
 - If user asks to change project, use switch_project with name.
-- If user asks to change model, use switch_model with alias and optional effort.
 - If user asks to stop work, use cancel_work.
 - If user asks for status, use show_status.
-- If user asks to delegate work to another model, use delegate and include task.
+- If user explicitly asks Spark to hand off a task, use delegate and include task plus model.
 - Otherwise use chat.
 - Output strictly one JSON object and no prose."""
 
 DELEGATION_SYSTEM_PROMPT = """You are a delegation policy classifier for Tabura.
 Return JSON only:
-{"delegate":true|false,"model":"codex|gpt|spark|none","instant_feedback":true|false,"feedback":""}
+{"delegate":true|false,"model":"gpt|spark|none","instant_feedback":true|false,"feedback":""}
 Rules:
 - Delegate=true for complex multi-file coding, deep analysis, or web-research tasks.
-- Choose codex for coding/refactor/debug tasks.
 - Choose gpt for broad analysis/research/writing tasks.
 - Choose spark only when user explicitly asks for spark or quick cheap pass.
 - If delegate=true then instant_feedback=true and feedback must be a short confirmation in user language.
@@ -129,16 +127,13 @@ SCENARIOS: list[dict[str, Any]] = [
         "system_prompt": INTENT_SYSTEM_PROMPT,
         "max_tokens": 96,
         "examples": [
-            {"lang": "en", "text": "switch to codex with high effort", "expected": {"action": "switch_model"}},
-            {"lang": "en", "text": "set model to gpt medium", "expected": {"action": "switch_model"}},
             {"lang": "en", "text": "switch to project backend", "expected": {"action": "switch_project"}},
             {"lang": "en", "text": "cancel current work now", "expected": {"action": "cancel_work"}},
             {"lang": "en", "text": "show me status", "expected": {"action": "show_status"}},
             {"lang": "en", "text": "toggle conversation mode", "expected": {"action": "toggle_conversation"}},
-            {"lang": "en", "text": "please delegate to codex: fix flaky tests", "expected": {"action": "delegate"}},
+            {"lang": "en", "text": "please use GPT for this refactor", "expected": {"action": "delegate"}},
             {"lang": "en", "text": "tell me a short joke", "expected": {"action": "chat"}},
             {"lang": "de", "text": "wechsle auf projekt alpha", "expected": {"action": "switch_project"}},
-            {"lang": "de", "text": "nutze codex mit hoher stufe", "expected": {"action": "switch_model"}},
             {"lang": "de", "text": "bitte laufende arbeit abbrechen", "expected": {"action": "cancel_work"}},
             {"lang": "de", "text": "zeige mir den status", "expected": {"action": "show_status"}},
             {"lang": "de", "text": "schalte auf lautlos", "expected": {"action": "toggle_silent"}},
@@ -154,7 +149,7 @@ SCENARIOS: list[dict[str, Any]] = [
             {
                 "lang": "en",
                 "text": "Refactor auth module across the repo and fix failing integration tests.",
-                "expected": {"delegate": True, "model": "codex", "instant_feedback": True},
+                "expected": {"delegate": True, "model": "gpt", "instant_feedback": True},
             },
             {"lang": "en", "text": "Rename one variable in this snippet.", "expected": {"delegate": False, "model": "none", "instant_feedback": False}},
             {
@@ -171,7 +166,7 @@ SCENARIOS: list[dict[str, Any]] = [
             {
                 "lang": "de",
                 "text": "Bitte analysiere die gesamte codebasis und erstelle einen migrationsplan.",
-                "expected": {"delegate": True, "model": "codex", "instant_feedback": True},
+                "expected": {"delegate": True, "model": "gpt", "instant_feedback": True},
             },
             {
                 "lang": "de",

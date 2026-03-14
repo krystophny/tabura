@@ -52,7 +52,7 @@ func TestLLMChatCompletion(t *testing.T) {
 func TestLLMIntentClassification(t *testing.T) {
 	requireServiceHealth(t, "LLM", llmURL+"/health")
 	systemPrompt := `Classify the user intent and return JSON only.
-Allowed actions: switch_project, switch_model, toggle_silent, toggle_conversation, cancel_work, show_status, chat.
+Allowed actions: switch_project, toggle_silent, toggle_conversation, cancel_work, show_status, chat.
 Return {"action":"<action>"}.`
 
 	resp, err := postLLMCompletion([]map[string]string{
@@ -70,7 +70,7 @@ Return {"action":"<action>"}.`
 		t.Fatalf("LLM response does not contain 'action': %q", content)
 	}
 	hasKnownAction := false
-	for _, a := range []string{"toggle_silent", "switch_model", "cancel_work", "show_status", "chat"} {
+	for _, a := range []string{"toggle_silent", "cancel_work", "show_status", "chat"} {
 		if strings.Contains(content, a) {
 			hasKnownAction = true
 			break
