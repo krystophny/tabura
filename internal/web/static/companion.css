@@ -33,6 +33,7 @@
     calc(1.5rem + var(--safe-area-right))
     calc(2rem + var(--safe-area-bottom))
     calc(1.5rem + var(--safe-area-left));
+  background: #ffffff;
 }
 
 .companion-idle-frame {
@@ -46,6 +47,7 @@
   border-radius: 0;
   background: transparent;
   backdrop-filter: none;
+  box-shadow: none;
 }
 
 .companion-idle-face {

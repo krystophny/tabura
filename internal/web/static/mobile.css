@@ -1,16 +1,21 @@
 @media (max-width: 767px) {
   .companion-idle-shell {
     padding:
-      calc(3rem + var(--safe-area-top))
+      calc(2rem + var(--safe-area-top))
       calc(1rem + var(--safe-area-right))
       calc(2rem + var(--safe-area-bottom))
       calc(1rem + var(--safe-area-left));
   }
 
   .companion-idle-frame {
-    width: min(100%, 420px);
-    padding: 1.6rem 1.25rem 1.75rem;
+    width: auto;
+    max-width: 100%;
+    padding: 0;
     gap: 1.1rem;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
   }
 }
 
