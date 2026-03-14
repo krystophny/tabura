@@ -35,16 +35,15 @@ Current runtime shape:
 Supported loopback sidecars and helpers:
 - `tabura-codex-app-server.service` for Codex app-server (`ws://127.0.0.1:8787`)
 - `tabura-piper-tts.service` for Piper TTS (`http://127.0.0.1:8424/v1/audio/speech`)
-- `tabura-stt.service` for voxtype STT (`/v1/audio/transcriptions` on `127.0.0.1:8427`)
+- `tabura-stt.service` for voxtype daemon with STT service and push-to-talk (`/v1/audio/transcriptions` on `127.0.0.1:8427`)
 - `tabura-llm.service` for the local Qwen routing/fallback layer (`/v1/chat/completions` via base URL `http://127.0.0.1:8426`)
-- `tabura-ptt.service` for the Linux desktop push-to-talk daemon (`tabura ptt-daemon`)
 
 Non-runtime notes:
 - No separate `tabura-mcp.service` sidecar is part of the current model.
 - No Helpy runtime is part of Tabura.
 - `scripts/install.sh` wires `TABURA_INTENT_LLM_URL=http://127.0.0.1:8426` for `tabura-web.service`.
 - Current Qwen profile defaults in code are `qwen3.5-9b` with profile options `qwen3.5-9b,qwen3.5-4b`.
-- `scripts/install-tabura-user-units.sh` enables the full local unit set, including `tabura-llm.service`, `tabura-stt.service`, and `tabura-ptt.service`.
+- `scripts/install-tabura-user-units.sh` enables the full local unit set, including `tabura-llm.service` and `tabura-stt.service`.
 
 ## Project Bootstrap Contract
 
@@ -115,11 +114,8 @@ Core runtime user units:
 - `tabura-web.service`
 - `tabura-codex-app-server.service`
 - `tabura-piper-tts.service`
-- `tabura-stt.service`
+- `tabura-stt.service` (voxtype daemon with STT API and push-to-talk)
 - `tabura-llm.service`
-
-Optional input helper:
-- `tabura-ptt.service`
 
 Quick status:
 

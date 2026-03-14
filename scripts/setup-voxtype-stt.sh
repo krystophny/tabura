@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Start voxtype daemon with the OpenAI-compatible STT service enabled.
+# Hotkey (push-to-talk) remains active so a single voxtype process serves
+# both the HTTP API and desktop voice input.
+
 VOXTYPE_BIN="${VOXTYPE_BIN:-voxtype}"
 HOST="${TABURA_STT_HOST:-127.0.0.1}"
 PORT="${TABURA_STT_PORT:-8427}"
@@ -25,7 +29,7 @@ if [[ "$LANGUAGE_CSV" == *,* ]]; then
   LANGUAGE_MODE="auto"
 fi
 
-echo "Starting voxtype STT service at http://$HOST:$PORT (languages=$LANGUAGE_CSV model=$MODEL)"
+echo "Starting voxtype daemon with STT service at http://$HOST:$PORT (languages=$LANGUAGE_CSV model=$MODEL)"
 
 export VOXTYPE_SERVICE_ENABLED=true
 export VOXTYPE_SERVICE_HOST="$HOST"
@@ -34,13 +38,11 @@ export VOXTYPE_SERVICE_ALLOWED_LANGUAGES="$LANGUAGE_CSV"
 export VOXTYPE_LANGUAGE="$LANGUAGE_MODE"
 export VOXTYPE_MODEL="$MODEL"
 export VOXTYPE_THREADS="$THREADS"
-export VOXTYPE_HOTKEY_ENABLED=false
 
 args=(
   --service
   --service-host "$HOST"
   --service-port "$PORT"
-  --no-hotkey
   --model "$MODEL"
   --language "$LANGUAGE_MODE"
   --threads "$THREADS"
@@ -48,5 +50,6 @@ args=(
 if [ -n "$PROMPT" ]; then
   args+=(--initial-prompt "$PROMPT")
 fi
+args+=(daemon)
 
 exec "$VOXTYPE_BIN" "${args[@]}"

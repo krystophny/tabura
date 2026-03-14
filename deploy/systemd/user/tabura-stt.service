@@ -1,10 +1,9 @@
 [Unit]
-Description=Tabura voxtype STT Sidecar (OpenAI-compatible)
-After=network.target
+Description=Voxtype daemon with STT service for Tabura
+After=graphical-session.target pipewire.service pipewire-pulse.service
 
 [Service]
 Type=simple
-WorkingDirectory=@@REPO_ROOT@@
 Environment=HOME=%h
 Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
 Environment=TABURA_STT_LANGUAGE=de,en
@@ -12,7 +11,6 @@ Environment=TABURA_STT_MODEL=large-v3-turbo
 ExecStart=@@REPO_ROOT@@/scripts/setup-voxtype-stt.sh
 Restart=on-failure
 RestartSec=5
-TimeoutStopSec=15
 
 [Install]
-WantedBy=default.target
+WantedBy=graphical-session.target

@@ -84,16 +84,16 @@ tabura server --project-dir . --data-dir ~/.tabura-web --web-host 0.0.0.0 --web-
 
 ## Runtime Stack (Canonical)
 
-Tabura runs as one Go runtime plus six local services:
+Tabura runs as one Go runtime plus five local services:
 
 1. `tabura-web.service` (`tabura server`)
 2. `tabura-codex-app-server.service` (`codex app-server`)
 3. `tabura-piper-tts.service` (Piper `/v1/audio/speech`)
-4. `tabura-stt.service` (voxtype `/v1/audio/transcriptions`)
+4. `tabura-stt.service` (voxtype daemon with STT API and push-to-talk, `/v1/audio/transcriptions`)
 5. `tabura-llm.service` (Qwen3.5 9B GGUF local coordinator at `127.0.0.1:8081/v1/chat/completions`)
 6. `tabura-codex-llm.service` (gpt-oss-120b llama.cpp runtime for local Codex profiles at `127.0.0.1:8080/v1/responses`)
 
-Voice commit still uses built-in browser VAD auto-stop, then sends audio to the local STT sidecar.
+Voice commit still uses built-in browser VAD auto-stop, then sends audio to the local voxtype STT service.
 
 Why Piper remains an HTTP sidecar:
 - Piper `libpiper` linking is GPL-governed; direct linking would change distribution obligations.

@@ -138,9 +138,7 @@ install_linux() {
     tabura-stt.service
     tabura-web.service
   )
-  local -a optional_units=(
-    tabura-ptt.service
-  )
+  local -a optional_units=()
 
   mkdir -p "$unit_dst"
   for f in "$unit_src"/*.service; do
@@ -165,6 +163,7 @@ install_linux() {
     tabura-dev-watch.path \
     tabura-mcp.service \
     tabura-voxtype-mcp.service \
+    tabura-ptt.service \
     helpy-mcp.service \
     voxtype.service \
     >/dev/null 2>&1 || true
@@ -284,9 +283,6 @@ install_macos() {
   if [ "$HAVE_VOXTYPE" = "1" ]; then
     agents+=(stt)
   fi
-
-  # PTT requires Linux evdev — skip on macOS
-  log "Skipping tabura-ptt: push-to-talk requires Linux (evdev)"
 
   # Install plist files (always, even if launchctl is unavailable)
   local src dst
