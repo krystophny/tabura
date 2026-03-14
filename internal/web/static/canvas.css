@@ -13,6 +13,7 @@
   display: flex;
   flex-direction: column;
   position: relative;
+  background: #ffffff;
 }
 
 #canvas-viewport {
@@ -23,6 +24,7 @@
   overscroll-behavior: contain;
   touch-action: pan-y;
   -webkit-overflow-scrolling: touch;
+  background: #ffffff;
 }
 
 .canvas-pane {
@@ -36,6 +38,7 @@
   touch-action: pan-y;
   -webkit-overflow-scrolling: touch;
   z-index: 1;
+  background: #ffffff;
 }
 
 .canvas-pane.is-active {
@@ -50,6 +53,7 @@
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
+  background: #ffffff;
 }
 
 #canvas-text {
