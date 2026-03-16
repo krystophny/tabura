@@ -33,6 +33,7 @@ type accountSyncProvider struct {
 	onSynced     func(store.ExternalAccount, int)
 	syncPolicy   func(context.Context, store.ExternalAccount) (tabsync.SyncPolicy, error)
 	watchAccount func(context.Context, store.ExternalAccount, func()) error
+	continueSync func(context.Context, store.ExternalAccount) (time.Duration, bool)
 }
 
 func (p *accountSyncProvider) Name() string {
@@ -108,6 +109,7 @@ func (a *App) newSourceSyncRunner() sourceSyncRunner {
 			onSynced:     a.handleSourceSyncCount,
 			syncPolicy:   a.exchangeEWSSourceSyncPolicy,
 			watchAccount: a.watchExchangeEWSSourceAccount,
+			continueSync: a.emailSourceContinuation,
 		},
 		{
 			name:        store.ExternalProviderTodoist,

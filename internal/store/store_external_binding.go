@@ -223,6 +223,35 @@ func (s *Store) LatestBindingRemoteUpdatedAt(accountID int64, provider, objectTy
 	return &clean, nil
 }
 
+func (s *Store) ListBindingsMissingContainerRef(accountID int64, provider, objectType string, limit int) ([]ExternalBinding, error) {
+	if _, err := s.validateExternalBindingAccount(accountID, provider); err != nil {
+		return nil, err
+	}
+	cleanObjectType := normalizeExternalBindingObjectType(objectType)
+	if cleanObjectType == "" {
+		return nil, errors.New("external binding object_type is required")
+	}
+	query := `SELECT id, account_id, provider, object_type, remote_id, item_id, artifact_id, container_ref, remote_updated_at, last_synced_at
+		 FROM external_bindings
+		 WHERE account_id = ? AND provider = ? AND object_type = ? AND (container_ref IS NULL OR trim(container_ref) = '')
+		 ORDER BY datetime(last_synced_at) ASC, id ASC`
+	args := []any{
+		accountID,
+		normalizeExternalAccountProvider(provider),
+		cleanObjectType,
+	}
+	if limit > 0 {
+		query += ` LIMIT ?`
+		args = append(args, limit)
+	}
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanExternalBindingRows(rows)
+}
+
 func (s *Store) ListStaleBindings(provider string, olderThan time.Time) ([]ExternalBinding, error) {
 	cleanProvider := normalizeExternalAccountProvider(provider)
 	if cleanProvider == "" {

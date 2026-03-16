@@ -21,6 +21,7 @@ const (
 	emailSyncDefaultRecentDays = 30
 	emailSyncDefaultMaxResults = 200
 	emailBindingObjectType     = "email"
+	emailContainerRepairBatch  = 200
 )
 
 type emailSyncProvider interface {
@@ -64,27 +65,29 @@ func (r emailFollowUpRuleConfig) empty() bool {
 }
 
 type emailSyncAccountConfig struct {
-	Host            string                    `json:"host"`
-	Port            int                       `json:"port"`
-	Username        string                    `json:"username"`
-	TLS             bool                      `json:"tls"`
-	StartTLS        bool                      `json:"starttls"`
-	FromAddress     string                    `json:"from_address"`
-	FromName        string                    `json:"from_name"`
-	TokenPath       string                    `json:"token_path"`
-	TokenFile       string                    `json:"token_file"`
-	CredentialsPath string                    `json:"credentials_path"`
-	CredentialsFile string                    `json:"credentials_file"`
-	SMTPHost        string                    `json:"smtp_host"`
-	SMTPPort        int                       `json:"smtp_port"`
-	SMTPTLS         bool                      `json:"smtp_tls"`
-	SMTPStartTLS    bool                      `json:"smtp_starttls"`
-	SMTPUsername    string                    `json:"smtp_username"`
-	SMTPCredential  string                    `json:"smtp_credential_ref"`
-	DraftsMailbox   string                    `json:"drafts_mailbox"`
-	SyncMaxResults  int64                     `json:"sync_max_results"`
-	SyncWindowDays  int                       `json:"sync_window_days"`
-	FollowUpRules   []emailFollowUpRuleConfig `json:"follow_up_rules"`
+	Host               string                    `json:"host"`
+	Port               int                       `json:"port"`
+	Username           string                    `json:"username"`
+	TLS                bool                      `json:"tls"`
+	StartTLS           bool                      `json:"starttls"`
+	FromAddress        string                    `json:"from_address"`
+	FromName           string                    `json:"from_name"`
+	TokenPath          string                    `json:"token_path"`
+	TokenFile          string                    `json:"token_file"`
+	CredentialsPath    string                    `json:"credentials_path"`
+	CredentialsFile    string                    `json:"credentials_file"`
+	SMTPHost           string                    `json:"smtp_host"`
+	SMTPPort           int                       `json:"smtp_port"`
+	SMTPTLS            bool                      `json:"smtp_tls"`
+	SMTPStartTLS       bool                      `json:"smtp_starttls"`
+	SMTPUsername       string                    `json:"smtp_username"`
+	SMTPCredential     string                    `json:"smtp_credential_ref"`
+	DraftsMailbox      string                    `json:"drafts_mailbox"`
+	SyncMaxResults     int64                     `json:"sync_max_results"`
+	SyncWindowDays     int                       `json:"sync_window_days"`
+	HistoryPageSize    int                       `json:"history_page_size"`
+	HistoryPagesPerRun int                       `json:"history_pages_per_run"`
+	FollowUpRules      []emailFollowUpRuleConfig `json:"follow_up_rules"`
 }
 
 type emailSyncResult struct {
@@ -314,9 +317,26 @@ func followUpRuleSearchOptions(rule emailFollowUpRuleConfig, maxResults int64) e
 }
 
 func emailFollowUpMessageIDs(ctx context.Context, provider emailSyncProvider, cfg emailSyncAccountConfig) (map[string]struct{}, error) {
-	maxResults := emailSyncMaxResults(cfg)
 	out := make(map[string]struct{})
-
+	if pager, ok := provider.(email.MessagePageProvider); ok {
+		pageToken := ""
+		pageSize := emailHistoryPageSize(cfg)
+		for {
+			page, err := pager.ListMessagesPage(ctx, email.DefaultSearchOptions().WithFolder("INBOX").WithMaxResults(pageSize), pageToken)
+			if err != nil {
+				break
+			}
+			collectEmailMessageIDs(out, page.IDs)
+			if strings.TrimSpace(page.NextPageToken) == "" {
+				if len(out) == 0 {
+					break
+				}
+				return out, nil
+			}
+			pageToken = page.NextPageToken
+		}
+	}
+	maxResults := emailSyncMaxResults(cfg)
 	inboxOpts := email.DefaultSearchOptions().
 		WithFolder("INBOX").
 		WithMaxResults(maxResults)
@@ -592,10 +612,22 @@ func (a *App) syncEmailAccountWithProvider(ctx context.Context, account store.Ex
 	if err := a.reconcileEmailFollowUpBindings(account, followUpIDs); err != nil {
 		return emailSyncResult{}, err
 	}
-	messageIDs := make(map[string]struct{}, len(followUpIDs))
-	for id := range followUpIDs {
-		messageIDs[id] = struct{}{}
+	messageIDs := make(map[string]struct{})
+	queuedRefreshIDs := []string(nil)
+	if a != nil && a.emailRefreshes != nil {
+		queuedRefreshIDs = a.emailRefreshes.list(account.ID)
+		collectEmailMessageIDs(messageIDs, queuedRefreshIDs)
 	}
+	inboxRefreshIDs, err := a.emailInboxStateRefreshIDs(account, followUpIDs)
+	if err != nil {
+		return emailSyncResult{}, err
+	}
+	collectEmailMessageIDs(messageIDs, inboxRefreshIDs)
+	containerRepairIDs, err := a.emailContainerRepairIDs(account)
+	if err != nil {
+		return emailSyncResult{}, err
+	}
+	collectEmailMessageIDs(messageIDs, containerRepairIDs)
 
 	since := emailSyncSince(time.Now().UTC(), latestRemoteUpdatedAt, cfg)
 	recentIDs, err := provider.ListMessages(ctx, email.DefaultSearchOptions().WithSince(since).WithMaxResults(emailSyncMaxResults(cfg)))
@@ -604,7 +636,12 @@ func (a *App) syncEmailAccountWithProvider(ctx context.Context, account store.Ex
 	}
 	collectEmailMessageIDs(messageIDs, recentIDs)
 	if len(messageIDs) == 0 {
-		return emailSyncResult{}, nil
+		sink := tabsync.NewStoreSink(a.store)
+		backfillResult, _, err := a.syncEmailHistoryBackfill(ctx, &account, provider, cfg, sink, mappings, followUpIDs, messageIDs)
+		if err == nil && a != nil && a.emailRefreshes != nil && len(queuedRefreshIDs) > 0 {
+			a.emailRefreshes.remove(account.ID, queuedRefreshIDs...)
+		}
+		return backfillResult, err
 	}
 
 	messages, err := provider.GetMessages(ctx, sortedEmailMessageIDs(messageIDs), "full")
@@ -612,28 +649,18 @@ func (a *App) syncEmailAccountWithProvider(ctx context.Context, account store.Ex
 		return emailSyncResult{}, err
 	}
 	sink := tabsync.NewStoreSink(a.store)
-	result := emailSyncResult{}
-	persistedMessages := make([]emailPersistedMessage, 0, len(messages))
-	for _, message := range messages {
-		if message == nil || strings.TrimSpace(message.ID) == "" {
-			continue
-		}
-		persisted, err := a.persistEmailMessage(ctx, sink, account, message, mappings, hasEmailMessageID(followUpIDs, message.ID))
-		if err != nil {
-			return emailSyncResult{}, err
-		}
-		persistedMessages = append(persistedMessages, persisted)
-		result.MessageCount++
-		if persisted.FollowUpItem {
-			result.ItemCount++
-		}
-	}
-	threads, err := a.persistEmailThreads(ctx, sink, account, mappings, persistedMessages)
+	result, _, err := a.persistEmailMessagesBatch(ctx, sink, account, mappings, followUpIDs, messages)
 	if err != nil {
 		return emailSyncResult{}, err
 	}
-	if err := a.persistEmailActionItems(account, threads); err != nil {
+	backfillResult, _, err := a.syncEmailHistoryBackfill(ctx, &account, provider, cfg, sink, mappings, followUpIDs, messageIDs)
+	if err != nil {
 		return emailSyncResult{}, err
+	}
+	result.MessageCount += backfillResult.MessageCount
+	result.ItemCount += backfillResult.ItemCount
+	if a != nil && a.emailRefreshes != nil && len(queuedRefreshIDs) > 0 {
+		a.emailRefreshes.remove(account.ID, queuedRefreshIDs...)
 	}
 	return result, nil
 }
@@ -641,6 +668,68 @@ func (a *App) syncEmailAccountWithProvider(ctx context.Context, account store.Ex
 func hasEmailMessageID(values map[string]struct{}, id string) bool {
 	_, ok := values[strings.TrimSpace(id)]
 	return ok
+}
+
+func emailContainerRefIsInbox(ref *string) bool {
+	if ref == nil {
+		return false
+	}
+	switch strings.ToLower(strings.TrimSpace(*ref)) {
+	case "inbox", "posteingang":
+		return true
+	default:
+		return false
+	}
+}
+
+func (a *App) emailInboxStateRefreshIDs(account store.ExternalAccount, followUpIDs map[string]struct{}) ([]string, error) {
+	if a == nil || a.store == nil || len(followUpIDs) == 0 {
+		return nil, nil
+	}
+	bindings, err := a.store.ListBindingsByAccount(account.ID, account.Provider, emailBindingObjectType)
+	if err != nil {
+		return nil, err
+	}
+	byRemoteID := make(map[string]store.ExternalBinding, len(bindings))
+	for _, binding := range bindings {
+		byRemoteID[strings.TrimSpace(binding.RemoteID)] = binding
+	}
+	refresh := make(map[string]struct{})
+	for id := range followUpIDs {
+		binding, ok := byRemoteID[id]
+		if !ok {
+			continue
+		}
+		if !emailContainerRefIsInbox(binding.ContainerRef) {
+			refresh[id] = struct{}{}
+		}
+	}
+	for _, binding := range bindings {
+		if !emailContainerRefIsInbox(binding.ContainerRef) {
+			continue
+		}
+		if !hasEmailMessageID(followUpIDs, binding.RemoteID) {
+			refresh[strings.TrimSpace(binding.RemoteID)] = struct{}{}
+		}
+	}
+	return sortedEmailMessageIDs(refresh), nil
+}
+
+func (a *App) emailContainerRepairIDs(account store.ExternalAccount) ([]string, error) {
+	if a == nil || a.store == nil {
+		return nil, nil
+	}
+	bindings, err := a.store.ListBindingsMissingContainerRef(account.ID, account.Provider, emailBindingObjectType, emailContainerRepairBatch)
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]string, 0, len(bindings))
+	for _, binding := range bindings {
+		if id := strings.TrimSpace(binding.RemoteID); id != "" {
+			ids = append(ids, id)
+		}
+	}
+	return ids, nil
 }
 
 func (a *App) syncEmailAccount(ctx context.Context, account store.ExternalAccount) (int, error) {

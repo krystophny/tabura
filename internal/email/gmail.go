@@ -50,6 +50,7 @@ type GmailClient struct {
 // Compile-time check that GmailClient implements EmailProvider.
 var _ EmailProvider = (*GmailClient)(nil)
 var _ MessageActionProvider = (*GmailClient)(nil)
+var _ MessagePageProvider = (*GmailClient)(nil)
 
 // NewGmail creates a new Gmail client.
 func NewGmail() (*GmailClient, error) {
@@ -229,6 +230,48 @@ func (c *GmailClient) ListMessages(ctx context.Context, opts SearchOptions) ([]s
 	}
 
 	return messageIDs, nil
+}
+
+func (c *GmailClient) ListMessagesPage(ctx context.Context, opts SearchOptions, pageToken string) (MessagePage, error) {
+	service, err := c.getService(ctx)
+	if err != nil {
+		return MessagePage{}, err
+	}
+
+	maxResults := opts.MaxResults
+	if maxResults <= 0 {
+		maxResults = 100
+	}
+	query := buildGmailQuery(opts)
+
+	c.rateLimiter.Acquire("messages.list")
+	call := service.Users.Messages.List("me").
+		Context(ctx).
+		MaxResults(minInt64(500, maxResults)).
+		IncludeSpamTrash(opts.IncludeSpamTrash)
+	if query != "" {
+		call = call.Q(query)
+	}
+	if len(opts.LabelIDs) > 0 {
+		call = call.LabelIds(opts.LabelIDs...)
+	}
+	if strings.TrimSpace(pageToken) != "" {
+		call = call.PageToken(strings.TrimSpace(pageToken))
+	}
+	result, err := call.Do()
+	if err != nil {
+		return MessagePage{}, fmt.Errorf("failed to list messages: %w", err)
+	}
+	page := MessagePage{
+		IDs:           make([]string, 0, len(result.Messages)),
+		NextPageToken: strings.TrimSpace(result.NextPageToken),
+	}
+	for _, msg := range result.Messages {
+		if id := strings.TrimSpace(msg.Id); id != "" {
+			page.IDs = append(page.IDs, id)
+		}
+	}
+	return page, nil
 }
 
 // buildGmailQuery converts SearchOptions to a Gmail query string.

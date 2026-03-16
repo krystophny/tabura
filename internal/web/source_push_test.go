@@ -66,3 +66,86 @@ func TestSourcePushManagerStartsWatcherAndTriggersSync(t *testing.T) {
 	}
 	t.Fatalf("syncCalls = %d, want at least 1", syncCalls.Load())
 }
+
+func TestSourcePushManagerContinuesSyncWhileBackfillPending(t *testing.T) {
+	app := newAuthedTestApp(t)
+	account, err := app.store.CreateExternalAccount(store.SphereWork, store.ExternalProviderExchangeEWS, "TU Graz", map[string]any{
+		"history_sync": map[string]any{
+			"current_container": "folder-inbox",
+			"cursor":            "2",
+			"complete":          false,
+		},
+	})
+	if err != nil {
+		t.Fatalf("CreateExternalAccount(exchange_ews) error: %v", err)
+	}
+
+	var syncCalls atomic.Int32
+	errCh := make(chan error, 1)
+	provider := &accountSyncProvider{
+		name: store.ExternalProviderExchangeEWS,
+		syncAccount: func(context.Context, store.ExternalAccount) (int, error) {
+			call := syncCalls.Add(1)
+			if call == 1 {
+				return 1, nil
+			}
+			if updateErr := app.store.UpdateExternalAccount(account.ID, store.ExternalAccountUpdate{Config: map[string]any{
+				"history_sync": map[string]any{
+					"complete": true,
+				},
+			}}); updateErr != nil {
+				select {
+				case errCh <- updateErr:
+				default:
+				}
+			}
+			return 1, nil
+		},
+		syncPolicy: func(context.Context, store.ExternalAccount) (tabsync.SyncPolicy, error) {
+			return tabsync.SyncPolicy{DisablePoll: true}, nil
+		},
+		watchAccount: func(ctx context.Context, _ store.ExternalAccount, trigger func()) error {
+			trigger()
+			<-ctx.Done()
+			return ctx.Err()
+		},
+		continueSync: func(context.Context, store.ExternalAccount) (time.Duration, bool) {
+			fresh, freshErr := app.store.GetExternalAccount(account.ID)
+			if freshErr != nil {
+				select {
+				case errCh <- freshErr:
+				default:
+				}
+				return 0, false
+			}
+			if !app.emailHistoryPending(fresh) {
+				return 0, false
+			}
+			return 10 * time.Millisecond, true
+		},
+	}
+
+	manager, ok := newSourcePushManager(app, []*accountSyncProvider{provider}).(*sourcePushManager)
+	if !ok || manager == nil {
+		t.Fatal("expected source push manager")
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	manager.reconcile(ctx)
+
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		select {
+		case asyncErr := <-errCh:
+			t.Fatalf("async source push error: %v", asyncErr)
+		default:
+		}
+		if syncCalls.Load() >= 2 {
+			cancel()
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("syncCalls = %d, want at least 2", syncCalls.Load())
+}

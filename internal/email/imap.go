@@ -56,6 +56,7 @@ type IMAPClient struct {
 // Compile-time check that IMAPClient implements EmailProvider.
 var _ EmailProvider = (*IMAPClient)(nil)
 var _ MessageActionProvider = (*IMAPClient)(nil)
+var _ MessagePageProvider = (*IMAPClient)(nil)
 
 // DefaultPoolSize is the default number of pooled connections for parallel operations.
 const DefaultPoolSize = 10
@@ -257,6 +258,24 @@ func (c *IMAPClient) ListMessages(ctx context.Context, opts SearchOptions) ([]st
 	return c.searchAllFolders(ctx, opts)
 }
 
+func (c *IMAPClient) ListMessagesPage(ctx context.Context, opts SearchOptions, pageToken string) (MessagePage, error) {
+	if err := c.connect(ctx); err != nil {
+		return MessagePage{}, err
+	}
+	if strings.TrimSpace(opts.Folder) == "" {
+		return MessagePage{}, fmt.Errorf("imap paged message listing requires a folder")
+	}
+	offset := 0
+	if strings.TrimSpace(pageToken) != "" {
+		value, err := strconv.Atoi(strings.TrimSpace(pageToken))
+		if err != nil || value < 0 {
+			return MessagePage{}, fmt.Errorf("imap invalid page token %q", pageToken)
+		}
+		offset = value
+	}
+	return c.searchFolderPage(ctx, opts.Folder, opts, offset)
+}
+
 // searchFolder searches a single folder for messages matching the criteria.
 func (c *IMAPClient) searchFolder(ctx context.Context, folder string, opts SearchOptions) ([]string, error) {
 	c.mu.Lock()
@@ -290,6 +309,47 @@ func (c *IMAPClient) searchFolder(ctx context.Context, folder string, opts Searc
 	}
 
 	return messageIDs, nil
+}
+
+func (c *IMAPClient) searchFolderPage(ctx context.Context, folder string, opts SearchOptions, offset int) (MessagePage, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	_, err := c.client.Select(folder, &imap.SelectOptions{ReadOnly: true}).Wait()
+	if err != nil {
+		return MessagePage{}, fmt.Errorf("failed to select folder %q: %w", folder, err)
+	}
+
+	criteria := buildIMAPSearchCriteria(opts)
+	searchData, err := c.client.UIDSearch(criteria, nil).Wait()
+	if err != nil {
+		return MessagePage{}, fmt.Errorf("failed to search messages: %w", err)
+	}
+
+	uids := searchData.AllUIDs()
+	if offset >= len(uids) {
+		return MessagePage{}, nil
+	}
+
+	maxResults := int(opts.MaxResults)
+	if maxResults <= 0 {
+		maxResults = 100
+	}
+	end := offset + maxResults
+	if end > len(uids) {
+		end = len(uids)
+	}
+
+	page := MessagePage{
+		IDs: make([]string, 0, end-offset),
+	}
+	for i := end - 1; i >= offset; i-- {
+		page.IDs = append(page.IDs, fmt.Sprintf("%s:%d", folder, uids[i]))
+	}
+	if end < len(uids) {
+		page.NextPageToken = strconv.Itoa(end)
+	}
+	return page, nil
 }
 
 // mailboxCacheTTL is how long the mailbox list cache is valid.

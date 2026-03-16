@@ -6,6 +6,7 @@ import (
 	"html"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -13,7 +14,8 @@ import (
 )
 
 var (
-	_ EmailProvider = (*ExchangeMailProvider)(nil)
+	_ EmailProvider       = (*ExchangeMailProvider)(nil)
+	_ MessagePageProvider = (*ExchangeMailProvider)(nil)
 
 	exchangeHTMLTagPattern = regexp.MustCompile(`<[^>]+>`)
 )
@@ -102,6 +104,66 @@ func (p *ExchangeMailProvider) ListMessages(ctx context.Context, opts SearchOpti
 		}
 	}
 	return ids, nil
+}
+
+func (p *ExchangeMailProvider) ListMessagesPage(ctx context.Context, opts SearchOptions, pageToken string) (MessagePage, error) {
+	if p == nil || p.client == nil {
+		return MessagePage{}, fmt.Errorf("exchange provider is not configured")
+	}
+	offset := 0
+	if strings.TrimSpace(pageToken) != "" {
+		value, err := strconv.Atoi(strings.TrimSpace(pageToken))
+		if err != nil || value < 0 {
+			return MessagePage{}, fmt.Errorf("exchange invalid page token %q", pageToken)
+		}
+		offset = value
+	}
+	top := exchangeTop(opts.MaxResults)
+	folderID := ""
+	if strings.TrimSpace(opts.Folder) != "" {
+		folders, err := p.client.ListFolders(ctx)
+		if err != nil {
+			return MessagePage{}, err
+		}
+		var ok bool
+		folderID, ok = resolveExchangeFolderID(folders, opts.Folder)
+		if !ok {
+			return MessagePage{}, fmt.Errorf("exchange folder %q not found", opts.Folder)
+		}
+	}
+	messages, err := p.client.ListMessages(ctx, ListMessageOptions{
+		FolderID: folderID,
+		Top:      top,
+		Skip:     offset,
+		Select: []string{
+			"id",
+			"conversationId",
+			"subject",
+			"bodyPreview",
+			"isRead",
+			"hasAttachments",
+			"flag",
+			"parentFolderId",
+			"receivedDateTime",
+			"from",
+			"toRecipients",
+			"ccRecipients",
+		},
+	})
+	if err != nil {
+		return MessagePage{}, err
+	}
+	filtered := filterExchangeMessages(messages, opts)
+	page := MessagePage{IDs: make([]string, 0, len(filtered))}
+	for _, message := range filtered {
+		if id := strings.TrimSpace(message.ID); id != "" {
+			page.IDs = append(page.IDs, id)
+		}
+	}
+	if len(page.IDs) >= top {
+		page.NextPageToken = strconv.Itoa(offset + len(page.IDs))
+	}
+	return page, nil
 }
 
 func (p *ExchangeMailProvider) GetMessage(ctx context.Context, messageID, format string) (*providerdata.EmailMessage, error) {

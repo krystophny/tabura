@@ -22,6 +22,15 @@ type EmailProvider interface {
 	Close() error
 }
 
+type MessagePage struct {
+	IDs           []string
+	NextPageToken string
+}
+
+type MessagePageProvider interface {
+	ListMessagesPage(ctx context.Context, opts SearchOptions, pageToken string) (MessagePage, error)
+}
+
 type MessageActionCapabilities struct {
 	Provider              string `json:"provider,omitempty"`
 	SupportsOpen          bool   `json:"supports_open"`
@@ -146,6 +155,7 @@ type ListMessageOptions struct {
 	Filter   string
 	Select   []string
 	Top      int
+	Skip     int
 }
 
 type Folder struct {

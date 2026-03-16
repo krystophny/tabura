@@ -131,7 +131,7 @@ func (m *sourcePushManager) runWatcher(ctx context.Context, account store.Extern
 	}
 }
 
-func (m *sourcePushManager) consumeSyncTriggers(ctx context.Context, account store.ExternalAccount, provider *accountSyncProvider, triggerCh <-chan struct{}) {
+func (m *sourcePushManager) consumeSyncTriggers(ctx context.Context, account store.ExternalAccount, provider *accountSyncProvider, triggerCh chan struct{}) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -148,6 +148,19 @@ func (m *sourcePushManager) consumeSyncTriggers(ctx context.Context, account sto
 			if count > 0 && provider.onSynced != nil {
 				provider.onSynced(account, count)
 			}
+			if provider.continueSync == nil {
+				continue
+			}
+			fresh, freshErr := m.app.store.GetExternalAccount(account.ID)
+			if freshErr != nil {
+				log.Printf("source push: account %d continuation state failed: %v", account.ID, freshErr)
+				continue
+			}
+			delay, ok := provider.continueSync(ctx, fresh)
+			if !ok {
+				continue
+			}
+			go scheduleSourcePushTrigger(ctx, delay, triggerCh)
 		}
 	}
 }
@@ -176,5 +189,16 @@ func sleepSourcePush(ctx context.Context, delay time.Duration) bool {
 		return false
 	case <-timer.C:
 		return true
+	}
+}
+
+func scheduleSourcePushTrigger(ctx context.Context, delay time.Duration, triggerCh chan<- struct{}) {
+	if delay > 0 && !sleepSourcePush(ctx, delay) {
+		return
+	}
+	select {
+	case <-ctx.Done():
+	case triggerCh <- struct{}{}:
+	default:
 	}
 }

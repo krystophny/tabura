@@ -262,6 +262,9 @@ func (c *ExchangeClient) ListMessages(ctx context.Context, opts ListMessageOptio
 	if opts.Top > 0 {
 		query.Set("$top", strconv.Itoa(opts.Top))
 	}
+	if opts.Skip > 0 {
+		query.Set("$skip", strconv.Itoa(opts.Skip))
+	}
 	if filter := strings.TrimSpace(opts.Filter); filter != "" {
 		query.Set("$filter", filter)
 	}

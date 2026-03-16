@@ -15,8 +15,10 @@ import (
 
 type fakeEmailSyncProvider struct {
 	listFunc         func(email.SearchOptions) ([]string, error)
+	listPageFunc     func(email.SearchOptions, string) (email.MessagePage, error)
 	messages         map[string]*providerdata.EmailMessage
 	contacts         []providerdata.Contact
+	labels           []providerdata.Label
 	listCalls        []email.SearchOptions
 	archiveCalls     [][]string
 	moveToInboxCalls [][]string
@@ -38,6 +40,18 @@ func (f *fakeEmailSyncProvider) GetMessages(_ context.Context, messageIDs []stri
 		}
 	}
 	return out, nil
+}
+
+func (f *fakeEmailSyncProvider) ListMessagesPage(_ context.Context, opts email.SearchOptions, pageToken string) (email.MessagePage, error) {
+	f.listCalls = append(f.listCalls, opts)
+	if f.listPageFunc == nil {
+		return email.MessagePage{}, nil
+	}
+	return f.listPageFunc(opts, pageToken)
+}
+
+func (f *fakeEmailSyncProvider) ListLabels(_ context.Context) ([]providerdata.Label, error) {
+	return append([]providerdata.Label(nil), f.labels...), nil
 }
 
 func (f *fakeEmailSyncProvider) Close() error {
@@ -259,6 +273,91 @@ func TestSourceSyncRunnerPollsGmailAndIMAPAccounts(t *testing.T) {
 	}
 	if got := int64FromAny(gmailMeta["sender_actor_id"]); got != gmailActor.ID {
 		t.Fatalf("gmail sender_actor_id = %d, want %d", got, gmailActor.ID)
+	}
+}
+
+func TestSyncEmailAccountBackfillsHistoryAcrossRuns(t *testing.T) {
+	app := newAuthedTestApp(t)
+	account, err := app.store.CreateExternalAccount(store.SphereWork, store.ExternalProviderExchangeEWS, "TU Graz", map[string]any{
+		"history_page_size":     2,
+		"history_pages_per_run": 1,
+	})
+	if err != nil {
+		t.Fatalf("CreateExternalAccount(exchange_ews) error: %v", err)
+	}
+
+	provider := &fakeEmailSyncProvider{
+		labels: []providerdata.Label{{
+			ID:            "folder-inbox",
+			Name:          "Posteingang",
+			MessagesTotal: 4,
+		}},
+		listPageFunc: func(opts email.SearchOptions, pageToken string) (email.MessagePage, error) {
+			switch {
+			case opts.Folder == "INBOX" && pageToken == "":
+				return email.MessagePage{IDs: []string{"msg-1", "msg-2"}, NextPageToken: "2"}, nil
+			case opts.Folder == "INBOX" && pageToken == "2":
+				return email.MessagePage{IDs: []string{"msg-3", "msg-4"}}, nil
+			case opts.Folder == "folder-inbox" && pageToken == "":
+				return email.MessagePage{IDs: []string{"msg-1", "msg-2"}, NextPageToken: "2"}, nil
+			case opts.Folder == "folder-inbox" && pageToken == "2":
+				return email.MessagePage{IDs: []string{"msg-3", "msg-4"}}, nil
+			default:
+				return email.MessagePage{}, nil
+			}
+		},
+		messages: map[string]*providerdata.EmailMessage{
+			"msg-1": {ID: "msg-1", ThreadID: "thread-1", Subject: "One", Sender: "Ada <ada@example.com>", Date: time.Date(2026, time.March, 16, 9, 0, 0, 0, time.UTC), Labels: []string{"INBOX"}},
+			"msg-2": {ID: "msg-2", ThreadID: "thread-2", Subject: "Two", Sender: "Ada <ada@example.com>", Date: time.Date(2026, time.March, 16, 8, 0, 0, 0, time.UTC), Labels: []string{"INBOX"}},
+			"msg-3": {ID: "msg-3", ThreadID: "thread-3", Subject: "Three", Sender: "Ada <ada@example.com>", Date: time.Date(2026, time.March, 15, 9, 0, 0, 0, time.UTC), Labels: []string{"INBOX"}},
+			"msg-4": {ID: "msg-4", ThreadID: "thread-4", Subject: "Four", Sender: "Ada <ada@example.com>", Date: time.Date(2026, time.March, 15, 8, 0, 0, 0, time.UTC), Labels: []string{"INBOX"}},
+		},
+	}
+
+	first, err := app.syncEmailAccountWithProvider(context.Background(), account, provider)
+	if err != nil {
+		t.Fatalf("syncEmailAccountWithProvider(first) error: %v", err)
+	}
+	if first.MessageCount != 2 || first.ItemCount != 2 {
+		t.Fatalf("first sync result = %+v, want 2 messages and 2 items", first)
+	}
+
+	account, err = app.store.GetExternalAccount(account.ID)
+	if err != nil {
+		t.Fatalf("GetExternalAccount(after first) error: %v", err)
+	}
+	state, err := decodeEmailHistorySyncState(account)
+	if err != nil {
+		t.Fatalf("decodeEmailHistorySyncState(first) error: %v", err)
+	}
+	if state.Complete {
+		t.Fatal("history state marked complete after first page, want pending")
+	}
+	if state.CurrentContainer != "folder-inbox" || state.Cursor != "2" {
+		t.Fatalf("history state after first sync = %+v, want folder-inbox cursor 2", state)
+	}
+
+	second, err := app.syncEmailAccountWithProvider(context.Background(), account, provider)
+	if err != nil {
+		t.Fatalf("syncEmailAccountWithProvider(second) error: %v", err)
+	}
+	if second.MessageCount != 2 || second.ItemCount != 2 {
+		t.Fatalf("second sync result = %+v, want 2 messages and 2 items", second)
+	}
+
+	account, err = app.store.GetExternalAccount(account.ID)
+	if err != nil {
+		t.Fatalf("GetExternalAccount(after second) error: %v", err)
+	}
+	state, err = decodeEmailHistorySyncState(account)
+	if err != nil {
+		t.Fatalf("decodeEmailHistorySyncState(second) error: %v", err)
+	}
+	if !state.Complete {
+		t.Fatalf("history state after second sync = %+v, want complete", state)
+	}
+	if _, err := app.store.GetItemBySource(store.ExternalProviderExchangeEWS, "message:msg-4"); err != nil {
+		t.Fatalf("GetItemBySource(msg-4) error: %v", err)
 	}
 }
 
@@ -656,6 +755,250 @@ func TestSyncEmailAccountRemoteArchiveClosesInboxItems(t *testing.T) {
 	}
 	if item.State != store.ItemStateDone {
 		t.Fatalf("item state after remote archive = %q, want done", item.State)
+	}
+}
+
+func TestSyncExchangeEWSAccountRemoteMoveToInboxUpdatesContainerAndCreatesItem(t *testing.T) {
+	app := newAuthedTestApp(t)
+
+	account, err := app.store.CreateExternalAccount(store.SphereWork, store.ExternalProviderExchangeEWS, "TU Graz", nil)
+	if err != nil {
+		t.Fatalf("CreateExternalAccount() error: %v", err)
+	}
+
+	inInbox := false
+	includeRecent := true
+	provider := &fakeEmailSyncProvider{
+		listFunc: func(opts email.SearchOptions) ([]string, error) {
+			switch {
+			case opts.Folder == "INBOX":
+				if inInbox {
+					return []string{"ews-move-in"}, nil
+				}
+				return nil, nil
+			case !opts.Since.IsZero():
+				if includeRecent {
+					return []string{"ews-move-in"}, nil
+				}
+				return nil, nil
+			default:
+				return nil, nil
+			}
+		},
+		messages: map[string]*providerdata.EmailMessage{
+			"ews-move-in": {
+				ID:         "ews-move-in",
+				ThreadID:   "thread-ews-move-in",
+				Subject:    "Move me to inbox",
+				Sender:     "Ops <ops@example.com>",
+				Recipients: []string{"team@example.com"},
+				Date:       time.Date(2026, time.March, 16, 9, 0, 0, 0, time.UTC),
+				Labels:     []string{"CC"},
+			},
+		},
+	}
+	app.newEmailSyncProvider = func(context.Context, store.ExternalAccount) (emailSyncProvider, error) {
+		return provider, nil
+	}
+
+	if _, err := app.syncEmailAccount(context.Background(), account); err != nil {
+		t.Fatalf("first syncEmailAccount() error: %v", err)
+	}
+	if _, err := app.store.GetItemBySource(store.ExternalProviderExchangeEWS, "message:ews-move-in"); err == nil {
+		t.Fatal("CC message created inbox item before move, want no item")
+	}
+	binding, err := app.store.GetBindingByRemote(account.ID, store.ExternalProviderExchangeEWS, emailBindingObjectType, "ews-move-in")
+	if err != nil {
+		t.Fatalf("GetBindingByRemote(first email) error: %v", err)
+	}
+	if binding.ContainerRef == nil || *binding.ContainerRef != "CC" {
+		t.Fatalf("first binding container_ref = %v, want CC", binding.ContainerRef)
+	}
+
+	inInbox = true
+	includeRecent = false
+	provider.messages["ews-move-in"].Labels = []string{"Posteingang", "INBOX"}
+
+	if _, err := app.syncEmailAccount(context.Background(), account); err != nil {
+		t.Fatalf("second syncEmailAccount() error: %v", err)
+	}
+	item, err := app.store.GetItemBySource(store.ExternalProviderExchangeEWS, "message:ews-move-in")
+	if err != nil {
+		t.Fatalf("GetItemBySource(second) error: %v", err)
+	}
+	if item.State != store.ItemStateInbox {
+		t.Fatalf("item state after move to inbox = %q, want inbox", item.State)
+	}
+	binding, err = app.store.GetBindingByRemote(account.ID, store.ExternalProviderExchangeEWS, emailBindingObjectType, "ews-move-in")
+	if err != nil {
+		t.Fatalf("GetBindingByRemote(second email) error: %v", err)
+	}
+	if binding.ContainerRef == nil || *binding.ContainerRef != "Posteingang" {
+		t.Fatalf("second binding container_ref = %v, want Posteingang", binding.ContainerRef)
+	}
+	threadBinding, err := app.store.GetBindingByRemote(account.ID, store.ExternalProviderExchangeEWS, emailThreadBindingObjectType, "thread-ews-move-in")
+	if err != nil {
+		t.Fatalf("GetBindingByRemote(thread) error: %v", err)
+	}
+	if threadBinding.ContainerRef == nil || *threadBinding.ContainerRef != "Posteingang" {
+		t.Fatalf("thread binding container_ref = %v, want Posteingang", threadBinding.ContainerRef)
+	}
+}
+
+func TestSyncExchangeEWSAccountRemoteMoveOutOfInboxUpdatesContainerAndClosesItem(t *testing.T) {
+	app := newAuthedTestApp(t)
+
+	account, err := app.store.CreateExternalAccount(store.SphereWork, store.ExternalProviderExchangeEWS, "TU Graz", nil)
+	if err != nil {
+		t.Fatalf("CreateExternalAccount() error: %v", err)
+	}
+
+	inInbox := true
+	includeRecent := true
+	provider := &fakeEmailSyncProvider{
+		listFunc: func(opts email.SearchOptions) ([]string, error) {
+			switch {
+			case opts.Folder == "INBOX":
+				if inInbox {
+					return []string{"ews-move-out"}, nil
+				}
+				return nil, nil
+			case !opts.Since.IsZero():
+				if includeRecent {
+					return []string{"ews-move-out"}, nil
+				}
+				return nil, nil
+			default:
+				return nil, nil
+			}
+		},
+		messages: map[string]*providerdata.EmailMessage{
+			"ews-move-out": {
+				ID:         "ews-move-out",
+				ThreadID:   "thread-ews-move-out",
+				Subject:    "Move me out",
+				Sender:     "Ops <ops@example.com>",
+				Recipients: []string{"team@example.com"},
+				Date:       time.Date(2026, time.March, 16, 9, 30, 0, 0, time.UTC),
+				Labels:     []string{"Posteingang", "INBOX"},
+			},
+		},
+	}
+	app.newEmailSyncProvider = func(context.Context, store.ExternalAccount) (emailSyncProvider, error) {
+		return provider, nil
+	}
+
+	if _, err := app.syncEmailAccount(context.Background(), account); err != nil {
+		t.Fatalf("first syncEmailAccount() error: %v", err)
+	}
+	item, err := app.store.GetItemBySource(store.ExternalProviderExchangeEWS, "message:ews-move-out")
+	if err != nil {
+		t.Fatalf("GetItemBySource(first) error: %v", err)
+	}
+	if item.State != store.ItemStateInbox {
+		t.Fatalf("item state after first sync = %q, want inbox", item.State)
+	}
+
+	inInbox = false
+	includeRecent = false
+	provider.messages["ews-move-out"].Labels = []string{"CC"}
+	app.emailRefreshes.add(account.ID, "ews-move-out")
+
+	if _, err := app.syncEmailAccount(context.Background(), account); err != nil {
+		t.Fatalf("second syncEmailAccount() error: %v", err)
+	}
+	item, err = app.store.GetItem(item.ID)
+	if err != nil {
+		t.Fatalf("GetItem(second) error: %v", err)
+	}
+	if item.State != store.ItemStateDone {
+		t.Fatalf("item state after move out of inbox = %q, want done", item.State)
+	}
+	binding, err := app.store.GetBindingByRemote(account.ID, store.ExternalProviderExchangeEWS, emailBindingObjectType, "ews-move-out")
+	if err != nil {
+		t.Fatalf("GetBindingByRemote(second email) error: %v", err)
+	}
+	if binding.ContainerRef == nil || *binding.ContainerRef != "CC" {
+		t.Fatalf("second binding container_ref = %v, want CC", binding.ContainerRef)
+	}
+	threadBinding, err := app.store.GetBindingByRemote(account.ID, store.ExternalProviderExchangeEWS, emailThreadBindingObjectType, "thread-ews-move-out")
+	if err != nil {
+		t.Fatalf("GetBindingByRemote(thread) error: %v", err)
+	}
+	if threadBinding.ContainerRef == nil || *threadBinding.ContainerRef != "CC" {
+		t.Fatalf("thread binding container_ref = %v, want CC", threadBinding.ContainerRef)
+	}
+}
+
+func TestSyncExchangeEWSAccountRepairsMissingContainerRefWithoutRecentSignals(t *testing.T) {
+	app := newAuthedTestApp(t)
+
+	account, err := app.store.CreateExternalAccount(store.SphereWork, store.ExternalProviderExchangeEWS, "TU Graz", nil)
+	if err != nil {
+		t.Fatalf("CreateExternalAccount() error: %v", err)
+	}
+
+	includeRecent := true
+	provider := &fakeEmailSyncProvider{
+		listFunc: func(opts email.SearchOptions) ([]string, error) {
+			switch {
+			case opts.Folder == "INBOX":
+				return nil, nil
+			case !opts.Since.IsZero():
+				if includeRecent {
+					return []string{"ews-repair-null"}, nil
+				}
+				return nil, nil
+			default:
+				return nil, nil
+			}
+		},
+		messages: map[string]*providerdata.EmailMessage{
+			"ews-repair-null": {
+				ID:         "ews-repair-null",
+				ThreadID:   "thread-ews-repair-null",
+				Subject:    "Repair my folder",
+				Sender:     "Ops <ops@example.com>",
+				Recipients: []string{"team@example.com"},
+				Date:       time.Date(2026, time.March, 16, 10, 0, 0, 0, time.UTC),
+				Labels:     nil,
+			},
+		},
+	}
+	app.newEmailSyncProvider = func(context.Context, store.ExternalAccount) (emailSyncProvider, error) {
+		return provider, nil
+	}
+
+	if _, err := app.syncEmailAccount(context.Background(), account); err != nil {
+		t.Fatalf("first syncEmailAccount() error: %v", err)
+	}
+	binding, err := app.store.GetBindingByRemote(account.ID, store.ExternalProviderExchangeEWS, emailBindingObjectType, "ews-repair-null")
+	if err != nil {
+		t.Fatalf("GetBindingByRemote(first email) error: %v", err)
+	}
+	if binding.ContainerRef != nil {
+		t.Fatalf("first binding container_ref = %v, want nil", binding.ContainerRef)
+	}
+
+	includeRecent = false
+	provider.messages["ews-repair-null"].Labels = []string{"CC"}
+
+	if _, err := app.syncEmailAccount(context.Background(), account); err != nil {
+		t.Fatalf("second syncEmailAccount() error: %v", err)
+	}
+	binding, err = app.store.GetBindingByRemote(account.ID, store.ExternalProviderExchangeEWS, emailBindingObjectType, "ews-repair-null")
+	if err != nil {
+		t.Fatalf("GetBindingByRemote(second email) error: %v", err)
+	}
+	if binding.ContainerRef == nil || *binding.ContainerRef != "CC" {
+		t.Fatalf("second binding container_ref = %v, want CC", binding.ContainerRef)
+	}
+	threadBinding, err := app.store.GetBindingByRemote(account.ID, store.ExternalProviderExchangeEWS, emailThreadBindingObjectType, "thread-ews-repair-null")
+	if err != nil {
+		t.Fatalf("GetBindingByRemote(thread) error: %v", err)
+	}
+	if threadBinding.ContainerRef == nil || *threadBinding.ContainerRef != "CC" {
+		t.Fatalf("thread binding container_ref = %v, want CC", threadBinding.ContainerRef)
 	}
 }
 

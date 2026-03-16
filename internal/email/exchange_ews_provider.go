@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/mail"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/krystophny/tabura/internal/ews"
@@ -30,6 +31,7 @@ type ExchangeEWSMailProvider struct {
 
 var _ EmailProvider = (*ExchangeEWSMailProvider)(nil)
 var _ DraftProvider = (*ExchangeEWSMailProvider)(nil)
+var _ MessagePageProvider = (*ExchangeEWSMailProvider)(nil)
 
 func ExchangeEWSConfigFromMap(label string, config map[string]any) (ExchangeEWSConfig, error) {
 	cfg := ExchangeEWSConfig{Label: strings.TrimSpace(label)}
@@ -141,6 +143,59 @@ func (p *ExchangeEWSMailProvider) ListMessages(ctx context.Context, opts SearchO
 	return sortedMessageIDs(found), nil
 }
 
+func (p *ExchangeEWSMailProvider) ListMessagesPage(ctx context.Context, opts SearchOptions, pageToken string) (MessagePage, error) {
+	if p == nil || p.client == nil {
+		return MessagePage{}, fmt.Errorf("exchange ews provider is not configured")
+	}
+	candidates, err := p.searchFolders(ctx, opts)
+	if err != nil {
+		return MessagePage{}, err
+	}
+	if len(candidates) == 0 {
+		return MessagePage{}, nil
+	}
+	offset := 0
+	if strings.TrimSpace(pageToken) != "" {
+		value, err := strconv.Atoi(strings.TrimSpace(pageToken))
+		if err != nil || value < 0 {
+			return MessagePage{}, fmt.Errorf("exchange ews invalid page token %q", pageToken)
+		}
+		offset = value
+	}
+	maxResults := int(opts.MaxResults)
+	if maxResults <= 0 {
+		maxResults = 100
+	}
+	page, err := p.client.FindMessages(ctx, candidates[0], offset, maxResults)
+	if err != nil {
+		return MessagePage{}, err
+	}
+	out := MessagePage{
+		IDs: make([]string, 0, len(page.ItemIDs)),
+	}
+	if len(page.ItemIDs) == 0 {
+		return out, nil
+	}
+	messages, err := p.client.GetMessages(ctx, page.ItemIDs)
+	if err != nil {
+		return MessagePage{}, err
+	}
+	for _, message := range messages {
+		if !matchExchangeEWSMessage(message, opts) {
+			continue
+		}
+		out.IDs = append(out.IDs, strings.TrimSpace(message.ID))
+	}
+	if !page.IncludesLastPage && len(page.ItemIDs) > 0 {
+		nextOffset := page.NextOffset
+		if nextOffset <= offset {
+			nextOffset = offset + len(page.ItemIDs)
+		}
+		out.NextPageToken = strconv.Itoa(nextOffset)
+	}
+	return out, nil
+}
+
 func (p *ExchangeEWSMailProvider) GetMessage(ctx context.Context, messageID, _ string) (*providerdata.EmailMessage, error) {
 	messages, err := p.client.GetMessages(ctx, []string{messageID})
 	if err != nil {
@@ -149,7 +204,11 @@ func (p *ExchangeEWSMailProvider) GetMessage(ctx context.Context, messageID, _ s
 	if len(messages) == 0 {
 		return nil, fmt.Errorf("exchange ews message %q not found", strings.TrimSpace(messageID))
 	}
-	decoded := decodeExchangeEWSMessage(messages[0])
+	folders, err := p.client.ListFolders(ctx)
+	if err != nil {
+		return nil, err
+	}
+	decoded := decodeExchangeEWSMessage(messages[0], exchangeEWSFolderIndex(folders))
 	return &decoded, nil
 }
 
@@ -158,9 +217,14 @@ func (p *ExchangeEWSMailProvider) GetMessages(ctx context.Context, messageIDs []
 	if err != nil {
 		return nil, err
 	}
+	folders, err := p.client.ListFolders(ctx)
+	if err != nil {
+		return nil, err
+	}
+	folderIndex := exchangeEWSFolderIndex(folders)
 	out := make([]*providerdata.EmailMessage, 0, len(messages))
 	for _, message := range messages {
-		decoded := decodeExchangeEWSMessage(message)
+		decoded := decodeExchangeEWSMessage(message, folderIndex)
 		out = append(out, &decoded)
 	}
 	return out, nil
@@ -538,7 +602,60 @@ func matchExchangeEWSMessage(message ews.Message, opts SearchOptions) bool {
 	return true
 }
 
-func decodeExchangeEWSMessage(message ews.Message) providerdata.EmailMessage {
+func exchangeEWSFolderIndex(folders []ews.Folder) map[string]ews.Folder {
+	out := make(map[string]ews.Folder, len(folders))
+	for _, folder := range folders {
+		if id := strings.TrimSpace(folder.ID); id != "" {
+			out[id] = folder
+		}
+	}
+	return out
+}
+
+func exchangeEWSFolderLabels(parentFolderID string, folders map[string]ews.Folder) []string {
+	folderID := strings.TrimSpace(parentFolderID)
+	if folderID == "" || len(folders) == 0 {
+		return nil
+	}
+	folder, ok := folders[folderID]
+	if !ok {
+		return nil
+	}
+	display := exchangeEWSMessageFolderName(folder.Name)
+	if display == "" {
+		return nil
+	}
+	labels := []string{display}
+	if exchangeEWSInboxFolderName(folder.Name) && !containsFold(strings.Join(labels, "\n"), "INBOX") {
+		labels = append(labels, "INBOX")
+	}
+	return labels
+}
+
+func exchangeEWSInboxFolderName(name string) bool {
+	switch strings.ToLower(strings.TrimSpace(name)) {
+	case "inbox", "posteingang":
+		return true
+	default:
+		return false
+	}
+}
+
+func exchangeEWSMessageFolderName(name string) string {
+	clean := strings.TrimSpace(name)
+	if clean == "" {
+		return ""
+	}
+	if strings.EqualFold(clean, "Archive") {
+		return "Archive"
+	}
+	if display := exchangeEWSDisplayFolderName(clean); display != "" {
+		return display
+	}
+	return clean
+}
+
+func decodeExchangeEWSMessage(message ews.Message, folders map[string]ews.Folder) providerdata.EmailMessage {
 	recipients := make([]string, 0, len(message.To)+len(message.Cc))
 	for _, group := range [][]ews.Mailbox{message.To, message.Cc} {
 		for _, mb := range group {
@@ -584,7 +701,7 @@ func decodeExchangeEWSMessage(message ews.Message) providerdata.EmailMessage {
 		Recipients:  recipients,
 		Date:        message.ReceivedAt,
 		Snippet:     snippetFromBody(message.Body),
-		Labels:      nil,
+		Labels:      exchangeEWSFolderLabels(message.ParentFolderID, folders),
 		IsRead:      message.IsRead,
 		BodyText:    bodyPtr,
 		Attachments: attachments,

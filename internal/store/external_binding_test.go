@@ -184,6 +184,60 @@ func TestExternalBindingStoreCRUDAndQueries(t *testing.T) {
 	}
 }
 
+func TestExternalBindingStoreListsMissingContainerRef(t *testing.T) {
+	s := newTestStore(t)
+
+	account, err := s.CreateExternalAccount(SphereWork, ExternalProviderExchangeEWS, "TU Graz", map[string]any{
+		"endpoint": "https://exchange.tugraz.at/EWS/Exchange.asmx",
+		"username": "ert",
+	})
+	if err != nil {
+		t.Fatalf("CreateExternalAccount() error: %v", err)
+	}
+
+	item, err := s.CreateItem("Follow up", ItemOptions{})
+	if err != nil {
+		t.Fatalf("CreateItem() error: %v", err)
+	}
+
+	missing, err := s.UpsertExternalBinding(ExternalBinding{
+		AccountID:  account.ID,
+		Provider:   ExternalProviderExchangeEWS,
+		ObjectType: "email",
+		RemoteID:   "msg-missing",
+		ItemID:     &item.ID,
+	})
+	if err != nil {
+		t.Fatalf("UpsertExternalBinding(missing) error: %v", err)
+	}
+	containerRef := "Posteingang"
+	present, err := s.UpsertExternalBinding(ExternalBinding{
+		AccountID:    account.ID,
+		Provider:     ExternalProviderExchangeEWS,
+		ObjectType:   "email",
+		RemoteID:     "msg-present",
+		ItemID:       &item.ID,
+		ContainerRef: &containerRef,
+	})
+	if err != nil {
+		t.Fatalf("UpsertExternalBinding(present) error: %v", err)
+	}
+
+	results, err := s.ListBindingsMissingContainerRef(account.ID, ExternalProviderExchangeEWS, "email", 10)
+	if err != nil {
+		t.Fatalf("ListBindingsMissingContainerRef() error: %v", err)
+	}
+	if len(results) != 1 || results[0].ID != missing.ID {
+		t.Fatalf("ListBindingsMissingContainerRef() = %+v, want missing binding only", results)
+	}
+	if results[0].ContainerRef != nil {
+		t.Fatalf("missing binding container_ref = %v, want nil", results[0].ContainerRef)
+	}
+	if present.ContainerRef == nil || *present.ContainerRef != containerRef {
+		t.Fatalf("present binding container_ref = %v, want %q", present.ContainerRef, containerRef)
+	}
+}
+
 func TestExternalBindingStoreRejectsInvalidInput(t *testing.T) {
 	s := newTestStore(t)
 

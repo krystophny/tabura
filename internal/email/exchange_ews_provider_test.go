@@ -168,3 +168,245 @@ func TestExchangeEWSDisplayFolderNameNormalizesArchiveDisplay(t *testing.T) {
 		}
 	}
 }
+
+func TestExchangeEWSListMessagesPageUsesPagingOffsets(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+		body, _ := io.ReadAll(r.Body)
+		action := strings.Trim(r.Header.Get("SOAPAction"), `"`)
+		w.Header().Set("Content-Type", "text/xml; charset=utf-8")
+		switch {
+		case strings.HasSuffix(action, "/FindFolder"):
+			_, _ = io.WriteString(w, `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:m="http://schemas.microsoft.com/exchange/services/2006/messages" xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types">
+  <soap:Body>
+    <m:FindFolderResponse>
+      <m:ResponseMessages>
+        <m:FindFolderResponseMessage ResponseClass="Success">
+          <m:ResponseCode>NoError</m:ResponseCode>
+          <m:RootFolder IncludesLastItemInRange="true" IndexedPagingOffset="0" TotalItemsInView="1">
+            <t:Folders>
+              <t:Folder>
+                <t:FolderId Id="folder-inbox" ChangeKey="ck1" />
+                <t:DisplayName>Posteingang</t:DisplayName>
+                <t:TotalCount>3</t:TotalCount>
+                <t:UnreadCount>1</t:UnreadCount>
+              </t:Folder>
+            </t:Folders>
+          </m:RootFolder>
+        </m:FindFolderResponseMessage>
+      </m:ResponseMessages>
+    </m:FindFolderResponse>
+  </soap:Body>
+</soap:Envelope>`)
+		case strings.HasSuffix(action, "/FindItem"):
+			switch {
+			case strings.Contains(string(body), `Offset="0"`):
+				_, _ = io.WriteString(w, `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:m="http://schemas.microsoft.com/exchange/services/2006/messages" xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types">
+  <soap:Body>
+    <m:FindItemResponse>
+      <m:ResponseMessages>
+        <m:FindItemResponseMessage ResponseClass="Success">
+          <m:ResponseCode>NoError</m:ResponseCode>
+          <m:RootFolder IncludesLastItemInRange="false" IndexedPagingOffset="2" TotalItemsInView="3">
+            <t:Items>
+              <t:Message><t:ItemId Id="msg-1" ChangeKey="a" /></t:Message>
+              <t:Message><t:ItemId Id="msg-2" ChangeKey="b" /></t:Message>
+            </t:Items>
+          </m:RootFolder>
+        </m:FindItemResponseMessage>
+      </m:ResponseMessages>
+    </m:FindItemResponse>
+  </soap:Body>
+</soap:Envelope>`)
+			case strings.Contains(string(body), `Offset="2"`):
+				_, _ = io.WriteString(w, `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:m="http://schemas.microsoft.com/exchange/services/2006/messages" xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types">
+  <soap:Body>
+    <m:FindItemResponse>
+      <m:ResponseMessages>
+        <m:FindItemResponseMessage ResponseClass="Success">
+          <m:ResponseCode>NoError</m:ResponseCode>
+          <m:RootFolder IncludesLastItemInRange="true" IndexedPagingOffset="0" TotalItemsInView="3">
+            <t:Items>
+              <t:Message><t:ItemId Id="msg-3" ChangeKey="c" /></t:Message>
+            </t:Items>
+          </m:RootFolder>
+        </m:FindItemResponseMessage>
+      </m:ResponseMessages>
+    </m:FindItemResponse>
+  </soap:Body>
+</soap:Envelope>`)
+			default:
+				t.Fatalf("unexpected FindItem body: %s", string(body))
+			}
+		case strings.HasSuffix(action, "/GetItem"):
+			switch {
+			case strings.Contains(string(body), `Id="msg-1"`):
+				_, _ = io.WriteString(w, `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:m="http://schemas.microsoft.com/exchange/services/2006/messages" xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types">
+  <soap:Body>
+    <m:GetItemResponse>
+      <m:ResponseMessages>
+        <m:GetItemResponseMessage ResponseClass="Success">
+          <m:ResponseCode>NoError</m:ResponseCode>
+          <m:Items>
+            <t:Message><t:ItemId Id="msg-1" ChangeKey="a" /><t:Subject>One</t:Subject></t:Message>
+            <t:Message><t:ItemId Id="msg-2" ChangeKey="b" /><t:Subject>Two</t:Subject></t:Message>
+          </m:Items>
+        </m:GetItemResponseMessage>
+      </m:ResponseMessages>
+    </m:GetItemResponse>
+  </soap:Body>
+</soap:Envelope>`)
+			case strings.Contains(string(body), `Id="msg-3"`):
+				_, _ = io.WriteString(w, `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:m="http://schemas.microsoft.com/exchange/services/2006/messages" xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types">
+  <soap:Body>
+    <m:GetItemResponse>
+      <m:ResponseMessages>
+        <m:GetItemResponseMessage ResponseClass="Success">
+          <m:ResponseCode>NoError</m:ResponseCode>
+          <m:Items>
+            <t:Message><t:ItemId Id="msg-3" ChangeKey="c" /><t:Subject>Three</t:Subject></t:Message>
+          </m:Items>
+        </m:GetItemResponseMessage>
+      </m:ResponseMessages>
+    </m:GetItemResponse>
+  </soap:Body>
+</soap:Envelope>`)
+			default:
+				t.Fatalf("unexpected GetItem body: %s", string(body))
+			}
+		default:
+			t.Fatalf("unexpected SOAP action %q body=%s", action, string(body))
+		}
+	}))
+	defer server.Close()
+
+	provider, err := NewExchangeEWSMailProvider(ExchangeEWSConfig{
+		Endpoint: server.URL,
+		Username: "ert",
+		Password: "secret",
+	})
+	if err != nil {
+		t.Fatalf("NewExchangeEWSMailProvider() error: %v", err)
+	}
+	defer provider.Close()
+
+	firstPage, err := provider.ListMessagesPage(t.Context(), DefaultSearchOptions().WithFolder("INBOX").WithMaxResults(2), "")
+	if err != nil {
+		t.Fatalf("ListMessagesPage(first) error: %v", err)
+	}
+	if got := strings.Join(firstPage.IDs, ","); got != "msg-1,msg-2" {
+		t.Fatalf("firstPage.IDs = %q, want msg-1,msg-2", got)
+	}
+	if firstPage.NextPageToken != "2" {
+		t.Fatalf("firstPage.NextPageToken = %q, want 2", firstPage.NextPageToken)
+	}
+
+	secondPage, err := provider.ListMessagesPage(t.Context(), DefaultSearchOptions().WithFolder("INBOX").WithMaxResults(2), firstPage.NextPageToken)
+	if err != nil {
+		t.Fatalf("ListMessagesPage(second) error: %v", err)
+	}
+	if got := strings.Join(secondPage.IDs, ","); got != "msg-3" {
+		t.Fatalf("secondPage.IDs = %q, want msg-3", got)
+	}
+	if secondPage.NextPageToken != "" {
+		t.Fatalf("secondPage.NextPageToken = %q, want empty", secondPage.NextPageToken)
+	}
+}
+
+func TestExchangeEWSGetMessagesMapsParentFolderToLabels(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+		action := strings.Trim(r.Header.Get("SOAPAction"), `"`)
+		w.Header().Set("Content-Type", "text/xml; charset=utf-8")
+		switch {
+		case strings.HasSuffix(action, "/GetItem"):
+			_, _ = io.WriteString(w, `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:m="http://schemas.microsoft.com/exchange/services/2006/messages" xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types">
+  <soap:Body>
+    <m:GetItemResponse>
+      <m:ResponseMessages>
+        <m:GetItemResponseMessage ResponseClass="Success">
+          <m:ResponseCode>NoError</m:ResponseCode>
+          <m:Items>
+            <t:Message>
+              <t:ItemId Id="msg-1" ChangeKey="ck1" />
+              <t:ConversationId Id="thread-1" />
+              <t:ParentFolderId Id="folder-cc" ChangeKey="f1" />
+              <t:Subject>CC note</t:Subject>
+            </t:Message>
+            <t:Message>
+              <t:ItemId Id="msg-2" ChangeKey="ck2" />
+              <t:ConversationId Id="thread-2" />
+              <t:ParentFolderId Id="folder-inbox" ChangeKey="f2" />
+              <t:Subject>Inbox note</t:Subject>
+            </t:Message>
+          </m:Items>
+        </m:GetItemResponseMessage>
+      </m:ResponseMessages>
+    </m:GetItemResponse>
+  </soap:Body>
+</soap:Envelope>`)
+		case strings.HasSuffix(action, "/FindFolder"):
+			_, _ = io.WriteString(w, `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:m="http://schemas.microsoft.com/exchange/services/2006/messages" xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types">
+  <soap:Body>
+    <m:FindFolderResponse>
+      <m:ResponseMessages>
+        <m:FindFolderResponseMessage ResponseClass="Success">
+          <m:ResponseCode>NoError</m:ResponseCode>
+          <m:RootFolder IncludesLastItemInRange="true" IndexedPagingOffset="0" TotalItemsInView="2">
+            <t:Folders>
+              <t:Folder>
+                <t:FolderId Id="folder-cc" ChangeKey="f1" />
+                <t:DisplayName>CC</t:DisplayName>
+                <t:TotalCount>1</t:TotalCount>
+                <t:UnreadCount>0</t:UnreadCount>
+              </t:Folder>
+              <t:Folder>
+                <t:FolderId Id="folder-inbox" ChangeKey="f2" />
+                <t:DisplayName>Posteingang</t:DisplayName>
+                <t:TotalCount>1</t:TotalCount>
+                <t:UnreadCount>1</t:UnreadCount>
+              </t:Folder>
+            </t:Folders>
+          </m:RootFolder>
+        </m:FindFolderResponseMessage>
+      </m:ResponseMessages>
+    </m:FindFolderResponse>
+  </soap:Body>
+</soap:Envelope>`)
+		default:
+			t.Fatalf("unexpected SOAP action %q", action)
+		}
+	}))
+	defer server.Close()
+
+	provider, err := NewExchangeEWSMailProvider(ExchangeEWSConfig{
+		Endpoint: server.URL,
+		Username: "ert",
+		Password: "secret",
+	})
+	if err != nil {
+		t.Fatalf("NewExchangeEWSMailProvider() error: %v", err)
+	}
+	defer provider.Close()
+
+	messages, err := provider.GetMessages(t.Context(), []string{"msg-1", "msg-2"}, "full")
+	if err != nil {
+		t.Fatalf("GetMessages() error: %v", err)
+	}
+	if len(messages) != 2 {
+		t.Fatalf("len(messages) = %d, want 2", len(messages))
+	}
+	if got := strings.Join(messages[0].Labels, ","); got != "CC" {
+		t.Fatalf("messages[0].Labels = %q, want CC", got)
+	}
+	if got := strings.Join(messages[1].Labels, ","); got != "Posteingang,INBOX" {
+		t.Fatalf("messages[1].Labels = %q, want Posteingang,INBOX", got)
+	}
+}
