@@ -9,10 +9,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/Azure/go-ntlmssp"
 )
@@ -22,6 +24,8 @@ const (
 	defaultServerVersion = "Exchange2013"
 	defaultBatchSize     = 50
 )
+
+var xmlNumericEntityPattern = regexp.MustCompile(`&#(?:x([0-9A-Fa-f]+)|([0-9]+));`)
 
 type Config struct {
 	Endpoint      string
@@ -576,13 +580,86 @@ func (c *Client) callWithHTTPClient(ctx context.Context, client *http.Client, so
 	if bytes.Contains(data, []byte("<s:Fault")) || bytes.Contains(data, []byte("<Fault>")) {
 		return fmt.Errorf("ews soap fault: %s", strings.TrimSpace(string(data)))
 	}
-	if err := xml.Unmarshal(data, target); err != nil {
+	sanitized, _ := sanitizeXML10Document(data)
+	if err := xml.Unmarshal(sanitized, target); err != nil {
 		return fmt.Errorf("decode ews %s response: %w", soapAction, err)
 	}
 	if rc := responseCode(target); rc != "" && !strings.EqualFold(rc, "NoError") {
 		return fmt.Errorf("ews %s: %s", soapAction, rc)
 	}
 	return nil
+}
+
+func sanitizeXML10Document(data []byte) ([]byte, int) {
+	if len(data) == 0 {
+		return data, 0
+	}
+	original := data
+	removed := 0
+	data, refsRemoved := sanitizeIllegalXML10EntityRefs(data)
+	removed += refsRemoved
+	var out bytes.Buffer
+	out.Grow(len(data))
+	for len(data) > 0 {
+		r, size := utf8.DecodeRune(data)
+		if r == utf8.RuneError && size == 1 {
+			removed++
+			data = data[1:]
+			continue
+		}
+		if isXML10Rune(r) {
+			out.WriteRune(r)
+		} else {
+			removed++
+		}
+		data = data[size:]
+	}
+	if removed == 0 {
+		return original, 0
+	}
+	return out.Bytes(), removed
+}
+
+func sanitizeIllegalXML10EntityRefs(data []byte) ([]byte, int) {
+	removed := 0
+	sanitized := xmlNumericEntityPattern.ReplaceAllFunc(data, func(match []byte) []byte {
+		groups := xmlNumericEntityPattern.FindSubmatch(match)
+		if len(groups) != 3 {
+			return match
+		}
+		base := 10
+		raw := groups[2]
+		if len(groups[1]) > 0 {
+			base = 16
+			raw = groups[1]
+		}
+		value, err := strconv.ParseInt(string(raw), base, 32)
+		if err != nil {
+			removed++
+			return nil
+		}
+		if isXML10Rune(rune(value)) {
+			return match
+		}
+		removed++
+		return nil
+	})
+	return sanitized, removed
+}
+
+func isXML10Rune(r rune) bool {
+	switch {
+	case r == 0x9 || r == 0xA || r == 0xD:
+		return true
+	case r >= 0x20 && r <= 0xD7FF:
+		return true
+	case r >= 0xE000 && r <= 0xFFFD:
+		return true
+	case r >= 0x10000 && r <= 0x10FFFF:
+		return true
+	default:
+		return false
+	}
 }
 
 func (c *Client) subscribeStreaming(ctx context.Context, opts WatchOptions) (string, error) {

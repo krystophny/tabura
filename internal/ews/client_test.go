@@ -73,3 +73,111 @@ func TestClientUpdateInboxRulesBuildsOperations(t *testing.T) {
 		}
 	}
 }
+
+func TestClientGetMessagesSanitizesIllegalXMLCharacters(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/xml; charset=utf-8")
+		_, _ = io.WriteString(w, "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"+
+			"<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:m=\"http://schemas.microsoft.com/exchange/services/2006/messages\" xmlns:t=\"http://schemas.microsoft.com/exchange/services/2006/types\">\n"+
+			"  <soap:Body>\n"+
+			"    <m:GetItemResponse>\n"+
+			"      <m:ResponseMessages>\n"+
+			"        <m:GetItemResponseMessage>\n"+
+			"          <m:ResponseCode>NoError</m:ResponseCode>\n"+
+			"          <m:Items>\n"+
+			"            <t:Message>\n"+
+			"              <t:ItemId Id=\"msg-1\" ChangeKey=\"ck-1\" />\n"+
+			"              <t:ParentFolderId Id=\"inbox\" ChangeKey=\"fold-1\" />\n"+
+			"              <t:ConversationId Id=\"thread-1\" ChangeKey=\"conv-1\" />\n"+
+			"              <t:Subject>Hello\x1b World</t:Subject>\n"+
+			"              <t:Body BodyType=\"Text\">Body\x1b text</t:Body>\n"+
+			"              <t:DateTimeReceived>2026-03-16T14:00:00Z</t:DateTimeReceived>\n"+
+			"              <t:IsRead>false</t:IsRead>\n"+
+			"            </t:Message>\n"+
+			"          </m:Items>\n"+
+			"        </m:GetItemResponseMessage>\n"+
+			"      </m:ResponseMessages>\n"+
+			"    </m:GetItemResponse>\n"+
+			"  </soap:Body>\n"+
+			"</soap:Envelope>")
+	}))
+	defer server.Close()
+
+	client, err := NewClient(Config{
+		Endpoint: server.URL,
+		Username: "ert",
+		Password: "secret",
+	})
+	if err != nil {
+		t.Fatalf("NewClient() error: %v", err)
+	}
+	defer client.Close()
+
+	messages, err := client.GetMessages(t.Context(), []string{"msg-1"})
+	if err != nil {
+		t.Fatalf("GetMessages() error: %v", err)
+	}
+	if len(messages) != 1 {
+		t.Fatalf("len(messages) = %d, want 1", len(messages))
+	}
+	if messages[0].Subject != "Hello World" {
+		t.Fatalf("Subject = %q, want %q", messages[0].Subject, "Hello World")
+	}
+	if messages[0].Body != "Body text" {
+		t.Fatalf("Body = %q, want %q", messages[0].Body, "Body text")
+	}
+}
+
+func TestClientGetMessagesSanitizesIllegalXMLCharacterReferences(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/xml; charset=utf-8")
+		_, _ = io.WriteString(w, "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"+
+			"<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:m=\"http://schemas.microsoft.com/exchange/services/2006/messages\" xmlns:t=\"http://schemas.microsoft.com/exchange/services/2006/types\">\n"+
+			"  <soap:Body>\n"+
+			"    <m:GetItemResponse>\n"+
+			"      <m:ResponseMessages>\n"+
+			"        <m:GetItemResponseMessage>\n"+
+			"          <m:ResponseCode>NoError</m:ResponseCode>\n"+
+			"          <m:Items>\n"+
+			"            <t:Message>\n"+
+			"              <t:ItemId Id=\"msg-1\" ChangeKey=\"ck-1\" />\n"+
+			"              <t:ParentFolderId Id=\"inbox\" ChangeKey=\"fold-1\" />\n"+
+			"              <t:ConversationId Id=\"thread-1\" ChangeKey=\"conv-1\" />\n"+
+			"              <t:Subject>Hello&#x1B; World</t:Subject>\n"+
+			"              <t:Body BodyType=\"Text\">Body&#27; text</t:Body>\n"+
+			"              <t:DateTimeReceived>2026-03-16T14:00:00Z</t:DateTimeReceived>\n"+
+			"              <t:IsRead>false</t:IsRead>\n"+
+			"            </t:Message>\n"+
+			"          </m:Items>\n"+
+			"        </m:GetItemResponseMessage>\n"+
+			"      </m:ResponseMessages>\n"+
+			"    </m:GetItemResponse>\n"+
+			"  </soap:Body>\n"+
+			"</soap:Envelope>")
+	}))
+	defer server.Close()
+
+	client, err := NewClient(Config{
+		Endpoint: server.URL,
+		Username: "ert",
+		Password: "secret",
+	})
+	if err != nil {
+		t.Fatalf("NewClient() error: %v", err)
+	}
+	defer client.Close()
+
+	messages, err := client.GetMessages(t.Context(), []string{"msg-1"})
+	if err != nil {
+		t.Fatalf("GetMessages() error: %v", err)
+	}
+	if len(messages) != 1 {
+		t.Fatalf("len(messages) = %d, want 1", len(messages))
+	}
+	if messages[0].Subject != "Hello World" {
+		t.Fatalf("Subject = %q, want %q", messages[0].Subject, "Hello World")
+	}
+	if messages[0].Body != "Body text" {
+		t.Fatalf("Body = %q, want %q", messages[0].Body, "Body text")
+	}
+}
