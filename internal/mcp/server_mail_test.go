@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -11,15 +12,16 @@ import (
 )
 
 type fakeMailProvider struct {
-	labels     []providerdata.Label
-	listIDs    []string
-	pageIDs    []string
-	nextPage   string
-	messages   map[string]*providerdata.EmailMessage
-	filters    []email.ServerFilter
-	lastAction string
-	lastFolder string
-	lastLabel  string
+	labels      []providerdata.Label
+	listIDs     []string
+	pageIDs     []string
+	nextPage    string
+	messages    map[string]*providerdata.EmailMessage
+	filters     []email.ServerFilter
+	resolvedIDs map[string]string
+	lastAction  string
+	lastFolder  string
+	lastLabel   string
 }
 
 func (p *fakeMailProvider) ListLabels(_ context.Context) ([]providerdata.Label, error) {
@@ -58,13 +60,25 @@ func (p *fakeMailProvider) Archive(_ context.Context, _ []string) (int, error) {
 	p.lastAction = "archive"
 	return 1, nil
 }
+func (p *fakeMailProvider) ArchiveResolved(_ context.Context, ids []string) ([]email.ActionResolution, error) {
+	p.lastAction = "archive"
+	return p.resolutions(ids), nil
+}
 func (p *fakeMailProvider) MoveToInbox(_ context.Context, _ []string) (int, error) {
 	p.lastAction = "move_to_inbox"
 	return 1, nil
 }
+func (p *fakeMailProvider) MoveToInboxResolved(_ context.Context, ids []string) ([]email.ActionResolution, error) {
+	p.lastAction = "move_to_inbox"
+	return p.resolutions(ids), nil
+}
 func (p *fakeMailProvider) Trash(_ context.Context, _ []string) (int, error) {
 	p.lastAction = "trash"
 	return 1, nil
+}
+func (p *fakeMailProvider) TrashResolved(_ context.Context, ids []string) ([]email.ActionResolution, error) {
+	p.lastAction = "trash"
+	return p.resolutions(ids), nil
 }
 func (p *fakeMailProvider) Delete(_ context.Context, _ []string) (int, error) {
 	p.lastAction = "delete"
@@ -76,6 +90,11 @@ func (p *fakeMailProvider) MoveToFolder(_ context.Context, _ []string, folder st
 	p.lastAction = "move_to_folder"
 	p.lastFolder = folder
 	return 1, nil
+}
+func (p *fakeMailProvider) MoveToFolderResolved(_ context.Context, ids []string, folder string) ([]email.ActionResolution, error) {
+	p.lastAction = "move_to_folder"
+	p.lastFolder = folder
+	return p.resolutions(ids), nil
 }
 func (p *fakeMailProvider) ApplyNamedLabel(_ context.Context, _ []string, label string, _ bool) (int, error) {
 	p.lastAction = "apply_label"
@@ -98,6 +117,23 @@ func (p *fakeMailProvider) UpsertServerFilter(_ context.Context, filter email.Se
 func (p *fakeMailProvider) DeleteServerFilter(context.Context, string) error {
 	p.filters = nil
 	return nil
+}
+
+func (p *fakeMailProvider) resolutions(ids []string) []email.ActionResolution {
+	out := make([]email.ActionResolution, 0, len(ids))
+	for _, id := range ids {
+		resolved := id
+		if p.resolvedIDs != nil {
+			if mapped := strings.TrimSpace(p.resolvedIDs[id]); mapped != "" {
+				resolved = mapped
+			}
+		}
+		out = append(out, email.ActionResolution{
+			OriginalMessageID: id,
+			ResolvedMessageID: resolved,
+		})
+	}
+	return out
 }
 
 func TestMailToolsListReadActAndFilter(t *testing.T) {
@@ -211,5 +247,83 @@ func TestMailToolsListReadActAndFilter(t *testing.T) {
 	}
 	if ok, _ := deleted["deleted"].(bool); !ok {
 		t.Fatalf("deleted = %#v", deleted["deleted"])
+	}
+}
+
+func TestMailActionLogsAndReconcilesExchangeBindings(t *testing.T) {
+	s, st, _ := newDomainServerForTest(t)
+	account, err := st.CreateExternalAccount(store.SphereWork, store.ExternalProviderExchangeEWS, "TU Graz", map[string]any{})
+	if err != nil {
+		t.Fatalf("CreateExternalAccount: %v", err)
+	}
+	item, err := st.CreateItem("Follow up", store.ItemOptions{})
+	if err != nil {
+		t.Fatalf("CreateItem: %v", err)
+	}
+	title := "Mail"
+	artifact, err := st.CreateArtifact(store.ArtifactKindEmail, nil, nil, &title, nil)
+	if err != nil {
+		t.Fatalf("CreateArtifact: %v", err)
+	}
+	containerRef := "Posteingang"
+	if _, err := st.UpsertExternalBinding(store.ExternalBinding{
+		AccountID:    account.ID,
+		Provider:     store.ExternalProviderExchangeEWS,
+		ObjectType:   "email",
+		RemoteID:     "m1",
+		ItemID:       &item.ID,
+		ArtifactID:   &artifact.ID,
+		ContainerRef: &containerRef,
+	}); err != nil {
+		t.Fatalf("UpsertExternalBinding: %v", err)
+	}
+	now := time.Date(2026, time.March, 17, 10, 0, 0, 0, time.UTC)
+	provider := &fakeMailProvider{
+		resolvedIDs: map[string]string{"m1": "m1-trash"},
+		messages: map[string]*providerdata.EmailMessage{
+			"m1": {ID: "m1", Subject: "Subject", Sender: "alice@example.com", Labels: []string{"Posteingang", "INBOX"}, Date: now},
+		},
+	}
+	s.newEmailProvider = func(context.Context, store.ExternalAccount) (email.EmailProvider, error) {
+		return provider, nil
+	}
+
+	acted, err := s.callTool("mail_action", map[string]interface{}{
+		"account_id":  account.ID,
+		"action":      "trash",
+		"message_ids": []interface{}{"m1"},
+	})
+	if err != nil {
+		t.Fatalf("mail_action failed: %v", err)
+	}
+	if succeeded, _ := acted["succeeded"].(int); succeeded != 1 {
+		t.Fatalf("succeeded = %#v", acted["succeeded"])
+	}
+	if _, err := st.GetBindingByRemote(account.ID, store.ExternalProviderExchangeEWS, "email", "m1"); err == nil {
+		t.Fatal("old binding still exists")
+	}
+	binding, err := st.GetBindingByRemote(account.ID, store.ExternalProviderExchangeEWS, "email", "m1-trash")
+	if err != nil {
+		t.Fatalf("GetBindingByRemote(new): %v", err)
+	}
+	if binding.ContainerRef == nil || *binding.ContainerRef != "Gelöschte Elemente" {
+		t.Fatalf("binding container_ref = %v", binding.ContainerRef)
+	}
+	updatedItem, err := st.GetItem(item.ID)
+	if err != nil {
+		t.Fatalf("GetItem: %v", err)
+	}
+	if updatedItem.State != store.ItemStateDone {
+		t.Fatalf("item state = %q", updatedItem.State)
+	}
+	logs, err := st.ListMailActionLogs(account.ID, 10)
+	if err != nil {
+		t.Fatalf("ListMailActionLogs: %v", err)
+	}
+	if len(logs) != 1 {
+		t.Fatalf("logs len = %d", len(logs))
+	}
+	if logs[0].ResolvedMessageID != "m1-trash" {
+		t.Fatalf("resolved id = %q", logs[0].ResolvedMessageID)
 	}
 }

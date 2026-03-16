@@ -12,8 +12,11 @@ import (
 	"time"
 
 	"github.com/krystophny/tabura/internal/email"
+	"github.com/krystophny/tabura/internal/providerdata"
 	"github.com/krystophny/tabura/internal/store"
 )
+
+const mcpEmailBindingObjectType = "email"
 
 type mailSyncAccountConfig struct {
 	Host            string `json:"host"`
@@ -124,6 +127,10 @@ func (s *Server) mailMessageGet(args map[string]interface{}) (map[string]interfa
 }
 
 func (s *Server) mailAction(args map[string]interface{}) (map[string]interface{}, error) {
+	st, err := s.requireStore()
+	if err != nil {
+		return nil, err
+	}
 	account, provider, err := s.mailProviderForTool(args)
 	if err != nil {
 		return nil, err
@@ -143,15 +150,71 @@ func (s *Server) mailAction(args map[string]interface{}) (map[string]interface{}
 	if value, ok := args["archive"].(bool); ok {
 		archive = &value
 	}
-	count, err := applyMailActionGeneric(context.Background(), account, provider, action, messageIDs, folder, label, archive)
+	resolvedMessages, _ := provider.GetMessages(context.Background(), messageIDs, "full")
+	byID := map[string]*providerdata.EmailMessage{}
+	for _, message := range resolvedMessages {
+		if message == nil {
+			continue
+		}
+		if id := strings.TrimSpace(message.ID); id != "" {
+			byID[id] = message
+		}
+	}
+	targetFolder := mcpMailActionTargetFolder(account, action, folder, label)
+	requestPayload := map[string]any{
+		"action":      action,
+		"message_ids": append([]string(nil), messageIDs...),
+		"folder":      folder,
+		"label":       label,
+	}
+	if archive != nil {
+		requestPayload["archive"] = *archive
+	}
+	logs := make([]store.MailActionLog, 0, len(messageIDs))
+	for _, messageID := range messageIDs {
+		message := byID[messageID]
+		logEntry, err := st.CreateMailActionLog(store.MailActionLogInput{
+			AccountID:  account.ID,
+			Provider:   account.Provider,
+			MessageID:  messageID,
+			Action:     action,
+			FolderFrom: mcpMailActionMessageFolder(message),
+			FolderTo:   targetFolder,
+			Subject:    mcpMailActionMessageSubject(message),
+			Sender:     mcpMailActionMessageSender(message),
+			Request:    requestPayload,
+			Status:     store.MailActionLogPending,
+		})
+		if err != nil {
+			return nil, err
+		}
+		logs = append(logs, logEntry)
+	}
+	applied, err := applyMailActionGeneric(context.Background(), account, provider, action, messageIDs, folder, label, archive)
 	if err != nil {
+		for _, logEntry := range logs {
+			_ = st.UpdateMailActionLogResult(logEntry.ID, store.MailActionLogFailed, "", err.Error())
+		}
 		return nil, err
+	}
+	if err := applyMailActionResolutionsStore(st, account, action, targetFolder, applied.Resolutions); err != nil {
+		for _, logEntry := range logs {
+			_ = st.UpdateMailActionLogResult(logEntry.ID, store.MailActionLogReconcileFailed, "", err.Error())
+		}
+		return nil, err
+	}
+	resolvedByMessageID := make(map[string]string, len(applied.Resolutions))
+	for _, resolution := range applied.Resolutions {
+		resolvedByMessageID[strings.TrimSpace(resolution.OriginalMessageID)] = strings.TrimSpace(resolution.ResolvedMessageID)
+	}
+	for _, logEntry := range logs {
+		_ = st.UpdateMailActionLogResult(logEntry.ID, store.MailActionLogApplied, resolvedByMessageID[strings.TrimSpace(logEntry.MessageID)], "")
 	}
 	return map[string]interface{}{
 		"account":     account,
 		"action":      action,
 		"message_ids": messageIDs,
-		"succeeded":   count,
+		"succeeded":   applied.Count,
 	}, nil
 }
 
@@ -475,60 +538,184 @@ func mailMessageIDsArg(args map[string]interface{}) []string {
 	return compactStringList(values)
 }
 
-func applyMailActionGeneric(ctx context.Context, account store.ExternalAccount, provider email.EmailProvider, action string, messageIDs []string, folder, label string, archive *bool) (int, error) {
+type mcpMailActionApplyResult struct {
+	Count       int
+	Resolutions []email.ActionResolution
+}
+
+func applyMailActionGeneric(ctx context.Context, account store.ExternalAccount, provider email.EmailProvider, action string, messageIDs []string, folder, label string, archive *bool) (mcpMailActionApplyResult, error) {
 	switch action {
 	case "mark_read":
-		return provider.MarkRead(ctx, messageIDs)
+		count, err := provider.MarkRead(ctx, messageIDs)
+		return mcpMailActionApplyResult{Count: count}, err
 	case "mark_unread":
-		return provider.MarkUnread(ctx, messageIDs)
+		count, err := provider.MarkUnread(ctx, messageIDs)
+		return mcpMailActionApplyResult{Count: count}, err
 	case "archive":
-		return provider.Archive(ctx, messageIDs)
+		if resolvedProvider, ok := provider.(email.ResolvedArchiveProvider); ok {
+			resolutions, err := resolvedProvider.ArchiveResolved(ctx, messageIDs)
+			return mcpMailActionApplyResult{Count: len(resolutions), Resolutions: resolutions}, err
+		}
+		count, err := provider.Archive(ctx, messageIDs)
+		return mcpMailActionApplyResult{Count: count}, err
 	case "move_to_inbox":
-		return provider.MoveToInbox(ctx, messageIDs)
+		if resolvedProvider, ok := provider.(email.ResolvedMoveToInboxProvider); ok {
+			resolutions, err := resolvedProvider.MoveToInboxResolved(ctx, messageIDs)
+			return mcpMailActionApplyResult{Count: len(resolutions), Resolutions: resolutions}, err
+		}
+		count, err := provider.MoveToInbox(ctx, messageIDs)
+		return mcpMailActionApplyResult{Count: count}, err
 	case "trash":
-		return provider.Trash(ctx, messageIDs)
+		if resolvedProvider, ok := provider.(email.ResolvedTrashProvider); ok {
+			resolutions, err := resolvedProvider.TrashResolved(ctx, messageIDs)
+			return mcpMailActionApplyResult{Count: len(resolutions), Resolutions: resolutions}, err
+		}
+		count, err := provider.Trash(ctx, messageIDs)
+		return mcpMailActionApplyResult{Count: count}, err
 	case "delete":
-		return provider.Delete(ctx, messageIDs)
+		count, err := provider.Delete(ctx, messageIDs)
+		return mcpMailActionApplyResult{Count: count}, err
 	case "move_to_folder":
 		folderProvider, ok := provider.(email.NamedFolderProvider)
 		if !ok {
-			return 0, fmt.Errorf("move_to_folder is not supported for this account")
+			return mcpMailActionApplyResult{}, fmt.Errorf("move_to_folder is not supported for this account")
 		}
 		if folder == "" {
-			return 0, fmt.Errorf("folder is required")
+			return mcpMailActionApplyResult{}, fmt.Errorf("folder is required")
 		}
-		return folderProvider.MoveToFolder(ctx, messageIDs, folder)
+		if resolvedProvider, ok := provider.(email.ResolvedNamedFolderProvider); ok {
+			resolutions, err := resolvedProvider.MoveToFolderResolved(ctx, messageIDs, folder)
+			return mcpMailActionApplyResult{Count: len(resolutions), Resolutions: resolutions}, err
+		}
+		count, err := folderProvider.MoveToFolder(ctx, messageIDs, folder)
+		return mcpMailActionApplyResult{Count: count}, err
 	case "apply_label":
 		labelProvider, ok := provider.(email.NamedLabelProvider)
 		if !ok {
-			return 0, fmt.Errorf("apply_label is not supported for this account")
+			return mcpMailActionApplyResult{}, fmt.Errorf("apply_label is not supported for this account")
 		}
 		if label == "" {
-			return 0, fmt.Errorf("label is required")
+			return mcpMailActionApplyResult{}, fmt.Errorf("label is required")
 		}
 		archiveValue := false
 		if archive != nil {
 			archiveValue = *archive
 		}
-		return labelProvider.ApplyNamedLabel(ctx, messageIDs, label, archiveValue)
+		count, err := labelProvider.ApplyNamedLabel(ctx, messageIDs, label, archiveValue)
+		return mcpMailActionApplyResult{Count: count}, err
 	case "archive_label":
 		if label == "" {
-			return 0, fmt.Errorf("label is required")
+			return mcpMailActionApplyResult{}, fmt.Errorf("label is required")
 		}
 		if folderProvider, ok := provider.(email.NamedFolderProvider); ok {
 			target := label
 			if account.Provider == store.ExternalProviderExchangeEWS {
 				target = "Archive/" + label
 			}
-			return folderProvider.MoveToFolder(ctx, messageIDs, target)
+			if resolvedProvider, ok := provider.(email.ResolvedNamedFolderProvider); ok {
+				resolutions, err := resolvedProvider.MoveToFolderResolved(ctx, messageIDs, target)
+				return mcpMailActionApplyResult{Count: len(resolutions), Resolutions: resolutions}, err
+			}
+			count, err := folderProvider.MoveToFolder(ctx, messageIDs, target)
+			return mcpMailActionApplyResult{Count: count}, err
 		}
 		if labelProvider, ok := provider.(email.NamedLabelProvider); ok {
-			return labelProvider.ApplyNamedLabel(ctx, messageIDs, label, true)
+			count, err := labelProvider.ApplyNamedLabel(ctx, messageIDs, label, true)
+			return mcpMailActionApplyResult{Count: count}, err
 		}
-		return provider.Archive(ctx, messageIDs)
+		if resolvedProvider, ok := provider.(email.ResolvedArchiveProvider); ok {
+			resolutions, err := resolvedProvider.ArchiveResolved(ctx, messageIDs)
+			return mcpMailActionApplyResult{Count: len(resolutions), Resolutions: resolutions}, err
+		}
+		count, err := provider.Archive(ctx, messageIDs)
+		return mcpMailActionApplyResult{Count: count}, err
 	default:
-		return 0, fmt.Errorf("unsupported action")
+		return mcpMailActionApplyResult{}, fmt.Errorf("unsupported action")
 	}
+}
+
+func applyMailActionResolutionsStore(st *store.Store, account store.ExternalAccount, action, targetFolder string, resolutions []email.ActionResolution) error {
+	if st == nil || len(resolutions) == 0 {
+		return nil
+	}
+	var (
+		containerRef *string
+		itemState    *string
+	)
+	if strings.TrimSpace(targetFolder) != "" {
+		containerRef = &targetFolder
+	}
+	switch strings.ToLower(strings.TrimSpace(action)) {
+	case "move_to_inbox":
+		state := store.ItemStateInbox
+		itemState = &state
+	case "archive", "archive_label", "trash", "delete", "move_to_folder":
+		state := store.ItemStateDone
+		itemState = &state
+	}
+	updates := make([]store.ExternalBindingReconcileUpdate, 0, len(resolutions))
+	for _, resolution := range resolutions {
+		updates = append(updates, store.ExternalBindingReconcileUpdate{
+			ObjectType:        mcpEmailBindingObjectType,
+			OldRemoteID:       resolution.OriginalMessageID,
+			NewRemoteID:       resolution.ResolvedMessageID,
+			ContainerRef:      containerRef,
+			FollowUpItemState: itemState,
+		})
+	}
+	return st.ApplyExternalBindingReconcileUpdates(account.ID, account.Provider, updates)
+}
+
+func mcpMailActionTargetFolder(account store.ExternalAccount, action, folder, label string) string {
+	switch action {
+	case "move_to_inbox":
+		if account.Provider == store.ExternalProviderExchangeEWS {
+			return "Posteingang"
+		}
+		return "inbox"
+	case "trash":
+		if account.Provider == store.ExternalProviderExchangeEWS {
+			return "Gelöschte Elemente"
+		}
+		return "trash"
+	case "archive":
+		if account.Provider == store.ExternalProviderExchangeEWS {
+			return "Archive"
+		}
+		return "archive"
+	case "move_to_folder":
+		return folder
+	case "archive_label":
+		if account.Provider == store.ExternalProviderExchangeEWS {
+			return "Archive/" + label
+		}
+		return label
+	case "apply_label":
+		return label
+	default:
+		return ""
+	}
+}
+
+func mcpMailActionMessageFolder(message *providerdata.EmailMessage) string {
+	if message == nil || len(message.Labels) == 0 {
+		return ""
+	}
+	return strings.Join(message.Labels, ",")
+}
+
+func mcpMailActionMessageSubject(message *providerdata.EmailMessage) string {
+	if message == nil {
+		return ""
+	}
+	return strings.TrimSpace(message.Subject)
+}
+
+func mcpMailActionMessageSender(message *providerdata.EmailMessage) string {
+	if message == nil {
+		return ""
+	}
+	return strings.TrimSpace(message.Sender)
 }
 
 func compactStringList(values []string) []string {
