@@ -34,6 +34,12 @@ func (a *App) contactSyncProviderForAccount(ctx context.Context, account store.E
 			return nil, err
 		}
 		return email.NewExchangeClient(cfg)
+	case store.ExternalProviderExchangeEWS:
+		client, err := a.exchangeEWSClientForAccount(ctx, account)
+		if err != nil {
+			return nil, err
+		}
+		return &exchangeEWSContactSyncProvider{client: client}, nil
 	default:
 		return nil, fmt.Errorf("contact sync does not support provider %s", account.Provider)
 	}

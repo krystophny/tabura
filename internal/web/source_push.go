@@ -1,0 +1,180 @@
+package web
+
+import (
+	"context"
+	"log"
+	"time"
+
+	"github.com/krystophny/tabura/internal/store"
+)
+
+const (
+	sourcePushReconcileInterval = 15 * time.Second
+	sourcePushRetryDelay        = 5 * time.Second
+)
+
+type sourcePushManager struct {
+	app       *App
+	providers map[string]*accountSyncProvider
+	watchers  map[int64]sourcePushWatcher
+}
+
+type sourcePushWatcher struct {
+	account store.ExternalAccount
+	cancel  context.CancelFunc
+}
+
+func newSourcePushManager(app *App, providers []*accountSyncProvider) sourcePushRunner {
+	pushProviders := make(map[string]*accountSyncProvider)
+	for _, provider := range providers {
+		if provider == nil || provider.watchAccount == nil {
+			continue
+		}
+		pushProviders[provider.name] = provider
+	}
+	if len(pushProviders) == 0 {
+		return nil
+	}
+	return &sourcePushManager{
+		app:       app,
+		providers: pushProviders,
+		watchers:  map[int64]sourcePushWatcher{},
+	}
+}
+
+func (m *sourcePushManager) Run(ctx context.Context) {
+	if m == nil || m.app == nil || m.app.store == nil {
+		return
+	}
+	m.reconcile(ctx)
+	ticker := time.NewTicker(sourcePushReconcileInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			m.stopAll()
+			return
+		case <-ticker.C:
+			m.reconcile(ctx)
+		}
+	}
+}
+
+func (m *sourcePushManager) reconcile(ctx context.Context) {
+	accounts, err := m.app.store.ListExternalAccounts("")
+	if err != nil {
+		log.Printf("source push: list external accounts: %v", err)
+		return
+	}
+	desired := make(map[int64]store.ExternalAccount, len(accounts))
+	for _, account := range accounts {
+		if !account.Enabled {
+			continue
+		}
+		provider := m.providers[account.Provider]
+		if provider == nil || provider.watchAccount == nil {
+			continue
+		}
+		policy, err := provider.SyncPolicy(ctx, account)
+		if err != nil {
+			log.Printf("source push: account %d sync policy: %v", account.ID, err)
+			continue
+		}
+		if !policy.DisablePoll {
+			continue
+		}
+		desired[account.ID] = account
+	}
+	for accountID, watcher := range m.watchers {
+		account, ok := desired[accountID]
+		if ok && sourcePushAccountEqual(watcher.account, account) {
+			delete(desired, accountID)
+			continue
+		}
+		watcher.cancel()
+		delete(m.watchers, accountID)
+	}
+	for accountID, account := range desired {
+		provider := m.providers[account.Provider]
+		if provider == nil {
+			continue
+		}
+		watchCtx, cancel := context.WithCancel(ctx)
+		m.watchers[accountID] = sourcePushWatcher{account: account, cancel: cancel}
+		go m.runWatcher(watchCtx, account, provider)
+	}
+}
+
+func (m *sourcePushManager) runWatcher(ctx context.Context, account store.ExternalAccount, provider *accountSyncProvider) {
+	triggerCh := make(chan struct{}, 1)
+	triggerSync := func() {
+		select {
+		case triggerCh <- struct{}{}:
+		default:
+		}
+	}
+	triggerSync()
+	go m.consumeSyncTriggers(ctx, account, provider, triggerCh)
+	for {
+		err := provider.watchAccount(ctx, account, triggerSync)
+		if ctx.Err() != nil {
+			return
+		}
+		if err != nil {
+			log.Printf("source push: account %d watch failed: %v", account.ID, err)
+		} else {
+			log.Printf("source push: account %d watch exited; reconnecting", account.ID)
+		}
+		if !sleepSourcePush(ctx, sourcePushRetryDelay) {
+			return
+		}
+	}
+}
+
+func (m *sourcePushManager) consumeSyncTriggers(ctx context.Context, account store.ExternalAccount, provider *accountSyncProvider, triggerCh <-chan struct{}) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-triggerCh:
+			count, err := provider.syncAccount(ctx, account)
+			if err != nil {
+				if ctx.Err() != nil {
+					return
+				}
+				log.Printf("source push: account %d sync failed: %v", account.ID, err)
+				continue
+			}
+			if count > 0 && provider.onSynced != nil {
+				provider.onSynced(account, count)
+			}
+		}
+	}
+}
+
+func (m *sourcePushManager) stopAll() {
+	for accountID, watcher := range m.watchers {
+		watcher.cancel()
+		delete(m.watchers, accountID)
+	}
+}
+
+func sourcePushAccountEqual(left, right store.ExternalAccount) bool {
+	return left.ID == right.ID &&
+		left.Provider == right.Provider &&
+		left.Enabled == right.Enabled &&
+		left.AccountName == right.AccountName &&
+		left.ConfigJSON == right.ConfigJSON &&
+		left.UpdatedAt == right.UpdatedAt
+}
+
+func sleepSourcePush(ctx context.Context, delay time.Duration) bool {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return false
+	case <-timer.C:
+		return true
+	}
+}

@@ -283,3 +283,34 @@ func TestResolveExternalAccountPasswordRejectsMissingOrUnsupportedCredentialConf
 		t.Fatalf("ResolveExternalAccountPassword(unsupported) error = %v, want unsupported credential_ref", err)
 	}
 }
+
+func TestResolveExternalAccountPasswordFallsBackToLegacyHelpyEnvVar(t *testing.T) {
+	s := newTestStore(t)
+
+	account, err := s.CreateExternalAccount(SphereWork, ExternalProviderExchangeEWS, "TU Graz Exchange", map[string]any{
+		"endpoint":             "https://exchange.example.test/EWS/Exchange.asmx",
+		"username":             "ert",
+		"legacy_helpy_env_var": "HELPY_IMAP_PASSWORD_TUGRAZ",
+	})
+	if err != nil {
+		t.Fatalf("CreateExternalAccount() error: %v", err)
+	}
+
+	s.externalAccountLookupEnv = func(key string) (string, bool) {
+		if key != "HELPY_IMAP_PASSWORD_TUGRAZ" {
+			return "", false
+		}
+		return "legacy-secret", true
+	}
+
+	password, source, err := s.ResolveExternalAccountPasswordForAccount(context.Background(), account)
+	if err != nil {
+		t.Fatalf("ResolveExternalAccountPasswordForAccount() error: %v", err)
+	}
+	if password != "legacy-secret" {
+		t.Fatalf("password = %q, want legacy-secret", password)
+	}
+	if source != externalAccountCredentialSourceEnv {
+		t.Fatalf("source = %q, want %q", source, externalAccountCredentialSourceEnv)
+	}
+}

@@ -62,6 +62,15 @@ func (f *fakeProvider) Sync(_ context.Context, account store.ExternalAccount, _ 
 	return f.err
 }
 
+type fakePolicyProvider struct {
+	fakeProvider
+	policy SyncPolicy
+}
+
+func (f *fakePolicyProvider) SyncPolicy(context.Context, store.ExternalAccount) (SyncPolicy, error) {
+	return f.policy, nil
+}
+
 func TestEngineRunOnceAppliesIntervalsRateLimitsCleanupAndErrorIsolation(t *testing.T) {
 	todoConfig, err := json.Marshal(map[string]any{"sync_interval_seconds": 600})
 	if err != nil {
@@ -206,5 +215,38 @@ func TestEngineRunNowIgnoresIntervals(t *testing.T) {
 	}
 	if len(provider.calls) != 2 {
 		t.Fatalf("provider call count after RunNow = %d, want 2", len(provider.calls))
+	}
+}
+
+func TestEngineSkipsPollingWhenPushPolicyDisablesPoll(t *testing.T) {
+	source := fakeAccountSource{
+		accounts: []store.ExternalAccount{
+			{ID: 1, Provider: store.ExternalProviderExchangeEWS, Label: "tugraz", Enabled: true},
+		},
+	}
+	provider := &fakePolicyProvider{
+		fakeProvider: fakeProvider{name: store.ExternalProviderExchangeEWS},
+		policy: SyncPolicy{
+			DisablePoll:      true,
+			FallbackInterval: 30 * time.Minute,
+		},
+	}
+	engine := NewEngine(source, &fakeCleaner{}, fakeSink{}, Options{
+		DefaultInterval: 5 * time.Minute,
+	})
+	engine.Register(provider)
+
+	result, err := engine.RunOnce(context.Background())
+	if err != nil {
+		t.Fatalf("RunOnce() error: %v", err)
+	}
+	if len(provider.calls) != 0 {
+		t.Fatalf("provider calls = %d, want 0", len(provider.calls))
+	}
+	if len(result.Accounts) != 1 || !result.Accounts[0].Skipped || result.Accounts[0].Reason != "push" {
+		t.Fatalf("result.Accounts = %#v, want push skip", result.Accounts)
+	}
+	if result.NextDelay != 30*time.Minute {
+		t.Fatalf("result.NextDelay = %s, want 30m", result.NextDelay)
 	}
 }

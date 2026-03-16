@@ -36,6 +36,7 @@ const (
 	ExternalProviderBear           = "bear"
 	ExternalProviderZotero         = "zotero"
 	ExternalProviderExchange       = "exchange"
+	ExternalProviderExchangeEWS    = "exchange_ews"
 
 	ItemStateInbox   = "inbox"
 	ItemStateWaiting = "waiting"

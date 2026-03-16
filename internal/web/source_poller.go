@@ -23,10 +23,16 @@ type sourceSyncRunner interface {
 	RunNow(ctx context.Context) (tabsync.RunResult, error)
 }
 
+type sourcePushRunner interface {
+	Run(ctx context.Context)
+}
+
 type accountSyncProvider struct {
-	name        string
-	syncAccount func(context.Context, store.ExternalAccount) (int, error)
-	onSynced    func(store.ExternalAccount, int)
+	name         string
+	syncAccount  func(context.Context, store.ExternalAccount) (int, error)
+	onSynced     func(store.ExternalAccount, int)
+	syncPolicy   func(context.Context, store.ExternalAccount) (tabsync.SyncPolicy, error)
+	watchAccount func(context.Context, store.ExternalAccount, func()) error
 }
 
 func (p *accountSyncProvider) Name() string {
@@ -45,6 +51,13 @@ func (p *accountSyncProvider) Sync(ctx context.Context, account store.ExternalAc
 		p.onSynced(account, count)
 	}
 	return nil
+}
+
+func (p *accountSyncProvider) SyncPolicy(ctx context.Context, account store.ExternalAccount) (tabsync.SyncPolicy, error) {
+	if p == nil || p.syncPolicy == nil {
+		return tabsync.SyncPolicy{}, nil
+	}
+	return p.syncPolicy(ctx, account)
 }
 
 func parseInlineSourceSyncIntent(text string) *SystemAction {
@@ -73,7 +86,7 @@ func (a *App) newSourceSyncRunner() sourceSyncRunner {
 		DefaultInterval: sourceSyncDefaultInterval,
 		StaleAfter:      sourceSyncStaleAfter,
 	})
-	for _, provider := range []*accountSyncProvider{
+	providers := []*accountSyncProvider{
 		{
 			name:        store.ExternalProviderGmail,
 			syncAccount: a.syncManagedEmailAccount,
@@ -88,6 +101,13 @@ func (a *App) newSourceSyncRunner() sourceSyncRunner {
 			name:        store.ExternalProviderExchange,
 			syncAccount: a.syncManagedEmailAccount,
 			onSynced:    a.handleSourceSyncCount,
+		},
+		{
+			name:         store.ExternalProviderExchangeEWS,
+			syncAccount:  a.syncManagedEmailAccount,
+			onSynced:     a.handleSourceSyncCount,
+			syncPolicy:   a.exchangeEWSSourceSyncPolicy,
+			watchAccount: a.watchExchangeEWSSourceAccount,
 		},
 		{
 			name:        store.ExternalProviderTodoist,
@@ -118,9 +138,11 @@ func (a *App) newSourceSyncRunner() sourceSyncRunner {
 			},
 			onSynced: a.handleSourceSyncCount,
 		},
-	} {
+	}
+	for _, provider := range providers {
 		engine.Register(provider)
 	}
+	a.sourcePush = newSourcePushManager(a, providers)
 	return engine
 }
 
@@ -139,6 +161,17 @@ func (a *App) startSourcePoller() {
 	go func() {
 		defer a.workerWG.Done()
 		a.runSourcePoller(a.shutdownCtx)
+	}()
+}
+
+func (a *App) startSourcePush() {
+	if a == nil || a.shutdownCtx == nil || a.sourcePush == nil {
+		return
+	}
+	a.workerWG.Add(1)
+	go func() {
+		defer a.workerWG.Done()
+		a.sourcePush.Run(a.shutdownCtx)
 	}()
 }
 

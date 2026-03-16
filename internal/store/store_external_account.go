@@ -41,6 +41,8 @@ func normalizeExternalAccountProvider(raw string) string {
 		return ExternalProviderZotero
 	case ExternalProviderExchange:
 		return ExternalProviderExchange
+	case ExternalProviderExchangeEWS:
+		return ExternalProviderExchangeEWS
 	default:
 		return ""
 	}

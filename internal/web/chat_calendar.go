@@ -257,6 +257,12 @@ func (a *App) collectCalendarEvents(ctx context.Context, req calendarActionReque
 	}
 	events = append(events, googleEvents...)
 	warnings = append(warnings, googleWarnings...)
+	exchangeEvents, exchangeWarnings, err := a.collectExchangeEWSEvents(ctx, req, activeSphere, timeMin, timeMax)
+	if err != nil {
+		return nil, nil, err
+	}
+	events = append(events, exchangeEvents...)
+	warnings = append(warnings, exchangeWarnings...)
 	icsEvents, icsWarnings, err := a.collectICSEvents(req, activeSphere, timeMin, timeMax)
 	if err != nil {
 		return nil, nil, err
@@ -272,6 +278,54 @@ func (a *App) collectCalendarEvents(ctx context.Context, req calendarActionReque
 		}
 		return events[i].Start.Before(events[j].Start)
 	})
+	return events, warnings, nil
+}
+
+func (a *App) collectExchangeEWSEvents(ctx context.Context, req calendarActionRequest, activeSphere string, timeMin, timeMax time.Time) ([]calendarEventEntry, []string, error) {
+	accounts, err := a.store.ListExternalAccountsByProvider(store.ExternalProviderExchangeEWS)
+	if err != nil {
+		return nil, nil, err
+	}
+	var (
+		events   []calendarEventEntry
+		warnings []string
+	)
+	for _, account := range accounts {
+		if !account.Enabled {
+			continue
+		}
+		client, clientErr := a.exchangeEWSClientForAccount(ctx, account)
+		if clientErr != nil {
+			warnings = append(warnings, fmt.Sprintf("Exchange EWS %q unavailable: %v", account.AccountName, clientErr))
+			continue
+		}
+		items, eventErr := client.GetCalendarEvents(ctx, "", 0, 250)
+		_ = client.Close()
+		if eventErr != nil {
+			warnings = append(warnings, fmt.Sprintf("Exchange EWS %q failed: %v", account.AccountName, eventErr))
+			continue
+		}
+		for _, item := range items {
+			if item.End.Before(timeMin) || item.Start.After(timeMax) {
+				continue
+			}
+			entry := calendarEventEntry{
+				Summary:     strings.TrimSpace(item.Subject),
+				Description: strings.TrimSpace(item.Body),
+				Location:    strings.TrimSpace(item.Location),
+				Source:      firstNonEmptyCalendarValue(account.AccountName, "Kalender", "Exchange EWS"),
+				Provider:    store.ExternalProviderExchangeEWS,
+				Sphere:      account.Sphere,
+				Start:       item.Start.In(time.Local),
+				End:         item.End.In(time.Local),
+				AllDay:      item.IsAllDay,
+			}
+			if !matchesCalendarQuery(req.Query, entry, "") {
+				continue
+			}
+			events = append(events, entry)
+		}
+	}
 	return events, warnings, nil
 }
 

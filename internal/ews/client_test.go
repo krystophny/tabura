@@ -1,0 +1,75 @@
+package ews
+
+import (
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+)
+
+func TestClientUpdateInboxRulesBuildsOperations(t *testing.T) {
+	var body string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+		data, _ := io.ReadAll(r.Body)
+		body = string(data)
+		w.Header().Set("Content-Type", "text/xml; charset=utf-8")
+		_, _ = io.WriteString(w, `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:m="http://schemas.microsoft.com/exchange/services/2006/messages">
+  <soap:Body>
+    <m:UpdateInboxRulesResponse>
+      <m:ResponseCode>NoError</m:ResponseCode>
+    </m:UpdateInboxRulesResponse>
+  </soap:Body>
+</soap:Envelope>`)
+	}))
+	defer server.Close()
+
+	client, err := NewClient(Config{
+		Endpoint: server.URL,
+		Username: "ert",
+		Password: "secret",
+	})
+	if err != nil {
+		t.Fatalf("NewClient() error: %v", err)
+	}
+	defer client.Close()
+
+	err = client.UpdateInboxRules(t.Context(), []RuleOperation{
+		{
+			Kind: RuleOperationCreate,
+			Rule: Rule{
+				Name:     "Move project mail",
+				Priority: 1,
+				Enabled:  true,
+				Conditions: RuleConditions{
+					ContainsSubjectStrings: []string{"project"},
+				},
+				Actions: RuleActions{
+					MoveToFolderID:      "inbox",
+					StopProcessingRules: true,
+				},
+			},
+		},
+		{
+			Kind: RuleOperationDelete,
+			Rule: Rule{ID: "rule-1"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("UpdateInboxRules() error: %v", err)
+	}
+
+	for _, snippet := range []string{
+		"<m:UpdateInboxRules>",
+		"<t:CreateRuleOperation>",
+		"<t:ContainsSubjectStrings><t:String>project</t:String></t:ContainsSubjectStrings>",
+		"<t:MoveToFolder><t:DistinguishedFolderId Id=\"inbox\" /></t:MoveToFolder>",
+		"<t:DeleteRuleOperation><t:RuleId>rule-1</t:RuleId></t:DeleteRuleOperation>",
+	} {
+		if !strings.Contains(body, snippet) {
+			t.Fatalf("request body missing %q:\n%s", snippet, body)
+		}
+	}
+}

@@ -87,6 +87,7 @@ type App struct {
 
 	store      *store.Store
 	sourceSync sourceSyncRunner
+	sourcePush sourcePushRunner
 
 	appServerClient         *appserver.Client
 	calendarNow             func() time.Time
@@ -288,6 +289,7 @@ func New(dataDir, localProjectDir, localMCPURL, appServerURL, model, ttsURL, spa
 		devRuntime:                    devRuntime,
 		store:                         s,
 		sourceSync:                    nil,
+		sourcePush:                    nil,
 		appServerClient:               appServerClient,
 		calendarNow:                   time.Now,
 		newGoogleCalendarReader: func(ctx context.Context) (googleCalendarReader, error) {
@@ -341,8 +343,13 @@ func New(dataDir, localProjectDir, localMCPURL, appServerURL, model, ttsURL, spa
 		_ = s.Close()
 		return nil, err
 	}
+	if err := app.migrateLegacyExternalAccounts(); err != nil {
+		_ = s.Close()
+		return nil, err
+	}
 	app.sourceSync = app.newSourceSyncRunner()
 	app.startItemResurfacer()
+	app.startSourcePush()
 	app.startSourcePoller()
 	app.resumeWorkspaceWatches()
 	return app, nil

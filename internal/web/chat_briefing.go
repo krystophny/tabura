@@ -284,13 +284,7 @@ func briefingItemIsUrgent(item store.Item) bool {
 }
 
 func briefingItemIsUnreadEmail(item store.Item) bool {
-	source := strings.ToLower(strings.TrimSpace(stringFromPointer(item.Source)))
-	switch source {
-	case store.ExternalProviderGmail, store.ExternalProviderIMAP, store.ExternalProviderExchange:
-		return true
-	default:
-		return false
-	}
+	return store.IsEmailProvider(strings.TrimSpace(stringFromPointer(item.Source)))
 }
 
 func briefingItemIsReviewPR(item store.Item) bool {

@@ -16,6 +16,15 @@ type Provider interface {
 	Sync(ctx context.Context, account store.ExternalAccount, sink Sink) error
 }
 
+type SyncPolicy struct {
+	DisablePoll      bool
+	FallbackInterval time.Duration
+}
+
+type SyncPolicyProvider interface {
+	SyncPolicy(ctx context.Context, account store.ExternalAccount) (SyncPolicy, error)
+}
+
 type Sink interface {
 	UpsertItem(ctx context.Context, item store.Item, binding store.ExternalBinding) (store.Item, error)
 	UpsertArtifact(ctx context.Context, artifact store.Artifact, binding store.ExternalBinding) (store.Artifact, error)
@@ -141,6 +150,47 @@ func (e *Engine) run(ctx context.Context, force bool) (RunResult, error) {
 			continue
 		}
 		interval := e.accountInterval(account)
+		provider := e.providerFor(account.Provider)
+		if provider == nil {
+			result.Accounts = append(result.Accounts, AccountResult{
+				AccountID:   account.ID,
+				Provider:    account.Provider,
+				AccountName: account.AccountName,
+				Skipped:     true,
+				Reason:      "provider_unregistered",
+			})
+			nextDelay = minPositiveDuration(nextDelay, interval)
+			continue
+		}
+		if policyProvider, ok := provider.(SyncPolicyProvider); ok {
+			policy, policyErr := policyProvider.SyncPolicy(ctx, account)
+			if policyErr != nil {
+				result.Accounts = append(result.Accounts, AccountResult{
+					AccountID:   account.ID,
+					Provider:    account.Provider,
+					AccountName: account.AccountName,
+					Err:         policyErr,
+				})
+				nextDelay = minPositiveDuration(nextDelay, interval)
+				continue
+			}
+			if policy.FallbackInterval > 0 {
+				interval = policy.FallbackInterval
+			}
+			if policy.DisablePoll && !force {
+				result.Accounts = append(result.Accounts, AccountResult{
+					AccountID:   account.ID,
+					Provider:    account.Provider,
+					AccountName: account.AccountName,
+					Skipped:     true,
+					Reason:      "push",
+				})
+				if interval > 0 {
+					nextDelay = minPositiveDuration(nextDelay, interval)
+				}
+				continue
+			}
+		}
 		lastRun, due := e.accountDue(account.ID, interval, now)
 		if !force && !due {
 			remaining := interval - now.Sub(lastRun)
@@ -155,19 +205,6 @@ func (e *Engine) run(ctx context.Context, force bool) (RunResult, error) {
 				Skipped:     true,
 				Reason:      "interval",
 			})
-			continue
-		}
-
-		provider := e.providerFor(account.Provider)
-		if provider == nil {
-			result.Accounts = append(result.Accounts, AccountResult{
-				AccountID:   account.ID,
-				Provider:    account.Provider,
-				AccountName: account.AccountName,
-				Skipped:     true,
-				Reason:      "provider_unregistered",
-			})
-			nextDelay = minPositiveDuration(nextDelay, interval)
 			continue
 		}
 

@@ -17,13 +17,7 @@ type emailMoveToInboxProvider interface {
 }
 
 func emailBackedItem(item store.Item) bool {
-	source := strings.ToLower(strings.TrimSpace(stringFromPointer(item.Source)))
-	switch source {
-	case store.ExternalProviderGmail, store.ExternalProviderIMAP, store.ExternalProviderExchange:
-		return true
-	default:
-		return false
-	}
+	return store.IsEmailProvider(strings.TrimSpace(stringFromPointer(item.Source)))
 }
 
 func emailMessageBindingForItem(bindings []store.ExternalBinding, item store.Item) *store.ExternalBinding {

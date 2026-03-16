@@ -219,6 +219,8 @@ func (a *App) emailProviderForAccount(ctx context.Context, account store.Externa
 			return nil, err
 		}
 		return email.NewExchangeMailProvider(exchangeConfig)
+	case store.ExternalProviderExchangeEWS:
+		return a.exchangeEWSMailProviderForAccount(ctx, account)
 	default:
 		return nil, fmt.Errorf("email sync does not support provider %s", account.Provider)
 	}
@@ -452,6 +454,13 @@ func (a *App) syncManagedEmailAccount(ctx context.Context, account store.Externa
 	}
 	if _, err := a.syncContactAccount(ctx, account); err != nil {
 		return 0, err
+	}
+	if account.Provider == store.ExternalProviderExchangeEWS {
+		taskCount, err := a.syncExchangeEWSTaskAccount(ctx, account)
+		if err != nil {
+			return 0, err
+		}
+		messageCount += taskCount
 	}
 	return messageCount, nil
 }

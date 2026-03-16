@@ -372,7 +372,7 @@ func (a *App) resolveMailDraftAccount(ctx context.Context, accountID int64) (sto
 			continue
 		}
 		switch account.Provider {
-		case store.ExternalProviderGmail, store.ExternalProviderIMAP, store.ExternalProviderExchange:
+		case store.ExternalProviderGmail, store.ExternalProviderIMAP, store.ExternalProviderExchange, store.ExternalProviderExchangeEWS:
 			cfg, err := decodeEmailSyncAccountConfig(account)
 			return account, cfg, err
 		}
