@@ -32,6 +32,7 @@ test('manual mail triage advances through messages and records review actions', 
         ok: true,
         data: {
           messages: [
+            { ID: 'm0', Subject: 'Already reviewed', Sender: 'done@example.com', Labels: ['Posteingang'], Date: '2026-03-16T11:00:00Z' },
             { ID: 'm1', Subject: 'First inbox mail', Sender: 'alice@example.com', Labels: ['Posteingang'], Date: '2026-03-16T10:00:00Z' },
             { ID: 'm2', Subject: 'Second inbox mail', Sender: 'bob@example.com', Labels: ['Posteingang'], Date: '2026-03-16T09:00:00Z' },
           ],
@@ -80,7 +81,22 @@ test('manual mail triage advances through messages and records review actions', 
     });
   });
 
-  await page.route('**/api/external-accounts/2/mail-triage/manual/reviews', async (route) => {
+  await page.route('**/api/external-accounts/2/mail-triage/manual/reviews*', async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ok: true,
+          data: {
+            reviews: [],
+            count: 0,
+            reviewed_message_ids: ['m0'],
+            distilled: { review_count: 0, policy_summary: [], examples: [] },
+          },
+        }),
+      });
+      return;
+    }
     if (route.request().method() === 'POST') {
       reviewBodies.push(JSON.parse(route.request().postData() || '{}'));
     }

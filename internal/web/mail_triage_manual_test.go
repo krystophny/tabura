@@ -91,7 +91,7 @@ func TestMailTriageManualReviewsListReturnsRecentReviews(t *testing.T) {
 		t.Fatalf("CreateMailTriageReview() error: %v", err)
 	}
 
-	rr := doAuthedJSONRequest(t, app.Router(), http.MethodGet, "/api/external-accounts/"+itoa(account.ID)+"/mail-triage/manual/reviews?limit=1", nil)
+	rr := doAuthedJSONRequest(t, app.Router(), http.MethodGet, "/api/external-accounts/"+itoa(account.ID)+"/mail-triage/manual/reviews?limit=1&folder=Junk-E-Mail", nil)
 	if rr.Code != http.StatusOK {
 		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
 	}
@@ -106,5 +106,9 @@ func TestMailTriageManualReviewsListReturnsRecentReviews(t *testing.T) {
 	}
 	if got := int(distilled["review_count"].(float64)); got != 2 {
 		t.Fatalf("distilled review_count = %d, want 2", got)
+	}
+	reviewedIDs, _ := data["reviewed_message_ids"].([]any)
+	if len(reviewedIDs) != 1 {
+		t.Fatalf("reviewed_message_ids len = %d, want 1", len(reviewedIDs))
 	}
 }

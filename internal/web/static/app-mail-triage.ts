@@ -187,14 +187,22 @@ export async function openMailTriageMode(options = {}) {
     if (filterText) {
       query.set('text', filterText);
     }
-    const listPayload = await mailTriageFetchJSON(`external-accounts/${encodeURIComponent(String(account.id))}/mail/messages?${query.toString()}`);
+    const [listPayload, reviewsPayload] = await Promise.all([
+      mailTriageFetchJSON(`external-accounts/${encodeURIComponent(String(account.id))}/mail/messages?${query.toString()}`),
+      mailTriageFetchJSON(`external-accounts/${encodeURIComponent(String(account.id))}/mail-triage/manual/reviews?limit=1&folder=${encodeURIComponent(folder)}`),
+    ]);
+    const reviewedMessageIDs = new Set(
+      Array.isArray(reviewsPayload?.reviewed_message_ids)
+        ? reviewsPayload.reviewed_message_ids.map((value) => String(value || '').trim()).filter(Boolean)
+        : [],
+    );
     const queue = Array.isArray(listPayload?.messages) ? listPayload.messages.map((message) => ({
       id: String(message?.ID || '').trim(),
       subject: String(message?.Subject || '').trim(),
       sender: String(message?.Sender || '').trim(),
       labels: Array.isArray(message?.Labels) ? message.Labels.slice() : [],
       date: String(message?.Date || '').trim(),
-    })).filter((message) => message.id) : [];
+    })).filter((message) => message.id && !reviewedMessageIDs.has(message.id)) : [];
     Object.assign(state.mailTriage, {
       active: true,
       accountId: Number(account.id || 0),

@@ -57,4 +57,12 @@ func TestCreateAndListMailTriageReviews(t *testing.T) {
 	if reviews[1].MessageID != "m1" || reviews[1].Action != "keep" {
 		t.Fatalf("reviews[1] = %#v", reviews[1])
 	}
+
+	ids, err := s.ListMailTriageReviewedMessageIDs(account.ID, "Junk-E-Mail", 10)
+	if err != nil {
+		t.Fatalf("ListMailTriageReviewedMessageIDs() error: %v", err)
+	}
+	if len(ids) != 1 || ids[0] != "m2" {
+		t.Fatalf("reviewed ids = %#v, want [m2]", ids)
+	}
 }

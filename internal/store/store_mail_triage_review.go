@@ -139,3 +139,35 @@ LIMIT ?`, accountID, limit)
 	}
 	return reviews, rows.Err()
 }
+
+func (s *Store) ListMailTriageReviewedMessageIDs(accountID int64, folder string, limit int) ([]string, error) {
+	if accountID <= 0 {
+		return nil, errors.New("account_id is required")
+	}
+	if limit <= 0 {
+		limit = 5000
+	}
+	cleanFolder := strings.TrimSpace(folder)
+	rows, err := s.db.Query(`SELECT message_id
+FROM mail_triage_reviews
+WHERE account_id = ?
+  AND (? = '' OR lower(folder) = lower(?))
+GROUP BY message_id
+ORDER BY max(datetime(created_at)) DESC, message_id DESC
+LIMIT ?`, accountID, cleanFolder, cleanFolder, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []string
+	for rows.Next() {
+		var messageID string
+		if err := rows.Scan(&messageID); err != nil {
+			return nil, err
+		}
+		if clean := strings.TrimSpace(messageID); clean != "" {
+			ids = append(ids, clean)
+		}
+	}
+	return ids, rows.Err()
+}

@@ -45,6 +45,7 @@ func (a *App) handleMailTriageManualReviewsList(w http.ResponseWriter, r *http.R
 		return
 	}
 	limit := 50
+	folder := strings.TrimSpace(r.URL.Query().Get("folder"))
 	if raw := strings.TrimSpace(r.URL.Query().Get("limit")); raw != "" {
 		value, convErr := strconv.Atoi(raw)
 		if convErr != nil || value <= 0 {
@@ -54,6 +55,11 @@ func (a *App) handleMailTriageManualReviewsList(w http.ResponseWriter, r *http.R
 		limit = value
 	}
 	reviews, err := a.store.ListMailTriageReviews(account.ID, limit)
+	if err != nil {
+		writeDomainStoreError(w, err)
+		return
+	}
+	reviewedMessageIDs, err := a.store.ListMailTriageReviewedMessageIDs(account.ID, folder, 5000)
 	if err != nil {
 		writeDomainStoreError(w, err)
 		return
@@ -76,6 +82,8 @@ func (a *App) handleMailTriageManualReviewsList(w http.ResponseWriter, r *http.R
 		"account":   account,
 		"reviews":   reviews,
 		"count":     len(reviews),
+		"folder":    folder,
+		"reviewed_message_ids": reviewedMessageIDs,
 		"distilled": mailtriage.DistillReviewedExamples(input),
 	})
 }
