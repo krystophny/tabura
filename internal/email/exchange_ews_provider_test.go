@@ -318,6 +318,103 @@ func TestExchangeEWSListMessagesPageUsesPagingOffsets(t *testing.T) {
 	}
 }
 
+func TestExchangeEWSGetMessagesSkipsMissingItemsOnBatchFallback(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+		body, _ := io.ReadAll(r.Body)
+		action := strings.Trim(r.Header.Get("SOAPAction"), `"`)
+		w.Header().Set("Content-Type", "text/xml; charset=utf-8")
+		switch {
+		case strings.HasSuffix(action, "/GetItem") && strings.Contains(string(body), `Id="missing"`):
+			_, _ = io.WriteString(w, `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:m="http://schemas.microsoft.com/exchange/services/2006/messages">
+  <soap:Body>
+    <m:GetItemResponse>
+      <m:ResponseMessages>
+        <m:GetItemResponseMessage ResponseClass="Error">
+          <m:ResponseCode>ErrorItemNotFound</m:ResponseCode>
+        </m:GetItemResponseMessage>
+      </m:ResponseMessages>
+    </m:GetItemResponse>
+  </soap:Body>
+</soap:Envelope>`)
+		case strings.HasSuffix(action, "/GetItem") && strings.Contains(string(body), `Id="good"`):
+			_, _ = io.WriteString(w, `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:m="http://schemas.microsoft.com/exchange/services/2006/messages" xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types">
+  <soap:Body>
+    <m:GetItemResponse>
+      <m:ResponseMessages>
+        <m:GetItemResponseMessage ResponseClass="Success">
+          <m:ResponseCode>NoError</m:ResponseCode>
+          <m:Items>
+            <t:Message>
+              <t:ItemId Id="good" ChangeKey="ck1" />
+              <t:ParentFolderId Id="inbox-id" ChangeKey="f1" />
+              <t:ConversationId Id="thread-1" />
+              <t:Subject>Good message</t:Subject>
+              <t:DateTimeReceived>2026-03-16T12:00:00Z</t:DateTimeReceived>
+            </t:Message>
+          </m:Items>
+        </m:GetItemResponseMessage>
+      </m:ResponseMessages>
+    </m:GetItemResponse>
+  </soap:Body>
+</soap:Envelope>`)
+		case strings.HasSuffix(action, "/FindFolder"):
+			_, _ = io.WriteString(w, `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:m="http://schemas.microsoft.com/exchange/services/2006/messages" xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types">
+  <soap:Body>
+    <m:FindFolderResponse>
+      <m:ResponseMessages>
+        <m:FindFolderResponseMessage ResponseClass="Success">
+          <m:ResponseCode>NoError</m:ResponseCode>
+          <m:RootFolder IncludesLastItemInRange="true" TotalItemsInView="1">
+            <t:Folders>
+              <t:Folder>
+                <t:FolderId Id="inbox-id" ChangeKey="f1" />
+                <t:DisplayName>Posteingang</t:DisplayName>
+                <t:FolderClass>IPF.Note</t:FolderClass>
+                <t:TotalCount>1</t:TotalCount>
+                <t:UnreadCount>1</t:UnreadCount>
+              </t:Folder>
+            </t:Folders>
+          </m:RootFolder>
+        </m:FindFolderResponseMessage>
+      </m:ResponseMessages>
+    </m:FindFolderResponse>
+  </soap:Body>
+</soap:Envelope>`)
+		default:
+			t.Fatalf("unexpected SOAP action %q body=%s", action, string(body))
+		}
+	}))
+	defer server.Close()
+
+	provider, err := NewExchangeEWSMailProvider(ExchangeEWSConfig{
+		Endpoint: server.URL,
+		Username: "ert",
+		Password: "secret",
+	})
+	if err != nil {
+		t.Fatalf("NewExchangeEWSMailProvider() error: %v", err)
+	}
+	defer provider.Close()
+
+	messages, err := provider.GetMessages(t.Context(), []string{"good", "missing"}, "full")
+	if err != nil {
+		t.Fatalf("GetMessages() error: %v", err)
+	}
+	if len(messages) != 1 {
+		t.Fatalf("messages len = %d, want 1", len(messages))
+	}
+	if messages[0].ID != "good" {
+		t.Fatalf("message id = %q, want good", messages[0].ID)
+	}
+	if len(messages[0].Labels) < 1 || messages[0].Labels[0] != "Posteingang" {
+		t.Fatalf("labels = %#v, want first label Posteingang", messages[0].Labels)
+	}
+}
+
 func TestExchangeEWSGetMessagesMapsParentFolderToLabels(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()

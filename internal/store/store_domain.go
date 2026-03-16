@@ -179,6 +179,27 @@ CREATE INDEX IF NOT EXISTS idx_mail_triage_reviews_account_created
   ON mail_triage_reviews(account_id, datetime(created_at) DESC, id DESC);
 CREATE INDEX IF NOT EXISTS idx_mail_triage_reviews_message
   ON mail_triage_reviews(account_id, message_id);
+CREATE TABLE IF NOT EXISTS mail_action_logs (
+  id INTEGER PRIMARY KEY,
+  account_id INTEGER NOT NULL REFERENCES external_accounts(id) ON DELETE CASCADE,
+  provider TEXT NOT NULL,
+  message_id TEXT NOT NULL,
+  resolved_message_id TEXT NOT NULL DEFAULT '',
+  action TEXT NOT NULL,
+  folder_from TEXT NOT NULL DEFAULT '',
+  folder_to TEXT NOT NULL DEFAULT '',
+  subject TEXT NOT NULL DEFAULT '',
+  sender TEXT NOT NULL DEFAULT '',
+  request_json TEXT NOT NULL DEFAULT '{}',
+  status TEXT NOT NULL CHECK (status IN ('pending', 'applied', 'failed', 'reconcile_failed')),
+  error_text TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_mail_action_logs_account_created
+  ON mail_action_logs(account_id, datetime(created_at) DESC, id DESC);
+CREATE INDEX IF NOT EXISTS idx_mail_action_logs_message
+  ON mail_action_logs(account_id, message_id);
 `
 	if _, err := s.db.Exec(schema); err != nil {
 		return err

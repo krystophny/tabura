@@ -189,10 +189,10 @@ func TestMailAPIListsMessagesUsesPagingFromFirstPage(t *testing.T) {
 	}
 	now := time.Date(2026, time.March, 16, 12, 0, 0, 0, time.UTC)
 	provider := &fakeMailProvider{
-		listIDs:   []string{"legacy-list-id"},
-		pageIDs:   []string{"m2"},
-		nextPage:  "next-1",
-		messages:  map[string]*providerdata.EmailMessage{"m2": {ID: "m2", Subject: "Paged", Date: now}},
+		listIDs:  []string{"legacy-list-id"},
+		pageIDs:  []string{"m2"},
+		nextPage: "next-1",
+		messages: map[string]*providerdata.EmailMessage{"m2": {ID: "m2", Subject: "Paged", Date: now}},
 	}
 	app.newEmailProvider = func(context.Context, store.ExternalAccount) (email.EmailProvider, error) {
 		return provider, nil
@@ -238,6 +238,62 @@ func TestMailAPIActionArchiveLabelUsesExchangeArchiveFolder(t *testing.T) {
 	}
 	if provider.lastFolder != "Archive/padova2023" {
 		t.Fatalf("lastFolder = %q", provider.lastFolder)
+	}
+}
+
+func TestMailAPIActionLogsAndForcesReconcile(t *testing.T) {
+	app := newAuthedTestApp(t)
+	account, err := app.store.CreateExternalAccount(store.SphereWork, store.ExternalProviderExchangeEWS, "TU Graz", map[string]any{})
+	if err != nil {
+		t.Fatalf("CreateExternalAccount: %v", err)
+	}
+	provider := &fakeMailProvider{
+		messages: map[string]*providerdata.EmailMessage{
+			"m1": {
+				ID:      "m1",
+				Subject: "Need action",
+				Sender:  "alice@example.com",
+				Labels:  []string{"Posteingang"},
+			},
+		},
+	}
+	syncCalls := 0
+	app.newEmailProvider = func(context.Context, store.ExternalAccount) (email.EmailProvider, error) {
+		return provider, nil
+	}
+	app.syncMailAccountNow = func(context.Context, store.ExternalAccount) (int, error) {
+		syncCalls++
+		return 1, nil
+	}
+
+	rr := doAuthedJSONRequest(t, app.Router(), http.MethodPost, "/api/external-accounts/"+itoaMail(account.ID)+"/mail/actions", map[string]any{
+		"action":      "trash",
+		"message_ids": []string{"m1"},
+	})
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+	}
+	if provider.lastAction != "trash" {
+		t.Fatalf("lastAction = %q, want trash", provider.lastAction)
+	}
+	if syncCalls != 1 {
+		t.Fatalf("syncCalls = %d, want 1", syncCalls)
+	}
+	logs, err := app.store.ListMailActionLogs(account.ID, 10)
+	if err != nil {
+		t.Fatalf("ListMailActionLogs() error: %v", err)
+	}
+	if len(logs) != 1 {
+		t.Fatalf("logs len = %d, want 1", len(logs))
+	}
+	if logs[0].Status != store.MailActionLogApplied {
+		t.Fatalf("log status = %q, want %q", logs[0].Status, store.MailActionLogApplied)
+	}
+	if logs[0].FolderFrom != "Posteingang" {
+		t.Fatalf("log folder_from = %q, want Posteingang", logs[0].FolderFrom)
+	}
+	if logs[0].FolderTo != "Gelöschte Elemente" {
+		t.Fatalf("log folder_to = %q, want Gelöschte Elemente", logs[0].FolderTo)
 	}
 }
 

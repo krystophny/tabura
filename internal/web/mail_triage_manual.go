@@ -83,12 +83,12 @@ func (a *App) handleMailTriageManualReviewsList(w http.ResponseWriter, r *http.R
 		})
 	}
 	writeAPIData(w, http.StatusOK, map[string]any{
-		"account":   account,
-		"reviews":   reviews,
-		"count":     len(reviews),
-		"folder":    folder,
+		"account":              account,
+		"reviews":              reviews,
+		"count":                len(reviews),
+		"folder":               folder,
 		"reviewed_message_ids": reviewedMessageIDs,
-		"distilled": mailtriage.DistillReviewedExamples(input),
+		"distilled":            mailtriage.DistillReviewedExamples(input),
 	})
 }
 
@@ -126,24 +126,31 @@ func (a *App) handleMailTriageManualReviewCreate(w http.ResponseWriter, r *http.
 
 	appliedAction := ""
 	succeeded := 1
+	cmd := mailActionCommand{MessageIDs: []string{messageID}}
 	switch action {
 	case "inbox":
 		appliedAction = "inbox"
-		if !mailTriageFolderImpliesInbox(strings.TrimSpace(req.Folder)) {
-			succeeded, err = provider.MoveToInbox(r.Context(), []string{messageID})
-		}
+		cmd.Action = "move_to_inbox"
 	case "cc":
 		appliedAction = "cc"
-		err = applyMailTriageAction(r.Context(), account, provider, mailtriage.ActionCC, "", []string{messageID})
-		if err == nil {
-			succeeded = 1
-		}
+		cmd.Action = "move_to_folder"
+		cmd.Folder = "CC"
 	case "archive":
 		appliedAction = "archive"
-		succeeded, err = provider.Archive(r.Context(), []string{messageID})
+		cmd.Action = "archive"
 	case "trash":
 		appliedAction = "trash"
-		succeeded, err = provider.Trash(r.Context(), []string{messageID})
+		cmd.Action = "trash"
+	}
+	if action == "inbox" && mailTriageFolderImpliesInbox(strings.TrimSpace(req.Folder)) {
+		succeeded = 1
+	} else {
+		execution, execErr := a.executeMailAction(r.Context(), account, provider, cmd)
+		if execErr != nil {
+			err = execErr
+		} else {
+			succeeded = execution.Succeeded
+		}
 	}
 	if err != nil {
 		writeAPIError(w, http.StatusBadGateway, err.Error())

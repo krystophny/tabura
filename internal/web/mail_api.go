@@ -164,7 +164,13 @@ func (a *App) handleMailAction(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, http.StatusBadRequest, "action is required")
 		return
 	}
-	count, err := applyMailAction(r.Context(), account, provider, action, messageIDs, strings.TrimSpace(req.Folder), strings.TrimSpace(req.Label), req.Archive)
+	result, err := a.executeMailAction(r.Context(), account, provider, mailActionCommand{
+		Action:     action,
+		MessageIDs: messageIDs,
+		Folder:     strings.TrimSpace(req.Folder),
+		Label:      strings.TrimSpace(req.Label),
+		Archive:    req.Archive,
+	})
 	if err != nil {
 		status := http.StatusBadRequest
 		if !isMailAPIRequestError(err) {
@@ -177,7 +183,8 @@ func (a *App) handleMailAction(w http.ResponseWriter, r *http.Request) {
 		"account":     account,
 		"action":      action,
 		"message_ids": messageIDs,
-		"succeeded":   count,
+		"succeeded":   result.Succeeded,
+		"logs":        result.Logs,
 	})
 }
 

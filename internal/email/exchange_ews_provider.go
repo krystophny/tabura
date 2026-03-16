@@ -217,7 +217,20 @@ func (p *ExchangeEWSMailProvider) GetMessage(ctx context.Context, messageID, _ s
 func (p *ExchangeEWSMailProvider) GetMessages(ctx context.Context, messageIDs []string, _ string) ([]*providerdata.EmailMessage, error) {
 	messages, err := p.client.GetMessages(ctx, messageIDs)
 	if err != nil {
-		return nil, err
+		if !exchangeEWSMissingItemError(err) {
+			return nil, err
+		}
+		messages = make([]ews.Message, 0, len(messageIDs))
+		for _, messageID := range compactMessageIDs(messageIDs) {
+			single, singleErr := p.client.GetMessages(ctx, []string{messageID})
+			if singleErr != nil {
+				if exchangeEWSMissingItemError(singleErr) {
+					continue
+				}
+				return nil, singleErr
+			}
+			messages = append(messages, single...)
+		}
 	}
 	folders, err := p.client.ListFolders(ctx)
 	if err != nil {
@@ -230,6 +243,10 @@ func (p *ExchangeEWSMailProvider) GetMessages(ctx context.Context, messageIDs []
 		out = append(out, &decoded)
 	}
 	return out, nil
+}
+
+func exchangeEWSMissingItemError(err error) bool {
+	return err != nil && strings.Contains(strings.ToLower(err.Error()), "erroritemnotfound")
 }
 
 func (p *ExchangeEWSMailProvider) MarkRead(ctx context.Context, messageIDs []string) (int, error) {

@@ -19,8 +19,13 @@ func TestMailTriageManualReviewCreateStoresDecisionAndAppliesAction(t *testing.T
 			"m3": {ID: "m3", Subject: "Newsletter", Sender: "news@example.com"},
 		},
 	}
+	syncCalls := 0
 	app.newEmailProvider = func(context.Context, store.ExternalAccount) (email.EmailProvider, error) {
 		return provider, nil
+	}
+	app.syncMailAccountNow = func(context.Context, store.ExternalAccount) (int, error) {
+		syncCalls++
+		return 1, nil
 	}
 	account, err := app.store.CreateExternalAccount(store.SphereWork, store.ExternalProviderExchangeEWS, "TU Graz", nil)
 	if err != nil {
@@ -62,6 +67,9 @@ func TestMailTriageManualReviewCreateStoresDecisionAndAppliesAction(t *testing.T
 	if len(provider.movedFolders) != 1 || provider.movedFolders[0] != "CC" {
 		t.Fatalf("movedFolders = %#v, want [CC]", provider.movedFolders)
 	}
+	if syncCalls != 2 {
+		t.Fatalf("syncCalls = %d, want 2", syncCalls)
+	}
 
 	reviews, err := app.store.ListMailTriageReviews(account.ID, 10)
 	if err != nil {
@@ -72,6 +80,13 @@ func TestMailTriageManualReviewCreateStoresDecisionAndAppliesAction(t *testing.T
 	}
 	if reviews[0].Action != "cc" || reviews[1].Action != "inbox" || reviews[2].Action != "inbox" {
 		t.Fatalf("reviews = %#v", reviews)
+	}
+	logs, err := app.store.ListMailActionLogs(account.ID, 10)
+	if err != nil {
+		t.Fatalf("ListMailActionLogs() error: %v", err)
+	}
+	if len(logs) != 2 {
+		t.Fatalf("logs len = %d, want 2", len(logs))
 	}
 }
 

@@ -383,7 +383,7 @@ func (a *App) applyMailTriageDecisions(ctx context.Context, account store.Extern
 	results := make([]mailTriageApplyResult, 0, len(decisions))
 	for _, groupKey := range order {
 		ids := groups[groupKey]
-		err := applyMailTriageAction(ctx, account, provider, groupKey.action, groupKey.label, ids)
+		err := a.applyMailTriageAction(ctx, account, provider, groupKey.action, groupKey.label, ids)
 		status := "ok"
 		errText := ""
 		if err != nil {
@@ -402,44 +402,30 @@ func (a *App) applyMailTriageDecisions(ctx context.Context, account store.Extern
 	return results
 }
 
-func applyMailTriageAction(ctx context.Context, account store.ExternalAccount, provider email.EmailProvider, action mailtriage.Action, archiveLabel string, messageIDs []string) error {
+func (a *App) applyMailTriageAction(ctx context.Context, account store.ExternalAccount, provider email.EmailProvider, action mailtriage.Action, archiveLabel string, messageIDs []string) error {
+	cmd := mailActionCommand{
+		MessageIDs: messageIDs,
+	}
 	switch action {
 	case mailtriage.ActionInbox:
-		_, err := provider.MoveToInbox(ctx, messageIDs)
-		return err
+		cmd.Action = "move_to_inbox"
 	case mailtriage.ActionTrash:
-		_, err := provider.Trash(ctx, messageIDs)
-		return err
+		cmd.Action = "trash"
 	case mailtriage.ActionCC:
-		if folderProvider, ok := provider.(email.NamedFolderProvider); ok {
-			_, err := folderProvider.MoveToFolder(ctx, messageIDs, "CC")
-			return err
-		}
-		if labelProvider, ok := provider.(email.NamedLabelProvider); ok {
-			_, err := labelProvider.ApplyNamedLabel(ctx, messageIDs, "CC", true)
-			return err
-		}
-		return errBadRequest("cc triage is not supported for this provider")
+		cmd.Action = "move_to_folder"
+		cmd.Folder = "CC"
 	case mailtriage.ActionArchive:
 		if label := strings.TrimSpace(archiveLabel); label != "" {
-			if folderProvider, ok := provider.(email.NamedFolderProvider); ok {
-				target := label
-				if account.Provider == store.ExternalProviderExchangeEWS {
-					target = "Archive/" + label
-				}
-				_, err := folderProvider.MoveToFolder(ctx, messageIDs, target)
-				return err
-			}
-			if labelProvider, ok := provider.(email.NamedLabelProvider); ok {
-				_, err := labelProvider.ApplyNamedLabel(ctx, messageIDs, label, true)
-				return err
-			}
+			cmd.Action = "archive_label"
+			cmd.Label = label
+		} else {
+			cmd.Action = "archive"
 		}
-		_, err := provider.Archive(ctx, messageIDs)
-		return err
 	default:
 		return errBadRequest("unsupported triage action")
 	}
+	_, err := a.executeMailAction(ctx, account, provider, cmd)
+	return err
 }
 
 func compactStringList(values []string) []string {

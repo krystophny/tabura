@@ -95,6 +95,7 @@ type App struct {
 	newICSCalendarReader    func() (icsCalendarReader, error)
 	newEmailSyncProvider    func(context.Context, store.ExternalAccount) (emailSyncProvider, error)
 	newEmailProvider        func(context.Context, store.ExternalAccount) (email.EmailProvider, error)
+	syncMailAccountNow      func(context.Context, store.ExternalAccount) (int, error)
 	newContactSyncProvider  func(context.Context, store.ExternalAccount) (contactSyncProvider, error)
 	scanExtractor           scanExtractProvider
 
