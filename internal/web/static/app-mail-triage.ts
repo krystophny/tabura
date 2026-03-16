@@ -22,7 +22,7 @@ function resetMailTriageState() {
     loading: false,
     submitting: false,
     completed: 0,
-    decisions: { keep: 0, rescue: 0, archive: 0, trash: 0 },
+    decisions: { keep: 0, cc: 0, rescue: 0, archive: 0, trash: 0 },
     currentMessage: null,
     prefetchedMessage: null,
     prefetchedMessageID: '',
@@ -215,6 +215,7 @@ export async function openMailTriageMode(options = {}) {
       loading: false,
       submitting: false,
       completed: 0,
+      decisions: { keep: 0, cc: 0, rescue: 0, archive: 0, trash: 0 },
       currentMessage: null,
       prefetchedMessage: null,
       prefetchedMessageID: '',
@@ -290,6 +291,8 @@ function mailTriageShortcutActionForKey(key) {
   switch (String(key || '').trim()) {
     case 'ArrowLeft':
       return manualActionLabel().toLowerCase() === 'rescue' ? 'rescue' : 'keep';
+    case 'ArrowUp':
+      return 'cc';
     case 'ArrowDown':
       return 'archive';
     case 'ArrowRight':
@@ -359,7 +362,7 @@ export function renderMailTriageArtifact(root, event) {
   const queueLength = Array.isArray(triage.queue) ? triage.queue.length : 0;
   const index = Number(triage.index || 0);
   const progressText = queueLength > 0 && index < queueLength ? `${index + 1} / ${queueLength}` : `${Math.min(index, queueLength)} / ${queueLength}`;
-  detail.textContent = [progressText, String(triage.filterText || '').trim() ? `filter ${triage.filterText}` : '', `stored reviews ${Number(triage.lastReviewId || 0) > 0 ? 'on' : 'pending'}`, 'left keep/rescue • down archive • right trash']
+  detail.textContent = [progressText, String(triage.filterText || '').trim() ? `filter ${triage.filterText}` : '', `stored reviews ${Number(triage.lastReviewId || 0) > 0 ? 'on' : 'pending'}`, 'left keep/rescue • up cc • down archive • right trash']
     .filter(Boolean)
     .join(' • ');
   headerCopy.appendChild(detail);
@@ -427,6 +430,7 @@ export function renderMailTriageArtifact(root, event) {
     const primaryAction = manualActionLabel();
     [
       [primaryAction, primaryAction.toLowerCase() === 'rescue' ? 'rescue' : 'keep'],
+      ['CC', 'cc'],
       ['Archive', 'archive'],
       ['Trash', 'trash'],
     ].forEach(([label, action]) => {
@@ -447,6 +451,7 @@ export function renderMailTriageArtifact(root, event) {
   footer.className = 'mail-triage-footer';
   const counts = triage.decisions || {};
   footer.appendChild(triageDecisionBadge('Keep', Number(counts.keep || 0)));
+  footer.appendChild(triageDecisionBadge('CC', Number(counts.cc || 0)));
   footer.appendChild(triageDecisionBadge('Rescue', Number(counts.rescue || 0)));
   footer.appendChild(triageDecisionBadge('Archive', Number(counts.archive || 0)));
   footer.appendChild(triageDecisionBadge('Trash', Number(counts.trash || 0)));

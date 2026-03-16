@@ -16,6 +16,7 @@ func TestMailTriageManualReviewCreateStoresDecisionAndAppliesAction(t *testing.T
 		messages: map[string]*providerdata.EmailMessage{
 			"m1": {ID: "m1", Subject: "Need triage", Sender: "alice@example.com"},
 			"m2": {ID: "m2", Subject: "Suspicious", Sender: "spam@example.com"},
+			"m3": {ID: "m3", Subject: "Newsletter", Sender: "news@example.com"},
 		},
 	}
 	app.newEmailProvider = func(context.Context, store.ExternalAccount) (email.EmailProvider, error) {
@@ -50,14 +51,26 @@ func TestMailTriageManualReviewCreateStoresDecisionAndAppliesAction(t *testing.T
 		t.Fatalf("inboxed = %#v, want [m2]", provider.inboxed)
 	}
 
+	ccRR := doAuthedJSONRequest(t, app.Router(), http.MethodPost, "/api/external-accounts/"+itoa(account.ID)+"/mail-triage/manual/reviews", map[string]any{
+		"message_id": "m3",
+		"folder":     "Posteingang",
+		"action":     "cc",
+	})
+	if ccRR.Code != http.StatusOK {
+		t.Fatalf("cc status = %d body=%s", ccRR.Code, ccRR.Body.String())
+	}
+	if len(provider.movedFolders) != 1 || provider.movedFolders[0] != "CC" {
+		t.Fatalf("movedFolders = %#v, want [CC]", provider.movedFolders)
+	}
+
 	reviews, err := app.store.ListMailTriageReviews(account.ID, 10)
 	if err != nil {
 		t.Fatalf("ListMailTriageReviews() error: %v", err)
 	}
-	if len(reviews) != 2 {
-		t.Fatalf("reviews len = %d, want 2", len(reviews))
+	if len(reviews) != 3 {
+		t.Fatalf("reviews len = %d, want 3", len(reviews))
 	}
-	if reviews[0].Action != "rescue" || reviews[1].Action != "keep" {
+	if reviews[0].Action != "cc" || reviews[1].Action != "rescue" || reviews[2].Action != "keep" {
 		t.Fatalf("reviews = %#v", reviews)
 	}
 }

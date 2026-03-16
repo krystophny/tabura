@@ -121,24 +121,24 @@ test('manual mail triage advances through messages and records review actions', 
 
   await expect(page.locator('#canvas-text')).toContainText('First inbox mail');
   await expect(page.locator('#canvas-text')).toContainText('First body');
-  await expect(page.locator('#canvas-text')).toContainText('left keep/rescue');
-  await page.keyboard.press('ArrowDown');
+  await expect(page.locator('#canvas-text')).toContainText('up cc');
+  await page.keyboard.press('ArrowUp');
 
   await expect.poll(() => reviewBodies.length).toBe(1);
   expect(reviewBodies[0]).toMatchObject({
     message_id: 'm1',
     folder: 'Posteingang',
-    action: 'archive',
+    action: 'cc',
   });
 
   await expect(page.locator('#canvas-text')).toContainText('Second inbox mail');
-  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.press('ArrowDown');
 
   await expect.poll(() => reviewBodies.length).toBe(2);
   expect(reviewBodies[1]).toMatchObject({
     message_id: 'm2',
     folder: 'Posteingang',
-    action: 'keep',
+    action: 'archive',
   });
 
   await expect(page.locator('#canvas-text')).toContainText('Manual triage complete for this batch.');

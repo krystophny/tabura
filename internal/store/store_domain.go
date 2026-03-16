@@ -172,7 +172,7 @@ CREATE TABLE IF NOT EXISTS mail_triage_reviews (
   folder TEXT NOT NULL DEFAULT '',
   subject TEXT NOT NULL DEFAULT '',
   sender TEXT NOT NULL DEFAULT '',
-  action TEXT NOT NULL CHECK (action IN ('keep', 'rescue', 'archive', 'trash')),
+  action TEXT NOT NULL CHECK (action IN ('keep', 'cc', 'rescue', 'archive', 'trash')),
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_mail_triage_reviews_account_created
@@ -227,7 +227,55 @@ CREATE TABLE IF NOT EXISTS context_time_entries (
 	if err := s.migrateItemReviewDispatchSupport(); err != nil {
 		return err
 	}
+	if err := s.migrateMailTriageReviewActionSupport(); err != nil {
+		return err
+	}
 	return s.migrateItemArtifactLinkSupport()
+}
+
+func (s *Store) migrateMailTriageReviewActionSupport() error {
+	containsCC, err := s.tableDefinitionContains("mail_triage_reviews", "'cc'")
+	if err != nil || containsCC {
+		return err
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec(`ALTER TABLE mail_triage_reviews RENAME TO mail_triage_reviews_legacy_action`); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`CREATE TABLE mail_triage_reviews (
+  id INTEGER PRIMARY KEY,
+  account_id INTEGER NOT NULL REFERENCES external_accounts(id) ON DELETE CASCADE,
+  provider TEXT NOT NULL,
+  message_id TEXT NOT NULL,
+  folder TEXT NOT NULL DEFAULT '',
+  subject TEXT NOT NULL DEFAULT '',
+  sender TEXT NOT NULL DEFAULT '',
+  action TEXT NOT NULL CHECK (action IN ('keep', 'cc', 'rescue', 'archive', 'trash')),
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+)`); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`INSERT INTO mail_triage_reviews (id, account_id, provider, message_id, folder, subject, sender, action, created_at)
+SELECT id, account_id, provider, message_id, folder, subject, sender, action, created_at
+FROM mail_triage_reviews_legacy_action`); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`DROP TABLE mail_triage_reviews_legacy_action`); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`CREATE INDEX IF NOT EXISTS idx_mail_triage_reviews_account_created
+  ON mail_triage_reviews(account_id, datetime(created_at) DESC, id DESC)`); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`CREATE INDEX IF NOT EXISTS idx_mail_triage_reviews_message
+  ON mail_triage_reviews(account_id, message_id)`); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func normalizeItemReviewTarget(target string) string {

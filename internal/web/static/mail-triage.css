@@ -106,6 +106,10 @@
   background: #e8f0ff;
 }
 
+.mail-triage-action-cc {
+  background: #edf8ef;
+}
+
 .mail-triage-action-archive {
   background: #f5f3e9;
 }

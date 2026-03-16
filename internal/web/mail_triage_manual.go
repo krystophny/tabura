@@ -19,6 +19,8 @@ func normalizeMailTriageManualAction(raw string) string {
 	switch strings.ToLower(strings.TrimSpace(raw)) {
 	case "keep":
 		return "keep"
+	case "cc":
+		return "cc"
 	case "rescue":
 		return "rescue"
 	case "archive":
@@ -106,7 +108,7 @@ func (a *App) handleMailTriageManualReviewCreate(w http.ResponseWriter, r *http.
 	}
 	action := normalizeMailTriageManualAction(req.Action)
 	if action == "" {
-		writeAPIError(w, http.StatusBadRequest, "action must be keep, rescue, archive, or trash")
+		writeAPIError(w, http.StatusBadRequest, "action must be keep, cc, rescue, archive, or trash")
 		return
 	}
 	messageID := strings.TrimSpace(req.MessageID)
@@ -123,6 +125,12 @@ func (a *App) handleMailTriageManualReviewCreate(w http.ResponseWriter, r *http.
 	appliedAction := ""
 	succeeded := 1
 	switch action {
+	case "cc":
+		appliedAction = "cc"
+		err = applyMailTriageAction(r.Context(), account, provider, mailtriage.ActionCC, "", []string{messageID})
+		if err == nil {
+			succeeded = 1
+		}
 	case "rescue":
 		appliedAction = "move_to_inbox"
 		succeeded, err = provider.MoveToInbox(r.Context(), []string{messageID})
