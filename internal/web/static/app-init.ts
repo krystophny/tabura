@@ -84,6 +84,7 @@ const launchNewMailAuthoring = (...args) => refs.launchNewMailAuthoring(...args)
 const launchReplyAuthoring = (...args) => refs.launchReplyAuthoring(...args);
 const launchReplyAllAuthoring = (...args) => refs.launchReplyAllAuthoring(...args);
 const launchForwardAuthoring = (...args) => refs.launchForwardAuthoring(...args);
+const handleMailTriageShortcut = (...args) => refs.handleMailTriageShortcut(...args);
 
 function handleMailShortcut(ev) {
   if (ev.metaKey || ev.ctrlKey || ev.altKey) return false;
@@ -781,6 +782,7 @@ export function bindUi() {
     if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
     if (isEditableTarget(ev.target)) return;
     if (isArtifactEditorActive()) return;
+    if (handleMailTriageShortcut(ev)) return;
     if (handleItemSidebarKeyboardShortcut(ev)) return;
     if (handleMailShortcut(ev)) return;
 

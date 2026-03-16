@@ -7,6 +7,7 @@ const applyCanvasArtifactEvent = (...args) => refs.applyCanvasArtifactEvent(...a
 const showStatus = (...args) => refs.showStatus(...args);
 
 const MAIL_TRIAGE_DEFAULT_LIMIT = 100;
+const mailTriageMessageCache = new Map();
 
 function resetMailTriageState() {
   Object.assign(state.mailTriage, {
@@ -23,8 +24,11 @@ function resetMailTriageState() {
     completed: 0,
     decisions: { keep: 0, rescue: 0, archive: 0, trash: 0 },
     currentMessage: null,
+    prefetchedMessage: null,
+    prefetchedMessageID: '',
     lastReviewId: 0,
   });
+  mailTriageMessageCache.clear();
 }
 
 function mailTriageFetchJSON(path, options = {}) {
@@ -86,19 +90,70 @@ function rerenderMailTriage() {
   applyCanvasArtifactEvent(triageEventFromState());
 }
 
+function currentMailTriageQueueEntry(index = state.mailTriage.index) {
+  const queue = Array.isArray(state.mailTriage.queue) ? state.mailTriage.queue : [];
+  return index >= 0 && index < queue.length ? queue[index] : null;
+}
+
+async function fetchMailTriageMessage(messageID) {
+  const id = String(messageID || '').trim();
+  if (!id) {
+    throw new Error('missing message id');
+  }
+  const cached = mailTriageMessageCache.get(id);
+  if (cached) {
+    return cached;
+  }
+  const promise = mailTriageFetchJSON(`external-accounts/${encodeURIComponent(String(state.mailTriage.accountId || 0))}/mail/messages/${encodeURIComponent(id)}`)
+    .then((payload) => payload?.message || null)
+    .catch((err) => {
+      mailTriageMessageCache.delete(id);
+      throw err;
+    });
+  mailTriageMessageCache.set(id, promise);
+  return promise;
+}
+
+function queueNextPrefetch() {
+  const current = currentMailTriageQueueEntry(state.mailTriage.index + 1);
+  if (!current?.id) {
+    state.mailTriage.prefetchedMessage = null;
+    state.mailTriage.prefetchedMessageID = '';
+    return;
+  }
+  const id = String(current.id || '').trim();
+  fetchMailTriageMessage(id)
+    .then((message) => {
+      if (String(currentMailTriageQueueEntry(state.mailTriage.index + 1)?.id || '').trim() !== id) {
+        return;
+      }
+      state.mailTriage.prefetchedMessage = message;
+      state.mailTriage.prefetchedMessageID = id;
+      rerenderMailTriage();
+    })
+    .catch(() => {});
+}
+
 async function loadCurrentMailTriageMessage() {
   const queue = Array.isArray(state.mailTriage.queue) ? state.mailTriage.queue : [];
   while (state.mailTriage.index < queue.length) {
-    const current = queue[state.mailTriage.index];
+    const current = currentMailTriageQueueEntry();
     if (!current?.id) {
       state.mailTriage.index += 1;
       continue;
     }
     try {
-      const payload = await mailTriageFetchJSON(`external-accounts/${encodeURIComponent(String(state.mailTriage.accountId || 0))}/mail/messages/${encodeURIComponent(String(current.id))}`);
-      state.mailTriage.currentMessage = payload?.message || null;
+      const currentID = String(current.id || '').trim();
+      if (state.mailTriage.prefetchedMessageID === currentID && state.mailTriage.prefetchedMessage) {
+        state.mailTriage.currentMessage = state.mailTriage.prefetchedMessage;
+      } else {
+        state.mailTriage.currentMessage = await fetchMailTriageMessage(currentID);
+      }
       state.mailTriage.active = true;
+      state.mailTriage.prefetchedMessage = null;
+      state.mailTriage.prefetchedMessageID = '';
       rerenderMailTriage();
+      queueNextPrefetch();
       return true;
     } catch (err) {
       showStatus(`triage skip: ${String(err?.message || err || 'unknown error')}`);
@@ -106,6 +161,8 @@ async function loadCurrentMailTriageMessage() {
     }
   }
   state.mailTriage.currentMessage = null;
+  state.mailTriage.prefetchedMessage = null;
+  state.mailTriage.prefetchedMessageID = '';
   state.mailTriage.active = true;
   rerenderMailTriage();
   return false;
@@ -151,6 +208,8 @@ export async function openMailTriageMode(options = {}) {
       submitting: false,
       completed: 0,
       currentMessage: null,
+      prefetchedMessage: null,
+      prefetchedMessageID: '',
       lastReviewId: 0,
     });
     if (queue.length === 0) {
@@ -219,6 +278,32 @@ export async function submitMailTriageDecision(action) {
   }
 }
 
+function mailTriageShortcutActionForKey(key) {
+  switch (String(key || '').trim()) {
+    case 'ArrowLeft':
+      return manualActionLabel().toLowerCase() === 'rescue' ? 'rescue' : 'keep';
+    case 'ArrowDown':
+      return 'archive';
+    case 'ArrowRight':
+      return 'trash';
+    default:
+      return '';
+  }
+}
+
+export function handleMailTriageShortcut(ev) {
+  if (!state.mailTriage.active || !state.mailTriage.currentMessage || state.mailTriage.loading || state.mailTriage.submitting) {
+    return false;
+  }
+  const action = mailTriageShortcutActionForKey(ev?.key);
+  if (!action) {
+    return false;
+  }
+  ev.preventDefault();
+  void submitMailTriageDecision(action);
+  return true;
+}
+
 function triageBodyText(message) {
   const bodyText = String(message?.BodyText || '').trim();
   if (bodyText) return bodyText;
@@ -266,7 +351,7 @@ export function renderMailTriageArtifact(root, event) {
   const queueLength = Array.isArray(triage.queue) ? triage.queue.length : 0;
   const index = Number(triage.index || 0);
   const progressText = queueLength > 0 && index < queueLength ? `${index + 1} / ${queueLength}` : `${Math.min(index, queueLength)} / ${queueLength}`;
-  detail.textContent = [progressText, String(triage.filterText || '').trim() ? `filter ${triage.filterText}` : '', `stored reviews ${Number(triage.lastReviewId || 0) > 0 ? 'on' : 'pending'}`]
+  detail.textContent = [progressText, String(triage.filterText || '').trim() ? `filter ${triage.filterText}` : '', `stored reviews ${Number(triage.lastReviewId || 0) > 0 ? 'on' : 'pending'}`, 'left keep/rescue • down archive • right trash']
     .filter(Boolean)
     .join(' • ');
   headerCopy.appendChild(detail);

@@ -105,9 +105,8 @@ test('manual mail triage advances through messages and records review actions', 
 
   await expect(page.locator('#canvas-text')).toContainText('First inbox mail');
   await expect(page.locator('#canvas-text')).toContainText('First body');
-  await page.locator('#canvas-text .mail-triage-action-archive').evaluate((node) => {
-    (node as HTMLButtonElement).click();
-  });
+  await expect(page.locator('#canvas-text')).toContainText('left keep/rescue');
+  await page.keyboard.press('ArrowDown');
 
   await expect.poll(() => reviewBodies.length).toBe(1);
   expect(reviewBodies[0]).toMatchObject({
@@ -117,9 +116,7 @@ test('manual mail triage advances through messages and records review actions', 
   });
 
   await expect(page.locator('#canvas-text')).toContainText('Second inbox mail');
-  await page.locator('#canvas-text .mail-triage-action-keep').evaluate((node) => {
-    (node as HTMLButtonElement).click();
-  });
+  await page.keyboard.press('ArrowLeft');
 
   await expect.poll(() => reviewBodies.length).toBe(2);
   expect(reviewBodies[1]).toMatchObject({

@@ -211,6 +211,8 @@ export const state = {
     completed: 0,
     decisions: { keep: 0, rescue: 0, archive: 0, trash: 0 },
     currentMessage: null,
+    prefetchedMessage: null,
+    prefetchedMessageID: '',
     lastReviewId: 0,
   },
   reasoningEffortsByAlias: {
