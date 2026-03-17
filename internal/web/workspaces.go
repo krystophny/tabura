@@ -91,6 +91,13 @@ func (a *App) handleWorkspaceCreate(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, http.StatusBadRequest, "sphere is required")
 		return
 	}
+	if _, err := a.store.GetWorkspaceByPath(req.DirPath); err == nil {
+		writeAPIError(w, http.StatusConflict, "workspace already exists")
+		return
+	} else if !isNoRows(err) {
+		writeDomainStoreError(w, err)
+		return
+	}
 	workspace, err := a.store.CreateWorkspace(req.Name, req.DirPath, req.Sphere)
 	if err != nil {
 		writeDomainStoreError(w, err)

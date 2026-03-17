@@ -401,6 +401,7 @@ func (a *App) handleProjectCreate(w http.ResponseWriter, r *http.Request) {
 		"created":   created,
 		"activated": activate,
 		"workspace": item,
+		"project":   item,
 	})
 }
 
@@ -437,6 +438,7 @@ func (a *App) handleTemporaryProjectPersist(w http.ResponseWriter, r *http.Reque
 	writeJSON(w, map[string]interface{}{
 		"ok":        true,
 		"workspace": item,
+		"project":   item,
 	})
 }
 
@@ -468,5 +470,6 @@ func (a *App) handleTemporaryProjectDiscard(w http.ResponseWriter, r *http.Reque
 		"discarded_workspace": workspaceID,
 		"active_workspace_id": activeProject.ID,
 		"active_workspace":    item,
+		"active_project":      item,
 	})
 }

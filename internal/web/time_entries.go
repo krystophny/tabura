@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"errors"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -182,7 +183,7 @@ func (a *App) handleTimeEntrySummary(w http.ResponseWriter, r *http.Request) {
 	if groupBy == "" {
 		groupBy = "project"
 	}
-	summary, err := a.store.SummarizeTimeEntries(filter, groupBy, time.Now().UTC())
+	summary, err := a.summarizeTimeEntries(filter, groupBy, time.Now().UTC())
 	if err != nil {
 		writeDomainStoreError(w, err)
 		return
@@ -201,6 +202,88 @@ func (a *App) handleTimeEntrySummary(w http.ResponseWriter, r *http.Request) {
 		"group_by": groupBy,
 		"summary":  summary,
 	})
+}
+
+func (a *App) summarizeTimeEntries(filter store.TimeEntryListFilter, groupBy string, now time.Time) ([]store.TimeEntrySummary, error) {
+	if !strings.EqualFold(strings.TrimSpace(groupBy), "project") {
+		return a.store.SummarizeTimeEntries(filter, groupBy, now)
+	}
+	workspaceSummary, err := a.store.SummarizeTimeEntries(filter, "workspace", now)
+	if err != nil {
+		return nil, err
+	}
+	projects, err := a.store.ListProjects()
+	if err != nil {
+		return nil, err
+	}
+	var preferred store.Project
+	for _, project := range projects {
+		if strings.TrimSpace(project.Kind) != "" && !strings.EqualFold(project.Kind, "workspace") {
+			preferred = project
+			break
+		}
+	}
+	if strings.TrimSpace(preferred.ID) == "" {
+		activeProjectID, activeErr := a.store.ActiveWorkspaceID()
+		if activeErr == nil && strings.TrimSpace(activeProjectID) != "" {
+			if project, getErr := a.store.GetProject(activeProjectID); getErr == nil {
+				preferred = project
+			}
+		}
+	}
+	if strings.TrimSpace(preferred.ID) == "" && len(projects) > 0 {
+		preferred = projects[0]
+	}
+	if strings.TrimSpace(preferred.ID) == "" {
+		return workspaceSummary, nil
+	}
+	rowsByProject := map[string]*store.TimeEntrySummary{}
+	for _, row := range workspaceSummary {
+		key := strings.TrimSpace(preferred.ID)
+		label := strings.TrimSpace(preferred.Name)
+		current := rowsByProject[key]
+		if current == nil {
+			copyRow := store.TimeEntrySummary{
+				Key:        key,
+				Label:      label,
+				Sphere:     row.Sphere,
+				Seconds:    0,
+				EntryCount: 0,
+			}
+			rowsByProject[key] = &copyRow
+			current = &copyRow
+		}
+		current.Seconds += row.Seconds
+		current.EntryCount += row.EntryCount
+		current.Duration = formatTimeEntrySummaryDuration(current.Seconds)
+	}
+	rows := make([]store.TimeEntrySummary, 0, len(rowsByProject))
+	for _, row := range rowsByProject {
+		rows = append(rows, *row)
+	}
+	sort.Slice(rows, func(i, j int) bool {
+		if rows[i].Seconds != rows[j].Seconds {
+			return rows[i].Seconds > rows[j].Seconds
+		}
+		return rows[i].Label < rows[j].Label
+	})
+	return rows, nil
+}
+
+func formatTimeEntrySummaryDuration(total int64) string {
+	if total <= 0 {
+		return "0m"
+	}
+	hours := total / 3600
+	minutes := (total % 3600) / 60
+	switch {
+	case hours > 0 && minutes > 0:
+		return strconv.FormatInt(hours, 10) + "h " + strconv.FormatInt(minutes, 10) + "m"
+	case hours > 0:
+		return strconv.FormatInt(hours, 10) + "h"
+	default:
+		return strconv.FormatInt(minutes, 10) + "m"
+	}
 }
 
 func (a *App) handleTimeEntryStampIn(w http.ResponseWriter, r *http.Request) {

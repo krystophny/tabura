@@ -252,6 +252,21 @@ var deterministicFastPaths = []deterministicFastPathParser{
 	},
 	{
 		Spec: deterministicFastPathSpec{
+			Name:     "project",
+			Route:    "text",
+			Actions:  []string{"show_workspace_project"},
+			Triggers: []string{"what project is this?"},
+		},
+		Parse: func(text string, _ deterministicFastPathContext) *deterministicFastPathMatch {
+			action := parseInlineProjectFastIntent(text)
+			if action == nil {
+				return nil
+			}
+			return fastPathSingleAction("project", action, fixedFastPathFailure("I couldn't resolve the project request: "))
+		},
+	},
+	{
+		Spec: deterministicFastPathSpec{
 			Name:     "runtime_control",
 			Route:    "text",
 			Actions:  []string{"toggle_silent", "toggle_live_dialogue", "cancel_work", "show_status"},
@@ -265,6 +280,15 @@ var deterministicFastPaths = []deterministicFastPathParser{
 			return fastPathSingleAction("runtime_control", action, fixedFastPathFailure("I couldn't resolve the runtime control request: "))
 		},
 	},
+}
+
+func parseInlineProjectFastIntent(text string) *SystemAction {
+	switch normalizeItemCommandText(text) {
+	case "what project is this", "what project is this?":
+		return &SystemAction{Action: "show_workspace_project", Params: map[string]interface{}{}}
+	default:
+		return nil
+	}
 }
 
 var deterministicFastPathUIControls = []deterministicFastPathSpec{

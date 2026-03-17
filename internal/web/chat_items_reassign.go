@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/krystophny/tabura/internal/store"
@@ -19,6 +20,11 @@ func parseInlineItemReassignmentIntent(text string) *SystemAction {
 	switch normalized {
 	case "remove workspace from this item", "remove workspace from this", "clear workspace for this item", "clear workspace":
 		return &SystemAction{Action: "clear_workspace", Params: map[string]interface{}{}}
+	case "remove project from this item", "remove project from this", "clear project for this item", "clear project":
+		return &SystemAction{Action: "clear_project", Params: map[string]interface{}{}}
+	}
+	if target, ok := cutPrefixedWorkspaceReference(text, "this belongs to "); ok {
+		return &SystemAction{Action: "reassign_project", Params: map[string]interface{}{"project": cleanWorkspaceReference(target)}}
 	}
 	if match := itemAssignTargetPattern.FindStringSubmatch(strings.TrimSpace(text)); len(match) == 2 {
 		target := cleanWorkspaceReference(match[1])
@@ -29,6 +35,9 @@ func parseInlineItemReassignmentIntent(text string) *SystemAction {
 		if strings.HasSuffix(lower, " workspace") {
 			return &SystemAction{Action: "reassign_workspace", Params: map[string]interface{}{"workspace": trimAssignmentSuffix(target, " workspace")}}
 		}
+		if strings.HasSuffix(lower, " project") {
+			return &SystemAction{Action: "reassign_project", Params: map[string]interface{}{"project": trimAssignmentSuffix(target, " project")}}
+		}
 		if looksLikeWorkspaceReference(target) {
 			return &SystemAction{Action: "reassign_workspace", Params: map[string]interface{}{"workspace": target}}
 		}
@@ -37,7 +46,7 @@ func parseInlineItemReassignmentIntent(text string) *SystemAction {
 }
 
 func systemActionAssignmentTarget(params map[string]interface{}) string {
-	for _, key := range []string{"workspace", "target", "name", "path"} {
+	for _, key := range []string{"workspace", "project", "target", "name", "path"} {
 		value := strings.TrimSpace(fmt.Sprint(params[key]))
 		if value != "" && value != "<nil>" {
 			return value
@@ -118,6 +127,33 @@ func (a *App) executeItemReassignmentAction(session store.ChatSession, action *S
 			"workspace_id": workspace.ID,
 			"warning":      warning,
 		}, nil
+	case "reassign_project":
+		project, err := a.resolveProjectReference(systemActionAssignmentTarget(action.Params))
+		if err != nil {
+			return "", nil, err
+		}
+		workspaceID, err := strconv.ParseInt(strings.TrimSpace(project.ID), 10, 64)
+		if err != nil || workspaceID <= 0 {
+			return "", nil, fmt.Errorf("invalid project id: %s", strings.TrimSpace(project.ID))
+		}
+		warning, err := a.itemWorkspaceChangeWarning(item, &workspaceID)
+		if err != nil {
+			return "", nil, err
+		}
+		if err := a.store.SetItemWorkspace(item.ID, &workspaceID); err != nil {
+			return "", nil, err
+		}
+		message := fmt.Sprintf("Moved item %q to project %s.", item.Title, project.Name)
+		if warning != "" {
+			message += " " + warning
+		}
+		return message, map[string]interface{}{
+			"type":         "item_reassigned",
+			"item_id":      item.ID,
+			"workspace_id": workspaceID,
+			"project_id":   project.ID,
+			"warning":      warning,
+		}, nil
 	case "clear_workspace":
 		warning, err := a.itemWorkspaceChangeWarning(item, nil)
 		if err != nil {
@@ -134,6 +170,25 @@ func (a *App) executeItemReassignmentAction(session store.ChatSession, action *S
 			"type":         "item_reassigned",
 			"item_id":      item.ID,
 			"workspace_id": nil,
+			"warning":      warning,
+		}, nil
+	case "clear_project":
+		warning, err := a.itemWorkspaceChangeWarning(item, nil)
+		if err != nil {
+			return "", nil, err
+		}
+		if err := a.store.SetItemWorkspace(item.ID, nil); err != nil {
+			return "", nil, err
+		}
+		message := fmt.Sprintf("Cleared the project for item %q.", item.Title)
+		if warning != "" {
+			message += " " + warning
+		}
+		return message, map[string]interface{}{
+			"type":         "item_reassigned",
+			"item_id":      item.ID,
+			"workspace_id": nil,
+			"project_id":   nil,
 			"warning":      warning,
 		}, nil
 	default:

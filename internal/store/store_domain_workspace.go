@@ -39,6 +39,13 @@ func (s *Store) createWorkspaceRecord(name, dirPath, sphere string) (Workspace, 
 		if isUniqueConstraintError(err) {
 			existing, lookupErr := s.GetWorkspaceByPath(dirPath)
 			if lookupErr == nil {
+				if strings.TrimSpace(name) != "" && strings.TrimSpace(existing.Name) != strings.TrimSpace(name) {
+					if updated, updateErr := s.UpdateWorkspaceName(existing.ID, name); updateErr == nil {
+						existing = updated
+					} else {
+						return Workspace{}, updateErr
+					}
+				}
 				if err := s.syncScopedContextLink("context_workspaces", "workspace_id", existing.ID, sphere); err != nil {
 					return Workspace{}, err
 				}
@@ -121,7 +128,18 @@ func (s *Store) EnsureDailyWorkspace(date, dirPath string) (Workspace, error) {
 	if cleanPath == "" {
 		return Workspace{}, errors.New("workspace path is required")
 	}
+	activeSphere := SpherePrivate
+	if currentSphere, sphereErr := s.ActiveSphere(); sphereErr == nil && normalizeRequiredSphere(currentSphere) != "" {
+		activeSphere = normalizeRequiredSphere(currentSphere)
+	}
 	if workspace, err := s.DailyWorkspaceForDate(cleanDate); err == nil {
+		if workspace.Sphere != activeSphere {
+			if updated, updateErr := s.SetWorkspaceSphere(workspace.ID, activeSphere); updateErr == nil {
+				workspace = updated
+			} else {
+				return Workspace{}, updateErr
+			}
+		}
 		if err := s.syncWorkspaceDateContext(workspace.ID, workspace.DailyDate); err != nil {
 			return Workspace{}, err
 		}
@@ -151,7 +169,7 @@ func (s *Store) EnsureDailyWorkspace(date, dirPath string) (Workspace, error) {
 	if err != nil {
 		return Workspace{}, err
 	}
-	if err := s.syncScopedContextLink("context_workspaces", "workspace_id", id, SpherePrivate); err != nil {
+	if err := s.syncScopedContextLink("context_workspaces", "workspace_id", id, activeSphere); err != nil {
 		return Workspace{}, err
 	}
 	if err := s.syncWorkspaceDateContext(id, &cleanDate); err != nil {
@@ -298,7 +316,14 @@ func (s *Store) SetActiveWorkspace(id int64) error {
 	if _, err := tx.Exec(`UPDATE workspaces SET is_active = 0, updated_at = datetime('now') WHERE is_active <> 0`); err != nil {
 		return err
 	}
-	res, err := tx.Exec(`UPDATE workspaces SET is_active = 1, updated_at = datetime('now') WHERE id = ?`, id)
+	res, err := tx.Exec(`UPDATE workspaces
+		SET is_active = 1,
+		    canvas_session_id = CASE
+		      WHEN trim(canvas_session_id) = '' THEN 'local'
+		      ELSE canvas_session_id
+		    END,
+		    updated_at = datetime('now')
+		WHERE id = ?`, id)
 	if err != nil {
 		return err
 	}

@@ -12,11 +12,6 @@ func TestContainerMappingCRUDAPI(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateWorkspace() error: %v", err)
 	}
-	project, err := app.store.CreateProject("Tabura", "tabura", t.TempDir(), "managed", "", "", false)
-	if err != nil {
-		t.Fatalf("CreateProject() error: %v", err)
-	}
-
 	rrCreate := doAuthedJSONRequest(t, app.Router(), http.MethodPost, "/api/container-mappings", map[string]any{
 		"provider":       "todoist",
 		"container_type": "project",
@@ -36,8 +31,8 @@ func TestContainerMappingCRUDAPI(t *testing.T) {
 	if got := mappingPayload["container_ref"]; got != "Tabura" {
 		t.Fatalf("container_ref = %#v, want %q", got, "Tabura")
 	}
-	if got := mappingPayload["workspace_id"]; got != project.ID {
-		t.Fatalf("workspace_id = %#v, want %q", got, project.ID)
+	if got := mappingPayload["workspace_id"]; got != float64(workspace.ID) {
+		t.Fatalf("workspace_id = %#v, want %d", got, workspace.ID)
 	}
 
 	rrList := doAuthedJSONRequest(t, app.Router(), http.MethodGet, "/api/container-mappings?provider=todoist", nil)

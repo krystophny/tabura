@@ -41,7 +41,7 @@ func normalizeRenderFormat(format string) string {
 	}
 }
 
-const chatSessionSelect = `
+var chatSessionSelect = `
 SELECT cs.id,
        cs.workspace_id,
        w.dir_path AS workspace_path,
@@ -65,6 +65,15 @@ func (s *Store) resolveChatSessionWorkspace(ref string) (Workspace, error) {
 			return Workspace{}, err
 		} else if workspaceID != nil {
 			return s.GetWorkspace(*workspaceID)
+		}
+		if project, err := s.GetProjectByWorkspacePath(cleanRef); err == nil {
+			workspaceID, parseErr := parseWorkspaceIDString(project.ID)
+			if parseErr != nil {
+				return Workspace{}, parseErr
+			}
+			return s.GetWorkspace(workspaceID)
+		} else if !errors.Is(err, sql.ErrNoRows) {
+			return Workspace{}, err
 		}
 	}
 	if workspace, err := s.ActiveWorkspace(); err == nil {
@@ -93,6 +102,11 @@ func scanChatSession(scanner interface{ Scan(...any) error }) (ChatSession, erro
 	out.WorkspacePath = out.WorkspacePath
 	out.Mode = normalizeChatMode(out.Mode)
 	return out, nil
+}
+
+func (s *Store) hydrateChatSessionWorkspacePath(session ChatSession) ChatSession {
+	session.WorkspacePath = s.compatibilityWorkspacePath(session.WorkspaceID, session.WorkspacePath)
+	return session
 }
 
 func (s *Store) GetOrCreateChatSession(ref string) (ChatSession, error) {
@@ -134,17 +148,25 @@ func (s *Store) GetChatSessionByWorkspaceID(workspaceID int64) (ChatSession, err
 	if workspaceID <= 0 {
 		return ChatSession{}, errors.New("workspace id is required")
 	}
-	return scanChatSession(s.db.QueryRow(
+	session, err := scanChatSession(s.db.QueryRow(
 		chatSessionSelect+` WHERE cs.workspace_id = ?`,
 		workspaceID,
 	))
+	if err != nil {
+		return ChatSession{}, err
+	}
+	return s.hydrateChatSessionWorkspacePath(session), nil
 }
 
 func (s *Store) GetChatSession(id string) (ChatSession, error) {
-	return scanChatSession(s.db.QueryRow(
+	session, err := scanChatSession(s.db.QueryRow(
 		chatSessionSelect+` WHERE cs.id = ?`,
 		strings.TrimSpace(id),
 	))
+	if err != nil {
+		return ChatSession{}, err
+	}
+	return s.hydrateChatSessionWorkspacePath(session), nil
 }
 
 func (s *Store) ListChatSessions() ([]ChatSession, error) {
@@ -162,6 +184,12 @@ func (s *Store) ListChatSessions() ([]ChatSession, error) {
 			return nil, err
 		}
 		out = append(out, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	for i := range out {
+		out[i] = s.hydrateChatSessionWorkspacePath(out[i])
 	}
 	return out, nil
 }

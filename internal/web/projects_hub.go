@@ -215,7 +215,7 @@ func (a *App) handleProjectWelcome(w http.ResponseWriter, r *http.Request) {
 		OK:          true,
 		WorkspaceID: project.ID,
 		Project:     item,
-		Scope:       "workspace",
+		Scope:       "project",
 		Title:       strings.TrimSpace(project.Name),
 		Sections:    sections,
 	})

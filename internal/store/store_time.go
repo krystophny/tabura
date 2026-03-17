@@ -261,10 +261,13 @@ func (s *Store) SummarizeTimeEntries(filter TimeEntryListFilter, groupBy string,
 		return nil, err
 	}
 	cleanGroupBy := strings.ToLower(strings.TrimSpace(groupBy))
+	if cleanGroupBy == "project" {
+		cleanGroupBy = "workspace"
+	}
 	switch cleanGroupBy {
 	case "workspace", "sphere":
 	default:
-		return nil, errors.New("group_by must be workspace or sphere")
+		return nil, errors.New("group_by must be workspace, project or sphere")
 	}
 	entries, err := s.ListTimeEntries(normalized)
 	if err != nil {

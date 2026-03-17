@@ -50,7 +50,7 @@ type ParticipantRoomState struct {
 
 var ErrParticipantSessionEnded = errors.New("participant session is ended")
 
-const participantSessionSelect = `
+var participantSessionSelect = `
 SELECT ps.id,
        ps.workspace_id,
        w.dir_path AS workspace_path,
@@ -79,6 +79,11 @@ func scanParticipantSession(scanner interface{ Scan(...any) error }) (Participan
 	return out, nil
 }
 
+func (s *Store) hydrateParticipantSessionWorkspacePath(session ParticipantSession) ParticipantSession {
+	session.WorkspacePath = s.compatibilityWorkspacePath(session.WorkspaceID, session.WorkspacePath)
+	return session
+}
+
 func (s *Store) resolveParticipantSessionWorkspace(ref string) (Workspace, error) {
 	cleanRef := strings.TrimSpace(ref)
 	if cleanRef == "" {
@@ -93,6 +98,15 @@ func (s *Store) resolveParticipantSessionWorkspace(ref string) (Workspace, error
 		return Workspace{}, err
 	} else if workspaceID != nil {
 		return s.GetWorkspace(*workspaceID)
+	}
+	if project, err := s.GetProjectByWorkspacePath(cleanRef); err == nil {
+		workspaceID, parseErr := parseWorkspaceIDString(project.ID)
+		if parseErr != nil {
+			return Workspace{}, parseErr
+		}
+		return s.GetWorkspace(workspaceID)
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return Workspace{}, err
 	}
 	return Workspace{}, sql.ErrNoRows
 }
@@ -129,10 +143,14 @@ func (s *Store) AddParticipantSessionForWorkspace(workspaceID int64, configJSON 
 }
 
 func (s *Store) GetParticipantSession(id string) (ParticipantSession, error) {
-	return scanParticipantSession(s.db.QueryRow(
+	session, err := scanParticipantSession(s.db.QueryRow(
 		participantSessionSelect+` WHERE ps.id = ?`,
 		strings.TrimSpace(id),
 	))
+	if err != nil {
+		return ParticipantSession{}, err
+	}
+	return s.hydrateParticipantSessionWorkspacePath(session), nil
 }
 
 func (s *Store) ListParticipantSessions(ref string) ([]ParticipantSession, error) {
@@ -176,7 +194,13 @@ func (s *Store) listParticipantSessionsQuery(query string, args ...any) ([]Parti
 		}
 		out = append(out, item)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	for i := range out {
+		out[i] = s.hydrateParticipantSessionWorkspacePath(out[i])
+	}
+	return out, nil
 }
 
 func (s *Store) EndParticipantSession(id string) error {

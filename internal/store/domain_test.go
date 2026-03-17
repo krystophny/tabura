@@ -599,8 +599,12 @@ func TestDomainCRUDRoundTrip(t *testing.T) {
 	if gotByPath.ID != workspaceB.ID {
 		t.Fatalf("GetWorkspaceByPath() ID = %d, want %d", gotByPath.ID, workspaceB.ID)
 	}
-	if _, err := s.CreateWorkspace("Duplicate", workspaceAPath); err == nil {
-		t.Fatal("expected duplicate workspace path error")
+	duplicate, err := s.CreateWorkspace("Duplicate", workspaceAPath)
+	if err != nil {
+		t.Fatalf("CreateWorkspace(duplicate) error: %v", err)
+	}
+	if duplicate.ID != workspaceA.ID {
+		t.Fatalf("duplicate workspace id = %d, want %d", duplicate.ID, workspaceA.ID)
 	}
 	if err := s.SetActiveWorkspace(workspaceB.ID); err != nil {
 		t.Fatalf("SetActiveWorkspace() error: %v", err)

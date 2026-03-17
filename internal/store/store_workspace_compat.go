@@ -4,15 +4,24 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 )
 
+const (
+	appStateActiveProjectIDKey = "active_project_id"
+	projectNameStatePrefix     = "project_name:"
+	projectWorkspacePathPrefix = "project_workspace_path:"
+	projectRootPathPrefix      = "project_root_path:"
+	projectKindStatePrefix     = "project_kind:"
+)
+
 type Project struct {
 	ID                       string `json:"id"`
 	Name                     string `json:"name"`
-	WorkspacePath               string `json:"workspace_path"`
+	WorkspacePath            string `json:"workspace_path"`
 	RootPath                 string `json:"root_path"`
 	Kind                     string `json:"kind"`
 	MCPURL                   string `json:"mcp_url,omitempty"`
@@ -51,23 +60,88 @@ func parseWorkspaceTimestamp(value string) int64 {
 	return 0
 }
 
-func projectFromWorkspace(workspace Workspace) Project {
+func projectKindStateKey(id int64) string {
+	return projectKindStatePrefix + strconv.FormatInt(id, 10)
+}
+
+func projectNameStateKey(id int64) string {
+	return projectNameStatePrefix + strconv.FormatInt(id, 10)
+}
+
+func projectWorkspacePathStateKey(id int64) string {
+	return projectWorkspacePathPrefix + strconv.FormatInt(id, 10)
+}
+
+func projectRootPathStateKey(id int64) string {
+	return projectRootPathPrefix + strconv.FormatInt(id, 10)
+}
+
+func (s *Store) activeProjectID() (string, error) {
+	return s.AppState(appStateActiveProjectIDKey)
+}
+
+func (s *Store) compatibilityWorkspacePath(workspaceID int64, defaultPath string) string {
+	if workspaceID <= 0 {
+		return normalizeWorkspacePath(defaultPath)
+	}
+	if path, err := s.AppState(projectWorkspacePathStateKey(workspaceID)); err == nil && strings.TrimSpace(path) != "" {
+		return strings.TrimSpace(path)
+	}
+	return normalizeWorkspacePath(defaultPath)
+}
+
+func (s *Store) projectKindForWorkspace(workspace Workspace) string {
+	if kind, err := s.AppState(projectKindStateKey(workspace.ID)); err == nil {
+		switch clean := strings.ToLower(strings.TrimSpace(kind)); clean {
+		case "managed", "linked", "meeting", "task":
+			return clean
+		}
+	}
+	return "workspace"
+}
+
+func (s *Store) projectNameForWorkspace(workspace Workspace) string {
+	if name, err := s.AppState(projectNameStateKey(workspace.ID)); err == nil && strings.TrimSpace(name) != "" {
+		return strings.TrimSpace(name)
+	}
+	return workspace.Name
+}
+
+func (s *Store) projectWorkspacePathForWorkspace(workspace Workspace) string {
+	if path, err := s.AppState(projectWorkspacePathStateKey(workspace.ID)); err == nil && strings.TrimSpace(path) != "" {
+		return strings.TrimSpace(path)
+	}
+	return workspace.DirPath
+}
+
+func (s *Store) projectRootPathForWorkspace(workspace Workspace) string {
+	if path, err := s.AppState(projectRootPathStateKey(workspace.ID)); err == nil && strings.TrimSpace(path) != "" {
+		return normalizeWorkspacePath(path)
+	}
+	return workspace.DirPath
+}
+
+func (s *Store) projectFromWorkspace(workspace Workspace) (Project, error) {
+	activeProjectID, err := s.activeProjectID()
+	if err != nil {
+		return Project{}, err
+	}
 	return Project{
 		ID:                       workspaceIDString(workspace.ID),
-		Name:                     workspace.Name,
-		WorkspacePath:               workspace.DirPath,
-		RootPath:                 workspace.DirPath,
-		Kind:                     "workspace",
+		Name:                     s.projectNameForWorkspace(workspace),
+		WorkspacePath:            s.projectWorkspacePathForWorkspace(workspace),
+		RootPath:                 s.projectRootPathForWorkspace(workspace),
+		Kind:                     s.projectKindForWorkspace(workspace),
 		MCPURL:                   workspace.MCPURL,
 		CanvasSessionID:          workspace.CanvasSessionID,
 		ChatModel:                normalizeWorkspaceChatModel(workspace.ChatModel),
 		ChatModelReasoningEffort: normalizeWorkspaceChatModelReasoningEffort(workspace.ChatModelReasoningEffort),
 		CompanionConfigJSON:      workspace.CompanionConfigJSON,
-		IsDefault:                workspace.IsActive,
+		IsDefault:                strings.TrimSpace(activeProjectID) == workspaceIDString(workspace.ID) || strings.EqualFold(strings.TrimSpace(workspace.CanvasSessionID), "local"),
 		CreatedAt:                parseWorkspaceTimestamp(workspace.CreatedAt),
 		UpdatedAt:                parseWorkspaceTimestamp(workspace.UpdatedAt),
 		LastOpenedAt:             parseWorkspaceTimestamp(workspace.UpdatedAt),
-	}
+	}, nil
 }
 
 func (s *Store) ListProjects() ([]Project, error) {
@@ -77,7 +151,25 @@ func (s *Store) ListProjects() ([]Project, error) {
 	}
 	out := make([]Project, 0, len(workspaces))
 	for _, workspace := range workspaces {
-		out = append(out, projectFromWorkspace(workspace))
+		if workspace.IsDaily {
+			continue
+		}
+		project, err := s.projectFromWorkspace(workspace)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, project)
+	}
+	if len(out) == 0 {
+		if workspace, err := s.ActiveWorkspace(); err == nil {
+			project, projectErr := s.projectFromWorkspace(workspace)
+			if projectErr != nil {
+				return nil, projectErr
+			}
+			out = append(out, project)
+		} else if !errors.Is(err, sql.ErrNoRows) {
+			return nil, err
+		}
 	}
 	return out, nil
 }
@@ -91,19 +183,53 @@ func (s *Store) GetProject(id string) (Project, error) {
 	if err != nil {
 		return Project{}, err
 	}
-	return projectFromWorkspace(workspace), nil
+	return s.projectFromWorkspace(workspace)
 }
 
 func (s *Store) GetProjectByWorkspacePath(workspacePath string) (Project, error) {
-	workspace, err := s.GetWorkspaceByPath(workspacePath)
+	rawPath := strings.TrimSpace(workspacePath)
+	cleanPath := normalizeWorkspacePath(workspacePath)
+	workspace, err := s.GetWorkspaceByPath(cleanPath)
+	if err == nil {
+		return s.projectFromWorkspace(workspace)
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return Project{}, err
+	}
+	workspaces, err := s.ListWorkspaces()
 	if err != nil {
 		return Project{}, err
 	}
-	return projectFromWorkspace(workspace), nil
+	for _, workspace := range workspaces {
+		if workspace.IsDaily {
+			continue
+		}
+		projectPath := strings.TrimSpace(s.projectWorkspacePathForWorkspace(workspace))
+		switch {
+		case projectPath != "" && projectPath == rawPath:
+			return s.projectFromWorkspace(workspace)
+		case filepath.IsAbs(projectPath) && projectPath == cleanPath:
+			return s.projectFromWorkspace(workspace)
+		}
+	}
+	return Project{}, sql.ErrNoRows
 }
 
 func (s *Store) GetProjectByRootPath(rootPath string) (Project, error) {
-	return s.GetProjectByWorkspacePath(rootPath)
+	cleanPath := normalizeWorkspacePath(rootPath)
+	workspaces, err := s.ListWorkspaces()
+	if err != nil {
+		return Project{}, err
+	}
+	for _, workspace := range workspaces {
+		if workspace.IsDaily {
+			continue
+		}
+		if strings.TrimSpace(s.projectRootPathForWorkspace(workspace)) == cleanPath {
+			return s.projectFromWorkspace(workspace)
+		}
+	}
+	return s.GetProjectByWorkspacePath(cleanPath)
 }
 
 func (s *Store) GetProjectByCanvasSession(canvasSessionID string) (Project, error) {
@@ -114,7 +240,7 @@ func (s *Store) GetProjectByCanvasSession(canvasSessionID string) (Project, erro
 	clean := strings.TrimSpace(canvasSessionID)
 	for _, workspace := range workspaces {
 		if strings.TrimSpace(workspace.CanvasSessionID) == clean {
-			return projectFromWorkspace(workspace), nil
+			return s.projectFromWorkspace(workspace)
 		}
 	}
 	return Project{}, sql.ErrNoRows
@@ -122,12 +248,54 @@ func (s *Store) GetProjectByCanvasSession(canvasSessionID string) (Project, erro
 
 func (s *Store) CreateProject(name, workspacePath, rootPath, kind, mcpURL, canvasSessionID string, isDefault bool) (Project, error) {
 	sphere := SpherePrivate
-	if activeSphere, err := s.ActiveSphere(); err == nil && strings.TrimSpace(activeSphere) != "" {
-		sphere = activeSphere
+	cleanRootPath := normalizeWorkspacePath(rootPath)
+	cleanWorkspacePath := strings.TrimSpace(workspacePath)
+	if cleanWorkspacePath == "" {
+		cleanWorkspacePath = cleanRootPath
 	}
-	workspace, err := s.CreateWorkspace(name, rootPath, sphere)
+	targetPath := cleanRootPath
+	if targetPath == "" {
+		targetPath = normalizeWorkspacePath(cleanWorkspacePath)
+	}
+	if targetPath != "" {
+		if workspace, err := s.GetWorkspaceByPath(targetPath); err == nil && strings.TrimSpace(workspace.Sphere) != "" {
+			sphere = workspace.Sphere
+		} else if !errors.Is(err, sql.ErrNoRows) && err != nil {
+			return Project{}, err
+		} else if workspaceID, findErr := s.FindWorkspaceContainingPath(targetPath); findErr == nil && workspaceID != nil {
+			workspace, getErr := s.GetWorkspace(*workspaceID)
+			if getErr != nil {
+				return Project{}, getErr
+			}
+			if strings.TrimSpace(workspace.Sphere) != "" {
+				sphere = workspace.Sphere
+			}
+		} else if findErr != nil {
+			return Project{}, findErr
+		}
+	}
+	if sphere == SpherePrivate {
+		if activeSphere, err := s.ActiveSphere(); err == nil && strings.TrimSpace(activeSphere) != "" {
+			sphere = activeSphere
+		}
+	}
+	workspace, err := s.CreateWorkspace(name, cleanRootPath, sphere)
 	if err != nil {
 		return Project{}, err
+	}
+	if err := s.SetAppState(projectNameStateKey(workspace.ID), strings.TrimSpace(name)); err != nil {
+		return Project{}, err
+	}
+	if err := s.SetAppState(projectWorkspacePathStateKey(workspace.ID), cleanWorkspacePath); err != nil {
+		return Project{}, err
+	}
+	if err := s.SetAppState(projectRootPathStateKey(workspace.ID), cleanRootPath); err != nil {
+		return Project{}, err
+	}
+	if cleanKind := strings.ToLower(strings.TrimSpace(kind)); cleanKind != "" {
+		if err := s.SetAppState(projectKindStateKey(workspace.ID), cleanKind); err != nil {
+			return Project{}, err
+		}
 	}
 	if strings.TrimSpace(mcpURL) != "" {
 		if updated, updateErr := s.UpdateWorkspaceMCPURL(workspace.ID, mcpURL); updateErr == nil {
@@ -144,6 +312,9 @@ func (s *Store) CreateProject(name, workspacePath, rootPath, kind, mcpURL, canva
 		}
 	}
 	if isDefault {
+		if err := s.SetAppState(appStateActiveProjectIDKey, workspaceIDString(workspace.ID)); err != nil {
+			return Project{}, err
+		}
 		if err := s.SetActiveWorkspace(workspace.ID); err != nil {
 			return Project{}, err
 		}
@@ -152,7 +323,7 @@ func (s *Store) CreateProject(name, workspacePath, rootPath, kind, mcpURL, canva
 			return Project{}, err
 		}
 	}
-	return projectFromWorkspace(workspace), nil
+	return s.projectFromWorkspace(workspace)
 }
 
 func (s *Store) UpdateWorkspaceMCPURL(id int64, mcpURL string) (Workspace, error) {
@@ -176,16 +347,27 @@ func (s *Store) SetActiveWorkspaceID(workspaceID string) error {
 	if err != nil {
 		return errors.New("workspace id is required")
 	}
-	return s.SetActiveWorkspace(workspaceNumericID)
+	if _, err := s.GetWorkspace(workspaceNumericID); err != nil {
+		return err
+	}
+	return s.SetAppState(appStateActiveProjectIDKey, workspaceIDString(workspaceNumericID))
 }
 
 func (s *Store) ActiveWorkspaceID() (string, error) {
+	if activeProjectID, err := s.activeProjectID(); err == nil && strings.TrimSpace(activeProjectID) != "" {
+		return strings.TrimSpace(activeProjectID), nil
+	} else if err != nil {
+		return "", err
+	}
 	workspace, err := s.ActiveWorkspace()
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return "", nil
 		}
 		return "", err
+	}
+	if workspace.IsDaily {
+		return "", nil
 	}
 	return workspaceIDString(workspace.ID), nil
 }
@@ -231,8 +413,12 @@ func (s *Store) UpdateProjectChatModelReasoningEffort(id, effort string) error {
 	return s.UpdateWorkspaceChatModelReasoningEffort(workspaceID, effort)
 }
 
-func (s *Store) UpdateProjectKind(string, string) error {
-	return nil
+func (s *Store) UpdateProjectKind(id, kind string) error {
+	workspaceID, err := parseWorkspaceIDString(id)
+	if err != nil {
+		return err
+	}
+	return s.SetAppState(projectKindStateKey(workspaceID), strings.ToLower(strings.TrimSpace(kind)))
 }
 
 func (s *Store) RenameProject(id, name, workspacePath, rootPath, kind string) error {
@@ -240,8 +426,28 @@ func (s *Store) RenameProject(id, name, workspacePath, rootPath, kind string) er
 	if err != nil {
 		return err
 	}
-	if strings.TrimSpace(rootPath) != "" {
-		_, err = s.UpdateWorkspaceLocation(workspaceID, name, rootPath)
+	if cleanName := strings.TrimSpace(name); cleanName != "" {
+		if err := s.SetAppState(projectNameStateKey(workspaceID), cleanName); err != nil {
+			return err
+		}
+	}
+	if cleanWorkspacePath := strings.TrimSpace(workspacePath); cleanWorkspacePath != "" {
+		if err := s.SetAppState(projectWorkspacePathStateKey(workspaceID), cleanWorkspacePath); err != nil {
+			return err
+		}
+	}
+	if cleanRootPath := normalizeWorkspacePath(rootPath); cleanRootPath != "" {
+		if err := s.SetAppState(projectRootPathStateKey(workspaceID), cleanRootPath); err != nil {
+			return err
+		}
+	}
+	if cleanKind := strings.ToLower(strings.TrimSpace(kind)); cleanKind != "" {
+		if err := s.SetAppState(projectKindStateKey(workspaceID), cleanKind); err != nil {
+			return err
+		}
+	}
+	if cleanRootPath := normalizeWorkspacePath(rootPath); cleanRootPath != "" {
+		_, err = s.UpdateWorkspaceLocation(workspaceID, name, cleanRootPath)
 		return err
 	}
 	_, err = s.UpdateWorkspaceName(workspaceID, name)
@@ -255,6 +461,25 @@ func (s *Store) UpdateProjectLocation(id, name, workspacePath, rootPath, kind st
 func (s *Store) DeleteProject(workspaceID string) error {
 	workspaceNumericID, err := parseWorkspaceIDString(workspaceID)
 	if err != nil {
+		return err
+	}
+	if activeProjectID, err := s.activeProjectID(); err == nil && strings.TrimSpace(activeProjectID) == workspaceIDString(workspaceNumericID) {
+		if err := s.SetAppState(appStateActiveProjectIDKey, ""); err != nil {
+			return err
+		}
+	} else if err != nil {
+		return err
+	}
+	if err := s.SetAppState(projectKindStateKey(workspaceNumericID), ""); err != nil {
+		return err
+	}
+	if err := s.SetAppState(projectNameStateKey(workspaceNumericID), ""); err != nil {
+		return err
+	}
+	if err := s.SetAppState(projectWorkspacePathStateKey(workspaceNumericID), ""); err != nil {
+		return err
+	}
+	if err := s.SetAppState(projectRootPathStateKey(workspaceNumericID), ""); err != nil {
 		return err
 	}
 	return s.DeleteWorkspace(workspaceNumericID)
@@ -293,7 +518,10 @@ func (s *Store) workspaceForProject(project Project) (Workspace, error) {
 }
 
 func (s *Store) projectForWorkspace(workspace Workspace) (*Project, error) {
-	project := projectFromWorkspace(workspace)
+	project, err := s.projectFromWorkspace(workspace)
+	if err != nil {
+		return nil, err
+	}
 	return &project, nil
 }
 
@@ -358,7 +586,7 @@ func (s *Store) projectForWorkspaceID(workspaceID int64) (Project, error) {
 	if err != nil {
 		return Project{}, err
 	}
-	return projectFromWorkspace(workspace), nil
+	return s.projectFromWorkspace(workspace)
 }
 
 func (s *Store) appServerModelProfileForProject(project Project) string {

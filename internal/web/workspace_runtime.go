@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -379,7 +380,7 @@ func (a *App) ensureDefaultProjectRecord() (store.Project, error) {
 		kind,
 		strings.TrimSpace(a.localMCPURL),
 		LocalSessionID,
-		true,
+		false,
 	)
 	if err != nil {
 		if isUniqueConstraint(err) {
@@ -389,20 +390,44 @@ func (a *App) ensureDefaultProjectRecord() (store.Project, error) {
 		}
 		return store.Project{}, err
 	}
+	if _, activeErr := a.store.ActiveWorkspace(); isNoRows(activeErr) {
+		if err := a.store.SetActiveWorkspaceID(created.ID); err != nil {
+			return store.Project{}, err
+		}
+		workspaceID, parseErr := strconv.ParseInt(strings.TrimSpace(created.ID), 10, 64)
+		if parseErr != nil || workspaceID <= 0 {
+			return store.Project{}, parseErr
+		}
+		if err := a.store.SetActiveWorkspace(workspaceID); err != nil {
+			return store.Project{}, err
+		}
+		created, err = a.store.GetProject(created.ID)
+		if err != nil {
+			return store.Project{}, err
+		}
+	} else if activeErr != nil {
+		return store.Project{}, activeErr
+	}
 	return created, nil
 }
 
 func (a *App) listProjectsWithDefault() ([]store.Project, store.Project, error) {
-	defaultProject, err := a.ensureDefaultProjectRecord()
-	if err != nil {
-		return nil, store.Project{}, err
-	}
 	projects, err := a.store.ListProjects()
 	if err != nil {
 		return nil, store.Project{}, err
 	}
 	if len(projects) == 0 {
-		return []store.Project{defaultProject}, defaultProject, nil
+		return nil, store.Project{}, errors.New("no projects available")
+	}
+	defaultProject := store.Project{}
+	for _, project := range projects {
+		if project.IsDefault {
+			defaultProject = project
+			break
+		}
+	}
+	if strings.TrimSpace(defaultProject.ID) == "" {
+		defaultProject = projects[0]
 	}
 	return projects, defaultProject, nil
 }
@@ -481,7 +506,7 @@ func (a *App) handleProjectsList(w http.ResponseWriter, r *http.Request) {
 	if !a.requireAuth(w, r) {
 		return
 	}
-	if err := a.ensureStartupProjectWithWorkspace(); err != nil {
+	if _, err := a.ensureStartupWorkspace(); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -514,6 +539,10 @@ func (a *App) handleProjectsList(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) handleProjectsActivity(w http.ResponseWriter, r *http.Request) {
 	if !a.requireAuth(w, r) {
+		return
+	}
+	if _, err := a.ensureStartupWorkspace(); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	projects, _, err := a.listProjectsWithDefault()

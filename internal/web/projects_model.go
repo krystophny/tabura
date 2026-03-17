@@ -64,6 +64,11 @@ func (a *App) buildProjectAPIModel(project store.Project) (projectAPIModel, erro
 }
 
 func (a *App) projectSphere(project store.Project) (string, error) {
+	if workspace, err := a.workspaceForProject(project); err == nil && workspace != nil {
+		return workspace.Sphere, nil
+	} else if err != nil {
+		return "", err
+	}
 	workspaceID, err := a.store.FindWorkspaceContainingPath(project.RootPath)
 	if err != nil || workspaceID == nil {
 		return "", err
@@ -318,6 +323,7 @@ func (a *App) handleProjectActivate(w http.ResponseWriter, r *http.Request) {
 		"active_workspace_id": project.ID,
 		"active_sphere":       a.runtimeActiveSphere(),
 		"workspace":           item,
+		"project":             item,
 	})
 }
 
@@ -390,6 +396,7 @@ func (a *App) handleProjectChatModelUpdate(w http.ResponseWriter, r *http.Reques
 	writeJSON(w, map[string]interface{}{
 		"ok":        true,
 		"workspace": item,
+		"project":   item,
 	})
 }
 
@@ -466,6 +473,7 @@ func (a *App) handleProjectContext(w http.ResponseWriter, r *http.Request) {
 		"ok":                  true,
 		"active_workspace_id": project.ID,
 		"workspace":           item,
+		"project":             item,
 	})
 }
 

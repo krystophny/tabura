@@ -55,6 +55,11 @@ func looksLikeStandaloneSystemRequest(text string) bool {
 			return true
 		}
 	}
+	for _, prefix := range []string{"this belongs to ", "remove project ", "remove workspace "} {
+		if strings.HasPrefix(lower, prefix) {
+			return true
+		}
+	}
 	return false
 }
 

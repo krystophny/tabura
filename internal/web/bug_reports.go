@@ -119,6 +119,17 @@ func (a *App) handleBugReportCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	if sphere := normalizeBugReportSphere(req.ActiveSphere); sphere != "" {
 		workspace.Sphere = sphere
+		if workspace.ID != nil && *workspace.ID > 0 {
+			updated, updateErr := a.store.SetWorkspaceSphere(*workspace.ID, sphere)
+			if updateErr != nil {
+				http.Error(w, updateErr.Error(), http.StatusConflict)
+				return
+			}
+			workspace.ID = &updated.ID
+			workspace.Name = updated.Name
+			workspace.DirPath = updated.DirPath
+			workspace.Sphere = updated.Sphere
+		}
 	}
 	reportDir, reportID, err := createBugReportDir(workspace.DirPath, req.Timestamp)
 	if err != nil {
@@ -284,6 +295,13 @@ func (a *App) ensureBugReportWorkspaceID(workspace bugReportWorkspace) (*int64, 
 	existing, err := a.store.GetWorkspaceByPath(workspace.DirPath)
 	switch {
 	case err == nil:
+		if sphere := normalizeBugReportSphere(workspace.Sphere); sphere != "" && sphere != existing.Sphere {
+			updated, updateErr := a.store.SetWorkspaceSphere(existing.ID, sphere)
+			if updateErr != nil {
+				return nil, updateErr
+			}
+			existing = updated
+		}
 		id := existing.ID
 		return &id, nil
 	case err != nil && !errors.Is(err, sql.ErrNoRows):

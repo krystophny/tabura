@@ -620,11 +620,15 @@ func TestItemStateViewAPIFiltersBySourceWorkspaceAndProject(t *testing.T) {
 		t.Fatalf("project inbox status = %d, want 200: %s", rrProject.Code, rrProject.Body.String())
 	}
 	projectItems, ok := decodeJSONResponse(t, rrProject)["items"].([]any)
-	if !ok || len(projectItems) != 1 {
+	if !ok || len(projectItems) != 2 {
 		t.Fatalf("project inbox payload = %#v", decodeJSONResponse(t, rrProject))
 	}
-	if got := strFromAny(projectItems[0].(map[string]any)["title"]); got != "Workspace todoist" {
-		t.Fatalf("project title = %q, want %q", got, "Workspace todoist")
+	titles := []string{
+		strFromAny(projectItems[0].(map[string]any)["title"]),
+		strFromAny(projectItems[1].(map[string]any)["title"]),
+	}
+	if !(containsString(titles, "Workspace todoist") && containsString(titles, "Workspace exchange")) {
+		t.Fatalf("project titles = %#v, want workspace todoist and exchange", titles)
 	}
 
 	rrCounts := doAuthedJSONRequest(t, app.Router(), http.MethodGet, "/api/items/counts?source=todoist", nil)
