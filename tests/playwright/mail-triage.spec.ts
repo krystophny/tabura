@@ -714,7 +714,7 @@ test('manual mail triage fits mobile viewport and buttons stay tappable', async 
     if (!(button instanceof HTMLButtonElement)) {
       throw new Error('trash action button missing');
     }
-    button.click();
+    button.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerType: 'touch' }));
   });
 
   await expect.poll(() => reviewBodies.length).toBe(1);

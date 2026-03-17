@@ -510,6 +510,29 @@ function triageDecisionBadge(text, value) {
   return badge;
 }
 
+function bindMailTriageActionButton(button, action) {
+  let suppressClick = false;
+  button.addEventListener('pointerup', (ev) => {
+    const pointerType = String(ev?.pointerType || '').trim().toLowerCase();
+    if (pointerType !== 'touch' && pointerType !== 'pen') {
+      return;
+    }
+    ev.preventDefault();
+    suppressClick = true;
+    void submitMailTriageDecision(action);
+    queueMicrotask(() => {
+      suppressClick = false;
+    });
+  });
+  button.addEventListener('click', (ev) => {
+    if (suppressClick) {
+      ev.preventDefault();
+      return;
+    }
+    void submitMailTriageDecision(action);
+  });
+}
+
 export function renderMailTriageArtifact(root, event) {
   if (!(root instanceof HTMLElement)) return;
   const triage = event?.triage && typeof event.triage === 'object' ? event.triage : state.mailTriage;
@@ -625,9 +648,7 @@ export function renderMailTriageArtifact(root, event) {
       button.className = `edge-btn mail-triage-action mail-triage-action-${String(action)}`;
       button.textContent = String(label);
       button.disabled = Boolean(triage.submitting);
-      button.addEventListener('click', () => {
-        void submitMailTriageDecision(action);
-      });
+      bindMailTriageActionButton(button, action);
       actions.appendChild(button);
     });
     body.appendChild(actions);
