@@ -14,16 +14,28 @@ import (
 )
 
 const (
-	ScopeGmailModify      = "https://www.googleapis.com/auth/gmail.modify"
-	ScopeContactsReadonly = "https://www.googleapis.com/auth/contacts.readonly"
-	ScopeCalendar         = "https://www.googleapis.com/auth/calendar"
+	ScopeGmailFull   = "https://mail.google.com/"
+	ScopeContacts    = "https://www.googleapis.com/auth/contacts"
+	ScopeCalendar    = "https://www.googleapis.com/auth/calendar"
+	ScopeDrive       = "https://www.googleapis.com/auth/drive"
+	ScopeDocs        = "https://www.googleapis.com/auth/documents"
+	ScopeSheets      = "https://www.googleapis.com/auth/spreadsheets"
+	ScopeTasks       = "https://www.googleapis.com/auth/tasks"
+
+	// Deprecated aliases kept for compile compatibility
+	ScopeGmailModify      = ScopeGmailFull
+	ScopeContactsReadonly = ScopeContacts
 	ScopeCalendarReadonly = "https://www.googleapis.com/auth/calendar.readonly"
 )
 
 var DefaultScopes = []string{
-	ScopeGmailModify,
-	ScopeContactsReadonly,
+	ScopeGmailFull,
+	ScopeContacts,
 	ScopeCalendar,
+	ScopeDrive,
+	ScopeDocs,
+	ScopeSheets,
+	ScopeTasks,
 }
 
 type Session struct {
