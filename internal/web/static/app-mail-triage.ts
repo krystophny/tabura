@@ -308,7 +308,7 @@ async function resolveUndoRestoredMessage(payload) {
   return null;
 }
 
-export async function openMailTriageMode(options = {}) {
+export async function openMailTriageMode(options: Record<string, any> = {}) {
   const mode = String(options?.mode || 'inbox').trim().toLowerCase();
   const limitValue = Number(options?.limit || MAIL_TRIAGE_DEFAULT_LIMIT);
   const limit = Number.isFinite(limitValue) && limitValue > 0 ? Math.floor(limitValue) : MAIL_TRIAGE_DEFAULT_LIMIT;
@@ -367,7 +367,7 @@ export function openJunkMailTriage() {
 
 function recordDecisionLocally(action) {
   const key = String(action || '').trim().toLowerCase();
-  const next = { ...(state.mailTriage.decisions || {}) };
+  const next = { inbox: 0, cc: 0, archive: 0, trash: 0, ...(state.mailTriage.decisions || {}) };
   if (Object.prototype.hasOwnProperty.call(next, key)) {
     next[key] = Number(next[key] || 0) + 1;
   }
@@ -377,7 +377,7 @@ function recordDecisionLocally(action) {
 
 function undoDecisionLocally(action) {
   const key = String(action || '').trim().toLowerCase();
-  const next = { ...(state.mailTriage.decisions || {}) };
+  const next = { inbox: 0, cc: 0, archive: 0, trash: 0, ...(state.mailTriage.decisions || {}) };
   if (Object.prototype.hasOwnProperty.call(next, key)) {
     next[key] = Math.max(0, Number(next[key] || 0) - 1);
   }
