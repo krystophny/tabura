@@ -439,6 +439,72 @@ func (c *Client) FindMessages(ctx context.Context, folderID string, offset, max 
 	return out, nil
 }
 
+type FindRestriction struct {
+	From          string
+	HasAttachment *bool
+	After         time.Time
+	Before        time.Time
+}
+
+func (c *Client) FindMessagesRestricted(ctx context.Context, folderID string, offset, max int, restriction FindRestriction) (FindItemsResult, error) {
+	if strings.TrimSpace(folderID) == "" {
+		folderID = "inbox"
+	}
+	if max <= 0 {
+		max = c.cfg.BatchSize
+	}
+	restrictionXML := buildRestrictionXML(restriction)
+	body := fmt.Sprintf(`<m:FindItem Traversal="Shallow">
+      <m:ItemShape><t:BaseShape>IdOnly</t:BaseShape></m:ItemShape>
+      <m:IndexedPageItemView MaxEntriesReturned="%d" Offset="%d" BasePoint="Beginning" />%s
+      <m:ParentFolderIds>%s</m:ParentFolderIds>
+    </m:FindItem>`, max, maxInt(offset, 0), restrictionXML, folderIDXML(folderID))
+	var resp findItemEnvelope
+	if err := c.call(ctx, "FindItem", body, &resp); err != nil {
+		return FindItemsResult{}, err
+	}
+	root := resp.Body.FindItemResponse.ResponseMessages.Message.Root
+	out := FindItemsResult{
+		NextOffset:       root.IndexedPagingOffset,
+		TotalItemsInView: root.TotalItemsInView,
+		IncludesLastPage: root.IncludesLastItemInRange,
+		ItemIDs:          make([]string, 0, len(root.Items.Items)),
+	}
+	for _, item := range root.Items.Items {
+		if clean := strings.TrimSpace(item.ItemID.ID); clean != "" {
+			out.ItemIDs = append(out.ItemIDs, clean)
+		}
+	}
+	return out, nil
+}
+
+func buildRestrictionXML(r FindRestriction) string {
+	var conditions []string
+	if strings.TrimSpace(r.From) != "" {
+		conditions = append(conditions, `<t:Contains ContainmentMode="Substring" ContainmentComparison="IgnoreCase"><t:FieldURI FieldURI="message:From" /><t:Constant Value="`+xmlEscapeAttr(r.From)+`" /></t:Contains>`)
+	}
+	if r.HasAttachment != nil {
+		value := "false"
+		if *r.HasAttachment {
+			value = "true"
+		}
+		conditions = append(conditions, `<t:IsEqualTo><t:FieldURI FieldURI="item:HasAttachments" /><t:FieldURIOrConstant><t:Constant Value="`+value+`" /></t:FieldURIOrConstant></t:IsEqualTo>`)
+	}
+	if !r.After.IsZero() {
+		conditions = append(conditions, `<t:IsGreaterThanOrEqualTo><t:FieldURI FieldURI="item:DateTimeReceived" /><t:FieldURIOrConstant><t:Constant Value="`+r.After.UTC().Format(time.RFC3339)+`" /></t:FieldURIOrConstant></t:IsGreaterThanOrEqualTo>`)
+	}
+	if !r.Before.IsZero() {
+		conditions = append(conditions, `<t:IsLessThanOrEqualTo><t:FieldURI FieldURI="item:DateTimeReceived" /><t:FieldURIOrConstant><t:Constant Value="`+r.Before.UTC().Format(time.RFC3339)+`" /></t:FieldURIOrConstant></t:IsLessThanOrEqualTo>`)
+	}
+	if len(conditions) == 0 {
+		return ""
+	}
+	if len(conditions) == 1 {
+		return "\n      <m:Restriction>" + conditions[0] + "</m:Restriction>"
+	}
+	return "\n      <m:Restriction><t:And>" + strings.Join(conditions, "") + "</t:And></m:Restriction>"
+}
+
 func (c *Client) SyncFolderItems(ctx context.Context, folderID, syncState string, maxChanges int) (SyncItemsResult, error) {
 	if strings.TrimSpace(folderID) == "" {
 		folderID = "inbox"

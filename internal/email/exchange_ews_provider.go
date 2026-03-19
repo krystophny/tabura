@@ -121,8 +121,71 @@ func (p *ExchangeEWSMailProvider) ListMessages(ctx context.Context, opts SearchO
 	if maxResults <= 0 {
 		maxResults = 100
 	}
+	needsFilter := exchangeEWSNeedsMessageFilter(opts)
+	restriction := exchangeEWSBuildRestriction(opts)
+	useServerFilter := restriction != nil
 	found := make(map[string]struct{}, maxResults)
 	for _, folder := range candidates {
+		if useServerFilter {
+			page, err := p.client.FindMessagesRestricted(ctx, folder, 0, maxResults, *restriction)
+			if err != nil {
+				return nil, err
+			}
+			for _, itemID := range page.ItemIDs {
+				if clean := strings.TrimSpace(itemID); clean != "" {
+					found[clean] = struct{}{}
+				}
+				if len(found) >= maxResults {
+					return sortedMessageIDs(found), nil
+				}
+			}
+			if !page.IncludesLastPage {
+				offset := page.NextOffset
+				if offset <= 0 {
+					offset = len(page.ItemIDs)
+				}
+				for len(found) < maxResults {
+					nextPage, err := p.client.FindMessagesRestricted(ctx, folder, offset, maxResults, *restriction)
+					if err != nil {
+						return nil, err
+					}
+					if len(nextPage.ItemIDs) == 0 {
+						break
+					}
+					for _, itemID := range nextPage.ItemIDs {
+						if clean := strings.TrimSpace(itemID); clean != "" {
+							found[clean] = struct{}{}
+						}
+						if len(found) >= maxResults {
+							return sortedMessageIDs(found), nil
+						}
+					}
+					if nextPage.IncludesLastPage {
+						break
+					}
+					nextOffset := nextPage.NextOffset
+					if nextOffset <= offset {
+						nextOffset = offset + len(nextPage.ItemIDs)
+					}
+					offset = nextOffset
+				}
+			}
+			// Apply remaining client-side filters not handled by server
+			if exchangeEWSNeedsClientFilter(opts) {
+				ids := sortedMessageIDs(found)
+				messages, err := p.client.GetMessages(ctx, ids)
+				if err != nil {
+					return nil, err
+				}
+				found = make(map[string]struct{}, maxResults)
+				for _, message := range messages {
+					if matchExchangeEWSMessage(message, opts) {
+						found[message.ID] = struct{}{}
+					}
+				}
+			}
+			continue
+		}
 		page, err := p.client.FindMessages(ctx, folder, 0, maxResults)
 		if err != nil {
 			return nil, err
@@ -130,7 +193,7 @@ func (p *ExchangeEWSMailProvider) ListMessages(ctx context.Context, opts SearchO
 		if len(page.ItemIDs) == 0 {
 			continue
 		}
-		if !exchangeEWSNeedsMessageFilter(opts) {
+		if !needsFilter {
 			for _, itemID := range page.ItemIDs {
 				if clean := strings.TrimSpace(itemID); clean != "" {
 					found[clean] = struct{}{}
@@ -1006,6 +1069,40 @@ func exchangeEWSNeedsMessageFilter(opts SearchOptions) bool {
 		!opts.Before.IsZero() ||
 		!opts.Since.IsZero() ||
 		!opts.Until.IsZero()
+}
+
+func exchangeEWSBuildRestriction(opts SearchOptions) *ews.FindRestriction {
+	if !exchangeEWSNeedsMessageFilter(opts) {
+		return nil
+	}
+	r := &ews.FindRestriction{
+		From:          strings.TrimSpace(opts.From),
+		HasAttachment: opts.HasAttachment,
+	}
+	if !opts.After.IsZero() {
+		r.After = opts.After
+	}
+	if !opts.Since.IsZero() && (r.After.IsZero() || opts.Since.After(r.After)) {
+		r.After = opts.Since
+	}
+	if !opts.Before.IsZero() {
+		r.Before = opts.Before
+	}
+	if !opts.Until.IsZero() && (r.Before.IsZero() || opts.Until.Before(r.Before)) {
+		r.Before = opts.Until
+	}
+	if r.From == "" && r.HasAttachment == nil && r.After.IsZero() && r.Before.IsZero() {
+		return nil
+	}
+	return r
+}
+
+func exchangeEWSNeedsClientFilter(opts SearchOptions) bool {
+	return opts.IsRead != nil ||
+		opts.IsFlagged != nil ||
+		opts.Text != "" ||
+		opts.Subject != "" ||
+		opts.To != ""
 }
 
 func exchangeEWSFolderIndex(folders []ews.Folder) map[string]ews.Folder {
