@@ -698,6 +698,8 @@ var WebRouteSections = []RouteSection{
 			"GET /api/setup",
 			"POST /api/login",
 			"POST /api/logout",
+			"GET /api/google/auth",
+			"GET /api/google/callback",
 		},
 	},
 	{
@@ -760,6 +762,7 @@ var WebRouteSections = []RouteSection{
 			"GET /api/external-accounts/{account_id}/mail/labels",
 			"GET /api/external-accounts/{account_id}/mail/messages",
 			"GET /api/external-accounts/{account_id}/mail/messages/{message_id}",
+			"GET /api/external-accounts/{account_id}/mail/messages/{message_id}/attachments/{attachment_id}",
 			"POST /api/external-accounts/{account_id}/mail/actions",
 			"GET /api/external-accounts/{account_id}/mail-rules",
 			"POST /api/external-accounts/{account_id}/mail-rules",
