@@ -753,6 +753,7 @@ var WebRouteSections = []RouteSection{
 			"POST /api/scan/upload",
 			"POST /api/scan/confirm",
 			"POST /api/bugs/report",
+			"POST /api/push/register",
 			"GET /api/mail/accounts",
 			"POST /api/mail/drafts",
 			"POST /api/mail/drafts/reply",
