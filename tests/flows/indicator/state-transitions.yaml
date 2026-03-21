@@ -16,6 +16,8 @@ steps:
       indicator_state: paused
   - action: tap
     target: indicator_simulate_recording
+    platforms:
+      - web
     expect:
       active_tool: pointer
       session: meeting
@@ -23,6 +25,8 @@ steps:
       indicator_state: recording
   - action: tap
     target: indicator_simulate_working
+    platforms:
+      - web
     expect:
       active_tool: pointer
       session: meeting
@@ -30,6 +34,8 @@ steps:
       indicator_state: working
   - action: tap
     target: indicator_override_clear
+    platforms:
+      - web
     expect:
       active_tool: pointer
       session: meeting

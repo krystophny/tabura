@@ -1,6 +1,7 @@
 import { devices, expect, test } from '@playwright/test';
 
 const { buildCoverage, loadFlowsSync } = require('../flows/flow-loader.cjs');
+const { getWebSelector } = require('../flows/targets.cjs');
 
 type FlowStep = {
   action: 'tap' | 'tap_outside' | 'verify' | 'wait';
@@ -25,55 +26,56 @@ type FlowProfile = {
   touch: boolean;
 };
 
-const targetMap: Record<string, string> = {
-  tabura_circle_dot: '#tabura-circle-dot',
-  tabura_circle_segment_pointer: '[data-segment="pointer"]',
-  tabura_circle_segment_highlight: '[data-segment="highlight"]',
-  tabura_circle_segment_ink: '[data-segment="ink"]',
-  tabura_circle_segment_text_note: '[data-segment="text_note"]',
-  tabura_circle_segment_prompt: '[data-segment="prompt"]',
-  tabura_circle_segment_dialogue: '[data-segment="dialogue"]',
-  tabura_circle_segment_meeting: '[data-segment="meeting"]',
-  tabura_circle_segment_silent: '[data-segment="silent"]',
-  canvas_viewport: '#canvas-viewport',
-  indicator_border: '#indicator-border',
-  indicator_simulate_recording: '#indicator-simulate-recording',
-  indicator_simulate_working: '#indicator-simulate-working',
-  indicator_override_clear: '#indicator-override-clear',
-};
-
-const flowProfiles: FlowProfile[] = [
-  {
-    name: 'desktop-chrome',
-    context: {
-      viewport: { width: 1440, height: 980 },
-      hasTouch: false,
-      isMobile: false,
+const browserProfiles: Record<string, FlowProfile[]> = {
+  chromium: [
+    {
+      name: 'desktop-chrome',
+      context: {
+        viewport: { width: 1920, height: 1080 },
+        hasTouch: false,
+        isMobile: false,
+      },
+      touch: false,
     },
-    touch: false,
-  },
-  {
-    name: 'iphone-14',
-    context: { ...devices['iPhone 14'] },
-    touch: true,
-  },
-  {
-    name: 'ipad-pro-11',
-    context: { ...devices['iPad Pro 11'] },
-    touch: true,
-  },
-  {
-    name: 'pixel-7',
-    context: { ...devices['Pixel 7'] },
-    touch: true,
-  },
-];
+    {
+      name: 'iphone-14',
+      context: { ...devices['iPhone 14'] },
+      touch: true,
+    },
+    {
+      name: 'ipad-pro-11',
+      context: { ...devices['iPad Pro 11'] },
+      touch: true,
+    },
+    {
+      name: 'pixel-7',
+      context: { ...devices['Pixel 7'] },
+      touch: true,
+    },
+  ],
+  firefox: [
+    {
+      name: 'desktop-firefox',
+      context: { ...devices['Desktop Firefox'], viewport: { width: 1920, height: 1080 } },
+      touch: false,
+    },
+  ],
+};
 
 const flows = loadFlowsSync();
 const coverage = buildCoverage(flows);
 
-if (coverage.missingCombos.length > 0) {
-  throw new Error(`flow coverage is incomplete: ${coverage.missingCombos.map((entry) => entry.label).join(', ')}`);
+if (
+  coverage.missingCombos.length > 0
+  || coverage.missingTargets.length > 0
+  || coverage.missingIndicatorStates.length > 0
+) {
+  const problems = [
+    ...coverage.missingCombos.map((entry) => `combo ${entry.label}`),
+    ...coverage.missingTargets.map((target) => `target ${target}`),
+    ...coverage.missingIndicatorStates.map((state) => `indicator ${state}`),
+  ];
+  throw new Error(`flow coverage is incomplete: ${problems.join(', ')}`);
 }
 
 async function resetHarness(page: any, preconditions: Record<string, unknown> | undefined) {
@@ -85,7 +87,7 @@ async function resetHarness(page: any, preconditions: Record<string, unknown> | 
 }
 
 async function tapTarget(page: any, target: string, profile: FlowProfile) {
-  const selector = targetMap[target];
+  const selector = getWebSelector(target);
   if (!selector) {
     throw new Error(`unknown target: ${target}`);
   }
@@ -182,22 +184,25 @@ async function runStep(page: any, step: FlowStep, profile: FlowProfile) {
   await assertExpectations(page, step.expect, profile);
 }
 
-for (const profile of flowProfiles) {
-  test.describe(`shared ui flows ${profile.name} @flow`, () => {
-    for (const flow of flows as FlowDefinition[]) {
-      test(`${flow.name} :: ${flow.description}`, async ({ browser }) => {
-        test.skip(profile.touch && flow.tags.includes('matrix'), 'matrix coverage is enforced by the YAML coverage report and desktop flow run');
-        const context = await browser.newContext(profile.context);
-        try {
-          const page = await context.newPage();
-          await resetHarness(page, flow.preconditions);
-          for (const step of flow.steps) {
-            await runStep(page, step, profile);
+for (const [browserName, flowProfiles] of Object.entries(browserProfiles)) {
+  for (const profile of flowProfiles) {
+    test.describe(`shared ui flows ${profile.name} @flow`, () => {
+      for (const flow of flows as FlowDefinition[]) {
+        test(`${flow.name} :: ${flow.description}`, async ({ browser, browserName: activeBrowserName }) => {
+          test.skip(activeBrowserName !== browserName, `profile ${profile.name} only runs on ${browserName}`);
+          test.skip(profile.touch && flow.tags.includes('matrix'), 'matrix coverage is enforced by the YAML coverage report and desktop flow run');
+          const context = await browser.newContext(profile.context);
+          try {
+            const page = await context.newPage();
+            await resetHarness(page, flow.preconditions);
+            for (const step of flow.steps) {
+              await runStep(page, step, profile);
+            }
+          } finally {
+            await context.close().catch(() => {});
           }
-        } finally {
-          await context.close().catch(() => {});
-        }
-      });
-    }
-  });
+        });
+      }
+    });
+  }
 }

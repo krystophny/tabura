@@ -2,6 +2,12 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const { parse } = require('yaml');
+const {
+  getTargetDefinition,
+  getTargetPlatforms,
+  requiredCoverageTargets,
+  requiredIndicatorStates,
+} = require('./targets.cjs');
 
 const repoRoot = path.resolve(__dirname, '..', '..');
 const flowRoot = path.resolve(__dirname);
@@ -84,14 +90,20 @@ function validatePreconditions(preconditions, context) {
   }
 }
 
+function validateObjectKeys(value, allowedKeys, context) {
+  for (const key of Object.keys(value)) {
+    if (!allowedKeys.has(key)) {
+      fail(`${context}.${key} is not supported`);
+    }
+  }
+}
+
 function validateExpectations(expect, context) {
   if (!isPlainObject(expect) || Object.keys(expect).length === 0) {
     fail(`${context} must be a non-empty object`);
   }
+  validateObjectKeys(expect, expectationKeys, context);
   for (const [key, value] of Object.entries(expect)) {
-    if (!expectationKeys.has(key)) {
-      fail(`${context}.${key} is not supported`);
-    }
     switch (key) {
       case 'active_tool':
         assertEnum(value, toolValues, `${context}.${key}`);
@@ -123,17 +135,41 @@ function validateStep(step, context) {
   if (!isPlainObject(step)) {
     fail(`${context} must be an object`);
   }
+  validateObjectKeys(step, new Set(['action', 'target', 'duration_ms', 'expect', 'platforms']), context);
   assertEnum(step.action, actionValues, `${context}.action`);
   if ('platforms' in step) {
     assertArrayOfStrings(step.platforms, `${context}.platforms`, platformValues);
   }
+  if ('target' in step) {
+    assertString(step.target, `${context}.target`);
+    if (!getTargetDefinition(step.target)) {
+      fail(`${context}.target must reference a known logical target`);
+    }
+    const targetPlatforms = getTargetPlatforms(step.target);
+    if (targetPlatforms.length === 1 && !('platforms' in step)) {
+      fail(`${context}.platforms must be declared for ${step.target}`);
+    }
+    if ('platforms' in step) {
+      for (const platform of step.platforms) {
+        if (!targetPlatforms.includes(platform)) {
+          fail(`${context}.platforms includes ${platform}, but ${step.target} only supports ${targetPlatforms.join(', ')}`);
+        }
+      }
+    }
+  }
   if (step.action === 'tap') {
     assertString(step.target, `${context}.target`);
+  }
+  if (step.action !== 'tap' && 'target' in step && step.action !== 'verify') {
+    fail(`${context}.target is only supported for tap and verify steps`);
   }
   if (step.action === 'wait') {
     if (!Number.isFinite(step.duration_ms) || step.duration_ms < 0) {
       fail(`${context}.duration_ms must be a non-negative number`);
     }
+  }
+  if (step.action !== 'wait' && 'duration_ms' in step) {
+    fail(`${context}.duration_ms is only supported for wait steps`);
   }
   if ('expect' in step) {
     validateExpectations(step.expect, `${context}.expect`);
@@ -144,6 +180,7 @@ function validateFlow(flow, relativePath) {
   if (!isPlainObject(flow)) {
     fail(`${relativePath} must contain a single flow object`);
   }
+  validateObjectKeys(flow, new Set(['name', 'description', 'tags', 'preconditions', 'steps']), relativePath);
   assertString(flow.name, `${relativePath}.name`);
   assertString(flow.description, `${relativePath}.description`);
   assertArrayOfStrings(flow.tags, `${relativePath}.tags`);
@@ -203,12 +240,16 @@ function comboLabel(tool, session, silent) {
 function buildCoverage(flows) {
   const combosCovered = new Set();
   const targetsCovered = new Set();
+  const indicatorStatesCovered = new Set();
   for (const flow of flows) {
     for (const step of flow.steps) {
       if (typeof step.target === 'string' && step.target.trim() !== '') {
         targetsCovered.add(step.target);
       }
       const expect = step.expect;
+      if (expect && typeof expect.indicator_state === 'string') {
+        indicatorStatesCovered.add(expect.indicator_state);
+      }
       if (
         expect
         && typeof expect.active_tool === 'string'
@@ -233,13 +274,18 @@ function buildCoverage(flows) {
   }
 
   const missingCombos = expectedCombos.filter((entry) => !combosCovered.has(entry.key));
+  const missingTargets = requiredCoverageTargets.filter((target) => !targetsCovered.has(target));
+  const missingIndicatorStates = requiredIndicatorStates.filter((state) => !indicatorStatesCovered.has(state));
 
   return {
     flowCount: flows.length,
     targetsCovered: Array.from(targetsCovered).sort(),
+    indicatorStatesCovered: Array.from(indicatorStatesCovered).sort(),
     comboCount: expectedCombos.length,
     combosCovered: Array.from(combosCovered).sort(),
     missingCombos,
+    missingTargets,
+    missingIndicatorStates,
   };
 }
 
