@@ -187,39 +187,11 @@ func (s *Server) mailAction(args map[string]interface{}) (map[string]interface{}
 	if value, ok := args["archive"].(bool); ok {
 		archive = &value
 	}
-	resolvedMessages, _ := provider.GetMessages(context.Background(), messageIDs, "full")
-	byID := map[string]*providerdata.EmailMessage{}
-	for _, message := range resolvedMessages {
-		if message == nil {
-			continue
-		}
-		if id := strings.TrimSpace(message.ID); id != "" {
-			byID[id] = message
-		}
-	}
+	byID := mailMessagesByID(context.Background(), provider, messageIDs)
 	targetFolder := mcpMailActionTargetFolder(account, action, folder, label)
-	requestPayload := map[string]any{
-		"action":      action,
-		"message_ids": append([]string(nil), messageIDs...),
-		"folder":      folder,
-		"label":       label,
-	}
-	if query != "" {
-		requestPayload["query"] = query
-		if limit, ok := args["limit"]; ok {
-			requestPayload["limit"] = limit
-		}
-	}
-	if archive != nil {
-		requestPayload["archive"] = *archive
-	}
+	requestPayload := mailActionRequestPayload(args, action, messageIDs, folder, label, query, archive)
 	if len(messageIDs) == 0 {
-		return map[string]interface{}{
-			"account":     account,
-			"action":      action,
-			"message_ids": []string{},
-			"succeeded":   0,
-		}, nil
+		return mailActionResult(account, action, nil, 0), nil
 	}
 	logs := make([]store.MailActionLog, 0, len(messageIDs))
 	for _, messageID := range messageIDs {
@@ -261,12 +233,7 @@ func (s *Server) mailAction(args map[string]interface{}) (map[string]interface{}
 	for _, logEntry := range logs {
 		_ = st.UpdateMailActionLogResult(logEntry.ID, store.MailActionLogApplied, resolvedByMessageID[strings.TrimSpace(logEntry.MessageID)], "")
 	}
-	return map[string]interface{}{
-		"account":     account,
-		"action":      action,
-		"message_ids": messageIDs,
-		"succeeded":   applied.Count,
-	}, nil
+	return mailActionResult(account, action, messageIDs, applied.Count), nil
 }
 
 func resolveMailActionMessageIDs(ctx context.Context, provider email.EmailProvider, args map[string]interface{}) ([]string, error) {
@@ -294,6 +261,48 @@ func resolveMailActionMessageIDs(ctx context.Context, provider email.EmailProvid
 		return nil, err
 	}
 	return compactStringList(ids), nil
+}
+
+func mailMessagesByID(ctx context.Context, provider email.EmailProvider, messageIDs []string) map[string]*providerdata.EmailMessage {
+	resolvedMessages, _ := provider.GetMessages(ctx, messageIDs, "full")
+	byID := map[string]*providerdata.EmailMessage{}
+	for _, message := range resolvedMessages {
+		if message == nil {
+			continue
+		}
+		if id := strings.TrimSpace(message.ID); id != "" {
+			byID[id] = message
+		}
+	}
+	return byID
+}
+
+func mailActionRequestPayload(args map[string]interface{}, action string, messageIDs []string, folder, label, query string, archive *bool) map[string]any {
+	requestPayload := map[string]any{
+		"action":      action,
+		"message_ids": append([]string(nil), messageIDs...),
+		"folder":      folder,
+		"label":       label,
+	}
+	if query != "" {
+		requestPayload["query"] = query
+		if limit, ok := args["limit"]; ok {
+			requestPayload["limit"] = limit
+		}
+	}
+	if archive != nil {
+		requestPayload["archive"] = *archive
+	}
+	return requestPayload
+}
+
+func mailActionResult(account store.ExternalAccount, action string, messageIDs []string, succeeded int) map[string]interface{} {
+	return map[string]interface{}{
+		"account":     account,
+		"action":      action,
+		"message_ids": append([]string(nil), messageIDs...),
+		"succeeded":   succeeded,
+	}
 }
 
 func (s *Server) mailServerFilterList(args map[string]interface{}) (map[string]interface{}, error) {

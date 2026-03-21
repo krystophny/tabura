@@ -151,7 +151,7 @@ func (p *fakeMailProvider) resolutions(ids []string) []email.ActionResolution {
 	return out
 }
 
-func TestMailToolsListReadActAndFilter(t *testing.T) {
+func newMailToolsFixture(t *testing.T) (*Server, store.ExternalAccount, *fakeMailProvider) {
 	s, st, _ := newDomainServerForTest(t)
 	account, err := st.CreateExternalAccount(store.SphereWork, store.ExternalProviderExchangeEWS, "TU Graz", map[string]any{})
 	if err != nil {
@@ -182,7 +182,11 @@ func TestMailToolsListReadActAndFilter(t *testing.T) {
 	s.newEmailProvider = func(context.Context, store.ExternalAccount) (email.EmailProvider, error) {
 		return provider, nil
 	}
+	return s, account, provider
+}
 
+func TestMailToolsListReadAndAttachment(t *testing.T) {
+	s, account, _ := newMailToolsFixture(t)
 	listed, err := s.callTool("mail_account_list", map[string]interface{}{})
 	if err != nil {
 		t.Fatalf("mail_account_list failed: %v", err)
@@ -230,7 +234,10 @@ func TestMailToolsListReadActAndFilter(t *testing.T) {
 	if gotAttachment["content_base64"] != base64.StdEncoding.EncodeToString([]byte("pdfbytes")) {
 		t.Fatalf("content_base64 = %#v", gotAttachment["content_base64"])
 	}
+}
 
+func TestMailToolsActAndFilter(t *testing.T) {
+	s, account, provider := newMailToolsFixture(t)
 	acted, err := s.callTool("mail_action", map[string]interface{}{
 		"account_id":  account.ID,
 		"action":      "archive_label",
