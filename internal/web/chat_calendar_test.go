@@ -44,6 +44,25 @@ func (s *stubGoogleCalendarReader) CreateEvent(_ context.Context, opts calendar.
 	}, nil
 }
 
+func (s *stubGoogleCalendarReader) UpdateEvent(_ context.Context, opts calendar.UpdateEventOptions) (providerdata.Event, error) {
+	return providerdata.Event{
+		ID:          opts.EventID,
+		CalendarID:  opts.CalendarID,
+		Summary:     opts.Summary,
+		Description: opts.Description,
+		Location:    opts.Location,
+		Start:       opts.Start,
+		End:         opts.End,
+		AllDay:      opts.AllDay,
+		Attendees:   append([]string(nil), opts.Attendees...),
+		Status:      "confirmed",
+	}, nil
+}
+
+func (s *stubGoogleCalendarReader) DeleteEvent(context.Context, string, string) error {
+	return nil
+}
+
 type stubICSCalendarReader struct{}
 
 func (stubICSCalendarReader) ListCalendars() []providerdata.Calendar {

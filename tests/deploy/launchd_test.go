@@ -39,7 +39,7 @@ var expectedPlists = []struct {
 	{
 		file:   "io.tabura.stt.plist",
 		label:  "io.tabura.stt",
-		tokens: []string{"@@STT_SETUP_SCRIPT@@"},
+		tokens: []string{"@@STT_SETUP_SCRIPT@@", "@@VOXTYPE_BIN@@"},
 	},
 	{
 		file:   "io.tabura.web.plist",
@@ -147,17 +147,18 @@ func TestLaunchdTemplatesHaveRequiredKeys(t *testing.T) {
 func TestLaunchdTemplateTokenSubstitution(t *testing.T) {
 	dir := filepath.Join(repoRoot, "deploy", "launchd")
 	tokenValues := map[string]string{
-		"@@BIN_PATH@@":         "/usr/local/bin/tabura",
-		"@@CODEX_PATH@@":       "/usr/local/bin/codex",
-		"@@PROJECT_DIR@@":      "/tmp/project",
-		"@@WEB_DATA_DIR@@":     "/tmp/web-data",
-		"@@VENV_DIR@@":         "/tmp/venv",
-		"@@SCRIPT_DIR@@":       "/tmp/scripts",
-		"@@PIPER_MODEL_DIR@@":  "/tmp/models",
+		"@@BIN_PATH@@":              "/usr/local/bin/tabura",
+		"@@CODEX_PATH@@":            "/usr/local/bin/codex",
+		"@@PROJECT_DIR@@":           "/tmp/project",
+		"@@WEB_DATA_DIR@@":          "/tmp/web-data",
+		"@@VENV_DIR@@":              "/tmp/venv",
+		"@@SCRIPT_DIR@@":            "/tmp/scripts",
+		"@@PIPER_MODEL_DIR@@":       "/tmp/models",
 		"@@LLM_SETUP_SCRIPT@@":      "/tmp/setup-llm.sh",
 		"@@LLM_MODEL_DIR@@":         "/tmp/llm-models",
 		"@@LLAMA_SERVER_BIN@@":      "/tmp/llama-server",
 		"@@STT_SETUP_SCRIPT@@":      "/tmp/setup-stt.sh",
+		"@@VOXTYPE_BIN@@":           "/tmp/voxtype",
 		"@@TABURA_WEB_HOST@@":       "127.0.0.1",
 		"@@TABURA_INTENT_LLM_URL@@": "http://127.0.0.1:8081",
 	}

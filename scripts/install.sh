@@ -853,6 +853,8 @@ substitute_launchd_template() {
     local src="$1" dst="$2"
     local effective_llm_url="${REUSE_LLM_URL:-http://127.0.0.1:8081}"
     local web_host="${TABURA_WEB_HOST:-127.0.0.1}"
+    local voxtype_bin
+    voxtype_bin="$(command -v voxtype 2>/dev/null || echo voxtype)"
     sed \
         -e "s|@@BIN_PATH@@|${BIN_PATH}|g" \
         -e "s|@@CODEX_PATH@@|${CODEX_PATH}|g" \
@@ -866,6 +868,7 @@ substitute_launchd_template() {
         -e "s|@@LLM_MODEL_DIR@@|${LLM_MODEL_DIR}|g" \
         -e "s|@@LLAMA_SERVER_BIN@@|${LLAMA_SERVER_BIN_RESOLVED}|g" \
         -e "s|@@STT_SETUP_SCRIPT@@|${STT_SETUP_SCRIPT}|g" \
+        -e "s|@@VOXTYPE_BIN@@|${voxtype_bin}|g" \
         -e "s|@@TABURA_INTENT_LLM_URL@@|${effective_llm_url}|g" \
         "$src" >"$dst"
 }
