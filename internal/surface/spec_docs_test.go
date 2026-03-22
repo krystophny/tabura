@@ -101,3 +101,43 @@ func TestInteractionGrammarDocIsIndexedAndLinked(t *testing.T) {
 		t.Fatalf("%s does not reference docs/interaction-grammar.md", claudePath)
 	}
 }
+
+func TestNativeClientsPlanDocIsIndexedAndAnchored(t *testing.T) {
+	root := repoRootFromCaller(t)
+
+	planPath := filepath.Join(root, "docs", "native-clients-plan.md")
+	planDoc, err := os.ReadFile(planPath)
+	if err != nil {
+		t.Fatalf("ReadFile(%q) error: %v", planPath, err)
+	}
+	content := string(planDoc)
+
+	requiredSnippets := []string{
+		"## Architecture Decision",
+		"server-driven thin native clients",
+		"**Capture**: audio PCM, ink strokes, taps, and gestures.",
+		"**Render**: structured chat/canvas output rendered with native surfaces.",
+		"`internal/web/mdns.go`",
+		"`internal/web/push.go`",
+		"`platforms/ios/TaburaIOS/TaburaInkCaptureView.swift` uses `PencilKit`",
+		"`platforms/android/app/src/main/kotlin/com/tabura/android/TaburaInkSurfaceView.kt`",
+		"`platforms/android/app/src/main/kotlin/com/tabura/android/TaburaBooxInkSurfaceView.kt`",
+		"`internal/web/static/app-runtime-ui.ts` toggles `black-screen` dialogue mode.",
+		"| iOS + Apple Pencil | ~9ms | `PencilKit` with native prediction |",
+		"- `#638` mDNS advertisement and push relay",
+	}
+	for _, snippet := range requiredSnippets {
+		if !strings.Contains(content, snippet) {
+			t.Fatalf("%s missing snippet %q", planPath, snippet)
+		}
+	}
+
+	specIndexPath := filepath.Join(root, "docs", "spec-index.md")
+	specIndex, err := os.ReadFile(specIndexPath)
+	if err != nil {
+		t.Fatalf("ReadFile(%q) error: %v", specIndexPath, err)
+	}
+	if !strings.Contains(string(specIndex), "`native-clients-plan.md`") {
+		t.Fatalf("%s does not reference native-clients-plan.md", specIndexPath)
+	}
+}
