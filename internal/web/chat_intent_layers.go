@@ -44,6 +44,7 @@ var intentPromptSystemCommands = []string{
 	"cancel_work",
 	"show_busy_state",
 	"show_status",
+	"navigate_canvas",
 	"shell",
 	"open_file_canvas",
 	"show_calendar",

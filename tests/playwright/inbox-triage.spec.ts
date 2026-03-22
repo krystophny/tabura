@@ -468,9 +468,15 @@ test.describe('inbox triage interactions', () => {
     await page.locator('#pr-file-list .pr-file-item[data-item-id="101"]').click();
 
     await expect(page.locator('#canvas-text')).toContainText('Promotion Review');
-    await expect(page.locator('#canvas-text')).toContainText('create these idea items');
     await expect(page.locator('#canvas-text')).toContainText('Draft the rollout checklist');
     await expect(page.locator('#canvas-text')).toContainText('Add regression coverage');
+    await expect(page.locator('#canvas-text .canvas-page-indicator')).toContainText('Page 1 / 2');
+
+    await swipeCanvas(page, -160, 0);
+
+    await expect(page.locator('#canvas-text .canvas-page-indicator')).toContainText('Page 2 / 2');
+    await expect(page.locator('#canvas-text')).toContainText('create these idea items');
+    await expect(page.locator('#canvas-text')).toContainText('Pending: item proposals');
   });
 
   test('mobile canvas swipe flips between inbox items', async ({ page }) => {

@@ -1,5 +1,12 @@
 import * as env from './app-env.js';
 import * as context from './app-context.js';
+import {
+  beginHorizontalSwipe,
+  hasGestureMoved,
+  horizontalSwipeDelta,
+  horizontalSwipeDirection,
+  isHorizontalSwipeIntent,
+} from './app-swipe.js';
 
 const { clearCanvas } = env;
 const { refs, state } = context;
@@ -17,8 +24,6 @@ const setSyncKeyboardStateNow = (...args) => refs.setSyncKeyboardStateNow(...arg
 const stepCanvasFile = (...args) => refs.stepCanvasFile(...args);
 
 const EDGE_TAP_SIZE_PX = 30;
-const EDGE_TAP_MOVE_THRESHOLD_PX = 10;
-const EDGE_SWIPE_COMMIT_PX = 48;
 
 export function getEdgeTapSizePx() {
   return EDGE_TAP_SIZE_PX;
@@ -126,8 +131,7 @@ export function initEdgePanels() {
       }
       const touch = ev.touches[0];
       touchState = {
-        startX: touch.clientX,
-        startY: touch.clientY,
+        ...beginHorizontalSwipe(touch),
         moved: false,
         swiped: false,
       };
@@ -136,15 +140,13 @@ export function initEdgePanels() {
     btn.addEventListener('touchmove', (ev) => {
       if (!touchState || ev.touches.length !== 1) return;
       const touch = ev.touches[0];
-      const dx = touch.clientX - touchState.startX;
-      const dy = touch.clientY - touchState.startY;
-      if (!touchState.moved && Math.hypot(dx, dy) > EDGE_TAP_MOVE_THRESHOLD_PX) {
+      const { dx, dy } = horizontalSwipeDelta(touchState, touch);
+      if (!touchState.moved && hasGestureMoved(dx, dy)) {
         touchState.moved = true;
       }
       if (!options.allowHorizontalCanvasSwipe || touchState.swiped || !state.hasArtifact) return;
-      if (Math.abs(dx) < EDGE_SWIPE_COMMIT_PX) return;
-      if (Math.abs(dx) <= Math.abs(dy) * 1.25) return;
-      if (!stepCanvasFile(dx < 0 ? 1 : -1)) return;
+      if (!isHorizontalSwipeIntent(dx, dy)) return;
+      if (!stepCanvasFile(horizontalSwipeDirection(dx))) return;
       touchState.swiped = true;
       lastTouchAt = Date.now();
       ev.preventDefault();

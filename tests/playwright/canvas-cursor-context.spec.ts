@@ -171,7 +171,13 @@ async function renderImageArtifactMock(page: Page) {
         event_id: 'art-image-1',
       },
     }));
-    if (!image.complete) {
+    if (!(image.complete && image.naturalWidth > 0)) {
+      await new Promise<void>((resolve) => {
+        const finish = () => resolve();
+        image.addEventListener('load', finish, { once: true });
+        image.addEventListener('error', finish, { once: true });
+        window.setTimeout(finish, 300);
+      });
       try {
         await image.decode();
       } catch (_) {}
@@ -332,7 +338,7 @@ test('dialogue tap starts local capture with the tapped cursor context', async (
   });
 });
 
-test('meeting taps move the pinned cursor without starting a new recording', async ({ page }) => {
+test('meeting taps move the pinned cursor and start immediate prompt capture', async ({ page }) => {
   await setLiveMode(page, 'meeting');
   await renderTestArtifact(page);
   await clearLog(page);
@@ -351,10 +357,10 @@ test('meeting taps move the pinned cursor without starting a new recording', asy
   const secondDot = await currentDotPosition(page);
 
   const log = await getLog(page);
-  expect(log.some((entry) => entry.type === 'recorder' && entry.action === 'start')).toBe(false);
+  expect(log.some((entry) => entry.type === 'recorder' && entry.action === 'start')).toBe(true);
   expect(log.filter((entry) => entry.type === 'canvas_position')).toHaveLength(2);
-  expect(firstDot?.indicatorClass).toContain('is-cursor');
-  expect(secondDot?.indicatorClass).toContain('is-cursor');
+  expect(String(firstDot?.indicatorClass || '')).toMatch(/is-(cursor|recording)/);
+  expect(String(secondDot?.indicatorClass || '')).toMatch(/is-(cursor|recording)/);
   expect(firstDot?.left).toBe(`${firstX}px`);
   expect(firstDot?.top).toBe(`${firstY}px`);
   expect(secondDot?.left).toBe(`${secondX}px`);
@@ -422,14 +428,18 @@ test('meeting image taps include a visual snapshot for multimodal reasoning', as
 
   const imageBox = await page.locator('#canvas-img').boundingBox();
   expect(imageBox).not.toBeNull();
+  await expect.poll(async () => page.evaluate(() => {
+    const image = document.getElementById('canvas-img');
+    return image instanceof HTMLImageElement ? image.naturalWidth : 0;
+  })).toBeGreaterThan(0);
   await page.mouse.click((imageBox?.x || 0) + (imageBox?.width || 0) * 0.5, (imageBox?.y || 0) + (imageBox?.height || 0) * 0.5);
   await expect.poll(async () => {
     const log = await getLog(page);
-    return log.find((entry) => entry.type === 'canvas_position') || null;
+    return log.find((entry) => entry.type === 'canvas_position' && String(entry.snapshot_data_url || '').startsWith('data:image/png;base64,')) || null;
   }).not.toBeNull();
 
   const log = await getLog(page);
-  const entry = log.find((item) => item.type === 'canvas_position');
+  const entry = log.find((item) => item.type === 'canvas_position' && String(item.snapshot_data_url || '').startsWith('data:image/png;base64,'));
   expect(String(entry?.snapshot_data_url || '')).toContain('data:image/png;base64,');
   expect(entry?.cursor).toMatchObject({
     title: 'test-image.png',

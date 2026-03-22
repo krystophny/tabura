@@ -127,6 +127,7 @@ func TestParseSystemAction(t *testing.T) {
 		{name: "toggle live dialogue", raw: `{"action":"toggle_live_dialogue"}`, wantAction: "toggle_live_dialogue"},
 		{name: "cancel work", raw: `{"action":"cancel_work"}`, wantAction: "cancel_work"},
 		{name: "show status", raw: `{"action":"show_status"}`, wantAction: "show_status"},
+		{name: "navigate canvas", raw: `{"action":"navigate_canvas","scope":"page_or_artifact","direction":"next"}`, wantAction: "navigate_canvas"},
 		{name: "shell", raw: `{"action":"shell","command":"ls -1"}`, wantAction: "shell"},
 		{name: "open file canvas", raw: `{"action":"open_file_canvas","path":"README.md"}`, wantAction: "open_file_canvas"},
 		{name: "show calendar", raw: `{"action":"show_calendar","view":"week"}`, wantAction: "show_calendar"},

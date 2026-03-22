@@ -82,7 +82,7 @@ test.describe('canvas layout', () => {
     await expect(canvasText).toBeVisible();
   });
 
-  test('long canvas artifact scrolls in text pane', async ({ page }) => {
+  test('long canvas artifact paginates without scroll in the text pane', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 720 });
     const longText = Array.from({ length: 500 }, (_, i) => `Line ${i + 1}`).join('\n');
     await renderTestArtifact(page, longText);
@@ -99,19 +99,12 @@ test.describe('canvas layout', () => {
       };
     });
     expect(metricsBefore).toBeTruthy();
-    expect(metricsBefore!.textScrollHeight).toBeGreaterThan(metricsBefore!.textClientHeight);
+    expect(metricsBefore!.textScrollHeight).toBeLessThanOrEqual(metricsBefore!.textClientHeight + 1);
+    await expect(page.locator('#canvas-text .canvas-page-indicator')).toContainText(/^Page 1 \/ /);
 
     await page.mouse.move(640, 360);
     await page.mouse.wheel(0, 1200);
-
-    await expect.poll(async () => {
-      const m = await page.evaluate(() => {
-        const text = document.getElementById('canvas-text');
-        if (!(text instanceof HTMLElement)) return 0;
-        return text.scrollTop;
-      });
-      return m;
-    }, { timeout: 5_000 }).toBeGreaterThan(metricsBefore!.textTop);
+    await page.waitForTimeout(150);
 
     const metricsAfter = await page.evaluate(() => {
       const text = document.getElementById('canvas-text');
@@ -123,6 +116,7 @@ test.describe('canvas layout', () => {
       };
     });
     expect(metricsAfter).toBeTruthy();
+    expect(metricsAfter!.textTop).toBe(metricsBefore!.textTop);
     expect(metricsAfter!.viewportTop).toBe(metricsBefore!.viewportTop);
   });
 

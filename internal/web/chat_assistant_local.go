@@ -21,7 +21,7 @@ const (
 	DefaultAssistantMode         = assistantModeAuto
 	assistantLLMRequestTimeout   = 20 * time.Second
 	assistantLLMResponseLimit    = 256 * 1024
-	assistantLLMMaxTokens        = 2048
+	assistantLLMMaxTokens        = 4096
 	localAssistantDialoguePrompt = "You are Tabura's local assistant. Reply in plain text only. Do not emit JSON, code fences, or tool calls. The request has already passed through local command routing, so answer conversationally and concisely."
 )
 
@@ -206,6 +206,12 @@ func (a *App) runLocalAssistantTurn(sessionID string, session store.ChatSession,
 		a.finishCompanionPendingTurn(sessionID, "assistant_turn_failed")
 		a.broadcastChatEvent(sessionID, map[string]interface{}{"type": "error", "error": errText})
 		return
+	}
+	if compactedPrompt, compacted := compactLocalAssistantPrompt(prompt); compacted {
+		prompt = compactedPrompt
+		a.broadcastChatEvent(sessionID, map[string]any{
+			"type": "context_compact",
+		})
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

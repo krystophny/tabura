@@ -44,8 +44,10 @@ function loadDotEnvPassword(): string {
 
 function loadTestPassword(): string {
   if (process.env.TABURA_TEST_PASSWORD) return process.env.TABURA_TEST_PASSWORD;
+  const dotEnvPassword = loadDotEnvPassword();
+  if (dotEnvPassword) return dotEnvPassword;
   if (usesManagedServer()) return DEFAULT_MANAGED_SERVER_PASSWORD;
-  return loadDotEnvPassword();
+  return '';
 }
 
 const testPassword = loadTestPassword();

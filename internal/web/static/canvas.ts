@@ -4,6 +4,25 @@ import { openMailDraftArtifact, renderMailDraftArtifact } from './app-mail-draft
 import { renderMailTriageArtifact } from './app-mail-triage.js';
 import { buildEmailThreadHTML } from './app-item-sidebar-artifacts.js';
 import {
+  buildCanvasPageIndicator,
+  canvasEventPageKey,
+  canvasPageState,
+  currentTextPageUnit,
+  pageIndicatorLabel,
+  paginateTextRoot,
+  renderTextPageAt,
+  resetCanvasPageState,
+  summarizePageText,
+  visibleCanvasCenterPoint,
+} from './canvas-pages.js';
+import {
+  compactAnchorText,
+  estimateTextLineAtPoint,
+  lineFromOffset,
+  surroundingTextForLine,
+  textRangeFromPointInRoot,
+} from './canvas-text-utils.js';
+import {
   renderCanvasApprovalActions,
   renderCanvasArtifactActions,
 } from './canvas-actions.js';
@@ -48,6 +67,8 @@ const pdfRenderState = {
   renderTasks: new Set<any>(),
   textLayers: new Set<any>(),
 };
+
+let activeCanvasEvent: Record<string, any> | null = null;
 function dispatchCanvasRendered(event) {
   document.dispatchEvent(new CustomEvent('tabura:canvas-rendered', {
     detail: {
@@ -169,117 +190,6 @@ function getSelectionOffsets(root, range) {
   const endOffset = endProbe.toString().length;
 
   return { startOffset, endOffset };
-}
-function lineFromOffset(lines, charOffset) {
-  let charCount = 0;
-  for (let i = 0; i < lines.length; i++) {
-    if (charCount + lines[i].length >= charOffset) {
-      return i + 1;
-    }
-    charCount += lines[i].length + 1;
-  }
-  return Math.max(1, lines.length);
-}
-function compactAnchorText(raw, maxChars = 240) {
-  const text = String(raw || '').trim();
-  if (!text) return '';
-  const collapsed = text.replace(/\s+/g, ' ').trim();
-  if (collapsed.length <= maxChars) return collapsed;
-  return `${collapsed.slice(0, maxChars)}...`;
-}
-function surroundingTextForLine(lines, line) {
-  const lineNumber = Number.parseInt(String(line || ''), 10);
-  if (!Array.isArray(lines) || lines.length === 0 || !Number.isFinite(lineNumber) || lineNumber <= 0) {
-    return '';
-  }
-  const start = Math.max(0, lineNumber - 2);
-  const end = Math.min(lines.length, lineNumber + 1);
-  return lines
-    .slice(start, end)
-    .map((entry, index) => `${start + index + 1}: ${String(entry || '')}`)
-    .join('\n')
-    .trim();
-}
-function textRangeFromClientPoint(clientX, clientY) {
-  if (typeof document.caretRangeFromPoint === 'function') {
-    return document.caretRangeFromPoint(clientX, clientY);
-  }
-  if (typeof document.caretPositionFromPoint === 'function') {
-    const caret = document.caretPositionFromPoint(clientX, clientY);
-    if (!caret) return null;
-    const range = document.createRange();
-    range.setStart(caret.offsetNode, caret.offset);
-    range.collapse(true);
-    return range;
-  }
-  return null;
-}
-function textRangeFromPointInRoot(root, clientX, clientY) {
-  const direct = textRangeFromClientPoint(clientX, clientY);
-  if (!(root instanceof HTMLElement)) return direct;
-  if (direct && root.contains(direct.startContainer)) return direct;
-
-  const rect = root.getBoundingClientRect();
-  if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) {
-    return direct;
-  }
-
-  const probeY = Math.max(rect.top + 1, Math.min(clientY, rect.bottom - 1));
-  const probeXs = [
-    Math.max(rect.left + 1, Math.min(clientX, rect.right - 1)),
-    Math.max(rect.left + 1, Math.min(rect.left + 8, rect.right - 1)),
-  ];
-  for (const probeX of probeXs) {
-    const probe = textRangeFromClientPoint(probeX, probeY);
-    if (probe && root.contains(probe.startContainer)) {
-      return probe;
-    }
-  }
-  return direct;
-}
-function estimateTextLineAtPoint(root, clientY) {
-  if (!(root instanceof HTMLElement)) return null;
-  const range = document.createRange();
-  range.selectNodeContents(root);
-  const rects = Array.from(range.getClientRects()).filter((rect) => rect.width > 0 && rect.height > 0);
-  if (rects.length === 0) return null;
-
-  const lineRects = [];
-  const topEpsilonPx = 1.5;
-  for (const rect of rects) {
-    const existing = lineRects.find((line) => Math.abs(line.top - rect.top) <= topEpsilonPx);
-    if (existing) {
-      existing.top = Math.min(existing.top, rect.top);
-      existing.bottom = Math.max(existing.bottom, rect.bottom);
-      existing.height = Math.max(existing.height, rect.height);
-      continue;
-    }
-    lineRects.push({
-      top: rect.top,
-      bottom: rect.bottom,
-      height: rect.height,
-    });
-  }
-  lineRects.sort((a, b) => a.top - b.top);
-
-  let nearestIndex = -1;
-  let nearestDistance = Infinity;
-  for (let i = 0; i < lineRects.length; i += 1) {
-    const rect = lineRects[i];
-    let distance = 0;
-    if (clientY < rect.top) distance = rect.top - clientY;
-    else if (clientY > rect.bottom) distance = clientY - rect.bottom;
-    if (distance < nearestDistance) {
-      nearestDistance = distance;
-      nearestIndex = i;
-    }
-  }
-  if (nearestIndex < 0) return null;
-  return {
-    line: nearestIndex + 1,
-    top: lineRects[nearestIndex].top,
-    height: lineRects[nearestIndex].height,
-  };
 }
 export function getActiveArtifactTitle() {
   if (String(activeArtifactTitle || '').trim()) {
@@ -689,125 +599,125 @@ async function loadPdfDocument(pdfKey, pdfURL, token, reuseDocument) {
   return doc;
 }
 
-async function renderPdfPages(pdfDoc, pagesHost, statusNode, token) {
+async function renderPdfPage(pdfDoc, pagesHost, statusNode, token, pageIndex) {
   if (!pdfDoc || !pagesHost) return;
-  const pageCount = Number(pdfDoc.numPages || 0);
+  const pageCount = Math.max(0, Number(pdfDoc.numPages || 0));
   if (pageCount < 1) return;
 
   clearPdfRenderArtifacts();
   pagesHost.innerHTML = '';
   statusNode.textContent = 'Preparing PDF...';
-  const firstPage = await pdfDoc.getPage(1);
+  const currentPageIndex = Math.max(1, Math.min(pageCount, Math.trunc(pageIndex || 1)));
+  const page = await pdfDoc.getPage(currentPageIndex);
   if (token !== pdfRenderState.generation) return;
-  const baseViewport = firstPage.getViewport({ scale: 1 });
+
+  const baseViewport = page.getViewport({ scale: 1 });
   const targetWidth = getPdfContainerWidth(pagesHost);
   pdfRenderState.lastWidth = targetWidth;
   const scale = Math.max(0.2, Math.min(PDF_MAX_RENDER_SCALE, targetWidth / Math.max(1, baseViewport.width)));
+  const viewport = page.getViewport({ scale });
+  const renderViewport = page.getViewport({ scale: scale * Math.min(2, window.devicePixelRatio || 1) });
 
-  const outputScale = Math.min(2, window.devicePixelRatio || 1);
-  const linkService = createPdfLinkService();
-  for (let pageIndex = 1; pageIndex <= pageCount; pageIndex += 1) {
-    if (token !== pdfRenderState.generation) return;
-    statusNode.textContent = `Rendering page ${pageIndex} / ${pageCount}...`;
-    const page = pageIndex === 1 ? firstPage : await pdfDoc.getPage(pageIndex);
-    const viewport = page.getViewport({ scale });
-    const renderViewport = page.getViewport({ scale: scale * outputScale });
-    const pageNode = document.createElement('section');
-    pageNode.className = 'canvas-pdf-page';
-    pageNode.dataset.page = String(pageIndex);
+  const pageNode = document.createElement('section');
+  pageNode.className = 'canvas-pdf-page';
+  pageNode.dataset.page = String(currentPageIndex);
 
-    const pageInner = document.createElement('div');
-    pageInner.className = 'canvas-pdf-page-inner';
-    pageInner.style.width = `${Math.floor(viewport.width)}px`;
-    pageInner.style.height = `${Math.floor(viewport.height)}px`;
+  const pageInner = document.createElement('div');
+  pageInner.className = 'canvas-pdf-page-inner';
+  pageInner.style.width = `${Math.floor(viewport.width)}px`;
+  pageInner.style.height = `${Math.floor(viewport.height)}px`;
 
-    const canvas = document.createElement('canvas');
-    canvas.className = 'canvas-pdf-canvas';
-    canvas.width = Math.max(1, Math.floor(renderViewport.width));
-    canvas.height = Math.max(1, Math.floor(renderViewport.height));
-    canvas.style.width = `${Math.floor(viewport.width)}px`;
-    canvas.style.height = `${Math.floor(viewport.height)}px`;
-    pageInner.appendChild(canvas);
+  const canvas = document.createElement('canvas');
+  canvas.className = 'canvas-pdf-canvas';
+  canvas.width = Math.max(1, Math.floor(renderViewport.width));
+  canvas.height = Math.max(1, Math.floor(renderViewport.height));
+  canvas.style.width = `${Math.floor(viewport.width)}px`;
+  canvas.style.height = `${Math.floor(viewport.height)}px`;
+  pageInner.appendChild(canvas);
 
-    const textLayerNode = document.createElement('div');
-    textLayerNode.className = 'textLayer canvas-pdf-text-layer';
-    textLayerNode.style.setProperty('--scale-factor', `${viewport.scale}`);
-    pageInner.appendChild(textLayerNode);
+  const textLayerNode = document.createElement('div');
+  textLayerNode.className = 'textLayer canvas-pdf-text-layer';
+  textLayerNode.style.setProperty('--scale-factor', `${viewport.scale}`);
+  pageInner.appendChild(textLayerNode);
 
-    const annotationLayerNode = document.createElement('div');
-    annotationLayerNode.className = 'annotationLayer canvas-pdf-annotation-layer';
-    annotationLayerNode.style.setProperty('--scale-factor', `${viewport.scale}`);
-    pageInner.appendChild(annotationLayerNode);
+  const annotationLayerNode = document.createElement('div');
+  annotationLayerNode.className = 'annotationLayer canvas-pdf-annotation-layer';
+  annotationLayerNode.style.setProperty('--scale-factor', `${viewport.scale}`);
+  pageInner.appendChild(annotationLayerNode);
 
-    pageNode.appendChild(pageInner);
-    pagesHost.appendChild(pageNode);
+  pageNode.appendChild(pageInner);
+  pagesHost.appendChild(pageNode);
+  pagesHost.appendChild(buildCanvasPageIndicator(pageIndicatorLabel(currentPageIndex, pageCount, 'Page')));
 
-    const context = canvas.getContext('2d', { alpha: false });
-    if (!context) continue;
-    const renderTask = page.render({
-      canvasContext: context,
-      viewport: renderViewport,
-      annotationMode: 0,
-    });
-    pdfRenderState.renderTasks.add(renderTask);
-    try {
-      await renderTask.promise;
-    } catch (err) {
-      if (!isPdfCancellationError(err)) throw err;
-      return;
-    } finally {
-      pdfRenderState.renderTasks.delete(renderTask);
-    }
-    if (token !== pdfRenderState.generation) return;
-
-    const textContent = await page.getTextContent({ includeMarkedContent: true });
-    if (token !== pdfRenderState.generation) return;
-    const textLayer = new TextLayer({
-      textContentSource: textContent,
-      container: textLayerNode,
-      viewport,
-    });
-    pdfRenderState.textLayers.add(textLayer);
-    try {
-      await textLayer.render();
-    } catch (err) {
-      if (!isPdfCancellationError(err)) throw err;
-      return;
-    } finally {
-      pdfRenderState.textLayers.delete(textLayer);
-    }
-    if (token !== pdfRenderState.generation) return;
-
-    const annotations = await page.getAnnotations({ intent: 'display' });
-    if (Array.isArray(annotations) && annotations.length > 0) {
-      const annotationLayer = new AnnotationLayer({
-        div: annotationLayerNode,
-        accessibilityManager: null,
-        annotationCanvasMap: null,
-        annotationEditorUIManager: null,
-        page,
-        viewport: viewport.clone({ dontFlip: true }),
-        structTreeLayer: null,
-      });
-      await annotationLayer.render({
-        annotations,
-        div: annotationLayerNode,
-        page,
-        viewport: viewport.clone({ dontFlip: true }),
-        linkService,
-        annotationStorage: pdfDoc.annotationStorage,
-        renderForms: true,
-        enableScripting: false,
-      });
-    } else {
-      annotationLayerNode.hidden = true;
-    }
-    if (token !== pdfRenderState.generation) return;
-
-    if (typeof page.cleanup === 'function') {
-      page.cleanup();
-    }
+  const context = canvas.getContext('2d', { alpha: false });
+  if (!context) return;
+  statusNode.textContent = `Rendering page ${currentPageIndex} / ${pageCount}...`;
+  const renderTask = page.render({
+    canvasContext: context,
+    viewport: renderViewport,
+    annotationMode: 0,
+  });
+  pdfRenderState.renderTasks.add(renderTask);
+  try {
+    await renderTask.promise;
+  } catch (err) {
+    if (!isPdfCancellationError(err)) throw err;
+    return;
+  } finally {
+    pdfRenderState.renderTasks.delete(renderTask);
   }
+  if (token !== pdfRenderState.generation) return;
+
+  const textContent = await page.getTextContent({ includeMarkedContent: true });
+  if (token !== pdfRenderState.generation) return;
+  const textLayer = new TextLayer({
+    textContentSource: textContent,
+    container: textLayerNode,
+    viewport,
+  });
+  pdfRenderState.textLayers.add(textLayer);
+  try {
+    await textLayer.render();
+  } catch (err) {
+    if (!isPdfCancellationError(err)) throw err;
+    return;
+  } finally {
+    pdfRenderState.textLayers.delete(textLayer);
+  }
+  if (token !== pdfRenderState.generation) return;
+
+  const annotations = await page.getAnnotations({ intent: 'display' });
+  if (Array.isArray(annotations) && annotations.length > 0) {
+    const linkService = createPdfLinkService();
+    const annotationLayer = new AnnotationLayer({
+      div: annotationLayerNode,
+      accessibilityManager: null,
+      annotationCanvasMap: null,
+      annotationEditorUIManager: null,
+      page,
+      viewport: viewport.clone({ dontFlip: true }),
+      structTreeLayer: null,
+    });
+    await annotationLayer.render({
+      annotations,
+      div: annotationLayerNode,
+      page,
+      viewport: viewport.clone({ dontFlip: true }),
+      linkService,
+      annotationStorage: pdfDoc.annotationStorage,
+      renderForms: true,
+      enableScripting: false,
+    });
+  } else {
+    annotationLayerNode.hidden = true;
+  }
+  if (typeof page.cleanup === 'function') {
+    page.cleanup();
+  }
+
+  canvasPageState.kind = 'pdf';
+  canvasPageState.pageIndex = currentPageIndex - 1;
+  canvasPageState.pageCount = pageCount;
   statusNode.classList.add('is-hidden');
 }
 
@@ -843,7 +753,15 @@ async function renderPdfSurface(event, options: Record<string, any> = {}) {
   try {
     const pdfDoc = await loadPdfDocument(pdfKey, url, token, reuseDocument);
     if (!pdfDoc || token !== pdfRenderState.generation) return;
-    await renderPdfPages(pdfDoc, pagesHost, status, token);
+    if (canvasPageState.kind !== 'pdf' || canvasPageState.key !== pdfKey) {
+      resetCanvasPageState('pdf', pdfKey);
+    }
+    const pageNumber = Math.max(1, Math.min(
+      Number(pdfDoc.numPages || 1),
+      Number(options?.pageNumber || canvasPageState.pageIndex + 1 || 1),
+    ));
+    canvasPageState.key = pdfKey;
+    await renderPdfPage(pdfDoc, pagesHost, status, token, pageNumber);
     dispatchCanvasRendered(event);
   } catch (err) {
     if (token !== pdfRenderState.generation) return;
@@ -856,6 +774,7 @@ async function renderPdfSurface(event, options: Record<string, any> = {}) {
 }
 export function renderCanvas(event) {
   const e = getEls();
+  activeCanvasEvent = event && typeof event === 'object' ? { ...event } : null;
 
   if (event.kind === 'text_artifact') {
     hideAll();
@@ -895,6 +814,16 @@ export function renderCanvas(event) {
     hydrateVisualTextArtifactImages(e.text, String(event?.path || '').trim(), currentCanvasSessionID());
     renderCanvasArtifactActions(e.text, event);
     renderCanvasApprovalActions(e.text, event);
+    const textKey = canvasEventPageKey(event);
+    const keepIndex = canvasPageState.kind === 'text' && canvasPageState.key === textKey
+      ? canvasPageState.pageIndex
+      : 0;
+    const paginated = paginateTextRoot(e.text);
+    resetCanvasPageState('text', textKey);
+    canvasPageState.textPages = paginated.pages;
+    canvasPageState.textMeta = paginated.meta;
+    canvasPageState.pageCount = paginated.pages.length;
+    renderTextPageAt(e.text, keepIndex);
     dispatchCanvasRendered(event);
   } else if (event.kind === 'email_draft') {
     hideAll();
@@ -908,6 +837,7 @@ export function renderCanvas(event) {
     previousArtifactText = String(event?.draft?.body || '');
     previousBlockTexts = [];
     previousArtifactTitle = activeArtifactTitle;
+    resetCanvasPageState('', '');
     renderMailDraftArtifact(e.text, event);
     dispatchCanvasRendered(event);
   } else if (event.kind === 'email_triage') {
@@ -922,6 +852,7 @@ export function renderCanvas(event) {
     previousArtifactText = '';
     previousBlockTexts = [];
     previousArtifactTitle = activeArtifactTitle;
+    resetCanvasPageState('', '');
     renderMailTriageArtifact(e.text, event);
     dispatchCanvasRendered(event);
   } else if (event.kind === 'image_artifact') {
@@ -938,6 +869,7 @@ export function renderCanvas(event) {
     activeTextEventId = null;
     activeArtifactTitle = event.title || '';
     activePdfEvent = null;
+    resetCanvasPageState('', '');
     dispatchCanvasRendered(event);
   } else if (event.kind === 'pdf_artifact') {
     clearTextInteractionHandlers();
@@ -946,7 +878,12 @@ export function renderCanvas(event) {
     e.text.classList.remove('mail-triage-canvas');
     e.pdf.style.display = '';
     e.pdf.classList.add('is-active');
-    void renderPdfSurface(event);
+    const { sid, path } = getPdfURL(event);
+    const pdfKey = path ? `${sid}:${path}` : '';
+    if (canvasPageState.kind !== 'pdf' || canvasPageState.key !== pdfKey) {
+      resetCanvasPageState('pdf', pdfKey);
+    }
+    void renderPdfSurface(event, { pageNumber: canvasPageState.pageIndex + 1 });
     activeTextEventId = null;
     activeArtifactTitle = event.title || '';
     activePdfEvent = event;
@@ -955,6 +892,88 @@ export function renderCanvas(event) {
     clearCanvas();
   }
 }
+
+export function getCanvasDocumentPositionAnchor() {
+  const artifact = currentCanvasArtifactMeta(activeArtifactTitle);
+  const point = visibleCanvasCenterPoint();
+  const anchor = getLocationFromPoint(point.x, point.y) || {};
+  const kind = canvasPageState.kind || (String(activeCanvasEvent?.kind || '').trim().toLowerCase() === 'pdf_artifact' ? 'pdf' : 'text');
+  const next = {
+    ...anchor,
+    view: String((anchor as Record<string, any>).view || (kind === 'pdf' ? 'pdf' : (kind === 'image' ? 'image' : 'text'))).trim(),
+    element: String((anchor as Record<string, any>).element || (kind === 'pdf' ? 'page' : (kind === 'image' ? 'image' : 'document'))).trim(),
+    title: String((anchor as Record<string, any>).title || artifact.title || '').trim(),
+    path: String((anchor as Record<string, any>).path || artifact.path || '').trim(),
+    clientX: point.x,
+    clientY: point.y,
+  } as Record<string, any>;
+  if (!next.title) delete next.title;
+  if (!next.path) delete next.path;
+  return next;
+}
+
+export function describeCanvasNavigationContext() {
+  const artifact = currentCanvasArtifactMeta(activeArtifactTitle);
+  const current = canvasPageState.kind === 'pdf'
+    ? {
+        id: `pdf-page-${canvasPageState.pageIndex + 1}`,
+        label: pageIndicatorLabel(canvasPageState.pageIndex + 1, canvasPageState.pageCount, 'Page'),
+        text: summarizePageText((getEls().pdf?.innerText || '').replace(pageIndicatorLabel(canvasPageState.pageIndex + 1, canvasPageState.pageCount, 'Page'), '')),
+      }
+    : currentTextPageUnit();
+  const previous = canvasPageState.pageIndex > 0
+    ? (canvasPageState.kind === 'pdf'
+        ? {
+            id: `pdf-page-${canvasPageState.pageIndex}`,
+            label: pageIndicatorLabel(canvasPageState.pageIndex, canvasPageState.pageCount, 'Page'),
+            text: '',
+          }
+        : (canvasPageState.textMeta[canvasPageState.pageIndex - 1] || null))
+    : null;
+  const next = canvasPageState.pageIndex + 1 < canvasPageState.pageCount
+    ? (canvasPageState.kind === 'pdf'
+        ? {
+            id: `pdf-page-${canvasPageState.pageIndex + 2}`,
+            label: pageIndicatorLabel(canvasPageState.pageIndex + 2, canvasPageState.pageCount, 'Page'),
+            text: '',
+          }
+        : (canvasPageState.textMeta[canvasPageState.pageIndex + 1] || null))
+    : null;
+  return {
+    artifactKind: String(activeCanvasEvent?.kind || '').trim().toLowerCase(),
+    artifactTitle: artifact.title,
+    artifactPath: artifact.path,
+    current,
+    previous,
+    next,
+  };
+}
+
+export function stepCanvasPageFlip(delta) {
+  const shift = Math.trunc(Number(delta || 0));
+  if (!Number.isFinite(shift) || shift === 0) return false;
+  if (canvasPageState.pageCount <= 1) return false;
+  const nextIndex = canvasPageState.pageIndex + shift;
+  if (nextIndex < 0 || nextIndex >= canvasPageState.pageCount) {
+    return false;
+  }
+  if (canvasPageState.kind === 'text') {
+    const root = getEls().text;
+    if (!(root instanceof HTMLElement)) return false;
+    if (!renderTextPageAt(root, nextIndex)) return false;
+    dispatchCanvasRendered(activeCanvasEvent || {});
+    return true;
+  }
+  if (canvasPageState.kind === 'pdf' && activePdfEvent) {
+    void renderPdfSurface(activePdfEvent, {
+      reuseDocument: true,
+      pageNumber: nextIndex + 1,
+    });
+    return true;
+  }
+  return false;
+}
+
 export function clearCanvas() {
   clearTextInteractionHandlers();
   hideAll();
@@ -966,6 +985,8 @@ export function clearCanvas() {
   activeTextEventId = null;
   activeArtifactTitle = '';
   activePdfEvent = null;
+  activeCanvasEvent = null;
+  resetCanvasPageState('', '');
   previousArtifactText = '';
   previousBlockTexts = [];
   previousArtifactTitle = '';

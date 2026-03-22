@@ -1,5 +1,23 @@
+import type { Page } from '@playwright/test';
 import { applySessionCookie, expect, openLiveApp, test } from './live';
 import { authenticate } from './helpers';
+
+async function enableDialogueMode(page: Page) {
+  await page.evaluate(() => {
+    const circle = document.getElementById('tabura-circle-dot');
+    if (circle instanceof HTMLButtonElement) {
+      circle.click();
+    }
+  });
+  await expect(page.locator('#tabura-circle')).toHaveAttribute('data-state', 'expanded');
+  await page.evaluate(() => {
+    const button = document.querySelector('#tabura-circle-menu .tabura-circle-segment[data-segment="dialogue"]');
+    if (!(button instanceof HTMLButtonElement)) {
+      throw new Error('dialogue circle segment not found');
+    }
+    button.click();
+  });
+}
 
 test.describe('dialogue mode diagnostics @local-only', () => {
   let sessionToken: string;
@@ -15,11 +33,8 @@ test.describe('dialogue mode diagnostics @local-only', () => {
     await page.evaluate(() => {
       const app = (window as any)._taburaApp;
       app?.clearDialogueDiagnostics?.();
-      const btn = document.querySelector('#edge-top-models .edge-live-dialogue-btn');
-      if (btn instanceof HTMLButtonElement) {
-        btn.click();
-      }
     });
+    await enableDialogueMode(page);
 
     await expect(page.locator('#edge-top-models .edge-live-status')).toContainText('Dialogue', { timeout: 8_000 });
 

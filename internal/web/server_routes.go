@@ -189,6 +189,7 @@ func (a *App) Router() http.Handler {
 	r.Get("/api/participant/config", a.handleParticipantConfigGet)
 	r.Put("/api/participant/config", a.handleParticipantConfigPut)
 	r.Get("/api/participant/status", a.handleParticipantStatus)
+	r.Post("/api/participant/document-follow/decide", a.handleMeetingDocumentFollowDecide)
 	r.Get("/api/participant/sessions", a.handleParticipantSessionsList)
 	r.Get("/api/participant/sessions/{id}/transcript", a.handleParticipantTranscript)
 	r.Get("/api/participant/sessions/{id}/search", a.handleParticipantSearch)

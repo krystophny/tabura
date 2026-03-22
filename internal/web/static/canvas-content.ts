@@ -779,9 +779,6 @@ function applyDiffHighlight(root, oldBlockTexts) {
     blocks[i].classList.add('diff-highlight');
     changedBlocks.push(blocks[i]);
   }
-  if (changedBlocks[0] && changedBlocks[0].isConnected) {
-    changedBlocks[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }
 }
 
 export function renderTextArtifact(root, event, previousState) {

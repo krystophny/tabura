@@ -203,6 +203,18 @@ Tabura may accept input through these modalities:
 
 These are input paths into the same system, not alternate product models.
 
+## Canvas Navigation Contract
+
+Canvas navigation is page-based, not scroll-based.
+
+- The canvas does not scroll inside artifacts.
+- Text, markdown, PDF, and other paged document views expose one visible page at a time.
+- A short horizontal flip gesture advances to the next or previous page in the current artifact.
+- If there is no next or previous page in the current artifact, the same short flip advances to the next or previous artifact.
+- A long-held horizontal flip gesture skips page-level navigation and advances directly to the next or previous artifact.
+- Wheel and trackpad horizontal navigation follow the short-flip rule: page first, then artifact at document boundaries.
+- The same horizontal-intent thresholds and dominance rules apply to the canvas, the left-panel edge swipe, and inbox item swipe handling. Platform implementations may use native gesture recognizers, but they must preserve the same semantic split between short page flips and long-held artifact flips.
+
 ## Rules for Auxiliary Surfaces
 
 Auxiliary surfaces are allowed only when all of the following are true:

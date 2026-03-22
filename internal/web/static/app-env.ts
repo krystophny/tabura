@@ -13,6 +13,9 @@ export {
   getActiveArtifactTitle,
   getActiveTextEventId,
   getPreviousArtifactText,
+  getCanvasDocumentPositionAnchor,
+  describeCanvasNavigationContext,
+  stepCanvasPageFlip,
 } from './canvas.js';
 export {
   getUiState, setUiMode,
