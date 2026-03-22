@@ -3,7 +3,7 @@ import * as context from './app-context.js';
 import { openCanonicalActionCommandCenter } from './app-command-center.js';
 import { closeTurnWs, openTurnWs } from './turn-client.js';
 
-const { marked, apiURL, wsURL, renderCanvas, clearCanvas, getLocationFromSelection, captureVisualReasoningContext, clearLineHighlight, escapeHtml, sanitizeHtml, getActiveArtifactTitle, getActiveTextEventId, getPreviousArtifactText, getUiState, setUiMode, showIndicatorMode, hideIndicator, showTextInput, hideTextInput, showOverlay, hideOverlay, updateOverlay, isOverlayVisible, isTextInputVisible, isRecording, setRecording, getInputAnchor, setInputAnchor, getAnchorFromPoint, buildContextPrefix, getLastInputPosition, setLastInputPosition, configureLiveSession, getLiveSessionSnapshot, handleLiveSessionMessage, isLiveSessionListenActive, LIVE_SESSION_HOTWORD_DEFAULT, LIVE_SESSION_MODE_DIALOGUE, LIVE_SESSION_MODE_MEETING, onLiveSessionTTSPlaybackComplete, cancelLiveSessionListen, startLiveSession, stopLiveSession, initHotword, startHotwordMonitor, stopHotwordMonitor, isHotwordActive, onHotwordDetected, setHotwordThreshold, setHotwordAudioContext, getPreRollAudio, getHotwordMicStream, initVAD, ensureVADLoaded, float32ToWav } = env;
+const { marked, apiURL, wsURL, renderCanvas, clearCanvas, getLocationFromSelection, captureVisualReasoningContext, clearLineHighlight, escapeHtml, sanitizeHtml, getActiveArtifactTitle, getActiveTextEventId, getPreviousArtifactText, describeCanvasNavigationContext, getUiState, setUiMode, showIndicatorMode, hideIndicator, showTextInput, hideTextInput, showOverlay, hideOverlay, updateOverlay, isOverlayVisible, isTextInputVisible, isRecording, setRecording, getInputAnchor, setInputAnchor, getAnchorFromPoint, buildContextPrefix, getLastInputPosition, setLastInputPosition, configureLiveSession, getLiveSessionSnapshot, handleLiveSessionMessage, isLiveSessionListenActive, LIVE_SESSION_HOTWORD_DEFAULT, LIVE_SESSION_MODE_DIALOGUE, LIVE_SESSION_MODE_MEETING, onLiveSessionTTSPlaybackComplete, cancelLiveSessionListen, startLiveSession, stopLiveSession, initHotword, startHotwordMonitor, stopHotwordMonitor, isHotwordActive, onHotwordDetected, setHotwordThreshold, setHotwordAudioContext, getPreRollAudio, getHotwordMicStream, initVAD, ensureVADLoaded, float32ToWav } = env;
 const { refs, state, getState, isVoiceTurn, COMPANION_VIEW_PATH_PREFIX, COMPANION_TRANSCRIPT_VIEW_PATH, COMPANION_SUMMARY_VIEW_PATH, COMPANION_REFERENCES_VIEW_PATH, MEETING_TRANSCRIPT_LABEL, MEETING_SUMMARY_LABEL, MEETING_REFERENCES_LABEL, MEETING_SUMMARY_ITEMS_PANEL_ID, CHAT_CTRL_LONG_PRESS_MS, ARTIFACT_EDIT_LONG_TAP_MS, ITEM_SIDEBAR_VIEWS, ITEM_SIDEBAR_GESTURE_CANCEL_PX, ITEM_SIDEBAR_GESTURE_COMMIT_PX, ITEM_SIDEBAR_GESTURE_LONG_PX, ITEM_SIDEBAR_DEFAULT_LATER_HOUR_UTC, ITEM_SIDEBAR_MENU_ID, DEV_UI_RELOAD_POLL_MS, ASSISTANT_ACTIVITY_POLL_MS, CHAT_WS_STALE_THRESHOLD_MS, ACTIVE_TURN_NO_ID_CLEAR_GRACE_MS, ACTIVE_TURN_ACTIVITY_CLEAR_GRACE_MS, PROJECT_CHAT_MODEL_ALIASES, PROJECT_CHAT_MODEL_REASONING_EFFORTS, TTS_SILENT_STORAGE_KEY, YOLO_MODE_STORAGE_KEY, SOMEDAY_REVIEW_NUDGE_ENABLED_STORAGE_KEY, SOMEDAY_REVIEW_NUDGE_LAST_SHOWN_STORAGE_KEY, SOMEDAY_REVIEW_NUDGE_INTERVAL_MS, ACTIVE_PROJECT_STORAGE_KEY, LAST_VIEW_STORAGE_KEY, RUNTIME_RELOAD_CONTEXT_STORAGE_KEY, SIDEBAR_IMAGE_EXTENSIONS, PANEL_MOTION_WATCH_QUERIES, VOICE_LIFECYCLE, COMPANION_IDLE_SURFACES, COMPANION_RUNTIME_STATES, TOOL_PALETTE_MODES } = context;
 
 const showStatus = (...args) => refs.showStatus(...args);
@@ -94,6 +94,8 @@ const openSidebarItem = (...args) => refs.openSidebarItem(...args);
 const loadWorkspaceBrowserPath = (...args) => refs.loadWorkspaceBrowserPath(...args);
 const openWorkspaceSidebarFile = (...args) => refs.openWorkspaceSidebarFile(...args);
 const renderToolPalette = (...args) => refs.renderToolPalette(...args);
+const stepCanvasFile = (...args) => refs.stepCanvasFile(...args);
+const stepCanvasArtifact = (...args) => refs.stepCanvasArtifact(...args);
 
 export function closeChatWs() {
   state.chatWsToken += 1;
@@ -157,6 +159,19 @@ function suppressedSystemActionStatusText(action) {
 
 function renderApprovalRequestCanvas(payload) {
   void payload;
+}
+
+function navigationStatusLabel(scope: string, direction: string) {
+  const normalizedDirection = String(direction || '').trim().toLowerCase() === 'previous' ? 'previous' : 'next';
+  const normalizedScope = String(scope || '').trim().toLowerCase();
+  if (normalizedScope === 'artifact') {
+    return `${normalizedDirection} document`;
+  }
+  const context = describeCanvasNavigationContext();
+  const adjacentPageExists = normalizedDirection === 'previous'
+    ? Boolean(context?.previous)
+    : Boolean(context?.next);
+  return adjacentPageExists ? `${normalizedDirection} page` : `${normalizedDirection} document`;
 }
 
 export function openChatWs() {
@@ -378,6 +393,21 @@ export function handleChatEvent(payload) {
     return;
   }
 
+  if (type === 'silent_edit_status') {
+    const phase = String(payload?.phase || '').trim().toLowerCase();
+    if (phase === 'started') {
+      showStatus('editing...');
+    } else if (phase === 'applied') {
+      showStatus('edit applied');
+    } else if (phase === 'skipped') {
+      showStatus('edit skipped');
+    } else if (phase === 'failed') {
+      showStatus(String(payload?.message || 'edit failed'));
+    }
+    updateAssistantActivityIndicator();
+    return;
+  }
+
   if (type === 'live_policy_changed') {
     state.livePolicy = String(payload?.policy || state.livePolicy || LIVE_SESSION_MODE_DIALOGUE).trim().toLowerCase() === LIVE_SESSION_MODE_MEETING
       ? LIVE_SESSION_MODE_MEETING
@@ -525,6 +555,13 @@ export function handleChatEvent(payload) {
           const message = String(err?.message || err || 'live toggle failed');
           showStatus(`live toggle failed: ${message}`);
         });
+    } else if (actionType === 'navigate_canvas') {
+      const scope = String(action?.scope || 'page_or_artifact').trim().toLowerCase();
+      const direction = String(action?.direction || '').trim().toLowerCase() === 'previous' ? -1 : 1;
+      const stepped = scope === 'artifact'
+        ? stepCanvasArtifact(direction)
+        : stepCanvasFile(direction);
+      showStatus(stepped ? navigationStatusLabel(scope, direction < 0 ? 'previous' : 'next') : 'nothing to navigate');
     }
     return;
   }

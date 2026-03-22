@@ -70,9 +70,28 @@ func (a *App) executeSystemActionPlanUnsafe(sessionID string, session store.Chat
 		}
 	}
 	if len(messages) == 0 {
+		if allowsSilentSystemActionPlan(payloads) {
+			return "", payloads, nil
+		}
 		messages = append(messages, "Done.")
 	}
 	return strings.Join(messages, "\n\n"), payloads, nil
+}
+
+func allowsSilentSystemActionPlan(payloads []map[string]interface{}) bool {
+	if len(payloads) == 0 {
+		return false
+	}
+	for _, payload := range payloads {
+		payloadType := strings.TrimSpace(fmt.Sprint(payload["type"]))
+		switch payloadType {
+		case "navigate_canvas":
+			continue
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 func (a *App) systemActionTargetWorkspace(session store.ChatSession) (store.Workspace, error) {
@@ -343,6 +362,16 @@ func (a *App) executeSystemAction(sessionID string, session store.ChatSession, a
 			return "", nil, err
 		}
 		return status, nil, nil
+	case "navigate_canvas":
+		direction := systemActionNavigationDirection(action.Params)
+		if direction == "" {
+			return "", nil, errors.New("navigate_canvas requires direction")
+		}
+		return "", map[string]interface{}{
+			"type":      "navigate_canvas",
+			"scope":     systemActionNavigationScope(action.Params),
+			"direction": direction,
+		}, nil
 	case "capture_idea":
 		return a.captureIdeaItem(session, action)
 	case "refine_idea_note":

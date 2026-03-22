@@ -271,6 +271,21 @@ var deterministicFastPaths = []deterministicFastPathParser{
 	},
 	{
 		Spec: deterministicFastPathSpec{
+			Name:     "canvas_navigation",
+			Route:    "text",
+			Actions:  []string{"navigate_canvas"},
+			Triggers: []string{"next slide", "previous page", "next document", "zur nächsten Folie"},
+		},
+		Parse: func(text string, _ deterministicFastPathContext) *deterministicFastPathMatch {
+			action := parseInlineCanvasNavigationIntent(text)
+			if action == nil {
+				return nil
+			}
+			return fastPathSingleAction("canvas_navigation", action, fixedFastPathFailure("I couldn't navigate the current canvas artifact: "))
+		},
+	},
+	{
+		Spec: deterministicFastPathSpec{
 			Name:     "runtime_control",
 			Route:    "text",
 			Actions:  []string{"toggle_silent", "toggle_live_dialogue", "cancel_work", "show_status"},

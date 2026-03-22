@@ -37,6 +37,7 @@ func TestTryDeterministicFastPathRegistry(t *testing.T) {
 		{name: "workspace", text: "list workspaces", wantMatch: "workspace", wantAction: "list_workspaces"},
 		{name: "workspace focus", text: "open the plasma workspace", wantMatch: "workspace", wantAction: "focus_workspace"},
 		{name: "project", text: "what project is this?", wantMatch: "project", wantAction: "show_workspace_project"},
+		{name: "canvas navigation", text: "next slide", wantMatch: "canvas_navigation", wantAction: "navigate_canvas"},
 		{name: "runtime silent", text: "be quiet", wantMatch: "runtime_control", wantAction: "toggle_silent"},
 		{name: "runtime status", text: "status?", wantMatch: "runtime_control", wantAction: "show_status"},
 	}
@@ -99,6 +100,17 @@ func TestDeterministicFastPathCatalogIncludesRuntimeAndUIControls(t *testing.T) 
 		if !containsExactString(runtime.Actions, action) {
 			t.Fatalf("runtime actions = %#v, missing %q", runtime.Actions, action)
 		}
+	}
+
+	navigation := find("canvas_navigation")
+	if navigation == nil {
+		t.Fatal("expected canvas_navigation catalog entry")
+	}
+	if navigation.Route != "text" {
+		t.Fatalf("canvas navigation route = %q, want text", navigation.Route)
+	}
+	if !containsExactString(navigation.Actions, "navigate_canvas") {
+		t.Fatalf("canvas navigation actions = %#v, missing navigate_canvas", navigation.Actions)
 	}
 
 	ui := find("ui_runtime_controls")
