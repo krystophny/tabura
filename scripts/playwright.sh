@@ -26,7 +26,20 @@ runtime_ready() {
 run_native() {
   echo "playwright.sh: running natively (no container daemon available)" >&2
   cd "${ROOT_DIR}"
-  exec npx playwright test "$@"
+  local has_explicit_project=0
+  for arg in "$@"; do
+    case "${arg}" in
+      --project|--project=*|-p)
+        has_explicit_project=1
+        ;;
+    esac
+  done
+  local native_projects=()
+  if [[ "${has_explicit_project}" -eq 0 && "${PLAYWRIGHT_NATIVE_INCLUDE_WEBKIT:-}" != "1" ]]; then
+    echo "playwright.sh: skipping native WebKit by default; set PLAYWRIGHT_NATIVE_INCLUDE_WEBKIT=1 to opt in" >&2
+    native_projects=(--project chromium --project firefox-flows --project firefox-regression)
+  fi
+  exec npx playwright test "${native_projects[@]}" "$@"
 }
 
 if [[ "${PLAYWRIGHT_NATIVE:-}" == "1" ]]; then

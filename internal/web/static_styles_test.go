@@ -12,6 +12,7 @@ func TestStyleCSSImportsSplitStylesheets(t *testing.T) {
 	imports := []string{
 		`@import url("./base.css");`,
 		`@import url("./canvas.css");`,
+		`@import url("./canvas-pages.css");`,
 		`@import url("./mail-drafts.css");`,
 		`@import url("./mail-triage.css");`,
 		`@import url("./annotations.css");`,
@@ -54,6 +55,7 @@ func TestSplitStylesheetsExistAndStayBounded(t *testing.T) {
 	files := []string{
 		"base.css",
 		"canvas.css",
+		"canvas-pages.css",
 		"mail-drafts.css",
 		"mail-triage.css",
 		"annotations.css",
@@ -100,8 +102,8 @@ func TestStyleEntryPointStaysSmall(t *testing.T) {
 		t.Fatalf("read style.css: %v", err)
 	}
 	lines := strings.Count(string(data), "\n") + 1
-	if lines > 16 {
-		t.Fatalf("style.css has %d lines, want <= 16", lines)
+	if lines > 17 {
+		t.Fatalf("style.css has %d lines, want <= 17", lines)
 	}
 	if !strings.HasSuffix(strings.TrimSpace(string(data)), `@import url("./mobile.css");`) {
 		t.Fatalf("style.css should end with the mobile stylesheet import")

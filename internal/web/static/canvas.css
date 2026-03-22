@@ -22,8 +22,7 @@
   min-height: 0;
   position: relative;
   overscroll-behavior: contain;
-  touch-action: pan-y;
-  -webkit-overflow-scrolling: touch;
+  touch-action: none;
   background: #ffffff !important;
 }
 
@@ -32,11 +31,9 @@
   flex-direction: column;
   min-height: 0;
   height: 100%;
-  overflow: auto;
-  overflow-x: hidden;
+  overflow: hidden;
   position: relative;
-  touch-action: pan-y;
-  -webkit-overflow-scrolling: touch;
+  touch-action: none;
   z-index: 1;
   background: #ffffff !important;
 }
@@ -51,8 +48,7 @@
   padding: 1rem;
   height: 100%;
   min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
   background: #ffffff !important;
 }
 
@@ -64,7 +60,7 @@
   -webkit-user-select: text;
   position: relative;
   -webkit-touch-callout: none;
-  touch-action: pan-y;
+  touch-action: none;
 }
 
 #canvas-text:focus {
@@ -255,8 +251,8 @@
 #canvas-pdf {
   position: relative;
   min-height: 0;
-  overflow: auto;
-  touch-action: pan-y;
+  overflow: hidden;
+  touch-action: none;
 }
 
 .canvas-pdf-surface {

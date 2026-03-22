@@ -30,6 +30,9 @@ func (a *App) runAssistantTurn(sessionID string, turn dequeuedTurn) {
 	cursorCtx := turn.cursor
 	userText := queuedUserMessage(messages, turn.messageID)
 	requestedTurnAlias := explicitTurnModelAlias(userText)
+	if a.maybeRunSilentLiveEditTurn(sessionID, session, userText, cursorCtx, positionCtx, turn.captureMode) {
+		return
+	}
 	if a.assistantTurnMode(turn.localOnly) == assistantModeLocal {
 		a.runLocalAssistantTurn(sessionID, session, messages, userText, cursorCtx, inkCtx, positionCtx, turn.captureMode, turn.outputMode)
 		return

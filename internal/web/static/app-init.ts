@@ -1,6 +1,13 @@
 import * as env from './app-env.js';
 import * as context from './app-context.js';
 import {
+  beginHorizontalSwipe,
+  horizontalSwipeDelta,
+  horizontalSwipeDirection,
+  isHorizontalSwipeIntent,
+  startSwipeHoldTimer,
+} from './app-swipe.js';
+import {
   activeReplySidebarItem,
   commandCenterPanel,
   ensureCommandCenter,
@@ -10,7 +17,7 @@ import {
 } from './app-command-center.js';
 
 const { marked, wsURL, renderCanvas, clearCanvas, getLocationFromSelection, clearLineHighlight, escapeHtml, sanitizeHtml, getActiveArtifactTitle, getActiveTextEventId, getPreviousArtifactText, getUiState, setUiMode, showIndicatorMode, hideIndicator, showTextInput, hideTextInput, showOverlay, hideOverlay, updateOverlay, isOverlayVisible, isTextInputVisible, isRecording, setRecording, getInputAnchor, setInputAnchor, pinCursorAnchor, getAnchorFromPoint, buildContextPrefix, getLastInputPosition, setLastInputPosition, configureLiveSession, getLiveSessionSnapshot, handleLiveSessionMessage, isLiveSessionListenActive, LIVE_SESSION_HOTWORD_DEFAULT, LIVE_SESSION_MODE_DIALOGUE, LIVE_SESSION_MODE_MEETING, onLiveSessionTTSPlaybackComplete, cancelLiveSessionListen, startLiveSession, stopLiveSession, initHotword, startHotwordMonitor, stopHotwordMonitor, isHotwordActive, onHotwordDetected, setHotwordThreshold, setHotwordAudioContext, getPreRollAudio, getHotwordMicStream, initVAD, float32ToWav } = env;
-const { refs, state, getState, isVoiceTurn, COMPANION_VIEW_PATH_PREFIX, COMPANION_TRANSCRIPT_VIEW_PATH, COMPANION_SUMMARY_VIEW_PATH, COMPANION_REFERENCES_VIEW_PATH, MEETING_TRANSCRIPT_LABEL, MEETING_SUMMARY_LABEL, MEETING_REFERENCES_LABEL, MEETING_SUMMARY_ITEMS_PANEL_ID, CHAT_CTRL_LONG_PRESS_MS, ARTIFACT_EDIT_LONG_TAP_MS, ITEM_SIDEBAR_VIEWS, ITEM_SIDEBAR_GESTURE_CANCEL_PX, ITEM_SIDEBAR_GESTURE_COMMIT_PX, ITEM_SIDEBAR_GESTURE_LONG_PX, ITEM_SIDEBAR_DEFAULT_LATER_HOUR_UTC, ITEM_SIDEBAR_MENU_ID, DEV_UI_RELOAD_POLL_MS, ASSISTANT_ACTIVITY_POLL_MS, CHAT_WS_STALE_THRESHOLD_MS, ACTIVE_TURN_NO_ID_CLEAR_GRACE_MS, ACTIVE_TURN_ACTIVITY_CLEAR_GRACE_MS, PROJECT_CHAT_MODEL_ALIASES, PROJECT_CHAT_MODEL_REASONING_EFFORTS, TTS_SILENT_STORAGE_KEY, YOLO_MODE_STORAGE_KEY, SOMEDAY_REVIEW_NUDGE_ENABLED_STORAGE_KEY, SOMEDAY_REVIEW_NUDGE_LAST_SHOWN_STORAGE_KEY, SOMEDAY_REVIEW_NUDGE_INTERVAL_MS, ACTIVE_PROJECT_STORAGE_KEY, LAST_VIEW_STORAGE_KEY, RUNTIME_RELOAD_CONTEXT_STORAGE_KEY, SIDEBAR_IMAGE_EXTENSIONS, PANEL_MOTION_WATCH_QUERIES, VOICE_LIFECYCLE, COMPANION_IDLE_SURFACES, COMPANION_RUNTIME_STATES, TOOL_PALETTE_MODES } = context;
+const { refs, state, getState, isVoiceTurn, COMPANION_VIEW_PATH_PREFIX, COMPANION_TRANSCRIPT_VIEW_PATH, COMPANION_SUMMARY_VIEW_PATH, COMPANION_REFERENCES_VIEW_PATH, MEETING_TRANSCRIPT_LABEL, MEETING_SUMMARY_LABEL, MEETING_REFERENCES_LABEL, MEETING_SUMMARY_ITEMS_PANEL_ID, CHAT_CTRL_LONG_PRESS_MS, ARTIFACT_EDIT_LONG_TAP_MS, ITEM_SIDEBAR_VIEWS, ITEM_SIDEBAR_GESTURE_CANCEL_PX, ITEM_SIDEBAR_GESTURE_COMMIT_PX, ITEM_SIDEBAR_GESTURE_LONG_PX, ITEM_SIDEBAR_DEFAULT_LATER_HOUR_UTC, ITEM_SIDEBAR_MENU_ID, HORIZONTAL_SWIPE_COMMIT_PX, ASSISTANT_ACTIVITY_POLL_MS, DEV_UI_RELOAD_POLL_MS, CHAT_WS_STALE_THRESHOLD_MS, ACTIVE_TURN_NO_ID_CLEAR_GRACE_MS, ACTIVE_TURN_ACTIVITY_CLEAR_GRACE_MS, PROJECT_CHAT_MODEL_ALIASES, PROJECT_CHAT_MODEL_REASONING_EFFORTS, TTS_SILENT_STORAGE_KEY, YOLO_MODE_STORAGE_KEY, SOMEDAY_REVIEW_NUDGE_ENABLED_STORAGE_KEY, SOMEDAY_REVIEW_NUDGE_LAST_SHOWN_STORAGE_KEY, SOMEDAY_REVIEW_NUDGE_INTERVAL_MS, ACTIVE_PROJECT_STORAGE_KEY, LAST_VIEW_STORAGE_KEY, RUNTIME_RELOAD_CONTEXT_STORAGE_KEY, SIDEBAR_IMAGE_EXTENSIONS, PANEL_MOTION_WATCH_QUERIES, VOICE_LIFECYCLE, COMPANION_IDLE_SURFACES, COMPANION_RUNTIME_STATES, TOOL_PALETTE_MODES } = context;
 
 const showStatus = (...args) => refs.showStatus(...args);
 const updateAssistantActivityIndicator = (...args) => refs.updateAssistantActivityIndicator(...args);
@@ -65,6 +72,7 @@ const isUiStopGestureActive = (...args) => refs.isUiStopGestureActive(...args);
 const isLikelyIOS = (...args) => refs.isLikelyIOS(...args);
 const isMobileViewport = (...args) => refs.isMobileViewport(...args);
 const stepCanvasFile = (...args) => refs.stepCanvasFile(...args);
+const stepCanvasArtifact = (...args) => refs.stepCanvasArtifact(...args);
 const beginInkStroke = (...args) => refs.beginInkStroke(...args);
 const extendInkStroke = (...args) => refs.extendInkStroke(...args);
 const finalizeInkStroke = (...args) => refs.finalizeInkStroke(...args);
@@ -251,28 +259,37 @@ export function bindUi() {
     canvasViewport.addEventListener('scroll', syncIndicatorOnViewportChange, { passive: true, capture: true });
     let canvasSwipeStart = null;
     let canvasSwipeHandled = false;
+    let cancelCanvasSwipeHold = null;
     let horizontalWheelAccum = 0;
     let horizontalWheelLastAt = 0;
     const resetCanvasSwipe = () => {
+      if (typeof cancelCanvasSwipeHold === 'function') {
+        cancelCanvasSwipeHold();
+        cancelCanvasSwipeHold = null;
+      }
       canvasSwipeStart = null;
       canvasSwipeHandled = false;
     };
     canvasViewport.addEventListener('touchstart', (ev) => {
-      if (!isMobileViewport() && !isLikelyIOS()) return;
       if (state.prReviewDrawerOpen || ev.touches.length !== 1) return;
       const touch = ev.touches[0];
-      canvasSwipeStart = { x: touch.clientX, y: touch.clientY };
+      canvasSwipeStart = beginHorizontalSwipe(touch);
       canvasSwipeHandled = false;
+      if (typeof cancelCanvasSwipeHold === 'function') {
+        cancelCanvasSwipeHold();
+      }
+      cancelCanvasSwipeHold = startSwipeHoldTimer(canvasSwipeStart);
     }, { passive: true });
     canvasViewport.addEventListener('touchmove', (ev) => {
       if (!canvasSwipeStart || canvasSwipeHandled || ev.touches.length !== 1) return;
       const touch = ev.touches[0];
-      const dx = touch.clientX - canvasSwipeStart.x;
-      const dy = touch.clientY - canvasSwipeStart.y;
+      const { dx, dy } = horizontalSwipeDelta(canvasSwipeStart, touch);
       if (!state.hasArtifact) return;
-      if (Math.abs(dx) < 48) return;
-      if (Math.abs(dx) <= Math.abs(dy) * 1.25) return;
-      const stepped = stepCanvasFile(dx < 0 ? 1 : -1);
+      if (!isHorizontalSwipeIntent(dx, dy)) return;
+      const direction = horizontalSwipeDirection(dx);
+      const stepped = canvasSwipeStart.held
+        ? stepCanvasArtifact(direction)
+        : stepCanvasFile(direction);
       if (!stepped) return;
       canvasSwipeHandled = true;
       ev.preventDefault();
@@ -291,7 +308,7 @@ export function bindUi() {
         horizontalWheelAccum = 0;
       }
       horizontalWheelAccum += ev.deltaX;
-      if (Math.abs(horizontalWheelAccum) < 48) return;
+      if (Math.abs(horizontalWheelAccum) < HORIZONTAL_SWIPE_COMMIT_PX) return;
       const stepped = stepCanvasFile(horizontalWheelAccum > 0 ? 1 : -1);
       if (!stepped) return;
       horizontalWheelAccum = 0;
@@ -383,6 +400,7 @@ export function bindUi() {
         pinCursorAnchor(x, y, tapAnchor);
         sendCanvasPositionEvent(tapAnchor, { gesture: 'tap', clientX: x, clientY: y });
         updateAssistantActivityIndicator();
+        void beginVoiceCaptureFromPoint(x, y, tapAnchor);
         return;
       }
       if (isLiveSessionListenActive()) {

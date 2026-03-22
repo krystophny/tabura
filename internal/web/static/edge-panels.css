@@ -85,7 +85,7 @@ body.file-sidebar-open .edge-right-tap {
   left: 0;
   right: 0;
   height: calc(var(--safe-area-top) + 14px);
-  z-index: 430;
+  z-index: 450;
   margin: 0;
   border: 0;
   border-radius: 0;

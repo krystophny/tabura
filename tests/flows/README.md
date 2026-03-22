@@ -59,6 +59,13 @@ The Tabura Circle UI contract currently defines:
 - persisted placement in `top_left|top_right|bottom_left|bottom_right`
 - bug reporting as a top-panel action instead of a competing floating control
 
+The shared navigation contract also defines:
+
+- no canvas scrolling inside artifacts
+- short horizontal swipe or flip = page navigation first, artifact navigation only at boundaries
+- long-held horizontal swipe or flip = direct artifact navigation
+- the same horizontal gesture semantics for canvas, left-panel edge swipe, and inbox swipe surfaces
+
 Supported logical assertions:
 
 - `active_tool`

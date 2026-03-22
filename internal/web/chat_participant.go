@@ -299,6 +299,9 @@ func (a *App) maybeTriggerCompanionResponse(participantSessionID string, seg sto
 	}
 	gate := evaluateCompanionDirectedSpeechGate(cfg, &session, segments, events)
 	if gate.Decision != companionGateDecisionDirect || gate.SegmentID != seg.ID {
+		if a.triggerSilentLiveEditForParticipantSegment(participantSessionID, session, seg) {
+			a.syncProjectCompanionArtifactsBySessionID(participantSessionID)
+		}
 		return
 	}
 	policy := evaluateCompanionInteractionPolicy(cfg, &session, segments, events)
@@ -489,9 +492,15 @@ func (a *App) handleParticipantTranscript(w http.ResponseWriter, r *http.Request
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	events, err := a.store.ListParticipantEvents(sessionID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	writeJSON(w, map[string]interface{}{
 		"ok":       true,
 		"segments": segments,
+		"entries":  buildParticipantTranscriptEntries(segments, events),
 	})
 }
 
@@ -535,6 +544,12 @@ func (a *App) handleParticipantExport(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	events, err := a.store.ListParticipantEvents(sessionID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	entries := buildParticipantTranscriptEntries(segments, events)
 
 	sess, err := a.store.GetParticipantSession(sessionID)
 	if err != nil {
@@ -548,28 +563,37 @@ func (a *App) handleParticipantExport(w http.ResponseWriter, r *http.Request) {
 			"ok":       true,
 			"session":  sess,
 			"segments": segments,
+			"entries":  entries,
 		})
 	case "md":
 		w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
 		fmt.Fprintf(w, "# Meeting Transcript\n\n")
 		fmt.Fprintf(w, "Session: %s  \nStarted: %s\n\n", sess.ID, time.Unix(sess.StartedAt, 0).UTC().Format(time.RFC3339))
-		for _, seg := range segments {
-			speaker := seg.Speaker
+		for _, entry := range entries {
+			ts := time.Unix(entry.StartTS, 0).UTC().Format("15:04:05")
+			if entry.Kind == "document_position" {
+				fmt.Fprintf(w, "_[%s] %s_\n\n", ts, describeParticipantDocumentPosition(entry.Document))
+				continue
+			}
+			speaker := entry.Speaker
 			if speaker == "" {
 				speaker = "Speaker"
 			}
-			ts := time.Unix(seg.StartTS, 0).UTC().Format("15:04:05")
-			fmt.Fprintf(w, "**%s** (%s): %s\n\n", speaker, ts, seg.Text)
+			fmt.Fprintf(w, "**%s** (%s): %s\n\n", speaker, ts, entry.Text)
 		}
 	default:
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		for _, seg := range segments {
-			speaker := seg.Speaker
+		for _, entry := range entries {
+			ts := time.Unix(entry.StartTS, 0).UTC().Format("15:04:05")
+			if entry.Kind == "document_position" {
+				fmt.Fprintf(w, "[%s] %s\n", ts, describeParticipantDocumentPosition(entry.Document))
+				continue
+			}
+			speaker := entry.Speaker
 			if speaker == "" {
 				speaker = "Speaker"
 			}
-			ts := time.Unix(seg.StartTS, 0).UTC().Format("15:04:05")
-			fmt.Fprintf(w, "[%s] %s: %s\n", ts, speaker, seg.Text)
+			fmt.Fprintf(w, "[%s] %s: %s\n", ts, speaker, entry.Text)
 		}
 	}
 }

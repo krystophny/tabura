@@ -165,12 +165,11 @@ async function runStep(page: any, step: FlowStep, profile: FlowProfile) {
     default:
       throw new Error(`unsupported action: ${step.action}`);
   }
-  if (profile.touch && (step.action === 'tap' || step.action === 'tap_outside')) {
-    await page.waitForTimeout(180);
+  if (step.action === 'tap' || step.action === 'tap_outside') {
+    await page.waitForTimeout(profile.touch ? 180 : 90);
   }
   if (
-    profile.touch
-    && step.action === 'tap'
+    step.action === 'tap'
     && typeof step.target === 'string'
     && step.expect
   ) {
