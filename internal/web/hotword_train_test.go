@@ -33,7 +33,7 @@ func TestHotwordTrainPageRequiresAuthAndServesShell(t *testing.T) {
 	body := authed.Body.String()
 	for _, needle := range []string{
 		"<title>Hotword Training | Tabura</title>",
-		"Train \"Sloppy\" with cloned voice, real clips, and live progress.",
+		"Train Sloppy",
 		`src="./static/hotword-train.js`,
 	} {
 		if !strings.Contains(body, needle) {

@@ -43,6 +43,7 @@ test('hotword training page saves guided config, captures retry feedback, and ru
   });
 
   await expect(page.locator('#recording-list')).toContainText('.wav');
+  await page.locator('summary').filter({ hasText: 'Advanced' }).click();
   await page.fill('#trainer-sample-count', '2000');
   await page.fill('#generator-command-qwen3tts', '/opt/qwen3tts/bin/qwen3tts-hotword');
   await page.fill('#trainer-negative-phrases', 'copy\nhappy\nsoppy');

@@ -10,45 +10,109 @@
 <body>
   <main class="train-shell">
     <header class="train-header">
-      <div>
+      <div class="train-header-copy">
         <p class="train-kicker">Wake Word</p>
-        <h1>Train "Sloppy" with cloned voice, real clips, and live progress.</h1>
-        <p class="train-copy">Harness for the standalone hotword training workflow.</p>
+        <h1>Train Sloppy</h1>
+        <p class="train-copy">Harness for the streamlined hotword training workflow.</p>
       </div>
       <div class="train-header-actions">
         <a class="train-link" href="/manage/hotword">Manage hotword</a>
-        <a class="train-link train-link-strong" href="/static/hotword-test.html">Open test harness</a>
+        <a class="train-link" href="/static/hotword-test.html">Open test harness</a>
       </div>
     </header>
 
     <p id="train-banner" class="train-banner" hidden></p>
 
-    <section class="train-grid">
-      <article class="train-card train-card-hero">
+    <section class="train-stack">
+      <article class="train-card train-card-primary">
         <div class="train-card-head">
           <div>
-            <p class="train-step">Guided Pipeline</p>
-            <h2>Best available training pass</h2>
+            <p class="train-step">1. Train</p>
+            <h2>Run the guided pipeline</h2>
           </div>
           <span id="pipeline-badge" class="train-badge">idle</span>
         </div>
-        <div class="train-hero-layout">
-          <section class="train-panel">
-            <h3>Dataset</h3>
-            <div id="dataset-summary" class="train-summary-grid"></div>
-            <p id="pipeline-status" class="train-status"></p>
-            <div class="train-progress"><div id="pipeline-progress-fill" class="train-progress-fill"></div></div>
-            <p id="pipeline-progress-label" class="train-progress-label">0%</p>
-            <div class="train-actions">
-              <button id="config-save" class="train-button" type="button">Save trainer settings</button>
-              <button id="pipeline-start" class="train-button train-button-strong" type="button">Run guided pipeline</button>
+        <p class="train-copy">Run one pass with saved generator settings, real clips, retry feedback, and deployment.</p>
+        <div id="dataset-summary" class="train-summary-grid"></div>
+        <p id="pipeline-status" class="train-status"></p>
+        <div class="train-progress"><div id="pipeline-progress-fill" class="train-progress-fill"></div></div>
+        <p id="pipeline-progress-label" class="train-progress-label">0%</p>
+        <div class="train-actions">
+          <button id="pipeline-start" class="train-button train-button-strong" type="button">Run training</button>
+        </div>
+      </article>
+
+      <article class="train-card">
+        <div class="train-card-head">
+          <div>
+            <p class="train-step">2. Add Voice</p>
+            <h2>Record or upload clips</h2>
+          </div>
+          <span id="recording-badge" class="train-badge">idle</span>
+        </div>
+        <div class="train-record-controls">
+          <label class="train-field">
+            <span>Clip kind</span>
+            <select id="recording-kind">
+              <option value="hotword">Hotword clip</option>
+              <option value="reference">Reference speech</option>
+              <option value="test">Test retry clip</option>
+            </select>
+          </label>
+          <button id="recording-toggle" class="train-button" type="button">Start recording</button>
+          <label class="train-upload">
+            <input id="recording-upload" type="file" accept="audio/wav">
+            <span>Upload WAV</span>
+          </label>
+        </div>
+        <p id="recording-status" class="train-status"></p>
+        <ul id="recording-list" class="train-list"></ul>
+      </article>
+
+      <article class="train-card">
+        <div class="train-card-head">
+          <div>
+            <p class="train-step">3. Test And Deploy</p>
+            <h2>Retry and ship the best model</h2>
+          </div>
+          <span id="testing-badge" class="train-badge">idle</span>
+        </div>
+        <div class="train-actions">
+          <label class="train-upload">
+            <input id="testing-upload" type="file" accept="audio/wav">
+            <span>Upload test WAV</span>
+          </label>
+        </div>
+        <p id="testing-status" class="train-status"></p>
+        <p id="feedback-status" class="train-status"></p>
+        <ul id="testing-list" class="train-list"></ul>
+
+        <div class="train-divider"></div>
+
+        <div class="train-card-head train-card-head-inline">
+          <div>
+            <p class="train-step">Deploy</p>
+            <h2>Available models</h2>
+          </div>
+          <span id="deployment-badge" class="train-badge">ready</span>
+        </div>
+        <p id="deployment-status" class="train-status"></p>
+        <ul id="model-list" class="train-list"></ul>
+      </article>
+
+      <details class="train-advanced">
+        <summary>Advanced</summary>
+        <div class="train-advanced-body">
+          <article class="train-card">
+            <div class="train-card-head">
+              <div>
+                <p class="train-step">Settings</p>
+                <h2>Generator and dataset options</h2>
+              </div>
             </div>
-          </section>
-          <section class="train-panel">
-            <h3>Trainer Setup</h3>
             <div class="train-config-grid">
               <label class="train-field">
-                <span>Preferred cloned-voice generator</span>
+                <span>Preferred generator</span>
                 <select id="trainer-preferred">
                   <option value="qwen3tts">Qwen3-TTS</option>
                   <option value="gptsovits">GPT-SoVITS</option>
@@ -57,21 +121,31 @@
                 </select>
               </label>
               <label class="train-field">
-                <span>Target synthetic samples</span>
+                <span>Synthetic samples</span>
                 <input id="trainer-sample-count" type="number" min="250" step="250" value="2000">
               </label>
               <label class="train-check">
                 <input id="trainer-auto-deploy" type="checkbox" checked>
-                <span>Auto-deploy the latest model after training</span>
+                <span>Auto-deploy latest model</span>
               </label>
               <label class="train-field train-field-wide">
                 <span>Hard negatives</span>
                 <textarea id="trainer-negative-phrases" rows="4" spellcheck="false"></textarea>
               </label>
             </div>
-          </section>
-          <section class="train-panel">
-            <h3>Generator Commands</h3>
+            <div class="train-actions">
+              <button id="config-save" class="train-button" type="button">Save settings</button>
+            </div>
+          </article>
+
+          <article class="train-card">
+            <div class="train-card-head">
+              <div>
+                <p class="train-step">Generators</p>
+                <h2>Installed generator commands</h2>
+              </div>
+              <span id="generation-badge" class="train-badge">idle</span>
+            </div>
             <div id="generator-status-list" class="train-generator-list"></div>
             <div class="train-config-grid">
               <label class="train-field train-field-wide">
@@ -91,106 +165,39 @@
                 <input id="generator-command-piper" type="text" spellcheck="false" readonly>
               </label>
             </div>
-          </section>
-        </div>
-      </article>
+            <div class="train-divider"></div>
+            <div class="train-check-grid">
+              <label><input type="checkbox" name="generator-model" value="piper" checked> Piper</label>
+              <label><input type="checkbox" name="generator-model" value="qwen3tts"> Qwen3-TTS</label>
+              <label><input type="checkbox" name="generator-model" value="gptsovits"> GPT-SoVITS</label>
+              <label><input type="checkbox" name="generator-model" value="kokoro"> Kokoro</label>
+            </div>
+            <label class="train-field">
+              <span>Samples per model</span>
+              <input id="generation-count" type="number" min="1" step="1" value="250">
+            </label>
+            <div class="train-actions">
+              <button id="generation-start" class="train-button" type="button">Generate data only</button>
+            </div>
+            <p id="generation-status" class="train-status"></p>
+            <ul id="generation-list" class="train-list"></ul>
+          </article>
 
-      <article class="train-card">
-        <div class="train-card-head">
-          <div>
-            <p class="train-step">1. Voice Recording</p>
-            <h2>Capture hotword and reference clips</h2>
-          </div>
-          <span id="recording-badge" class="train-badge">idle</span>
+          <article class="train-card">
+            <div class="train-card-head">
+              <div>
+                <p class="train-step">Raw Trainer</p>
+                <h2>Run training without the guided pipeline</h2>
+              </div>
+              <span id="training-badge" class="train-badge">idle</span>
+            </div>
+            <div class="train-actions">
+              <button id="training-start" class="train-button" type="button">Train model only</button>
+            </div>
+            <p id="training-status" class="train-status"></p>
+          </article>
         </div>
-        <div class="train-record-controls">
-          <label class="train-field">
-            <span>Clip kind</span>
-            <select id="recording-kind">
-              <option value="hotword">Hotword clip</option>
-              <option value="reference">Reference speech</option>
-              <option value="test">Test retry clip</option>
-            </select>
-          </label>
-          <button id="recording-toggle" class="train-button train-button-strong" type="button">Start recording</button>
-          <label class="train-upload">
-            <input id="recording-upload" type="file" accept="audio/wav">
-            <span>Upload WAV</span>
-          </label>
-        </div>
-        <p id="recording-status" class="train-status"></p>
-        <ul id="recording-list" class="train-list"></ul>
-      </article>
-
-      <article class="train-card">
-        <div class="train-card-head">
-          <div>
-            <p class="train-step">2. Generator Lane</p>
-            <h2>Run selected generators directly</h2>
-          </div>
-          <span id="generation-badge" class="train-badge">idle</span>
-        </div>
-        <div class="train-check-grid">
-          <label><input type="checkbox" name="generator-model" value="piper" checked> Piper</label>
-          <label><input type="checkbox" name="generator-model" value="qwen3tts"> Qwen3-TTS</label>
-          <label><input type="checkbox" name="generator-model" value="gptsovits"> GPT-SoVITS</label>
-          <label><input type="checkbox" name="generator-model" value="kokoro"> Kokoro</label>
-        </div>
-        <label class="train-field">
-          <span>Target samples per model</span>
-          <input id="generation-count" type="number" min="1" step="1" value="250">
-        </label>
-        <div class="train-actions">
-          <button id="generation-start" class="train-button" type="button">Generate training data</button>
-        </div>
-        <p id="generation-status" class="train-status"></p>
-        <ul id="generation-list" class="train-list"></ul>
-      </article>
-
-      <article class="train-card">
-        <div class="train-card-head">
-          <div>
-            <p class="train-step">3. Trainer Lane</p>
-            <h2>Run the raw trainer only</h2>
-          </div>
-          <span id="training-badge" class="train-badge">idle</span>
-        </div>
-        <div class="train-actions">
-          <button id="training-start" class="train-button" type="button">Train model</button>
-        </div>
-        <p id="training-status" class="train-status"></p>
-      </article>
-
-      <article class="train-card">
-        <div class="train-card-head">
-          <div>
-            <p class="train-step">4. Testing</p>
-            <h2>Capture misses and false triggers</h2>
-          </div>
-          <span id="testing-badge" class="train-badge">idle</span>
-        </div>
-        <div class="train-actions">
-          <label class="train-upload">
-            <input id="testing-upload" type="file" accept="audio/wav">
-            <span>Upload test WAV</span>
-          </label>
-        </div>
-        <p id="testing-status" class="train-status"></p>
-        <p id="feedback-status" class="train-status"></p>
-        <ul id="testing-list" class="train-list"></ul>
-      </article>
-
-      <article class="train-card">
-        <div class="train-card-head">
-          <div>
-            <p class="train-step">5. Deployment</p>
-            <h2>Promote a trained model</h2>
-          </div>
-          <span id="deployment-badge" class="train-badge">ready</span>
-        </div>
-        <p id="deployment-status" class="train-status"></p>
-        <ul id="model-list" class="train-list"></ul>
-      </article>
+      </details>
     </section>
   </main>
 
