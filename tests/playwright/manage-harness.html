@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <base href="/">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>manage harness</title>
+  <link rel="stylesheet" href="/internal/web/static/manage.css">
+</head>
+<body>
+  <main class="manage-shell">
+    <header class="manage-header">
+      <div>
+        <p class="manage-eyebrow">Management</p>
+        <h1>Tabura Manage</h1>
+        <p class="manage-copy">Harness for hotword catalog downloads.</p>
+      </div>
+      <a class="manage-back" href="/">Back to canvas</a>
+    </header>
+
+    <div class="manage-grid">
+      <nav class="manage-nav" aria-label="Management sections">
+        <a data-manage-link="manage" href="/manage">Dashboard</a>
+        <a data-manage-link="hotword" href="/manage/hotword">Hotword</a>
+        <a data-manage-link="models" href="/manage/models">Models</a>
+        <a data-manage-link="voices" href="/manage/voices">Voices</a>
+      </nav>
+
+      <section class="manage-content">
+        <section class="manage-panel" data-manage-section="manage">
+          <h2>Dashboard</h2>
+          <div id="manage-dashboard-cards" class="manage-cards"></div>
+        </section>
+
+        <section class="manage-panel" data-manage-section="hotword">
+          <h2>Hotword</h2>
+          <div id="manage-hotword-status" class="manage-stack"></div>
+          <div class="manage-hotword-tools">
+            <label class="manage-search">
+              <span>Search wake words</span>
+              <input id="manage-hotword-filter" type="search" placeholder="computer, jarvis, alexa">
+            </label>
+            <p id="manage-hotword-feedback" class="manage-feedback" hidden></p>
+            <div id="manage-hotword-catalog" class="manage-stack"></div>
+          </div>
+        </section>
+
+        <section class="manage-panel" data-manage-section="models">
+          <h2>Models</h2>
+          <div id="manage-models-status" class="manage-stack"></div>
+        </section>
+
+        <section class="manage-panel" data-manage-section="voices">
+          <h2>Voices</h2>
+          <div id="manage-voices-status" class="manage-stack"></div>
+        </section>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    history.replaceState({}, '', '/manage/hotword');
+    (() => {
+      const state = {
+        runtime: { version: 'dev', live_policy: 'dialogue', silent_mode: false, tts_enabled: true, available_reasoning_efforts: ['low', 'medium', 'high'] },
+        hotword: {
+          ready: true,
+          missing: [],
+          model: { file: 'sloppy.onnx', display_name: 'Sloppy', phrase: 'sloppy', source: 'Custom trained', revision: 'rev-1' },
+        },
+        catalog: [
+          {
+            key: 'home-assistant-community:en/computer/computer_v2.onnx',
+            display_name: 'Computer V2',
+            phrase: 'computer',
+            source: 'home-assistant-community',
+            source_label: 'Home Assistant Community',
+            source_url: 'https://example.invalid/community',
+            readme_url: 'https://example.invalid/community/computer',
+            download_url: 'https://example.invalid/community/computer_v2.onnx',
+            upstream_file: 'computer_v2.onnx',
+            installed: false,
+            active: false,
+          },
+          {
+            key: 'openwakeword:alexa',
+            display_name: 'Alexa',
+            phrase: 'alexa',
+            source: 'openwakeword',
+            source_label: 'Official openWakeWord',
+            source_url: 'https://example.invalid/openwakeword',
+            readme_url: 'https://example.invalid/openwakeword/readme',
+            download_url: 'https://example.invalid/openwakeword/alexa.onnx',
+            upstream_file: 'alexa_v0.1.onnx',
+            installed: true,
+            installed_model: {
+              file_name: 'openwakeword-alexa-v0-1-2026-03-23_12-00-00Z.onnx',
+              created_at: '2026-03-23T12:00:00Z',
+              size_bytes: 2048,
+              production: false,
+            },
+            active: false,
+          },
+        ],
+      };
+      window.__manageHarnessState = state;
+
+      function jsonResponse(payload, status = 200) {
+        return Promise.resolve(new Response(JSON.stringify(payload), {
+          status,
+          headers: { 'Content-Type': 'application/json' },
+        }));
+      }
+
+      window.fetch = async (input, init = {}) => {
+        const url = String(typeof input === 'string' ? input : input.url);
+        if (url.endsWith('/api/runtime')) {
+          return jsonResponse(state.runtime);
+        }
+        if (url.endsWith('/api/hotword/status')) {
+          return jsonResponse(state.hotword);
+        }
+        if (url.endsWith('/api/hotword/catalog')) {
+          return jsonResponse({ ok: true, catalog: state.catalog });
+        }
+        if (url.endsWith('/api/hotword/catalog/download')) {
+          const body = JSON.parse(String(init.body || '{}'));
+          const entry = state.catalog.find((item) => item.key === body.key);
+          entry.installed = true;
+          entry.installed_model = {
+            file_name: 'home-assistant-community-computer-v2-2026-03-23_12-34-56Z.onnx',
+            created_at: '2026-03-23T12:34:56Z',
+            size_bytes: 3072,
+            production: false,
+          };
+          return jsonResponse({ ok: true, model: entry.installed_model, catalog: state.catalog }, 201);
+        }
+        if (url.endsWith('/api/hotword/train/deploy')) {
+          const body = JSON.parse(String(init.body || '{}'));
+          for (const entry of state.catalog) {
+            entry.active = entry.installed_model && entry.installed_model.file_name === body.model;
+          }
+          const active = state.catalog.find((item) => item.active);
+          state.hotword.model = {
+            file: 'sloppy.onnx',
+            display_name: active?.display_name || 'Sloppy',
+            phrase: active?.phrase || 'sloppy',
+            source: active?.source_label || 'Custom trained',
+            revision: 'rev-2',
+          };
+          return jsonResponse({ ok: true, hotword_status: state.hotword });
+        }
+        throw new Error(`unexpected fetch: ${url}`);
+      };
+    })();
+  </script>
+  <script type="module" src="/internal/web/static/manage.js"></script>
+</body>
+</html>

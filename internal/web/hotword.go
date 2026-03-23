@@ -19,7 +19,6 @@ var hotwordRuntimeAssetFiles = []string{
 	"melspectrogram.onnx",
 	"embedding_model.onnx",
 	hotwordModelFileName,
-	hotwordModelFileName + ".data",
 }
 
 func (a *App) hotwordProjectRoot() string {
@@ -89,12 +88,51 @@ func checkHotwordStatus(root string) map[string]interface{} {
 	}
 }
 
+func (a *App) hotwordStatusPayload() map[string]interface{} {
+	status := checkHotwordStatus(a.hotwordProjectRoot())
+	if a.hotwordTrainer == nil {
+		return status
+	}
+	active, err := a.hotwordTrainer.ActiveModel()
+	if err != nil {
+		return status
+	}
+	model, _ := status["model"].(map[string]interface{})
+	if model == nil {
+		model = map[string]interface{}{}
+		status["model"] = model
+	}
+	if strings.TrimSpace(active.DisplayName) != "" {
+		model["display_name"] = active.DisplayName
+	}
+	if strings.TrimSpace(active.Phrase) != "" {
+		model["phrase"] = active.Phrase
+	}
+	if strings.TrimSpace(active.Source) != "" {
+		model["source"] = active.Source
+	}
+	if strings.TrimSpace(active.SourceURL) != "" {
+		model["source_url"] = active.SourceURL
+	}
+	if strings.TrimSpace(active.CatalogKey) != "" {
+		model["catalog_key"] = active.CatalogKey
+	}
+	hasExternalData := a.hotwordTrainer.ActiveModelHasExternalData()
+	model["has_external_data"] = hasExternalData
+	if hasExternalData && !fileExists(hotwordModelDataPath(hotwordVendorModelPath(a.hotwordProjectRoot()))) {
+		missing, _ := status["missing"].([]string)
+		missing = append(missing, hotwordModelFileName+".data")
+		status["missing"] = missing
+		status["ready"] = false
+	}
+	return status
+}
+
 func (a *App) handleHotwordStatus(w http.ResponseWriter, r *http.Request) {
 	if !a.requireAuth(w, r) {
 		return
 	}
-	root := a.hotwordProjectRoot()
-	status := checkHotwordStatus(root)
+	status := a.hotwordStatusPayload()
 	if a.hotwordTrainer != nil {
 		training := a.hotwordTrainer.TrainingStatus()
 		status["training_in_progress"] = training.State == "running"

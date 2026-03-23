@@ -1,6 +1,7 @@
 package hotwordtrain
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -23,25 +24,13 @@ func (m *Manager) ListModels() ([]Model, error) {
 		if err != nil {
 			continue
 		}
-		models = append(models, Model{
-			Name:       strings.TrimSuffix(entry.Name(), filepath.Ext(entry.Name())),
-			FileName:   entry.Name(),
-			Path:       path,
-			CreatedAt:  info.ModTime().UTC().Format(time.RFC3339),
-			SizeBytes:  modelTotalSize(path, info),
-			Production: false,
-		})
+		meta, _ := readModelMetadata(path)
+		models = append(models, modelFromPath(path, info, false, meta))
 	}
 	vendorPath := m.vendorModelPath()
 	if info, err := os.Stat(vendorPath); err == nil && !info.IsDir() {
-		models = append(models, Model{
-			Name:       strings.TrimSuffix(filepath.Base(vendorPath), filepath.Ext(vendorPath)),
-			FileName:   filepath.Base(vendorPath),
-			Path:       vendorPath,
-			CreatedAt:  info.ModTime().UTC().Format(time.RFC3339),
-			SizeBytes:  modelTotalSize(vendorPath, info),
-			Production: true,
-		})
+		meta, _ := readModelMetadata(m.activeModelMetadataPath())
+		models = append(models, modelFromPath(vendorPath, info, true, meta))
 	}
 	sortModels(models)
 	return models, nil
@@ -79,13 +68,23 @@ func (m *Manager) DeployModel(fileName string) (Model, error) {
 		return Model{}, err
 	}
 	sizeBytes := modelTotalSize(sourcePath, info)
+	meta, _ := readModelMetadata(sourcePath)
+	meta.HasExternalData = modelFileExists(sourceDataPath)
+	if err := writeModelMetadata(m.activeModelMetadataPath(), meta); err != nil {
+		return Model{}, err
+	}
 	model := Model{
-		Name:       strings.TrimSuffix(clean, filepath.Ext(clean)),
-		FileName:   filepath.Base(vendorPath),
-		Path:       vendorPath,
-		CreatedAt:  nowRFC3339(),
-		SizeBytes:  sizeBytes,
-		Production: true,
+		Name:        strings.TrimSuffix(clean, filepath.Ext(clean)),
+		DisplayName: firstNonEmpty(meta.DisplayName, displayNameForPhrase(strings.TrimSuffix(clean, filepath.Ext(clean)))),
+		Phrase:      meta.Phrase,
+		Source:      meta.Source,
+		SourceURL:   meta.SourceURL,
+		CatalogKey:  meta.CatalogKey,
+		FileName:    filepath.Base(vendorPath),
+		Path:        vendorPath,
+		CreatedAt:   nowRFC3339(),
+		SizeBytes:   sizeBytes,
+		Production:  true,
 	}
 	return model, nil
 }
@@ -145,6 +144,13 @@ func (m *Manager) archiveActiveModel(vendorPath string) (string, error) {
 			return "", err
 		}
 	}
+	activeMeta, err := readModelMetadata(m.activeModelMetadataPath())
+	if err != nil {
+		return "", err
+	}
+	if err := writeModelMetadata(archivePath, activeMeta); err != nil {
+		return "", err
+	}
 	return archivePath, nil
 }
 
@@ -154,4 +160,72 @@ func modelFileExists(path string) bool {
 		return false
 	}
 	return !info.IsDir()
+}
+
+func modelMetadataPath(path string) string {
+	return path + ".json"
+}
+
+func readModelMetadata(path string) (modelMetadata, error) {
+	var meta modelMetadata
+	data, err := os.ReadFile(modelMetadataPath(path))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return meta, nil
+		}
+		return meta, err
+	}
+	if len(data) == 0 {
+		return meta, nil
+	}
+	if err := json.Unmarshal(data, &meta); err != nil {
+		return modelMetadata{}, err
+	}
+	return meta, nil
+}
+
+func writeModelMetadata(path string, meta modelMetadata) error {
+	if strings.TrimSpace(path) == "" {
+		return fmt.Errorf("missing model metadata path")
+	}
+	data, err := json.Marshal(meta)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(modelMetadataPath(path), data, 0o644)
+}
+
+func modelFromPath(path string, info os.FileInfo, production bool, meta modelMetadata) Model {
+	name := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+	return Model{
+		Name:        name,
+		DisplayName: firstNonEmpty(meta.DisplayName, displayNameForPhrase(name)),
+		Phrase:      firstNonEmpty(meta.Phrase, strings.ReplaceAll(name, "_", " ")),
+		Source:      meta.Source,
+		SourceURL:   meta.SourceURL,
+		CatalogKey:  meta.CatalogKey,
+		FileName:    filepath.Base(path),
+		Path:        path,
+		CreatedAt:   info.ModTime().UTC().Format(time.RFC3339),
+		SizeBytes:   modelTotalSize(path, info),
+		Production:  production,
+	}
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
+}
+
+func (m *Manager) ActiveModelHasExternalData() bool {
+	meta, err := readModelMetadata(m.activeModelMetadataPath())
+	if err == nil && meta.HasExternalData {
+		return true
+	}
+	return modelFileExists(modelDataPath(m.vendorModelPath()))
 }

@@ -155,6 +155,43 @@ body {
   gap: 0.8rem;
 }
 
+.manage-hotword-tools {
+  display: grid;
+  gap: 0.9rem;
+  margin-top: 1rem;
+}
+
+.manage-search {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.manage-search span {
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--manage-muted);
+}
+
+.manage-search input {
+  border: 1px solid var(--manage-border);
+  border-radius: 0.9rem;
+  padding: 0.8rem 0.9rem;
+  background: rgba(255, 255, 255, 0.94);
+  color: inherit;
+  font: inherit;
+}
+
+.manage-feedback {
+  margin: 0;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid var(--manage-border);
+  border-radius: 0.9rem;
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--manage-muted);
+}
+
 .manage-row {
   display: flex;
   align-items: center;
@@ -187,6 +224,55 @@ body {
   color: #fff;
   font-weight: 700;
   white-space: nowrap;
+}
+
+.manage-group {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.manage-group h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.manage-button {
+  border: 1px solid #132033;
+  border-radius: 999px;
+  padding: 0.72rem 0.95rem;
+  background: #132033;
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.manage-button[disabled] {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.manage-button.is-secondary {
+  background: transparent;
+  color: #132033;
+}
+
+.manage-button.is-active {
+  background: #1f7a39;
+  border-color: #1f7a39;
+}
+
+.manage-row-actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.manage-row-meta {
+  display: grid;
+  gap: 0.18rem;
 }
 
 @media (max-width: 900px) {

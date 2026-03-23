@@ -39,6 +39,10 @@ type FeedbackSummary = {
 
 type Model = {
   name: string;
+  display_name?: string;
+  phrase?: string;
+  source?: string;
+  catalog_key?: string;
   file_name: string;
   path: string;
   created_at: string;
@@ -485,10 +489,13 @@ function renderModels(models: Model[]) {
     item.className = 'train-list-item';
     const head = document.createElement('div');
     head.className = 'train-list-head';
-    head.innerHTML = `<strong>${model.file_name}</strong><span>${model.production ? 'production' : 'trained'}</span>`;
+    const label = String(model.display_name || model.file_name);
+    const kind = model.production ? 'production' : (model.catalog_key ? 'downloaded' : 'trained');
+    head.innerHTML = `<strong>${label}</strong><span>${kind}</span>`;
     const meta = document.createElement('p');
     meta.className = 'train-list-meta';
-    meta.textContent = `${formatDate(model.created_at)} | ${formatBytes(model.size_bytes)} | ${model.path}`;
+    const detail = [model.phrase, model.source].filter(Boolean).join(' | ');
+    meta.textContent = `${formatDate(model.created_at)} | ${formatBytes(model.size_bytes)}${detail ? ` | ${detail}` : ''} | ${model.path}`;
     item.append(head, meta);
     if (!model.production) {
       const actions = document.createElement('div');

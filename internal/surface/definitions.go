@@ -955,6 +955,8 @@ var WebRouteSections = []RouteSection{
 			"GET /api/stt/replacements",
 			"PUT /api/stt/replacements",
 			"GET /api/hotword/status",
+			"GET /api/hotword/catalog",
+			"POST /api/hotword/catalog/download",
 			"GET /api/hotword/train/recordings",
 			"POST /api/hotword/train/recordings",
 			"DELETE /api/hotword/train/recordings/{recording_id}",

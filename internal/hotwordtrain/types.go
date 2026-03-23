@@ -25,12 +25,32 @@ type FeedbackSummary struct {
 }
 
 type Model struct {
-	Name       string `json:"name"`
-	FileName   string `json:"file_name"`
-	Path       string `json:"path"`
-	CreatedAt  string `json:"created_at"`
-	SizeBytes  int64  `json:"size_bytes"`
-	Production bool   `json:"production"`
+	Name        string `json:"name"`
+	DisplayName string `json:"display_name,omitempty"`
+	Phrase      string `json:"phrase,omitempty"`
+	Source      string `json:"source,omitempty"`
+	SourceURL   string `json:"source_url,omitempty"`
+	CatalogKey  string `json:"catalog_key,omitempty"`
+	FileName    string `json:"file_name"`
+	Path        string `json:"path"`
+	CreatedAt   string `json:"created_at"`
+	SizeBytes   int64  `json:"size_bytes"`
+	Production  bool   `json:"production"`
+}
+
+type CatalogEntry struct {
+	Key            string `json:"key"`
+	DisplayName    string `json:"display_name"`
+	Phrase         string `json:"phrase"`
+	Source         string `json:"source"`
+	SourceLabel    string `json:"source_label"`
+	SourceURL      string `json:"source_url"`
+	ReadmeURL      string `json:"readme_url,omitempty"`
+	DownloadURL    string `json:"download_url"`
+	UpstreamFile   string `json:"upstream_file"`
+	Installed      bool   `json:"installed"`
+	InstalledModel *Model `json:"installed_model,omitempty"`
+	Active         bool   `json:"active"`
 }
 
 type ModelStatus struct {

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -48,6 +49,9 @@ type Manager struct {
 	training       Status
 	generationSubs map[chan Status]struct{}
 	trainingSubs   map[chan Status]struct{}
+	httpClient     *http.Client
+	catalog        catalogSources
+	catalogCache   catalogCache
 }
 
 func New(dataDir, projectRoot string) *Manager {
@@ -69,12 +73,39 @@ func New(dataDir, projectRoot string) *Manager {
 		},
 		generationSubs: make(map[chan Status]struct{}),
 		trainingSubs:   make(map[chan Status]struct{}),
+		httpClient:     &http.Client{Timeout: 20 * time.Second},
+		catalog:        defaultCatalogSources(),
 	}
 	manager.settings = defaultSettings()
 	manager.loadSettings()
 	manager.generation = Status{State: statusStateIdle, Stage: "idle"}
 	manager.training = Status{State: statusStateIdle, Stage: "idle"}
 	return manager
+}
+
+func (m *Manager) SetHTTPClient(client *http.Client) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if client == nil {
+		m.httpClient = &http.Client{Timeout: 20 * time.Second}
+		return
+	}
+	m.httpClient = client
+}
+
+func (m *Manager) SetCatalogSources(sources catalogSources) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.catalog = sources
+	m.catalogCache = catalogCache{}
+}
+
+func (m *Manager) SetCatalogSourceURLs(officialModelsURL, communityTreeURL, communityRawBase string) {
+	m.SetCatalogSources(catalogSources{
+		OfficialModelsURL: officialModelsURL,
+		CommunityTreeURL:  communityTreeURL,
+		CommunityRawBase:  communityRawBase,
+	})
 }
 
 func (m *Manager) SetTrainingScriptPath(path string) {
@@ -208,6 +239,10 @@ func (m *Manager) settingsPath() string {
 
 func (m *Manager) vendorModelPath() string {
 	return filepath.Join(m.projectRoot, "internal", "web", "static", "vendor", "openwakeword", defaultModelName+".onnx")
+}
+
+func (m *Manager) activeModelMetadataPath() string {
+	return filepath.Join(m.dataDir, "hotword-train", "active-model")
 }
 
 func cloneStatus(status Status) Status {

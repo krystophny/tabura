@@ -168,6 +168,8 @@ func (a *App) Router() http.Handler {
 	r.Post("/api/chat/sessions/{session_id}/dictation/append", a.handleChatSessionDictationAppend)
 	r.Put("/api/chat/sessions/{session_id}/dictation/draft", a.handleChatSessionDictationDraftPut)
 	r.Get("/api/hotword/status", a.handleHotwordStatus)
+	r.Get("/api/hotword/catalog", a.handleHotwordCatalog)
+	r.Post("/api/hotword/catalog/download", a.handleHotwordCatalogDownload)
 	r.Get("/api/hotword/train/recordings", a.handleHotwordTrainRecordingsList)
 	r.Post("/api/hotword/train/recordings", a.handleHotwordTrainRecordingUpload)
 	r.Delete("/api/hotword/train/recordings/{recording_id}", a.handleHotwordTrainRecordingDelete)

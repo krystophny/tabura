@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -28,6 +29,10 @@ type hotwordTrainFeedbackRequest struct {
 
 type hotwordTrainPipelineRequest struct {
 	Models []string `json:"models"`
+}
+
+type hotwordCatalogDownloadRequest struct {
+	Key string `json:"key"`
 }
 
 func (a *App) serveHotwordTrain(w http.ResponseWriter, r *http.Request) {
@@ -309,6 +314,42 @@ func (a *App) handleHotwordTrainModels(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (a *App) handleHotwordCatalog(w http.ResponseWriter, r *http.Request) {
+	if !a.requireAuth(w, r) {
+		return
+	}
+	entries, err := a.hotwordTrainer.ListCatalog(r.Context())
+	if err != nil {
+		writeAPIError(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	writeJSON(w, map[string]any{
+		"ok":      true,
+		"catalog": entries,
+	})
+}
+
+func (a *App) handleHotwordCatalogDownload(w http.ResponseWriter, r *http.Request) {
+	if !a.requireAuth(w, r) {
+		return
+	}
+	var req hotwordCatalogDownloadRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeAPIError(w, http.StatusBadRequest, "invalid JSON")
+		return
+	}
+	model, err := a.hotwordTrainer.DownloadCatalogModel(r.Context(), req.Key)
+	if err != nil {
+		writeAPIError(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	writeJSONStatus(w, http.StatusCreated, map[string]any{
+		"ok":      true,
+		"model":   model,
+		"catalog": mustHotwordCatalog(a, r.Context()),
+	})
+}
+
 func (a *App) handleHotwordTrainDeploy(w http.ResponseWriter, r *http.Request) {
 	if !a.requireAuth(w, r) {
 		return
@@ -330,8 +371,16 @@ func (a *App) handleHotwordTrainDeploy(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{
 		"ok":             true,
 		"model":          model,
-		"hotword_status": checkHotwordStatus(a.hotwordProjectRoot()),
+		"hotword_status": a.hotwordStatusPayload(),
 	})
+}
+
+func mustHotwordCatalog(a *App, ctx context.Context) []hotwordtrain.CatalogEntry {
+	entries, err := a.hotwordTrainer.ListCatalog(ctx)
+	if err != nil {
+		return nil
+	}
+	return entries
 }
 
 func streamHotwordTrainStatus(w http.ResponseWriter, r *http.Request, subscribe func() (<-chan hotwordtrain.Status, func())) {
