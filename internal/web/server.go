@@ -248,6 +248,10 @@ func New(dataDir, localProjectDir, localMCPURL, appServerURL, model, ttsURL, spa
 	resolvedSTTPreVADEnabled := parseEnvBoolDefault("TABURA_STT_PREVAD_ENABLED", true)
 	resolvedSTTPreVADThresholdDB := parseEnvFloatDefault("TABURA_STT_PREVAD_THRESHOLD_DB", DefaultSTTPreVADThresholdDB)
 	resolvedSTTPreVADMinSpeechMS := parseEnvIntDefault("TABURA_STT_PREVAD_MIN_SPEECH_MS", DefaultSTTPreVADMinSpeechMS)
+	if err := enforceLocalWorkspaceModelDefaults(s); err != nil {
+		_ = s.Close()
+		return nil, err
+	}
 	defaultAlias := persistedDefaultChatModelAlias(s)
 	if defaultAlias == "" {
 		defaultAlias = modelprofile.AliasLocal
@@ -405,6 +409,34 @@ func persistedDefaultChatModelAlias(s *store.Store) string {
 		return ""
 	}
 	return modelprofile.ResolveAlias(modelValue, modelprofile.AliasLocal)
+}
+
+func enforceLocalWorkspaceModelDefaults(s *store.Store) error {
+	if s == nil {
+		return nil
+	}
+	if err := s.SetAppState(appStateDefaultChatModelKey, modelprofile.AliasLocal); err != nil {
+		return err
+	}
+	workspaces, err := s.ListEnrichedWorkspaces()
+	if err != nil {
+		return err
+	}
+	for _, workspace := range workspaces {
+		alias := modelprofile.ResolveAlias(workspace.ChatModel, modelprofile.AliasLocal)
+		effort := modelprofile.NormalizeReasoningEffort(alias, workspace.ChatModelReasoningEffort)
+		if alias == modelprofile.AliasLocal && effort == modelprofile.ReasoningNone {
+			continue
+		}
+		workspaceID := workspaceIDStr(workspace.ID)
+		if err := s.UpdateEnrichedWorkspaceChatModel(workspaceID, modelprofile.AliasLocal); err != nil {
+			return err
+		}
+		if err := s.UpdateEnrichedWorkspaceChatModelReasoningEffort(workspaceID, modelprofile.ReasoningNone); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func backgroundSourceSyncEnabled() bool {

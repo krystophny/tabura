@@ -456,6 +456,19 @@ export function renderEdgeTopModelButtons() {
   const modelChip = document.createElement('span');
   modelChip.className = 'edge-runtime-chip';
   modelChip.textContent = (activeProjectChatModelAlias() || 'local').toUpperCase();
+  modelChip.setAttribute('role', 'button');
+  modelChip.tabIndex = 0;
+  modelChip.title = 'Workspace default model. Local stays the default; Spark, GPT, and Mini are used only by delegation.';
+  const activateLocal = () => {
+    if (activeProjectChatModelAlias() === 'local' || state.projectModelSwitchInFlight) return;
+    void switchProjectChatModel('local');
+  };
+  modelChip.addEventListener('click', activateLocal);
+  modelChip.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    activateLocal();
+  });
   actions.appendChild(modelChip);
 
   if (state.fastMode) {

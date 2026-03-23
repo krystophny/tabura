@@ -20,6 +20,68 @@ func TestEffectiveProjectChatModelFallsBackToLocal(t *testing.T) {
 	}
 }
 
+func TestEnforceLocalWorkspaceModelDefaultsMigratesPersistedRemoteDefaults(t *testing.T) {
+	app := newAuthedTestApp(t)
+
+	defaultProject, err := app.ensureDefaultWorkspace()
+	if err != nil {
+		t.Fatalf("ensureDefaultWorkspace: %v", err)
+	}
+	if err := app.store.UpdateEnrichedWorkspaceChatModel(workspaceIDStr(defaultProject.ID), modelprofile.AliasSpark); err != nil {
+		t.Fatalf("UpdateEnrichedWorkspaceChatModel(default): %v", err)
+	}
+	if err := app.store.UpdateEnrichedWorkspaceChatModelReasoningEffort(workspaceIDStr(defaultProject.ID), modelprofile.ReasoningLow); err != nil {
+		t.Fatalf("UpdateEnrichedWorkspaceChatModelReasoningEffort(default): %v", err)
+	}
+	other, err := app.store.CreateEnrichedWorkspace("Other", "/tmp/other", "/tmp/other", "managed", "", "other", false)
+	if err != nil {
+		t.Fatalf("CreateEnrichedWorkspace: %v", err)
+	}
+	if err := app.store.UpdateEnrichedWorkspaceChatModel(workspaceIDStr(other.ID), modelprofile.AliasGPT); err != nil {
+		t.Fatalf("UpdateEnrichedWorkspaceChatModel(other): %v", err)
+	}
+	if err := app.store.UpdateEnrichedWorkspaceChatModelReasoningEffort(workspaceIDStr(other.ID), modelprofile.ReasoningHigh); err != nil {
+		t.Fatalf("UpdateEnrichedWorkspaceChatModelReasoningEffort(other): %v", err)
+	}
+	if err := app.store.SetAppState(appStateDefaultChatModelKey, modelprofile.AliasSpark); err != nil {
+		t.Fatalf("SetAppState(default_chat_model): %v", err)
+	}
+
+	if err := enforceLocalWorkspaceModelDefaults(app.store); err != nil {
+		t.Fatalf("enforceLocalWorkspaceModelDefaults(): %v", err)
+	}
+
+	defaultUpdated, err := app.store.GetEnrichedWorkspace(workspaceIDStr(defaultProject.ID))
+	if err != nil {
+		t.Fatalf("GetEnrichedWorkspace(default): %v", err)
+	}
+	if got := defaultUpdated.ChatModel; got != modelprofile.AliasLocal {
+		t.Fatalf("default project chat_model = %q, want %q", got, modelprofile.AliasLocal)
+	}
+	if got := defaultUpdated.ChatModelReasoningEffort; got != modelprofile.ReasoningNone {
+		t.Fatalf("default project chat_model_reasoning_effort = %q, want %q", got, modelprofile.ReasoningNone)
+	}
+
+	otherUpdated, err := app.store.GetEnrichedWorkspace(workspaceIDStr(other.ID))
+	if err != nil {
+		t.Fatalf("GetEnrichedWorkspace(other): %v", err)
+	}
+	if got := otherUpdated.ChatModel; got != modelprofile.AliasLocal {
+		t.Fatalf("other project chat_model = %q, want %q", got, modelprofile.AliasLocal)
+	}
+	if got := otherUpdated.ChatModelReasoningEffort; got != modelprofile.ReasoningNone {
+		t.Fatalf("other project chat_model_reasoning_effort = %q, want %q", got, modelprofile.ReasoningNone)
+	}
+
+	defaultAlias, err := app.store.AppState(appStateDefaultChatModelKey)
+	if err != nil {
+		t.Fatalf("AppState(default_chat_model): %v", err)
+	}
+	if defaultAlias != modelprofile.AliasLocal {
+		t.Fatalf("default_chat_model = %q, want %q", defaultAlias, modelprofile.AliasLocal)
+	}
+}
+
 func TestEffectiveProjectChatModelDefaultsToLocal(t *testing.T) {
 	app := newAuthedTestApp(t)
 	app.appServerModel = ""
