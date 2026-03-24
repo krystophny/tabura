@@ -436,8 +436,12 @@ func (a *App) runLocalAssistantToolLoop(ctx context.Context, req *assistantTurnR
 	}
 	enableThinking := localAssistantThinkingEnabled(req)
 	if req.fastMode {
+		fastPrompt := buildLocalAssistantFastPrompt(req.promptText)
+		if strings.TrimSpace(fastPrompt) == "" {
+			fastPrompt = strings.TrimSpace(req.promptText)
+		}
 		message, err := a.requestLocalAssistantCompletionWithConfig(ctx, []map[string]any{
-			{"role": "user", "content": strings.TrimSpace(req.promptText)},
+			{"role": "user", "content": fastPrompt},
 		}, nil, "", enableThinking, assistantLLMFastMaxTokens, onDelta)
 		if err != nil {
 			return "", err

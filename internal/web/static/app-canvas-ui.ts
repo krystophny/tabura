@@ -261,6 +261,7 @@ export function shouldStopInUiClick() {
 
 export function isUiStopGestureActive() {
   return shouldStopInUiClick()
+    || isTTSSpeaking()
     || isVoiceTranscriptSubmitPending()
     || state.voiceTranscriptSubmitInFlight
     || hasPendingOverlayTurn();

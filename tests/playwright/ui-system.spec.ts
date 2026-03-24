@@ -1941,6 +1941,53 @@ test.describe('mobile viewport', () => {
     expect(cancelCalls.length).toBeGreaterThan(0);
   });
 
+  test('workspace tap stops active TTS playback instead of starting a new voice capture', async ({ page }) => {
+    await page.evaluate(() => {
+      const app = (window as any)._taburaApp;
+      const s = app.getState();
+      s.ttsPlaying = true;
+    });
+    await clearLog(page);
+
+    await expect.poll(async () => page.evaluate(() => {
+      return Boolean((window as any)._taburaApp?.getState?.().ttsPlaying);
+    })).toBe(true);
+
+    await clearLog(page);
+    await dispatchTouchTap(page, 187, 333);
+
+    await expect.poll(async () => page.evaluate(() => {
+      return Boolean((window as any)._taburaApp?.getState?.().ttsPlaying);
+    })).toBe(false);
+
+    const log = await getLog(page);
+    const recorderStarts = log.filter(e => e.type === 'recorder' && e.action === 'start');
+    expect(recorderStarts.length).toBe(0);
+  });
+
+  test('edge tap does not stop active TTS playback', async ({ page }) => {
+    await page.evaluate(() => {
+      const app = (window as any)._taburaApp;
+      const s = app.getState();
+      s.ttsPlaying = true;
+    });
+    await clearLog(page);
+
+    await expect.poll(async () => page.evaluate(() => {
+      return Boolean((window as any)._taburaApp?.getState?.().ttsPlaying);
+    })).toBe(true);
+
+    await dispatchTouchTap(page, 3, 333);
+
+    await expect.poll(async () => page.evaluate(() => {
+      const app = (window as any)._taburaApp;
+      return {
+        speaking: Boolean(app?.getState?.().ttsPlaying),
+        leftOpen: Boolean(document.getElementById('pr-file-pane')?.classList.contains('is-open')),
+      };
+    })).toEqual({ speaking: true, leftOpen: true });
+  });
+
   test('artifact renders on mobile and fills viewport', async ({ page }) => {
     await renderTestArtifact(page);
     const canvasText = page.locator('#canvas-text');

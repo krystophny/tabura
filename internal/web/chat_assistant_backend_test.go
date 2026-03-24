@@ -212,8 +212,12 @@ func TestRunAssistantTurnFastLocalSkipsIntentEvalAndCapsOutput(t *testing.T) {
 		if got := strings.TrimSpace(strFromAny(first["role"])); got != "user" {
 			t.Fatalf("fast local first role = %q, want user", got)
 		}
-		if got := strings.TrimSpace(strFromAny(first["content"])); got != "Explain me who you are" {
-			t.Fatalf("fast local prompt = %q, want direct user prompt", got)
+		gotPrompt := strings.TrimSpace(strFromAny(first["content"]))
+		if !strings.Contains(gotPrompt, "User request:\nExplain me who you are") {
+			t.Fatalf("fast local prompt = %q, want fast prompt wrapper with user request", gotPrompt)
+		}
+		if !strings.Contains(gotPrompt, "Answer in plain text only. Keep it brief: default to 1-3 short sentences.") {
+			t.Fatalf("fast local prompt = %q, want brief fast guidance", gotPrompt)
 		}
 		templateKwargs, _ := payload["chat_template_kwargs"].(map[string]any)
 		if got, ok := templateKwargs["enable_thinking"].(bool); !ok || got {

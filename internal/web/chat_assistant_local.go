@@ -21,7 +21,7 @@ const (
 	assistantLLMResponseLimit    = 256 * 1024
 	assistantLLMMaxToolRounds    = 6
 	assistantLLMMalformedRetries = 2
-	localAssistantDialoguePrompt = "You are Tabura's local assistant. Available tools are declared in the request. Use native tool calls only when needed; otherwise answer directly. Default to plain text, not markdown, unless the user explicitly asks for structure, code, a table, or a list. Keep replies brief: for normal questions, answer in one short paragraph with 2-5 sentences. If the user asks a simple factual question, answer in 1-3 sentences. No markdown fences. No <think> tags."
+	localAssistantDialoguePrompt = "You are Tabura's local assistant. Available tools are declared in the request. Use native tool calls only when needed; otherwise answer directly. Default to plain text, not markdown. Do not use headings, bullets, numbered lists, or tables unless the user explicitly asks for them. Keep replies brief: default to 1-3 short sentences. If a single word or short phrase answers the request, reply with exactly that. No markdown fences. No <think> tags."
 )
 
 func assistantLLMRequestTimeout() time.Duration {
@@ -166,8 +166,7 @@ func (a *App) runLocalAssistantTurn(req *assistantTurnRequest) {
 		prompt,
 		latestCanvasPositionVisualAttachment(req.positionCtx),
 		func(fullText string, delta string) {
-			fullText = strings.TrimSpace(fullText)
-			delta = strings.TrimSpace(delta)
+			fullText = strings.TrimLeft(fullText, " \t\r\n")
 			if fullText == "" || delta == "" {
 				return
 			}

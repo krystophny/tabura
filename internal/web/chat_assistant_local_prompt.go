@@ -24,12 +24,27 @@ func buildLeanLocalAssistantPrompt(
 	appendLeanLocalAssistantCanvas(&b, canvas)
 	appendLeanLocalAssistantCompanion(&b, companion)
 	if isVoiceOutputMode(outputMode) {
-		b.WriteString("Reply briefly for speech.\n")
+		b.WriteString("Reply briefly for speech in 1-3 short sentences. Do not use markdown unless the user explicitly asks for it.\n")
 	} else {
-		b.WriteString("Default to one short paragraph in plain text unless the user explicitly asks for a list, code, or markdown.\n")
+		b.WriteString("Default to plain text with 1-3 short sentences unless the user explicitly asks for a list, code, or markdown.\n")
 	}
 	appendLeanLocalAssistantHistory(&b, messages)
 	return strings.TrimSpace(b.String())
+}
+
+func buildLocalAssistantFastPrompt(userText string) string {
+	body := strings.TrimSpace(userText)
+	if body == "" {
+		return ""
+	}
+	return strings.TrimSpace(strings.Join([]string{
+		"Answer in plain text only. Keep it brief: default to 1-3 short sentences.",
+		"If a single word or short phrase answers the request, reply with exactly that.",
+		"Do not use markdown, headings, bullets, or numbered lists unless the user explicitly asks for them.",
+		"",
+		"User request:",
+		body,
+	}, "\n"))
 }
 
 func appendLeanLocalAssistantWorkspace(b *strings.Builder, workspace *store.Workspace) {

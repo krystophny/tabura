@@ -26,7 +26,7 @@ func TestBuildLeanLocalAssistantPromptIsCompact(t *testing.T) {
 		"Canvas: notes.md [markdown]",
 		"## Companion Context",
 		"- Summary: Planning next steps.",
-		"Reply briefly for speech.",
+		"Reply briefly for speech in 1-3 short sentences. Do not use markdown unless the user explicitly asks for it.",
 		"Recent messages:",
 		"USER: latest question",
 	} {
@@ -55,8 +55,35 @@ func TestBuildLeanLocalAssistantPrompt_DefaultsToPlainShortChat(t *testing.T) {
 		nil,
 		turnOutputModeSilent,
 	)
-	if !strings.Contains(prompt, "Default to one short paragraph in plain text unless the user explicitly asks for a list, code, or markdown.") {
+	if !strings.Contains(prompt, "Default to plain text with 1-3 short sentences unless the user explicitly asks for a list, code, or markdown.") {
 		t.Fatalf("prompt missing plain short chat guidance:\n%s", prompt)
+	}
+}
+
+func TestBuildLeanLocalAssistantPrompt_VoiceKeepsPlainShortSpeech(t *testing.T) {
+	prompt := buildLeanLocalAssistantPrompt(
+		nil,
+		[]store.ChatMessage{{Role: "user", ContentPlain: "hello"}},
+		nil,
+		nil,
+		turnOutputModeVoice,
+	)
+	if !strings.Contains(prompt, "Reply briefly for speech in 1-3 short sentences. Do not use markdown unless the user explicitly asks for it.") {
+		t.Fatalf("prompt missing short speech guidance:\n%s", prompt)
+	}
+}
+
+func TestBuildLocalAssistantFastPromptAddsShortPlainGuidance(t *testing.T) {
+	prompt := buildLocalAssistantFastPrompt("Reply with the single word ORBIT.")
+	for _, snippet := range []string{
+		"Answer in plain text only. Keep it brief: default to 1-3 short sentences.",
+		"If a single word or short phrase answers the request, reply with exactly that.",
+		"Do not use markdown, headings, bullets, or numbered lists unless the user explicitly asks for them.",
+		"User request:\nReply with the single word ORBIT.",
+	} {
+		if !strings.Contains(prompt, snippet) {
+			t.Fatalf("fast prompt missing %q:\n%s", snippet, prompt)
+		}
 	}
 }
 

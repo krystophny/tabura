@@ -70,6 +70,7 @@ const isArtifactEditorActive = (...args) => refs.isArtifactEditorActive(...args)
 const isInkTool = (...args) => refs.isInkTool(...args);
 const isEditableTarget = (...args) => refs.isEditableTarget(...args);
 const isUiStopGestureActive = (...args) => refs.isUiStopGestureActive(...args);
+const isTTSSpeaking = (...args) => refs.isTTSSpeaking(...args);
 const isLikelyIOS = (...args) => refs.isLikelyIOS(...args);
 const isMobileViewport = (...args) => refs.isMobileViewport(...args);
 const stepCanvasFile = (...args) => refs.stepCanvasFile(...args);
@@ -374,6 +375,10 @@ export function bindUi() {
     };
 
     const handleWorkspaceTap = (target, x, y) => {
+      if (isTTSSpeaking() && !isInEdgeZone(x, y)) {
+        void handleStopAction();
+        return;
+      }
       const requestedPositionPrompt = String(state.requestedPositionPrompt || '').trim();
       let tapAnchor = null;
       if (requestedPositionPrompt) {
