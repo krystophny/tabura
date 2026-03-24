@@ -17,9 +17,9 @@
     <key>TABURA_MLX_MODEL_REPO</key>
     <string>mlx-community/Qwen3.5-9B-4bit</string>
     <key>TABURA_VLLM_MLX_GIT_URL</key>
-    <string>git+ssh://git@github.com/waybarrios/vllm-mlx.git</string>
+    <string>git+ssh://git@github.com/krystophny/vllm-mlx.git</string>
     <key>TABURA_VLLM_MLX_GIT_REF</key>
-    <string>v0.2.6</string>
+    <string>94fd8a68d3038eb42e5bb9d9ae9001e23ea83031</string>
     <key>TABURA_VLLM_MLX_ENABLE_BATCHING</key>
     <string>1</string>
     <key>TABURA_VLLM_MLX_USE_PAGED_CACHE</key>

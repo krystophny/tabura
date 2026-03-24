@@ -104,7 +104,9 @@ if [ -n "${TABURA_INTENT_LLM_URL:-}" ]; then
   log "TABURA_INTENT_LLM_URL set to ${REUSE_LLM_URL}; skipping LLM setup"
 elif existing_url="$(detect_llama_server)"; then
   log "Existing local LLM detected at ${existing_url}"
-  if confirm_default_yes "Reuse existing local LLM at ${existing_url}?"; then
+  if [ "$PLATFORM" = "Darwin" ] && [ "$existing_url" = "http://127.0.0.1:8081" ]; then
+    log "Keeping managed macOS local LLM under launchd control"
+  elif confirm_default_yes "Reuse existing local LLM at ${existing_url}?"; then
     REUSE_LLM_URL="$existing_url"
     log "TABURA_INTENT_LLM_URL will point to ${REUSE_LLM_URL}"
   fi
@@ -401,7 +403,8 @@ activate_direct() {
       web)
         TABURA_INTENT_LLM_URL="$effective_llm_url" \
         TABURA_ASSISTANT_MODE=local \
-        TABURA_INTENT_LLM_MODEL=local \
+        TABURA_INTENT_LLM_MODEL=qwen3.5-9b \
+        TABURA_ASSISTANT_LLM_MODEL=qwen3.5-9b \
         TABURA_INTENT_LLM_PROFILE=qwen3.5-9b \
         TABURA_INTENT_LLM_PROFILE_OPTIONS=qwen3.5-9b \
         nohup "$BIN_PATH" server \

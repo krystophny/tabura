@@ -6,7 +6,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 assert_contains() {
     local file="$1"
     local pattern="$2"
-    if ! grep -Fq "$pattern" "$file"; then
+    if ! grep -Fq -- "$pattern" "$file"; then
         echo "assertion failed: expected '$pattern' in $file" >&2
         exit 1
     fi
@@ -144,9 +144,17 @@ run_install_ps1_static_checks() {
 
 run_local_llm_profile_static_checks() {
     assert_contains "${ROOT_DIR}/scripts/setup-local-llm.sh" 'VLLM_MLX_MODEL_REPO="$(default_if_empty "$VLLM_MLX_MODEL_REPO" "mlx-community/Qwen3.5-9B-4bit")"'
+    assert_contains "${ROOT_DIR}/scripts/setup-local-llm.sh" 'git+ssh://git@github.com/krystophny/vllm-mlx.git'
+    assert_contains "${ROOT_DIR}/scripts/setup-local-llm.sh" '94fd8a68d3038eb42e5bb9d9ae9001e23ea83031'
+    assert_contains "${ROOT_DIR}/scripts/setup-local-llm.sh" 'pip uninstall -y vllm-mlx'
+    assert_contains "${ROOT_DIR}/scripts/setup-local-llm.sh" 'pip install --upgrade --force-reinstall --no-cache-dir --no-deps "$install_spec"'
+    assert_contains "${ROOT_DIR}/scripts/setup-local-llm.sh" '--served-model-name "$ALIAS"'
     assert_contains "${ROOT_DIR}/scripts/setup-local-llm.sh" 'args+=(--continuous-batching)'
     assert_contains "${ROOT_DIR}/deploy/launchd/io.tabura.llm.plist" "TABURA_MLX_MODEL_REPO"
     assert_contains "${ROOT_DIR}/deploy/launchd/io.tabura.llm.plist" "mlx-community/Qwen3.5-9B-4bit"
+    assert_contains "${ROOT_DIR}/deploy/launchd/io.tabura.llm.plist" "git+ssh://git@github.com/krystophny/vllm-mlx.git"
+    assert_contains "${ROOT_DIR}/deploy/launchd/io.tabura.llm.plist" "94fd8a68d3038eb42e5bb9d9ae9001e23ea83031"
+    assert_contains "${ROOT_DIR}/deploy/launchd/io.tabura.web.plist" "<string>qwen3.5-9b</string>"
 }
 
 run_setup_codex_mcp_checks() {

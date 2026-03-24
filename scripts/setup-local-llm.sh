@@ -26,8 +26,8 @@ build_vllm_mlx_install_spec() {
     printf '%s' "$TABURA_VLLM_MLX_INSTALL_SPEC"
     return
   fi
-  local git_url="${TABURA_VLLM_MLX_GIT_URL:-git+ssh://git@github.com/waybarrios/vllm-mlx.git}"
-  local git_ref="${TABURA_VLLM_MLX_GIT_REF:-v0.2.6}"
+  local git_url="${TABURA_VLLM_MLX_GIT_URL:-git+ssh://git@github.com/krystophny/vllm-mlx.git}"
+  local git_ref="${TABURA_VLLM_MLX_GIT_REF:-94fd8a68d3038eb42e5bb9d9ae9001e23ea83031}"
   if [ -n "$git_ref" ]; then
     printf '%s@%s' "$git_url" "$git_ref"
     return
@@ -48,7 +48,8 @@ ensure_vllm_mlx_install() {
   fi
   if [ ! -x "${VENV_DIR}/bin/vllm-mlx" ] || [ ! -f "$marker_path" ] || [ "$(cat "$marker_path" 2>/dev/null)" != "$install_spec" ]; then
     "${VENV_DIR}/bin/python" -m pip install --upgrade pip setuptools wheel >/dev/null
-    "${VENV_DIR}/bin/python" -m pip install --upgrade "$install_spec" >/dev/null
+    "${VENV_DIR}/bin/python" -m pip uninstall -y vllm-mlx >/dev/null 2>&1 || true
+    "${VENV_DIR}/bin/python" -m pip install --upgrade --force-reinstall --no-cache-dir --no-deps "$install_spec" >/dev/null
     printf '%s' "$install_spec" >"$marker_path"
   fi
 }
@@ -82,6 +83,7 @@ if [ "$PLATFORM" = "Darwin" ]; then
   case "$PROFILE_PRESET" in
     "" | "fast-qwen9b" | "codex-gpt-oss-120b")
       VLLM_MLX_MODEL_REPO="$(default_if_empty "$VLLM_MLX_MODEL_REPO" "mlx-community/Qwen3.5-9B-4bit")"
+      ALIAS="$(default_if_empty "$ALIAS" "qwen3.5-9b")"
       HOST="$(default_if_empty "$HOST" "127.0.0.1")"
       PORT="$(default_if_empty "$PORT" "8081")"
       VLLM_MLX_ENABLE_BATCHING="$(default_if_empty "$VLLM_MLX_ENABLE_BATCHING" "1")"
@@ -116,6 +118,7 @@ if [ "$PLATFORM" = "Darwin" ]; then
     serve "$VLLM_MLX_MODEL_REPO"
     --host "$HOST"
     --port "$PORT"
+    --served-model-name "$ALIAS"
     --max-tokens "$VLLM_MLX_MAX_TOKENS"
     --chunked-prefill-tokens "$VLLM_MLX_CHUNKED_PREFILL_TOKENS"
     --enable-auto-tool-choice
