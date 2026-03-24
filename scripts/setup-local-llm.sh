@@ -26,8 +26,8 @@ build_vllm_mlx_install_spec() {
     printf '%s' "$TABURA_VLLM_MLX_INSTALL_SPEC"
     return
   fi
-  local git_url="${TABURA_VLLM_MLX_GIT_URL:-git+ssh://git@github.com/krystophny/vllm-mlx.git}"
-  local git_ref="${TABURA_VLLM_MLX_GIT_REF:-94fd8a68d3038eb42e5bb9d9ae9001e23ea83031}"
+  local git_url="${TABURA_VLLM_MLX_GIT_URL:-git+ssh://git@github.com/computor-org/vllm-mlx.git}"
+  local git_ref="${TABURA_VLLM_MLX_GIT_REF:-f1eadce4bdebc971f738bc3dfa7ecdbb14737929}"
   if [ -n "$git_ref" ]; then
     printf '%s@%s' "$git_url" "$git_ref"
     return
