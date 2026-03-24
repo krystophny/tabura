@@ -10,6 +10,13 @@ type PlaytestMeta = {
 
 async function collectPageState(page: Page): Promise<Record<string, unknown>> {
   return page.evaluate(async () => {
+    const elementVisible = (id: string) => {
+      const node = document.getElementById(id);
+      if (!(node instanceof HTMLElement)) return false;
+      const style = window.getComputedStyle(node);
+      if (style.display === 'none' || style.visibility === 'hidden') return false;
+      return node.getClientRects().length > 0;
+    };
     const localStorageState: Record<string, string> = {};
     const sessionStorageState: Record<string, string> = {};
     try {
@@ -40,8 +47,8 @@ async function collectPageState(page: Page): Promise<Record<string, unknown>> {
               className: document.activeElement.className || '',
             }
           : null,
-      overlayVisible: Boolean(document.getElementById('overlay')),
-      floatingInputVisible: Boolean(document.getElementById('floating-input')),
+      overlayVisible: elementVisible('overlay'),
+      floatingInputVisible: elementVisible('floating-input'),
       fileSidebarOpen: document.body?.classList.contains('file-sidebar-open') || false,
       edgeTopClass: edgeTop?.className || '',
       edgeRightClass: edgeRight?.className || '',

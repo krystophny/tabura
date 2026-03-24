@@ -112,6 +112,18 @@ export async function getChatSessionId(sessionToken: string): Promise<string> {
   return String(project.chat_session_id);
 }
 
+export async function clearLiveChat(sessionToken: string): Promise<void> {
+  const sessionID = await getChatSessionId(sessionToken);
+  const resp = await authFetch(`${SERVER_URL}/api/chat/sessions/${encodeURIComponent(sessionID)}/commands`, sessionToken, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ command: '/clear' }),
+  });
+  if (!resp.ok) {
+    throw new Error(`/api/chat/sessions/${sessionID}/commands failed: HTTP ${resp.status}`);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // WAV generators
 // ---------------------------------------------------------------------------

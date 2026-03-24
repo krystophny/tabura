@@ -185,6 +185,7 @@ export function bindUi() {
   };
   const beginVoiceCaptureFromPoint = (x, y, anchor = null) => {
     const captureAnchor = anchor || captureAnchorAtPoint(x, y);
+    hideTextInput();
     return beginVoiceCapture(x, y, captureAnchor);
   };
   document.addEventListener('mousemove', (ev) => {
@@ -406,12 +407,7 @@ export function bindUi() {
       if (isLiveSessionListenActive()) {
         if (isVoiceInteractionTarget(target, x, y)) return;
         cancelLiveSessionListen();
-        if (prefersTextComposer()) {
-          const anchor = tapAnchor || captureAnchorAtPoint(x, y);
-          openComposerAt(x, y, anchor);
-        } else {
-          void beginVoiceCaptureFromPoint(x, y, tapAnchor);
-        }
+        void beginVoiceCaptureFromPoint(x, y, tapAnchor);
         return;
       }
       if (isUiStopGestureActive()) {
@@ -425,11 +421,6 @@ export function bindUi() {
       rememberMousePosition(x, y);
       if (isRecording()) {
         void stopVoiceCaptureAndSend();
-        return;
-      }
-      if (prefersTextComposer()) {
-        const anchor = tapAnchor || captureAnchorAtPoint(x, y);
-        openComposerAt(x, y, anchor);
         return;
       }
       if (

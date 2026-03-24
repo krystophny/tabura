@@ -1,5 +1,5 @@
 .tabura-circle {
-  --tabura-circle-shell-size: 286px;
+  --tabura-circle-shell-size: 312px;
   --tabura-circle-dot-size: 58px;
   --tabura-circle-segment-size: 56px;
   --tabura-circle-ring-color: rgba(15, 23, 42, 0.18);
@@ -8,6 +8,26 @@
   height: var(--tabura-circle-shell-size);
   pointer-events: none;
   z-index: 395;
+}
+
+.tabura-circle::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  opacity: 0;
+  transform: scale(0.9);
+  transition: opacity 180ms ease, transform 180ms ease;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 82% 82%, rgba(255, 255, 255, 0.94) 0 12%, rgba(244, 248, 252, 0.86) 18%, rgba(216, 227, 239, 0.42) 42%, rgba(216, 227, 239, 0.12) 58%, transparent 74%),
+    conic-gradient(from 180deg at 82% 82%, rgba(13, 94, 140, 0.12), rgba(15, 23, 42, 0.08), rgba(107, 16, 63, 0.12), transparent 78%);
+  filter: blur(4px);
+}
+
+.tabura-circle.is-expanded::before {
+  opacity: 1;
+  transform: scale(1);
 }
 
 .tabura-circle[data-corner="top_left"] {
@@ -124,14 +144,13 @@
   position: absolute;
   inset: 0;
   opacity: 0;
-  transform: scale(0.88);
-  transition: opacity 160ms ease, transform 160ms ease;
+  transition: opacity 160ms ease;
   pointer-events: none;
+  filter: drop-shadow(0 20px 42px rgba(15, 23, 42, 0.14));
 }
 
 .tabura-circle.is-expanded .tabura-circle-menu {
   opacity: 1;
-  transform: scale(1);
   pointer-events: auto;
 }
 
@@ -139,29 +158,46 @@
   position: absolute;
   width: var(--tabura-circle-segment-size);
   height: var(--tabura-circle-segment-size);
-  border: 1px solid rgba(15, 23, 42, 0.12);
+  border: 1px solid rgba(15, 23, 42, 0.14);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.98);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(242, 247, 252, 0.97));
   color: #132033;
   box-shadow:
-    0 14px 36px rgba(15, 23, 42, 0.14),
+    0 16px 36px rgba(15, 23, 42, 0.18),
     inset 0 1px 0 rgba(255, 255, 255, 0.84);
   backdrop-filter: blur(10px);
+  transition: transform 140ms ease, box-shadow 140ms ease, background-color 140ms ease, color 140ms ease;
 }
 
 .tabura-circle-segment[data-kind="session"] {
-  border-color: rgba(13, 94, 140, 0.28);
-  background: linear-gradient(180deg, rgba(237, 248, 255, 0.98), rgba(220, 242, 252, 0.96));
+  border-color: rgba(13, 94, 140, 0.3);
+  background: linear-gradient(180deg, rgba(238, 249, 255, 0.99), rgba(220, 242, 252, 0.97));
 }
 
 .tabura-circle-segment[data-kind="toggle"] {
-  border-color: rgba(107, 16, 63, 0.22);
-  background: linear-gradient(180deg, rgba(255, 243, 248, 0.98), rgba(254, 232, 240, 0.96));
+  border-color: rgba(107, 16, 63, 0.24);
+  background: linear-gradient(180deg, rgba(255, 244, 248, 0.99), rgba(254, 233, 241, 0.97));
+}
+
+.tabura-circle-segment[data-kind="tool"] {
+  border-color: rgba(15, 23, 42, 0.16);
+  background: linear-gradient(180deg, rgba(248, 251, 254, 0.99), rgba(235, 242, 248, 0.96));
+}
+
+.tabura-circle-segment:hover,
+.tabura-circle-segment:focus-visible {
+  transform: scale(1.04);
+  box-shadow:
+    0 18px 44px rgba(15, 23, 42, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.88);
 }
 
 .tabura-circle-segment[aria-pressed="true"] {
   background: #121926;
   color: #fff;
+  box-shadow:
+    0 18px 42px rgba(15, 23, 42, 0.26),
+    0 0 0 4px rgba(255, 255, 255, 0.76);
 }
 
 .tabura-circle-segment[data-kind="session"][aria-pressed="true"] {

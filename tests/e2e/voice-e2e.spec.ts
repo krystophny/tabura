@@ -1,5 +1,6 @@
 import { expect, openLiveApp, test } from './live';
 import { authenticate } from './helpers';
+import { setInteractionTool, waitForLiveAppReady } from './live-ui';
 
 test.describe('full browser voice flow @local-only', () => {
   let sessionToken: string;
@@ -11,16 +12,8 @@ test.describe('full browser voice flow @local-only', () => {
   test('mic click -> real browser capture -> real STT -> transcript in chat', async ({ page }) => {
     await openLiveApp(page, sessionToken);
 
-    // Wait for app to initialize and WS to connect.
-    await page.waitForFunction(() => {
-      const app = (window as any)._taburaApp;
-      if (typeof app?.getState !== 'function') return false;
-      const state = app.getState();
-      const wsOpen = (window as any).WebSocket.OPEN;
-      return Boolean(document.getElementById('indicator'))
-        && state?.chatWs?.readyState === wsOpen
-        && state?.canvasWs?.readyState === wsOpen;
-    }, null, { timeout: 10_000 });
+    await waitForLiveAppReady(page);
+    await setInteractionTool(page, 'prompt');
     await page.waitForTimeout(1000);
 
     // Click the canvas viewport to start recording. The fake audio device
