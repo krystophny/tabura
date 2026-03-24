@@ -132,18 +132,10 @@ elif LLAMA_SERVER_BIN_RESOLVED="$(tabura_find_llama_server)"; then
   HAVE_LLAMA=1
 else
   HAVE_LLAMA=0
-  if [ "$PLATFORM" = "Darwin" ]; then
-    if [ -n "${TABURA_LLAMA_LAST_ERROR:-}" ]; then
-      log "WARNING: llama-server not usable (${TABURA_LLAMA_LAST_ERROR}). Install: brew install llama.cpp"
-    else
-      log "WARNING: llama-server not found. Install: brew install llama.cpp"
-    fi
-  else
-    if [ -n "${TABURA_LLAMA_LAST_ERROR:-}" ]; then
-      fail "llama-server not usable: ${TABURA_LLAMA_LAST_ERROR}"
-    fi
-    fail "llama-server not found. Build llama.cpp and install to ~/.local/bin"
+  if [ -n "${TABURA_LLAMA_LAST_ERROR:-}" ]; then
+    fail "llama-server not usable: ${TABURA_LLAMA_LAST_ERROR}"
   fi
+  fail "llama-server not found. Build llama.cpp and install to ~/.local/bin"
 fi
 
 if ! command -v voxtype >/dev/null 2>&1; then
@@ -315,7 +307,7 @@ install_macos() {
   rm -f "$plist_dst/io.tabura.piper-tts.plist" "$plist_dst/io.tabura.macos-tts.plist" "$plist_dst/io.tabura.codex-app-server.plist"
 
   # Determine which agents to install
-  local agents=(piper-tts web)
+  local agents=(codex-app-server piper-tts web)
   if [ "$HAVE_LLAMA" = "1" ] && [ -z "$REUSE_LLM_URL" ]; then
     agents+=(llm)
   fi

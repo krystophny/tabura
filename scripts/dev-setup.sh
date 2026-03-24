@@ -134,7 +134,7 @@ fi
 
 if ! command -v voxtype >/dev/null 2>&1; then
     if [ "$PLATFORM" = "Darwin" ]; then
-        command -v cargo >/dev/null 2>&1 || fail "cargo not found; install Rust: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh"
+        command -v cargo >/dev/null 2>&1 || fail "cargo not found; install Rust with Homebrew: brew install rust"
         command -v cmake >/dev/null 2>&1 || fail "cmake not found; install: brew install cmake"
         log "Building voxtype from source for macOS"
         "$REPO_ROOT/scripts/build-voxtype-macos.sh" --yes

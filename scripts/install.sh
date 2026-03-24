@@ -806,7 +806,7 @@ NOTICE
             fi
         else
             log "voxtype not found; to build from source install Rust and cmake:"
-            log "  brew install cmake && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh"
+            log "  brew install rust cmake"
             log "  then run: scripts/build-voxtype-macos.sh"
         fi
     else
@@ -999,10 +999,10 @@ write_launchd_plists() {
 
     [ -d "$template_dir" ] || fail "launchd templates not found in ${template_dir}"
 
+    substitute_launchd_template "${template_dir}/io.tabura.codex-app-server.plist" "${agent_dir}/io.tabura.codex-app-server.plist"
     substitute_launchd_template "${template_dir}/io.tabura.piper-tts.plist" "${agent_dir}/io.tabura.piper-tts.plist"
     run_cmd launchctl unload "${agent_dir}/io.tabura.macos-tts.plist" >/dev/null 2>&1 || true
-    run_cmd launchctl unload "${agent_dir}/io.tabura.codex-app-server.plist" >/dev/null 2>&1 || true
-    run_cmd rm -f "${agent_dir}/io.tabura.macos-tts.plist" "${agent_dir}/io.tabura.codex-app-server.plist"
+    run_cmd rm -f "${agent_dir}/io.tabura.macos-tts.plist"
 
     if [ -x "$LLM_SETUP_SCRIPT" ] && [ -z "$REUSE_LLM_URL" ]; then
         substitute_launchd_template "${template_dir}/io.tabura.llm.plist" "${agent_dir}/io.tabura.llm.plist"
@@ -1028,6 +1028,7 @@ install_services_macos() {
     local agent_dir
     agent_dir="${HOME}/Library/LaunchAgents"
     write_launchd_plists "$staging_dir"
+    load_launchd_service "${agent_dir}/io.tabura.codex-app-server.plist"
     load_launchd_service "${agent_dir}/io.tabura.piper-tts.plist"
     if [ -f "${agent_dir}/io.tabura.llm.plist" ]; then
         load_launchd_service "${agent_dir}/io.tabura.llm.plist"

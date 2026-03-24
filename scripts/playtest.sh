@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PLATFORM="$(uname -s)"
 
 fail() { printf 'FATAL: %s\n' "$1" >&2; exit 1; }
 
@@ -47,22 +48,35 @@ latest_workspace_epoch() {
 }
 
 maybe_sync_live_runtime() {
-  if ! systemctl --user is-active --quiet tabura-web.service; then
+  if [[ "$PLATFORM" == "Darwin" ]]; then
+    if ! launchctl list io.tabura.web >/dev/null 2>&1; then
+      return
+    fi
+    printf 'Syncing live runtime to current workspace...\n'
+    "$ROOT_DIR/scripts/tabura-dev-restart.sh"
+    wait_for_command \
+      'Tabura web server did not come back on :8420 after restart' \
+      30 \
+      curl -fsS --max-time 3 http://127.0.0.1:8420/api/setup
     return
+  else
+    local started_at started_epoch latest_epoch
+    if ! systemctl --user is-active --quiet tabura-web.service; then
+      return
+    fi
+    started_at="$(systemctl --user show tabura-web.service --property=ExecMainStartTimestamp --value)"
+    started_epoch="$(date -d "$started_at" +%s 2>/dev/null || printf '0')"
+    latest_epoch="$(latest_workspace_epoch)"
+    if (( latest_epoch <= started_epoch )); then
+      return
+    fi
+    printf 'Syncing live runtime to current workspace...\n'
+    "$ROOT_DIR/scripts/tabura-dev-restart.sh"
+    wait_for_command \
+      'Tabura web server did not come back on :8420 after restart' \
+      30 \
+      curl -fsS --max-time 3 http://127.0.0.1:8420/api/setup
   fi
-  local started_at started_epoch latest_epoch
-  started_at="$(systemctl --user show tabura-web.service --property=ExecMainStartTimestamp --value)"
-  started_epoch="$(date -d "$started_at" +%s 2>/dev/null || printf '0')"
-  latest_epoch="$(latest_workspace_epoch)"
-  if (( latest_epoch <= started_epoch )); then
-    return
-  fi
-  printf 'Syncing live runtime to current workspace...\n'
-  "$ROOT_DIR/scripts/tabura-dev-restart.sh"
-  wait_for_command \
-    'Tabura web server did not come back on :8420 after restart' \
-    30 \
-    curl -fsS --max-time 3 http://127.0.0.1:8420/api/setup
 }
 
 maybe_sync_live_runtime
@@ -94,7 +108,7 @@ else
   printf 'Local intent runtime not detected on :8081; continuing with live runtime defaults.\n'
 fi
 
-if [[ "$(uname -s)" != "Darwin" ]]; then
+if [[ "$PLATFORM" != "Darwin" ]]; then
   if python3 - <<'PY' >/dev/null 2>&1
 import socket
 sock = socket.create_connection(("127.0.0.1", 8080), timeout=3)

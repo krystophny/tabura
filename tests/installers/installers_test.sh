@@ -195,6 +195,8 @@ run_hotword_bootstrap_checks() {
     assert_contains "$script" 'Computer V2'
     assert_contains "${ROOT_DIR}/scripts/install.sh" 'install_hotword_assets'
     assert_contains "${ROOT_DIR}/scripts/install-tabura-user-units.sh" 'install_hotword_assets'
+    assert_contains "${ROOT_DIR}/scripts/install.sh" 'load_launchd_service "${agent_dir}/io.tabura.codex-app-server.plist"'
+    assert_contains "${ROOT_DIR}/scripts/install-tabura-user-units.sh" 'local agents=(codex-app-server piper-tts web)'
 }
 
 main() {

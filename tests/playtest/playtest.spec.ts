@@ -1,5 +1,6 @@
 import { expect, test, annotatePlaytest, openLiveApp, applySessionCookie } from '../e2e/live';
 import { authenticate } from '../e2e/helpers';
+import { circleSegment, setSilentMode, waitForCircleControls } from '../playwright/tabura-circle-helpers';
 
 async function openTopEdge(page: Parameters<typeof openLiveApp>[0]) {
   await page.mouse.move(160, 2);
@@ -46,32 +47,25 @@ test.describe('live playtest smoke', () => {
     await expect(page.locator('#edge-top')).not.toHaveClass(/edge-active/);
   });
 
-  test('yolo and silent toggles update runtime state and survive a refresh', async ({ page }, testInfo) => {
+  test('silent toggle updates runtime state and survives a refresh', async ({ page }, testInfo) => {
     annotatePlaytest(testInfo, {
-      tested: 'Live runtime preference controls for yolo mode and silent mode.',
-      expected: 'Toggling yolo and silent should update the live shell immediately and persist after a refresh.',
+      tested: 'Live runtime silent-mode control via the Tabura Circle.',
+      expected: 'Toggling silent mode should update the live shell immediately and persist after a refresh.',
       steps: [
-        './scripts/playtest.sh --grep "yolo and silent toggles update runtime state and survive a refresh"',
-        'Open the top edge model controls, toggle yolo and silent, then refresh the page.',
+        './scripts/playtest.sh --grep "silent toggle updates runtime state and survives a refresh"',
+        'Open the live app, toggle the Tabura Circle silent segment, then refresh the page.',
       ],
     });
 
     await openLiveApp(page, sessionToken);
     await openTopEdge(page);
+    await waitForCircleControls(page);
 
-    const yoloButton = page.locator('.edge-yolo-btn');
-    const silentButton = page.locator('.edge-silent-btn');
-
-    const initialYolo = await yoloButton.getAttribute('aria-pressed');
-    const initialSilent = await silentButton.getAttribute('aria-pressed');
-    const nextYolo = initialYolo === 'true' ? 'false' : 'true';
+    const silentSegment = circleSegment(page, 'silent');
+    const initialSilent = await silentSegment.getAttribute('aria-pressed');
     const nextSilent = initialSilent === 'true' ? 'false' : 'true';
 
-    await yoloButton.click();
-    await expect(yoloButton).toHaveAttribute('aria-pressed', nextYolo);
-
-    await silentButton.click();
-    await expect(silentButton).toHaveAttribute('aria-pressed', nextSilent);
+    await setSilentMode(page, nextSilent === 'true');
     if (nextSilent === 'true') {
       await expect(page.locator('body')).toHaveClass(/silent-mode/);
     } else {
@@ -79,9 +73,10 @@ test.describe('live playtest smoke', () => {
     }
 
     await page.reload({ waitUntil: 'networkidle' });
+    await openLiveApp(page, sessionToken);
     await openTopEdge(page);
-    await expect(page.locator('.edge-yolo-btn')).toHaveAttribute('aria-pressed', nextYolo);
-    await expect(page.locator('.edge-silent-btn')).toHaveAttribute('aria-pressed', nextSilent);
+    await waitForCircleControls(page);
+    await expect(circleSegment(page, 'silent')).toHaveAttribute('aria-pressed', nextSilent);
   });
 });
 
