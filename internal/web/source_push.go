@@ -231,9 +231,7 @@ func sourcePushAccountEqual(left, right store.ExternalAccount) bool {
 	return left.ID == right.ID &&
 		left.Provider == right.Provider &&
 		left.Enabled == right.Enabled &&
-		left.AccountName == right.AccountName &&
-		left.ConfigJSON == right.ConfigJSON &&
-		left.UpdatedAt == right.UpdatedAt
+		left.AccountName == right.AccountName
 }
 
 func sleepSourcePush(ctx context.Context, delay time.Duration) bool {
