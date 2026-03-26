@@ -6,10 +6,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/krystophny/tabura/internal/llmcache"
 	"github.com/krystophny/tabura/internal/store"
 )
 
@@ -263,6 +265,31 @@ func (a *App) classifyIntentPlanWithLLMResultForTurn(ctx context.Context, sessio
 		userPrompt = trimmedText
 	}
 	requestPlan := func(systemPrompt string, userPrompt string) (intentPlanClassification, error) {
+		var intentCacheKey string
+		if a.llmCache != nil {
+			intentMessages := []map[string]any{
+				{"role": "system", "content": systemPrompt},
+				{"role": "user", "content": userPrompt},
+			}
+			intentCacheKey = llmcache.BuildKey(intentMessages, nil, a.localIntentLLMModel(), false)
+			if entry, ok := a.llmCache.Lookup(intentCacheKey); ok {
+				content := strings.TrimSpace(entry.Content)
+				if content != "" {
+					log.Printf("intent cache hit key=%s", intentCacheKey[:12])
+					classification, parseErr := parseIntentPlanClassification(stripCodeFence(content))
+					if parseErr == nil {
+						normalized := make([]*SystemAction, 0, len(classification.Actions))
+						for _, action := range classification.Actions {
+							if normalizedAction := normalizeSystemActionForExecution(action, trimmedText); normalizedAction != nil {
+								normalized = append(normalized, normalizedAction)
+							}
+						}
+						classification.Actions = normalized
+						return classification, nil
+					}
+				}
+			}
+		}
 		requestBody, _ := json.Marshal(map[string]interface{}{
 			"model":       a.localIntentLLMModel(),
 			"temperature": 0,
@@ -309,6 +336,9 @@ func (a *App) classifyIntentPlanWithLLMResultForTurn(ctx context.Context, sessio
 		content := strings.TrimSpace(payload.Choices[0].Message.Content)
 		if content == "" {
 			return intentPlanClassification{}, nil
+		}
+		if intentCacheKey != "" {
+			storeMessageInCache(a.llmCache, intentCacheKey, localIntentLLMMessage{Content: content}, a.localIntentLLMModel())
 		}
 		classification, parseErr := parseIntentPlanClassification(stripCodeFence(content))
 		if parseErr != nil {

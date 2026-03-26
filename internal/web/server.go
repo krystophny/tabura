@@ -26,6 +26,7 @@ import (
 	"github.com/krystophny/tabura/internal/modelprofile"
 	"github.com/krystophny/tabura/internal/plugins"
 	"github.com/krystophny/tabura/internal/serve"
+	"github.com/krystophny/tabura/internal/llmcache"
 	"github.com/krystophny/tabura/internal/store"
 )
 
@@ -92,6 +93,7 @@ type App struct {
 	devRuntime                    bool
 
 	store      *store.Store
+	llmCache   *llmcache.Cache
 	sourceSync sourceSyncRunner
 	sourcePush sourcePushRunner
 
@@ -156,6 +158,11 @@ const DefaultModel = modelprofile.ModelSpark
 func New(dataDir, localProjectDir, localMCPURL, appServerURL, model, ttsURL, sparkReasoningEffort string, devRuntime bool) (*App, error) {
 	s, err := store.New(filepath.Join(dataDir, "tabura.db"))
 	if err != nil {
+		return nil, err
+	}
+	lc, err := llmcache.New(filepath.Join(dataDir, "llmcache.db"))
+	if err != nil {
+		s.Close()
 		return nil, err
 	}
 	shutdownCtx, shutdownCancel := context.WithCancel(context.Background())
@@ -323,6 +330,7 @@ func New(dataDir, localProjectDir, localMCPURL, appServerURL, model, ttsURL, spa
 		hookProviders:                 buildHookProviders(extensionHost, pluginManager),
 		devRuntime:                    devRuntime,
 		store:                         s,
+		llmCache:                      lc,
 		sourceSync:                    nil,
 		sourcePush:                    nil,
 		appServerClient:               appServerClient,
@@ -911,6 +919,9 @@ func (a *App) Shutdown(ctx context.Context) error {
 		if _, err := a.store.StopActiveTimeEntries(time.Now().UTC()); err != nil {
 			timeErr = err
 		}
+	}
+	if a.llmCache != nil {
+		a.llmCache.Close()
 	}
 	storeErr := a.store.Close()
 	if waitErr != nil {

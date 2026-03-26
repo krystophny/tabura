@@ -8,9 +8,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"slices"
 	"strings"
+
+	"github.com/krystophny/tabura/internal/llmcache"
 )
 
 func firstNonEmptyLocalAssistantChunk(values ...string) string {
@@ -190,6 +193,18 @@ func (a *App) requestLocalAssistantCompletionWithConfig(ctx context.Context, mes
 	if maxTokens <= 0 {
 		maxTokens = assistantLLMToolMaxTokens
 	}
+	var cacheKey string
+	if a.llmCache != nil && !llmcache.ContainsToolResults(messages) {
+		cacheKey = llmcache.BuildKey(messages, tools, a.localAssistantLLMModel(), enableThinking)
+		if entry, ok := a.llmCache.Lookup(cacheKey); ok {
+			message := messageFromCacheEntry(entry)
+			log.Printf("llm cache hit key=%s content_len=%d tool_calls=%d", cacheKey[:12], len(message.Content), len(message.ToolCalls))
+			if onDelta != nil && strings.TrimSpace(message.Content) != "" && !localAssistantHiddenControlEnvelope(message.Content) {
+				onDelta(message.Content, message.Content)
+			}
+			return message, nil
+		}
+	}
 	request := map[string]any{
 		"model":       a.localAssistantLLMModel(),
 		"temperature": 0,
@@ -229,16 +244,64 @@ func (a *App) requestLocalAssistantCompletionWithConfig(ctx context.Context, mes
 		return localIntentLLMMessage{}, fmt.Errorf("assistant llm HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	contentType := strings.ToLower(strings.TrimSpace(resp.Header.Get("Content-Type")))
+	var message localIntentLLMMessage
 	if strings.HasPrefix(contentType, "text/event-stream") {
-		message, _, err := decodeLocalAssistantStreamingPayload(resp.Body, enableThinking, onDelta)
-		return message, err
+		msg, _, streamErr := decodeLocalAssistantStreamingPayload(resp.Body, enableThinking, onDelta)
+		if streamErr != nil {
+			return msg, streamErr
+		}
+		message = msg
+	} else {
+		msg, _, decodeErr := decodeLocalAssistantCompletionPayload(resp.Body, enableThinking)
+		if decodeErr != nil {
+			return localIntentLLMMessage{}, decodeErr
+		}
+		if onDelta != nil && strings.TrimSpace(msg.Content) != "" && !localAssistantHiddenControlEnvelope(msg.Content) {
+			onDelta(msg.Content, msg.Content)
+		}
+		message = msg
 	}
-	message, _, err := decodeLocalAssistantCompletionPayload(resp.Body, enableThinking)
-	if err != nil {
-		return localIntentLLMMessage{}, err
-	}
-	if onDelta != nil && strings.TrimSpace(message.Content) != "" && !localAssistantHiddenControlEnvelope(message.Content) {
-		onDelta(message.Content, message.Content)
+	if cacheKey != "" {
+		storeMessageInCache(a.llmCache, cacheKey, message, a.localAssistantLLMModel())
 	}
 	return message, nil
+}
+
+func messageFromCacheEntry(entry *llmcache.Entry) localIntentLLMMessage {
+	msg := localIntentLLMMessage{Content: entry.Content}
+	for _, tc := range entry.ParseToolCalls() {
+		msg.ToolCalls = append(msg.ToolCalls, localAssistantLLMToolCall{
+			ID:   tc.ID,
+			Type: tc.Type,
+			Function: localAssistantLLMFunctionCall{
+				Name:      tc.Function.Name,
+				Arguments: tc.Function.Arguments,
+			},
+		})
+	}
+	return msg
+}
+
+func storeMessageInCache(c *llmcache.Cache, key string, msg localIntentLLMMessage, model string) {
+	if c == nil || key == "" {
+		return
+	}
+	var calls []llmcache.ToolCall
+	for _, tc := range msg.ToolCalls {
+		calls = append(calls, llmcache.ToolCall{
+			ID:   tc.ID,
+			Type: tc.Type,
+			Function: llmcache.FunctionCall{
+				Name:      tc.Function.Name,
+				Arguments: tc.Function.Arguments,
+			},
+		})
+	}
+	finishReason := "stop"
+	if len(calls) > 0 {
+		finishReason = "tool_calls"
+	}
+	if err := c.Store(key, msg.Content, calls, finishReason, model); err != nil {
+		log.Printf("llm cache store error: %v", err)
+	}
 }
