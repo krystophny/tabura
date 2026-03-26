@@ -123,6 +123,10 @@ export function openCanvasWs() {
     if (turnToken !== state.canvasWsToken || targetSessionID !== state.sessionId) return;
     try {
       const payload = JSON.parse(event.data);
+      if (payload?.type === 'relay_error') {
+        hideCanvasColumn();
+        return;
+      }
       applyCanvasArtifactEvent(payload);
     } catch (_) {}
   };
