@@ -120,6 +120,18 @@ export async function loadItemSidebarView(view = state.itemSidebarView, filters 
   }
   renderPrReviewFileList();
   if (!workspaceID) {
+    try {
+      const wsResp = await fetch(apiURL('runtime/workspaces'));
+      if (wsResp.ok) {
+        const wsList = await wsResp.json();
+        const active = (Array.isArray(wsList) ? wsList : []).find((w) => w?.is_active);
+        const resolvedID = String(active?.id || '').trim();
+        if (resolvedID) {
+          state.activeWorkspaceId = resolvedID;
+          return loadItemSidebarView(view, filters);
+        }
+      }
+    } catch (_) {}
     state.itemSidebarItems = [];
     state.itemSidebarLoading = false;
     applyItemSidebarCounts(defaultItemSidebarCounts());
