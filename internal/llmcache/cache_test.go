@@ -185,6 +185,71 @@ func TestRunningTasksStripped(t *testing.T) {
 	}
 }
 
+func TestBuildIntentKeyStripsHistory(t *testing.T) {
+	msgs1 := []map[string]any{
+		{"role": "system", "content": "you are helpful"},
+		{"role": "user", "content": "Current UTC time: 2026-03-26\nRecent conversation:\n- USER: hello\n- ASSISTANT: hi\n\nUser request:\nwelche termine morgen?"},
+	}
+	msgs2 := []map[string]any{
+		{"role": "system", "content": "you are helpful"},
+		{"role": "user", "content": "Current UTC time: 2026-03-26\nRecent conversation:\n- USER: show my mail\n- ASSISTANT: here are your emails\n\nUser request:\nwelche termine morgen?"},
+	}
+	k1 := BuildIntentKey(msgs1, "qwen")
+	k2 := BuildIntentKey(msgs2, "qwen")
+	if k1 != k2 {
+		t.Fatal("same intent with different history should produce same canonical key")
+	}
+	// But full keys should differ
+	fk1 := BuildKey(msgs1, nil, "qwen", false)
+	fk2 := BuildKey(msgs2, nil, "qwen", false)
+	if fk1 == fk2 {
+		t.Fatal("full keys should differ with different history")
+	}
+}
+
+func TestIsSelfContainedQuery(t *testing.T) {
+	self := []string{
+		"welche termine hab ich morgen?",
+		"show my calendar",
+		"zeig meine mails",
+		"what meetings do I have?",
+	}
+	for _, q := range self {
+		if !IsSelfContainedQuery(q) {
+			t.Fatalf("expected self-contained: %q", q)
+		}
+	}
+	followUp := []string{
+		"and tomorrow?",
+		"und morgen?",
+		"also next week",
+		"what about Friday?",
+		"it please",
+		"das auch",
+	}
+	for _, q := range followUp {
+		if IsSelfContainedQuery(q) {
+			t.Fatalf("expected follow-up: %q", q)
+		}
+	}
+}
+
+func TestBuildIntentKeyRecentMessagesBlock(t *testing.T) {
+	msgs1 := []map[string]any{
+		{"role": "system", "content": "prompt"},
+		{"role": "user", "content": "Recent messages:\nUSER: old question\nASSISTANT: old answer\nshow calendar"},
+	}
+	msgs2 := []map[string]any{
+		{"role": "system", "content": "prompt"},
+		{"role": "user", "content": "Recent messages:\nUSER: different thing\nASSISTANT: different reply\nshow calendar"},
+	}
+	k1 := BuildIntentKey(msgs1, "qwen")
+	k2 := BuildIntentKey(msgs2, "qwen")
+	if k1 != k2 {
+		t.Fatal("same request with different Recent messages block should produce same canonical key")
+	}
+}
+
 func TestStats(t *testing.T) {
 	c := testCache(t)
 	c.Store("s1", "x", nil, "stop", "qwen")

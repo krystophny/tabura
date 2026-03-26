@@ -194,15 +194,26 @@ func (a *App) requestLocalAssistantCompletionWithConfig(ctx context.Context, mes
 		maxTokens = assistantLLMToolMaxTokens
 	}
 	var cacheKey string
+	var canonicalKey string
 	if a.llmCache != nil && !llmcache.ContainsToolResults(messages) {
 		cacheKey = llmcache.BuildKey(messages, tools, a.localAssistantLLMModel(), enableThinking)
-		if entry, ok := a.llmCache.Lookup(cacheKey); ok {
-			message := messageFromCacheEntry(entry)
-			log.Printf("llm cache hit key=%s content_len=%d tool_calls=%d", cacheKey[:12], len(message.Content), len(message.ToolCalls))
-			if onDelta != nil && strings.TrimSpace(message.Content) != "" && !localAssistantHiddenControlEnvelope(message.Content) {
-				onDelta(message.Content, message.Content)
+		userText := lastUserContent(messages)
+		if llmcache.IsSelfContainedQuery(userText) {
+			canonicalKey = llmcache.BuildIntentKey(messages, a.localAssistantLLMModel())
+		}
+		lookupKeys := []string{cacheKey}
+		if canonicalKey != "" && canonicalKey != cacheKey {
+			lookupKeys = append(lookupKeys, canonicalKey)
+		}
+		for _, key := range lookupKeys {
+			if entry, ok := a.llmCache.Lookup(key); ok {
+				message := messageFromCacheEntry(entry)
+				log.Printf("llm cache hit key=%s content_len=%d tool_calls=%d", key[:12], len(message.Content), len(message.ToolCalls))
+				if onDelta != nil && strings.TrimSpace(message.Content) != "" && !localAssistantHiddenControlEnvelope(message.Content) {
+					onDelta(message.Content, message.Content)
+				}
+				return message, nil
 			}
-			return message, nil
 		}
 	}
 	request := map[string]any{
@@ -263,8 +274,22 @@ func (a *App) requestLocalAssistantCompletionWithConfig(ctx context.Context, mes
 	}
 	if cacheKey != "" && (strings.TrimSpace(message.Content) != "" || len(message.ToolCalls) > 0) {
 		storeMessageInCache(a.llmCache, cacheKey, message, a.localAssistantLLMModel())
+		if canonicalKey != "" && canonicalKey != cacheKey {
+			storeMessageInCache(a.llmCache, canonicalKey, message, a.localAssistantLLMModel())
+		}
 	}
 	return message, nil
+}
+
+func lastUserContent(messages []map[string]any) string {
+	for i := len(messages) - 1; i >= 0; i-- {
+		if role, _ := messages[i]["role"].(string); role == "user" {
+			if content, _ := messages[i]["content"].(string); content != "" {
+				return content
+			}
+		}
+	}
+	return ""
 }
 
 func messageFromCacheEntry(entry *llmcache.Entry) localIntentLLMMessage {

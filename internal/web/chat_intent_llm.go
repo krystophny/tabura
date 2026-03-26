@@ -266,26 +266,36 @@ func (a *App) classifyIntentPlanWithLLMResultForTurn(ctx context.Context, sessio
 	}
 	requestPlan := func(systemPrompt string, userPrompt string) (intentPlanClassification, error) {
 		var intentCacheKey string
+		var intentCanonicalKey string
 		if a.llmCache != nil {
 			intentMessages := []map[string]any{
 				{"role": "system", "content": systemPrompt},
 				{"role": "user", "content": userPrompt},
 			}
 			intentCacheKey = llmcache.BuildKey(intentMessages, nil, a.localIntentLLMModel(), false)
-			if entry, ok := a.llmCache.Lookup(intentCacheKey); ok {
-				content := strings.TrimSpace(entry.Content)
-				if content != "" {
-					log.Printf("intent cache hit key=%s", intentCacheKey[:12])
-					classification, parseErr := parseIntentPlanClassification(stripCodeFence(content))
-					if parseErr == nil {
-						normalized := make([]*SystemAction, 0, len(classification.Actions))
-						for _, action := range classification.Actions {
-							if normalizedAction := normalizeSystemActionForExecution(action, trimmedText); normalizedAction != nil {
-								normalized = append(normalized, normalizedAction)
+			if llmcache.IsSelfContainedQuery(trimmedText) {
+				intentCanonicalKey = llmcache.BuildIntentKey(intentMessages, a.localIntentLLMModel())
+			}
+			lookupKeys := []string{intentCacheKey}
+			if intentCanonicalKey != "" && intentCanonicalKey != intentCacheKey {
+				lookupKeys = append(lookupKeys, intentCanonicalKey)
+			}
+			for _, key := range lookupKeys {
+				if entry, ok := a.llmCache.Lookup(key); ok {
+					content := strings.TrimSpace(entry.Content)
+					if content != "" {
+						log.Printf("intent cache hit key=%s", key[:12])
+						classification, parseErr := parseIntentPlanClassification(stripCodeFence(content))
+						if parseErr == nil {
+							normalized := make([]*SystemAction, 0, len(classification.Actions))
+							for _, action := range classification.Actions {
+								if normalizedAction := normalizeSystemActionForExecution(action, trimmedText); normalizedAction != nil {
+									normalized = append(normalized, normalizedAction)
+								}
 							}
+							classification.Actions = normalized
+							return classification, nil
 						}
-						classification.Actions = normalized
-						return classification, nil
 					}
 				}
 			}
@@ -338,7 +348,11 @@ func (a *App) classifyIntentPlanWithLLMResultForTurn(ctx context.Context, sessio
 			return intentPlanClassification{}, nil
 		}
 		if intentCacheKey != "" {
-			storeMessageInCache(a.llmCache, intentCacheKey, localIntentLLMMessage{Content: content}, a.localIntentLLMModel())
+			msg := localIntentLLMMessage{Content: content}
+			storeMessageInCache(a.llmCache, intentCacheKey, msg, a.localIntentLLMModel())
+			if intentCanonicalKey != "" && intentCanonicalKey != intentCacheKey {
+				storeMessageInCache(a.llmCache, intentCanonicalKey, msg, a.localIntentLLMModel())
+			}
 		}
 		classification, parseErr := parseIntentPlanClassification(stripCodeFence(content))
 		if parseErr != nil {
