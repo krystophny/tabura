@@ -329,28 +329,8 @@ func (a *App) startCanvasRelay(sessionID string, port int) {
 		}()
 
 		wsURL := fmt.Sprintf("ws://127.0.0.1:%d/ws/canvas", port)
-		var conn *websocket.Conn
-		for attempt := 0; attempt < 3; attempt++ {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-			}
-			var err error
-			conn, _, err = websocket.DefaultDialer.Dial(wsURL, nil)
-			if err == nil {
-				break
-			}
-			if attempt < 2 {
-				delay := time.Duration(1<<attempt) * time.Second
-				select {
-				case <-time.After(delay):
-				case <-ctx.Done():
-					return
-				}
-			}
-		}
-		if conn == nil {
+		conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+		if err != nil {
 			errMsg := []byte(`{"type":"relay_error","message":"canvas backend unavailable"}`)
 			for _, ws := range a.hub.canvasClients(sessionID) {
 				_ = ws.WriteMessage(websocket.TextMessage, errMsg)
