@@ -27,8 +27,8 @@ func TestEvaluateCompanionDirectedSpeechGate(t *testing.T) {
 		}
 	})
 
-	t.Run("sloppy alias", func(t *testing.T) {
-		segments := []store.ParticipantSegment{{ID: 12, Text: "Sloppy, summarize the action items.", CommittedAt: 130}}
+	t.Run("hey computer", func(t *testing.T) {
+		segments := []store.ParticipantSegment{{ID: 12, Text: "Hey computer, summarize the action items.", CommittedAt: 130}}
 		gate := evaluateCompanionDirectedSpeechGate(cfg, session, segments, events)
 		if gate.Decision != companionGateDecisionDirect {
 			t.Fatalf("decision = %q, want %q", gate.Decision, companionGateDecisionDirect)

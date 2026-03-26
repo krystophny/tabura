@@ -110,7 +110,7 @@ func TestNormalizeLocalAssistantAddressSupportsVisibleNames(t *testing.T) {
 		want string
 	}{
 		{text: "Tabura, was ist los?", want: "was ist los?"},
-		{text: "Sloppy: draw a diagram", want: "draw a diagram"},
+		{text: "Computer: draw a diagram", want: "draw a diagram"},
 		{text: "Computer; open the readme", want: "open the readme"},
 	}
 	for _, tt := range tests {

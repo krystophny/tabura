@@ -263,7 +263,7 @@ func isCompanionNoiseSuppressed(raw string) bool {
 	meaningful := make([]string, 0, len(words))
 	for _, word := range words {
 		switch word {
-		case "computer", "sloppy", "tabura", "assistant", "hey", "please":
+		case "computer", "tabura", "assistant", "hey", "please":
 			continue
 		default:
 			meaningful = append(meaningful, word)

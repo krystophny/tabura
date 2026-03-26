@@ -30,8 +30,8 @@ type companionDirectedSpeechGate struct {
 }
 
 var (
-	companionAddressLeadPattern = regexp.MustCompile(`(?i)^(?:hey|ok|okay)\s+(?:computer|sloppy)\b|^(?:computer|sloppy)\b`)
-	companionAddressCuePattern  = regexp.MustCompile(`(?i)\b(?:computer|sloppy)\b[:,!?]`)
+	companionAddressLeadPattern = regexp.MustCompile(`(?i)^(?:hey|ok|okay)\s+computer\b|^computer\b`)
+	companionAddressCuePattern  = regexp.MustCompile(`(?i)\bcomputer\b[:,!?]`)
 	companionRequestPattern     = regexp.MustCompile(`(?i)\b(?:can|could|would|will)\s+you\b|^(?:please\s+)?(?:summarize|open|show|tell|give|find|write|draft|explain|list|track|remind|create|help)\b|^(?:what|when|where|why|how)\b`)
 )
 

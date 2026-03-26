@@ -44,14 +44,14 @@ func TestEvaluateCompanionInteractionPolicySuppressesNoise(t *testing.T) {
 	}
 }
 
-func TestEvaluateCompanionInteractionPolicySuppressesNoiseForSloppyAlias(t *testing.T) {
+func TestEvaluateCompanionInteractionPolicySuppressesNoiseForComputerAlias(t *testing.T) {
 	cfg := defaultCompanionConfig()
 	cfg.CompanionEnabled = true
 	cfg.DirectedSpeechGateEnabled = true
 
 	session := &store.ParticipantSession{ID: "psess-1", WorkspacePath: "proj"}
 	segments := []store.ParticipantSegment{
-		{ID: 2, SessionID: session.ID, Text: "Sloppy, okay", CommittedAt: 100},
+		{ID: 2, SessionID: session.ID, Text: "Computer, okay", CommittedAt: 100},
 	}
 
 	policy := evaluateCompanionInteractionPolicy(cfg, session, segments, nil)
