@@ -158,7 +158,7 @@ case "$PROFILE_PRESET" in
     MODEL_FILE="$(default_if_empty "$MODEL_FILE" "Qwen3.5-9B-Q4_K_M.gguf")"
     MODEL_URL="$(default_if_empty "$MODEL_URL" "https://huggingface.co/lmstudio-community/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf?download=true")"
     THREADS="$(default_if_empty "$THREADS" "4")"
-    CTX_SIZE="$(default_if_empty "$CTX_SIZE" "65536")"
+    CTX_SIZE="$(default_if_empty "$CTX_SIZE" "131072")"
     HOST="$(default_if_empty "$HOST" "127.0.0.1")"
     PORT="$(default_if_empty "$PORT" "8081")"
     NGL="$(default_if_empty "$NGL" "99")"
