@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
 func TestWorkspaceCRUDAPI(t *testing.T) {

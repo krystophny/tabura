@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
 func requireWorkspaceForProject(t *testing.T, app *App, project store.Workspace) store.Workspace {

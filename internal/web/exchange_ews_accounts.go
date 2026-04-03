@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/krystophny/tabura/internal/email"
-	"github.com/krystophny/tabura/internal/ews"
-	"github.com/krystophny/tabura/internal/providerdata"
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/email"
+	"github.com/krystophny/sloppad/internal/ews"
+	"github.com/krystophny/sloppad/internal/providerdata"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
 func decodeExchangeEWSAccountConfig(account store.ExternalAccount) (email.ExchangeEWSConfig, error) {

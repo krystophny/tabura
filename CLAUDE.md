@@ -1,11 +1,11 @@
 # CLAUDE
 
-This file is the repo-local working guide for Tabura. The repository root `AGENTS.md` is a symlink to this file for tool compatibility.
+This file is the repo-local working guide for Sloppad. The repository root `AGENTS.md` is a symlink to this file for tool compatibility.
 
 Critical boundary:
-- Tabura must not create, rewrite, or patch a project's `AGENTS.md`.
+- Sloppad must not create, rewrite, or patch a project's `AGENTS.md`.
 - Project-local `AGENTS.md` and `CLAUDE.md` files are user-owned workspace content.
-- Tabura-specific behavior and prompt rules belong in Tabura's internal runtime/prompt code, not in generated project instruction files.
+- Sloppad-specific behavior and prompt rules belong in Sloppad's internal runtime/prompt code, not in generated project instruction files.
 
 ## Contributor Policy
 
@@ -27,37 +27,37 @@ Do not scan source or docs unless the runtime command fails or the request is ab
 ## Runtime Model
 
 Current runtime shape:
-- `tabura server` starts both listeners in one process:
+- `sloppad server` starts both listeners in one process:
   - web listener for the public UI/API
   - MCP listener for local MCP and canvas relay
-- `tabura mcp-server` remains available for stdio MCP use.
+- `sloppad mcp-server` remains available for stdio MCP use.
 
 Supported loopback sidecars and helpers:
-- `tabura-codex-app-server.service` for Codex app-server (`ws://127.0.0.1:8787`)
-- `tabura-piper-tts.service` for Piper TTS (`http://127.0.0.1:8424/v1/audio/speech`)
-- `tabura-stt.service` for voxtype daemon with STT service and push-to-talk (`/v1/audio/transcriptions` on `127.0.0.1:8427`)
-- `tabura-llm.service` for the local Qwen routing/fallback layer (`/v1/chat/completions` via base URL `http://127.0.0.1:8081`)
+- `sloppad-codex-app-server.service` for Codex app-server (`ws://127.0.0.1:8787`)
+- `sloppad-piper-tts.service` for Piper TTS (`http://127.0.0.1:8424/v1/audio/speech`)
+- `sloppad-stt.service` for voxtype daemon with STT service and push-to-talk (`/v1/audio/transcriptions` on `127.0.0.1:8427`)
+- `sloppad-llm.service` for the local Qwen routing/fallback layer (`/v1/chat/completions` via base URL `http://127.0.0.1:8081`)
 
 Non-runtime notes:
-- No separate `tabura-mcp.service` sidecar is part of the current model.
-- No Helpy runtime is part of Tabura.
-- `scripts/install.sh` wires `TABURA_INTENT_LLM_URL=http://127.0.0.1:8081` for `tabura-web.service`.
+- No separate `sloppad-mcp.service` sidecar is part of the current model.
+- No Helpy runtime is part of Sloppad.
+- `scripts/install.sh` wires `SLOPPAD_INTENT_LLM_URL=http://127.0.0.1:8081` for `sloppad-web.service`.
 - Current Qwen profile defaults in code are `qwen3.5-9b` with profile options `qwen3.5-9b,qwen3.5-4b`.
-- `scripts/install-tabura-user-units.sh` enables the full local unit set, including `tabura-llm.service` and `tabura-stt.service`.
+- `scripts/install-sloppad-user-units.sh` enables the full local unit set, including `sloppad-llm.service` and `sloppad-stt.service`.
 
 ## Project Bootstrap Contract
 
-`tabura bootstrap` prepares project-local Tabura state without taking ownership of project instructions.
+`sloppad bootstrap` prepares project-local Sloppad state without taking ownership of project instructions.
 
 What bootstrap does:
-- creates `.tabura/` if needed
-- writes `.tabura/codex-mcp.toml`
-- ensures `.tabura/artifacts/` is gitignored
+- creates `.sloppad/` if needed
+- writes `.sloppad/codex-mcp.toml`
+- ensures `.sloppad/artifacts/` is gitignored
 
 What bootstrap must not do:
 - create `AGENTS.md`
 - overwrite `AGENTS.md`
-- create `.tabura/AGENTS.tabura.md`
+- create `.sloppad/AGENTS.sloppad.md`
 - inject protocol blocks into user docs
 
 ## Security Boundary
@@ -77,9 +77,9 @@ Assistant output must be either:
 
 Rules:
 - Canvas content is not duplicated into chat speech.
-- Ephemeral canvas content uses temporary files under `.tabura/artifacts/tmp`.
+- Ephemeral canvas content uses temporary files under `.sloppad/artifacts/tmp`.
 - Long-response temp-file routing is part of the prompt contract and scratch-artifact support, but it is not currently hard-enforced by the backend render-plan stub.
-- Canvas operations should go through the Tabura MCP surface, not ad hoc filesystem-event assumptions.
+- Canvas operations should go through the Sloppad MCP surface, not ad hoc filesystem-event assumptions.
 
 ## Interaction Model
 
@@ -91,7 +91,7 @@ Rules:
 - Ctrl long-press starts push-to-talk; release stops and sends.
 - Escape dismisses overlay or input; if nothing is open and an artifact is visible, it clears to tabula rasa.
 - `#edge-left-tap` toggles the workspace/file sidebar used by PR and file-browsing flows.
-- Pen mode uses `#ink-layer` and `#ink-controls`; ink submission posts to `/api/ink/submit` and writes artifacts under `.tabura/artifacts/ink/`.
+- Pen mode uses `#ink-layer` and `#ink-controls`; ink submission posts to `/api/ink/submit` and writes artifacts under `.sloppad/artifacts/ink/`.
 
 Important selectors:
 - `#workspace`
@@ -111,22 +111,22 @@ Important selectors:
 ## Local Services
 
 Core runtime user units:
-- `tabura-web.service`
-- `tabura-codex-app-server.service`
-- `tabura-piper-tts.service`
-- `tabura-stt.service` (voxtype daemon with STT API and push-to-talk)
-- `tabura-llm.service`
+- `sloppad-web.service`
+- `sloppad-codex-app-server.service`
+- `sloppad-piper-tts.service`
+- `sloppad-stt.service` (voxtype daemon with STT API and push-to-talk)
+- `sloppad-llm.service`
 
 Quick status:
 
 ```bash
-systemctl --user status tabura-web.service tabura-codex-app-server.service tabura-piper-tts.service tabura-stt.service tabura-llm.service --no-pager -n 40
+systemctl --user status sloppad-web.service sloppad-codex-app-server.service sloppad-piper-tts.service sloppad-stt.service sloppad-llm.service --no-pager -n 40
 ```
 
 Restart core stack:
 
 ```bash
-systemctl --user restart tabura-codex-app-server.service tabura-piper-tts.service tabura-stt.service tabura-llm.service tabura-web.service
+systemctl --user restart sloppad-codex-app-server.service sloppad-piper-tts.service sloppad-stt.service sloppad-llm.service sloppad-web.service
 ```
 
 ## Endpoints
@@ -136,28 +136,28 @@ systemctl --user restart tabura-codex-app-server.service tabura-piper-tts.servic
 - MCP canvas WS: `ws://127.0.0.1:9420/ws/canvas`
 - App-server: `ws://127.0.0.1:8787`
 - TTS base URL: `http://127.0.0.1:8424` (`/v1/audio/speech`)
-- Intent LLM base URL: `http://127.0.0.1:8081` (Tabura calls `/v1/chat/completions`)
+- Intent LLM base URL: `http://127.0.0.1:8081` (Sloppad calls `/v1/chat/completions`)
 - STT base URL: `http://127.0.0.1:8427` (`/v1/audio/transcriptions`)
 - Local canvas session: `local`
 
 Environment toggles:
-- `TABURA_TTS_URL` overrides the TTS base URL
-- `TABURA_INTENT_LLM_URL=off` disables intent LLM fallback
-- `TABURA_INTENT_LLM_MODEL` selects the local routing model id (default `local`)
-- `TABURA_INTENT_LLM_PROFILE` selects the active local routing profile (default `qwen3.5-9b`)
-- `TABURA_INTENT_LLM_PROFILE_OPTIONS` exposes selectable local routing profiles (default `qwen3.5-9b,qwen3.5-4b`)
-- `TABURA_STT_URL=off` disables STT sidecar usage
+- `SLOPPAD_TTS_URL` overrides the TTS base URL
+- `SLOPPAD_INTENT_LLM_URL=off` disables intent LLM fallback
+- `SLOPPAD_INTENT_LLM_MODEL` selects the local routing model id (default `local`)
+- `SLOPPAD_INTENT_LLM_PROFILE` selects the active local routing profile (default `qwen3.5-9b`)
+- `SLOPPAD_INTENT_LLM_PROFILE_OPTIONS` exposes selectable local routing profiles (default `qwen3.5-9b,qwen3.5-4b`)
+- `SLOPPAD_STT_URL=off` disables STT sidecar usage
 
 ## Local Dev Start
 
 Temporary local web runtime:
 
 ```bash
-TMP_ROOT="$(mktemp -d -t tabura-web-XXXXXX)"
+TMP_ROOT="$(mktemp -d -t sloppad-web-XXXXXX)"
 PROJECT_DIR="$TMP_ROOT/project"
 DATA_DIR="$TMP_ROOT/data"
 LOG_FILE="$TMP_ROOT/web.log"
-nohup go run ./cmd/tabura server \
+nohup go run ./cmd/sloppad server \
   --project-dir "$PROJECT_DIR" \
   --data-dir "$DATA_DIR" \
   --web-host 127.0.0.1 \
@@ -230,7 +230,7 @@ scripts/check-version-consistency.sh
 ## Code Map
 
 ```text
-cmd/tabura/              CLI entry point, bootstrap, server startup, stdio MCP
+cmd/sloppad/              CLI entry point, bootstrap, server startup, stdio MCP
 cmd/surfacegen/          Generated interface doc sync
 internal/
   appserver/             Codex app-server websocket client/session logic
@@ -240,7 +240,7 @@ internal/
   mcp/                   MCP protocol server and tool dispatch
   modelprofile/          Model alias and reasoning-effort resolution
   plugins/               Legacy webhook compatibility runtime
-  protocol/              Project bootstrap (.tabura, MCP config, gitignore)
+  protocol/              Project bootstrap (.sloppad, MCP config, gitignore)
   ptt/                   Push-to-talk daemon integration
   pty/                   PTY abstraction
   ptyd/                  PTY daemon application
@@ -358,9 +358,9 @@ Current Playwright specs:
 Real-service E2E runs through `./scripts/e2e-local.sh`.
 
 Required services:
-- `tabura-web.service`
-- `tabura-piper-tts.service`
-- `tabura-stt.service`
+- `sloppad-web.service`
+- `sloppad-piper-tts.service`
+- `sloppad-stt.service`
 - `ffmpeg`
 
 Current E2E specs:

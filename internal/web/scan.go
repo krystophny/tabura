@@ -21,7 +21,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
 const (
@@ -140,7 +140,7 @@ func (a *App) handleScanUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	scanDir := filepath.Join(project.RootPath, ".tabura", "artifacts", "scans")
+	scanDir := filepath.Join(project.RootPath, ".sloppad", "artifacts", "scans")
 	if err := os.MkdirAll(scanDir, 0o755); err != nil {
 		writeAPIError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -281,7 +281,7 @@ func (a *App) handleScanConfirm(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, http.StatusBadRequest, "annotations are required")
 		return
 	}
-	scanDir := filepath.Join(project.RootPath, ".tabura", "artifacts", "scans")
+	scanDir := filepath.Join(project.RootPath, ".sloppad", "artifacts", "scans")
 	if err := os.MkdirAll(scanDir, 0o755); err != nil {
 		writeAPIError(w, http.StatusInternalServerError, err.Error())
 		return

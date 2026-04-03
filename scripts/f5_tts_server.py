@@ -22,7 +22,7 @@ from fastapi.responses import Response
 
 REF_WAV = os.environ.get(
     "F5_TTS_REF_WAV",
-    os.path.expanduser("~/.local/share/tabura-tts/reference.wav"),
+    os.path.expanduser("~/.local/share/sloppad-tts/reference.wav"),
 )
 REF_TEXT = os.environ.get("F5_TTS_REF_TEXT", "")
 

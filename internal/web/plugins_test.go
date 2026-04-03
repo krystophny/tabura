@@ -34,13 +34,13 @@ func writeExtensionManifest(t *testing.T, dir, name string, payload map[string]a
 
 func newAuthedTestAppWithPluginDir(t *testing.T, pluginDir string) *App {
 	t.Helper()
-	t.Setenv("TABURA_PLUGINS_DIR", pluginDir)
+	t.Setenv("SLOPPAD_PLUGINS_DIR", pluginDir)
 	return newAuthedTestApp(t)
 }
 
 func newAuthedTestAppWithExtensionDir(t *testing.T, extensionDir string) *App {
 	t.Helper()
-	t.Setenv("TABURA_EXTENSIONS_DIR", extensionDir)
+	t.Setenv("SLOPPAD_EXTENSIONS_DIR", extensionDir)
 	return newAuthedTestApp(t)
 }
 

@@ -24,7 +24,7 @@ sed -i "s/^date-released: .*/date-released: ${today}/" CITATION.cff
 
 # Go source (bare version without v prefix)
 sed -E -i "s/(ServerVersion[[:space:]]*=[[:space:]]*\")[^\"]*(\")/\\1${bare}\\2/" internal/mcp/server.go
-sed -E -i "s/(defaultBinaryVersion[[:space:]]*=[[:space:]]*\")[^\"]*(\")/\\1${bare}\\2/" cmd/tabura/main.go
+sed -E -i "s/(defaultBinaryVersion[[:space:]]*=[[:space:]]*\")[^\"]*(\")/\\1${bare}\\2/" cmd/sloppad/main.go
 sed -E -i "s/(RuntimeVersion:[[:space:]]*\")[^\"]*(\")/\\1${bare}\\2/" internal/web/server.go
 sed -E -i "s/(\"version\":[[:space:]]*\")[^\"]*(\")/\\1${bare}\\2/" internal/web/server.go
 sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"${bare}\"/" internal/appserver/client.go
@@ -36,7 +36,7 @@ echo "Files updated:"
 echo "  .zenodo.json"
 echo "  CITATION.cff"
 echo "  internal/mcp/server.go"
-echo "  cmd/tabura/main.go"
+echo "  cmd/sloppad/main.go"
 echo "  internal/web/server.go"
 echo "  internal/appserver/client.go"
 echo "  internal/appserver/session.go"

@@ -13,8 +13,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/websocket"
-	"github.com/krystophny/tabura/internal/appserver"
-	"github.com/krystophny/tabura/internal/plugins"
+	"github.com/krystophny/sloppad/internal/appserver"
+	"github.com/krystophny/sloppad/internal/plugins"
 )
 
 const (
@@ -23,7 +23,7 @@ const (
 	promptContractStateKey = "chat_prompt_contract_sha256"
 )
 
-const defaultVoiceHistoryPrompt = `You are Tabura, an AI assistant.
+const defaultVoiceHistoryPrompt = `You are Sloppad, an AI assistant.
 Chat text is always spoken via TTS.
 
 ## Response Format
@@ -57,7 +57,7 @@ When you need the user to tap or click a location, emit exactly [[request_positi
 
 ## PR review fast path:
 When asked to review a PR, open PR view via gh CLI, read the diff, and respond with analysis.
-Publish exactly one file block at path .tabura/artifacts/pr/pr-<number>.diff with the patch content.
+Publish exactly one file block at path .sloppad/artifacts/pr/pr-<number>.diff with the patch content.
 `
 
 const defaultVoiceTurnPrompt = `Voice mode is chat-first:
@@ -451,7 +451,7 @@ func (a *App) executeChatCommand(sessionID, raw string) (map[string]interface{},
 		if canvasSessionID == "" {
 			return nil, errors.New("canvas session is not available")
 		}
-		artifactPath := filepath.ToSlash(filepath.Join(".tabura", "artifacts", "pr", fmt.Sprintf("pr-%d.diff", review.View.Number)))
+		artifactPath := filepath.ToSlash(filepath.Join(".sloppad", "artifacts", "pr", fmt.Sprintf("pr-%d.diff", review.View.Number)))
 		if !a.writeCanvasFileBlock(session.WorkspacePath, canvasSessionID, fileBlock{
 			Path:    artifactPath,
 			Content: review.Diff,

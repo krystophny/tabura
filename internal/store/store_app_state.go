@@ -5,7 +5,7 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/krystophny/tabura/internal/modelprofile"
+	"github.com/krystophny/sloppad/internal/modelprofile"
 )
 
 func (s *Store) SetAppState(key, value string) error {

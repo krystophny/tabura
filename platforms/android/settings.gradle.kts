@@ -15,5 +15,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "TaburaAndroid"
+rootProject.name = "SloppadAndroid"
 include(":app")

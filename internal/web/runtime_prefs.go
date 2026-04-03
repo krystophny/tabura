@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/krystophny/tabura/internal/store"
-	"github.com/krystophny/tabura/internal/turn"
+	"github.com/krystophny/sloppad/internal/store"
+	"github.com/krystophny/sloppad/internal/turn"
 )
 
 type runtimeYoloRequest struct {

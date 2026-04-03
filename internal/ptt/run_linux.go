@@ -17,7 +17,7 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/krystophny/tabura/internal/stt"
+	"github.com/krystophny/sloppad/internal/stt"
 )
 
 const (

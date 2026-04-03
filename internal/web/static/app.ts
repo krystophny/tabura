@@ -12,7 +12,7 @@ import * as itemSidebarUiModule from './app-item-sidebar-ui.js';
 import * as prReviewModule from './app-pr-review.js';
 import * as chatUiModule from './app-chat-ui.js';
 import * as inkModule from './app-ink.js';
-import * as taburaCircleModule from './app-tabura-circle.js';
+import * as sloppadCircleModule from './app-sloppad-circle.js';
 import * as workspaceRuntimeModule from './app-workspace-runtime.js';
 import * as workspaceStateModule from './app-workspace-state.js';
 import * as chatTransportModule from './app-chat-transport.js';
@@ -43,7 +43,7 @@ setAppRefs({
   ...prReviewModule,
   ...chatUiModule,
   ...inkModule,
-  ...taburaCircleModule,
+  ...sloppadCircleModule,
   ...workspaceRuntimeModule,
   ...workspaceStateModule,
   ...chatTransportModule,
@@ -66,7 +66,7 @@ bugReportModule.initBugReportUi();
 annotationsModule.initAnnotationUi();
 dictationModule.initDictationUi();
 
-window._taburaApp = {
+window._sloppadApp = {
   getState,
   acquireMicStream: voiceModule.acquireMicStream,
   sttStart: voiceModule.sttStart,

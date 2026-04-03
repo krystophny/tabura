@@ -14,14 +14,14 @@ export type LiveCircleSegment =
 type PointerMode = 'mouse' | 'touch';
 
 export function circleSegment(page: Page, segment: LiveCircleSegment) {
-  return page.locator(`#tabura-circle-menu .tabura-circle-segment[data-segment="${segment}"]`);
+  return page.locator(`#sloppad-circle-menu .sloppad-circle-segment[data-segment="${segment}"]`);
 }
 
 export async function waitForLiveAppReady(page: Page) {
   await expect(page.locator('#workspace')).toBeVisible();
   await expect(page.locator('#canvas-column')).toBeVisible();
   await page.waitForFunction(() => {
-    const app = (window as any)._taburaApp;
+    const app = (window as any)._sloppadApp;
     if (typeof app?.getState !== 'function') return false;
     const state = app.getState();
     const wsOpen = (window as any).WebSocket.OPEN;
@@ -30,11 +30,11 @@ export async function waitForLiveAppReady(page: Page) {
 }
 
 export async function openCircle(page: Page, pointer: PointerMode = 'mouse') {
-  const root = page.locator('#tabura-circle');
+  const root = page.locator('#sloppad-circle');
   if ((await root.getAttribute('data-state')) === 'expanded') {
     return;
   }
-  await triggerLocator(page, page.locator('#tabura-circle-dot'), pointer);
+  await triggerLocator(page, page.locator('#sloppad-circle-dot'), pointer);
   await expect(root).toHaveAttribute('data-state', 'expanded');
 }
 
@@ -112,7 +112,7 @@ export async function assertCircleNoOverlap(page: Page, tolerancePx = 1) {
   const metrics = await page.evaluate((tolerance) => {
     const ids = ['dialogue', 'meeting', 'silent', 'fast', 'prompt', 'text_note', 'pointer', 'highlight', 'ink'];
     const rects = ids.map((id) => {
-      const node = document.querySelector(`#tabura-circle-menu .tabura-circle-segment[data-segment="${id}"]`);
+      const node = document.querySelector(`#sloppad-circle-menu .sloppad-circle-segment[data-segment="${id}"]`);
       if (!(node instanceof HTMLElement)) {
         throw new Error(`missing circle segment: ${id}`);
       }
@@ -163,7 +163,7 @@ export async function waitForAssistantReply(
   const assistantRows = page.locator('#chat-history .chat-message.chat-assistant:not(.is-pending)');
   await expect.poll(async () => {
     const errorText = await page.evaluate(() => {
-      const app = (window as any)._taburaApp;
+      const app = (window as any)._sloppadApp;
       return String(app?.getState?.().assistantLastError || '').trim();
     });
     if (errorText) return `error:${errorText}`;

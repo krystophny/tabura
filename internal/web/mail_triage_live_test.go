@@ -7,14 +7,14 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/krystophny/tabura/internal/email"
-	"github.com/krystophny/tabura/internal/mailtriage"
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/email"
+	"github.com/krystophny/sloppad/internal/mailtriage"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
 func TestMailTriageLiveExchangeSmoke(t *testing.T) {
-	if os.Getenv("TABURA_LIVE_TRIAGE_SMOKE") != "1" && os.Getenv("TABURA_LIVE_TRIAGE_ARM") != "1" {
-		t.Skip("set TABURA_LIVE_TRIAGE_SMOKE=1 to run against the live Exchange account")
+	if os.Getenv("SLOPPAD_LIVE_TRIAGE_SMOKE") != "1" && os.Getenv("SLOPPAD_LIVE_TRIAGE_ARM") != "1" {
+		t.Skip("set SLOPPAD_LIVE_TRIAGE_SMOKE=1 to run against the live Exchange account")
 	}
 	app, account := liveTriageAppAndAccount(t)
 	defer func() {
@@ -61,8 +61,8 @@ func TestMailTriageLiveExchangeSmoke(t *testing.T) {
 }
 
 func TestMailTriageLiveExchangeArmDeterministicFilters(t *testing.T) {
-	if os.Getenv("TABURA_LIVE_TRIAGE_ARM") != "1" {
-		t.Skip("set TABURA_LIVE_TRIAGE_ARM=1 to upsert managed deterministic filters on the live Exchange account")
+	if os.Getenv("SLOPPAD_LIVE_TRIAGE_ARM") != "1" {
+		t.Skip("set SLOPPAD_LIVE_TRIAGE_ARM=1 to upsert managed deterministic filters on the live Exchange account")
 	}
 	app, account := liveTriageAppAndAccount(t)
 	defer func() {
@@ -133,8 +133,8 @@ func TestMailTriageLiveExchangeArmDeterministicFilters(t *testing.T) {
 
 func liveTriageAppAndAccount(t *testing.T) (*App, store.ExternalAccount) {
 	t.Helper()
-	dataDir := filepath.Join(os.Getenv("HOME"), ".local", "share", "tabura-web")
-	app, err := New(dataDir, "/home/ert/code/assi/tabura", "http://127.0.0.1:9420/mcp", DefaultAppServerURL, "", DefaultTTSURL, "", true)
+	dataDir := filepath.Join(os.Getenv("HOME"), ".local", "share", "sloppad-web")
+	app, err := New(dataDir, "/home/ert/code/assi/sloppad", "http://127.0.0.1:9420/mcp", DefaultAppServerURL, "", DefaultTTSURL, "", true)
 	if err != nil {
 		t.Fatalf("New() error: %v", err)
 	}

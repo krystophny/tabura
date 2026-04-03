@@ -53,8 +53,8 @@ async function collectPageState(page: Page): Promise<Record<string, unknown>> {
       edgeTopClass: edgeTop?.className || '',
       edgeRightClass: edgeRight?.className || '',
       dialogueDiagnostics:
-        typeof (window as any)._taburaApp?.getDialogueDiagnostics === 'function'
-          ? (window as any)._taburaApp.getDialogueDiagnostics()
+        typeof (window as any)._sloppadApp?.getDialogueDiagnostics === 'function'
+          ? (window as any)._sloppadApp.getDialogueDiagnostics()
           : null,
       viewport: {
         width: window.innerWidth,
@@ -140,7 +140,7 @@ export { expect };
 export async function applySessionCookie(page: Page, sessionToken: string) {
   if (!sessionToken) return;
   await page.context().addCookies([{
-    name: 'tabura_session',
+    name: 'sloppad_session',
     value: sessionToken,
     url: SERVER_URL,
   }]);
@@ -163,7 +163,7 @@ export async function openLiveApp(page: Page, sessionToken: string) {
   await page.waitForLoadState('networkidle');
   await acknowledgeDisclaimerIfPresent(page);
   await page.waitForFunction(() => {
-    const app = (window as { _taburaApp?: { getState?: () => { activeWorkspaceId?: string } } })._taburaApp;
+    const app = (window as { _sloppadApp?: { getState?: () => { activeWorkspaceId?: string } } })._sloppadApp;
     if (!app || typeof app.getState !== 'function') return false;
     const state = app.getState();
     return Boolean(String(state?.activeWorkspaceId || '').trim());

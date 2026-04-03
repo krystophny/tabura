@@ -42,9 +42,9 @@ cd "${ROOT_DIR}"
 
 VERSION=""
 CHECKSUMS_FILE=""
-OUTPUT_DIR=".tabura/artifacts/package-managers"
+OUTPUT_DIR=".sloppad/artifacts/package-managers"
 OWNER="krystophny"
-REPO="tabura"
+REPO="sloppad"
 PUBLISHER="Christopher Albert"
 
 while [ "$#" -gt 0 ]; do
@@ -98,12 +98,12 @@ fi
 VERSION_TAG="v${VERSION_BARE}"
 RELEASE_DATE="$(date -u +%Y-%m-%d)"
 
-LINUX_AMD64="tabura_${VERSION_BARE}_linux_amd64.tar.gz"
-LINUX_ARM64="tabura_${VERSION_BARE}_linux_arm64.tar.gz"
-DARWIN_AMD64="tabura_${VERSION_BARE}_darwin_amd64.tar.gz"
-DARWIN_ARM64="tabura_${VERSION_BARE}_darwin_arm64.tar.gz"
-WINDOWS_AMD64="tabura_${VERSION_BARE}_windows_amd64.zip"
-WINDOWS_ARM64="tabura_${VERSION_BARE}_windows_arm64.zip"
+LINUX_AMD64="sloppad_${VERSION_BARE}_linux_amd64.tar.gz"
+LINUX_ARM64="sloppad_${VERSION_BARE}_linux_arm64.tar.gz"
+DARWIN_AMD64="sloppad_${VERSION_BARE}_darwin_amd64.tar.gz"
+DARWIN_ARM64="sloppad_${VERSION_BARE}_darwin_arm64.tar.gz"
+WINDOWS_AMD64="sloppad_${VERSION_BARE}_windows_amd64.zip"
+WINDOWS_ARM64="sloppad_${VERSION_BARE}_windows_arm64.zip"
 
 SHA_LINUX_AMD64="$(lookup_checksum "${LINUX_AMD64}")"
 SHA_LINUX_ARM64="$(lookup_checksum "${LINUX_ARM64}")"
@@ -116,12 +116,12 @@ RELEASE_URL="https://github.com/${OWNER}/${REPO}/releases/download/${VERSION_TAG
 
 HOMEBREW_DIR="${OUTPUT_DIR}/homebrew/Formula"
 AUR_DIR="${OUTPUT_DIR}/aur"
-WINGET_DIR="${OUTPUT_DIR}/winget/manifests/k/krystophny/tabura/${VERSION_BARE}"
+WINGET_DIR="${OUTPUT_DIR}/winget/manifests/k/krystophny/sloppad/${VERSION_BARE}"
 
 mkdir -p "${HOMEBREW_DIR}" "${AUR_DIR}" "${WINGET_DIR}"
 
-cat > "${HOMEBREW_DIR}/tabura.rb" <<EOF
-class Tabura < Formula
+cat > "${HOMEBREW_DIR}/sloppad.rb" <<EOF
+class Sloppad < Formula
   desc "Local-first voice assistant with canvas UI"
   homepage "https://github.com/${OWNER}/${REPO}"
   version "${VERSION_BARE}"
@@ -150,12 +150,12 @@ class Tabura < Formula
   end
 
   def install
-    bin.install "tabura"
+    bin.install "sloppad"
   end
 
   def caveats
     <<~EOS
-      Run 'tabura server' or use the full installer:
+      Run 'sloppad server' or use the full installer:
         curl -fsSL https://github.com/${OWNER}/${REPO}/releases/latest/download/install.sh | bash
       Requires codex app-server and Python 3.10+ for Piper TTS.
     EOS
@@ -164,7 +164,7 @@ end
 EOF
 
 cat > "${AUR_DIR}/PKGBUILD" <<EOF
-pkgname=tabura-bin
+pkgname=sloppad-bin
 pkgver=${VERSION_BARE}
 pkgrel=1
 pkgdesc="Local-first voice assistant with canvas UI"
@@ -179,34 +179,34 @@ sha256sums_x86_64=('${SHA_LINUX_AMD64}')
 sha256sums_aarch64=('${SHA_LINUX_ARM64}')
 
 package() {
-  install -Dm755 "\${srcdir}/tabura" "\${pkgdir}/usr/bin/tabura"
+  install -Dm755 "\${srcdir}/sloppad" "\${pkgdir}/usr/bin/sloppad"
   install -Dm644 "\${srcdir}/LICENSE" "\${pkgdir}/usr/share/licenses/\${pkgname}/LICENSE"
 }
 EOF
 
-cat > "${WINGET_DIR}/krystophny.tabura.yaml" <<EOF
-PackageIdentifier: krystophny.tabura
+cat > "${WINGET_DIR}/krystophny.sloppad.yaml" <<EOF
+PackageIdentifier: krystophny.sloppad
 PackageVersion: ${VERSION_BARE}
 DefaultLocale: en-US
 ManifestType: version
 ManifestVersion: 1.10.0
 EOF
 
-cat > "${WINGET_DIR}/krystophny.tabura.locale.en-US.yaml" <<EOF
-PackageIdentifier: krystophny.tabura
+cat > "${WINGET_DIR}/krystophny.sloppad.locale.en-US.yaml" <<EOF
+PackageIdentifier: krystophny.sloppad
 PackageVersion: ${VERSION_BARE}
 PackageLocale: en-US
 Publisher: ${PUBLISHER}
 PublisherUrl: https://github.com/${OWNER}
 PublisherSupportUrl: https://github.com/${OWNER}/${REPO}/issues
 Author: ${PUBLISHER}
-PackageName: Tabura
+PackageName: Sloppad
 PackageUrl: https://github.com/${OWNER}/${REPO}
 License: MIT
 LicenseUrl: https://github.com/${OWNER}/${REPO}/blob/main/LICENSE
 ShortDescription: Local-first voice assistant with canvas UI
 Description: Local-first voice assistant with canvas UI, voice capture, and MCP canvas integration.
-Moniker: tabura
+Moniker: sloppad
 Tags:
   - assistant
   - voice
@@ -215,14 +215,14 @@ ManifestType: defaultLocale
 ManifestVersion: 1.10.0
 EOF
 
-cat > "${WINGET_DIR}/krystophny.tabura.installer.yaml" <<EOF
-PackageIdentifier: krystophny.tabura
+cat > "${WINGET_DIR}/krystophny.sloppad.installer.yaml" <<EOF
+PackageIdentifier: krystophny.sloppad
 PackageVersion: ${VERSION_BARE}
 InstallerType: zip
 NestedInstallerType: portable
 NestedInstallerFiles:
-  - RelativeFilePath: tabura.exe
-    PortableCommandAlias: tabura
+  - RelativeFilePath: sloppad.exe
+    PortableCommandAlias: sloppad
 ReleaseDate: ${RELEASE_DATE}
 Installers:
   - Architecture: x64
@@ -236,6 +236,6 @@ ManifestVersion: 1.10.0
 EOF
 
 echo "Generated package-manager artifacts under ${OUTPUT_DIR}"
-echo "  - Homebrew formula: ${HOMEBREW_DIR}/tabura.rb"
+echo "  - Homebrew formula: ${HOMEBREW_DIR}/sloppad.rb"
 echo "  - AUR PKGBUILD: ${AUR_DIR}/PKGBUILD"
 echo "  - winget manifests: ${WINGET_DIR}"

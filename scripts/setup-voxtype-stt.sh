@@ -6,15 +6,15 @@ set -euo pipefail
 # both the HTTP API and desktop voice input.
 
 VOXTYPE_BIN="${VOXTYPE_BIN:-voxtype}"
-HOST="${TABURA_STT_HOST:-127.0.0.1}"
-PORT="${TABURA_STT_PORT:-8427}"
-LANGUAGE_RAW="${TABURA_STT_LANGUAGE:-en,de}"
-THREADS="${TABURA_STT_THREADS:-4}"
-PROMPT="${TABURA_STT_PROMPT:-}"
-MODEL="${TABURA_STT_MODEL:-large-v3-turbo}"
+HOST="${SLOPPAD_STT_HOST:-127.0.0.1}"
+PORT="${SLOPPAD_STT_PORT:-8427}"
+LANGUAGE_RAW="${SLOPPAD_STT_LANGUAGE:-en,de}"
+THREADS="${SLOPPAD_STT_THREADS:-4}"
+PROMPT="${SLOPPAD_STT_PROMPT:-}"
+MODEL="${SLOPPAD_STT_MODEL:-large-v3-turbo}"
 # Hotkey is read from voxtype's own config (~/.config/voxtype/config.toml).
-# Only override if explicitly set via TABURA_STT_HOTKEY.
-HOTKEY="${TABURA_STT_HOTKEY:-}"
+# Only override if explicitly set via SLOPPAD_STT_HOTKEY.
+HOTKEY="${SLOPPAD_STT_HOTKEY:-}"
 
 if ! command -v "$VOXTYPE_BIN" >/dev/null 2>&1; then
   echo "voxtype binary not found: $VOXTYPE_BIN" >&2

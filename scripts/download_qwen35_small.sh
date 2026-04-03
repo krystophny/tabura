@@ -3,12 +3,12 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-MODEL_DIR="${TABURA_LLM_MODEL_DIR:-$HOME/.local/share/tabura-llm/models}"
+MODEL_DIR="${SLOPPAD_LLM_MODEL_DIR:-$HOME/.local/share/sloppad-llm/models}"
 MODELS="${QWEN35_SMALL_MODELS:-0.8b,2b,4b,9b}"
 
-LOG_DIR="${REPO_ROOT}/.tabura/artifacts/downloads"
+LOG_DIR="${REPO_ROOT}/.sloppad/artifacts/downloads"
 LOG_FILE="${LOG_DIR}/qwen35-small-download.log"
-UNIT_NAME="${QWEN35_DOWNLOAD_UNIT:-tabura-qwen35-download}"
+UNIT_NAME="${QWEN35_DOWNLOAD_UNIT:-sloppad-qwen35-download}"
 
 declare -A FILE_BY_KEY=(
   ["0.8b"]="Qwen3.5-0.8B-Q4_K_M.gguf"
@@ -58,7 +58,7 @@ if [[ "${1:-}" == "--background" ]]; then
       --working-directory "$REPO_ROOT" \
       --collect \
       /usr/bin/env \
-        TABURA_LLM_MODEL_DIR="$MODEL_DIR" \
+        SLOPPAD_LLM_MODEL_DIR="$MODEL_DIR" \
         QWEN35_SMALL_MODELS="$MODELS" \
         bash "$0" >"$LOG_FILE" 2>&1
     echo "Started background download via systemd unit=$UNIT_NAME log=$LOG_FILE"

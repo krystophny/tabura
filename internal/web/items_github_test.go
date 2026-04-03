@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
 func TestGitHubIssueSyncAPI(t *testing.T) {
@@ -180,7 +180,7 @@ func TestGitHubIssueSyncMigratesLegacyBugReportItems(t *testing.T) {
 	app := newAuthedTestApp(t)
 
 	repoDir := filepath.Join(t.TempDir(), "workspace")
-	initGitHubWorkspaceRepo(t, repoDir, "https://github.com/krystophny/tabura.git")
+	initGitHubWorkspaceRepo(t, repoDir, "https://github.com/krystophny/sloppad.git")
 	workspace, err := app.store.CreateWorkspace("Repo", repoDir)
 	if err != nil {
 		t.Fatalf("CreateWorkspace() error: %v", err)
@@ -200,7 +200,7 @@ func TestGitHubIssueSyncMigratesLegacyBugReportItems(t *testing.T) {
 	app.ghCommandRunner = func(_ context.Context, cwd string, args ...string) (string, error) {
 		calls = append(calls, append([]string(nil), args...))
 		return `[
-			{"number":77,"title":"Bug report: Inbox sync migration","url":"https://github.com/krystophny/tabura/issues/77","state":"CLOSED","labels":[{"name":"bug"}],"assignees":[]}
+			{"number":77,"title":"Bug report: Inbox sync migration","url":"https://github.com/krystophny/sloppad/issues/77","state":"CLOSED","labels":[{"name":"bug"}],"assignees":[]}
 		]`, nil
 	}
 
@@ -211,7 +211,7 @@ func TestGitHubIssueSyncMigratesLegacyBugReportItems(t *testing.T) {
 		t.Fatalf("sync status = %d, want 200: %s", rr.Code, rr.Body.String())
 	}
 
-	migrated, err := app.store.GetItemBySource("github", "krystophny/tabura#77")
+	migrated, err := app.store.GetItemBySource("github", "krystophny/sloppad#77")
 	if err != nil {
 		t.Fatalf("GetItemBySource(migrated) error: %v", err)
 	}
@@ -231,8 +231,8 @@ func TestGitHubIssueSyncMigratesLegacyBugReportItems(t *testing.T) {
 		t.Fatal("expected gh invocation")
 	}
 	command := strings.Join(calls[0], " ")
-	if !strings.Contains(command, "--repo "+taburaBugReportOwnerRepo) {
-		t.Fatalf("gh args = %q, want explicit repo %q", command, taburaBugReportOwnerRepo)
+	if !strings.Contains(command, "--repo "+sloppadBugReportOwnerRepo) {
+		t.Fatalf("gh args = %q, want explicit repo %q", command, sloppadBugReportOwnerRepo)
 	}
 }
 
@@ -247,7 +247,7 @@ func TestTrackedGitHubIssueSyncUsesSourceRefRepo(t *testing.T) {
 	}
 
 	source := "github"
-	sourceRef := githubIssueSourceRef(taburaBugReportOwnerRepo, 77)
+	sourceRef := githubIssueSourceRef(sloppadBugReportOwnerRepo, 77)
 	item, err := app.store.CreateItem("Bug report: stale sidebar entry", store.ItemOptions{
 		WorkspaceID: &workspace.ID,
 		Source:      &source,
@@ -261,7 +261,7 @@ func TestTrackedGitHubIssueSyncUsesSourceRefRepo(t *testing.T) {
 	app.ghCommandRunner = func(_ context.Context, cwd string, args ...string) (string, error) {
 		calls = append(calls, append([]string(nil), args...))
 		return `[
-			{"number":77,"title":"Bug report: sidebar closes on sync","url":"https://github.com/krystophny/tabura/issues/77","state":"CLOSED","labels":[{"name":"bug"}],"assignees":[]}
+			{"number":77,"title":"Bug report: sidebar closes on sync","url":"https://github.com/krystophny/sloppad/issues/77","state":"CLOSED","labels":[{"name":"bug"}],"assignees":[]}
 		]`, nil
 	}
 
@@ -293,8 +293,8 @@ func TestTrackedGitHubIssueSyncUsesSourceRefRepo(t *testing.T) {
 		t.Fatalf("gh call count = %d, want 1", len(calls))
 	}
 	command := strings.Join(calls[0], " ")
-	if !strings.Contains(command, "--repo "+taburaBugReportOwnerRepo) {
-		t.Fatalf("gh args = %q, want explicit repo %q", command, taburaBugReportOwnerRepo)
+	if !strings.Contains(command, "--repo "+sloppadBugReportOwnerRepo) {
+		t.Fatalf("gh args = %q, want explicit repo %q", command, sloppadBugReportOwnerRepo)
 	}
 }
 

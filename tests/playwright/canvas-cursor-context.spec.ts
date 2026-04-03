@@ -22,7 +22,7 @@ async function clearLog(page: Page) {
 async function waitReady(page: Page) {
   await page.goto('/tests/playwright/harness.html');
   await page.waitForFunction(() => {
-    const app = (window as any)._taburaApp;
+    const app = (window as any)._sloppadApp;
     if (typeof app?.getState !== 'function') return false;
     const s = app.getState();
     return s.chatWs && s.chatWs.readyState === (window as any).WebSocket.OPEN;
@@ -39,7 +39,7 @@ async function injectCanvasModuleRef(page: Page) {
 
 async function injectChatEvent(page: Page, payload: Record<string, unknown>) {
   await page.evaluate((eventPayload) => {
-    const app = (window as any)._taburaApp;
+    const app = (window as any)._sloppadApp;
     const sessionId = String(app?.getState?.().chatSessionId || '');
     const sessions = (window as any).__mockWsSessions || [];
     const chatWs = sessions.find((ws: any) => typeof ws.url === 'string'
@@ -65,7 +65,7 @@ async function renderTestArtifact(page: Page) {
       pane.style.display = '';
       pane.classList.add('is-active');
     }
-    const app = (window as any)._taburaApp;
+    const app = (window as any)._sloppadApp;
     if (app?.getState) app.getState().hasArtifact = true;
   });
 }
@@ -119,7 +119,7 @@ async function renderPdfArtifactMock(page: Page) {
     surface.appendChild(pagesHost);
     pane.appendChild(surface);
 
-    const app = (window as any)._taburaApp;
+    const app = (window as any)._sloppadApp;
     const state = app?.getState?.();
     if (state) {
       state.currentCanvasArtifact = {
@@ -130,7 +130,7 @@ async function renderPdfArtifactMock(page: Page) {
       };
       state.hasArtifact = true;
     }
-    document.dispatchEvent(new CustomEvent('tabura:canvas-rendered', {
+    document.dispatchEvent(new CustomEvent('sloppad:canvas-rendered', {
       detail: {
         kind: 'pdf_artifact',
         title: 'test.pdf',
@@ -152,7 +152,7 @@ async function renderImageArtifactMock(page: Page) {
     image.alt = 'test-image.png';
     image.style.width = '320px';
     image.style.height = '240px';
-    const app = (window as any)._taburaApp;
+    const app = (window as any)._sloppadApp;
     const state = app?.getState?.();
     if (state) {
       state.currentCanvasArtifact = {
@@ -163,7 +163,7 @@ async function renderImageArtifactMock(page: Page) {
       };
       state.hasArtifact = true;
     }
-    document.dispatchEvent(new CustomEvent('tabura:canvas-rendered', {
+    document.dispatchEvent(new CustomEvent('sloppad:canvas-rendered', {
       detail: {
         kind: 'image_artifact',
         title: 'test-image.png',
@@ -200,7 +200,7 @@ async function renderMarkdownArtifactWithImage(page: Page) {
       pane.style.display = '';
       pane.classList.add('is-active');
     }
-    const app = (window as any)._taburaApp;
+    const app = (window as any)._sloppadApp;
     const state = app?.getState?.();
     if (state) {
       state.currentCanvasArtifact = {
@@ -216,7 +216,7 @@ async function renderMarkdownArtifactWithImage(page: Page) {
 async function setInteractionTool(page: Page, tool: 'pointer' | 'highlight' | 'ink' | 'text_note' | 'prompt') {
   await page.evaluate((mode) => {
     (window as any).__setRuntimeState?.({ tool: mode });
-    const app = (window as any)._taburaApp;
+    const app = (window as any)._sloppadApp;
     if (app?.getState) {
       const interaction = app.getState().interaction;
       interaction.tool = mode;
@@ -227,13 +227,13 @@ async function setInteractionTool(page: Page, tool: 'pointer' | 'highlight' | 'i
 
 async function openCircle(page: Page) {
   await page.evaluate(() => {
-    const button = document.getElementById('tabura-circle-dot');
+    const button = document.getElementById('sloppad-circle-dot');
     if (!(button instanceof HTMLButtonElement)) {
-      throw new Error('tabura circle dot not found');
+      throw new Error('sloppad circle dot not found');
     }
     button.click();
   });
-  await expect(page.locator('#tabura-circle')).toHaveAttribute('data-state', 'expanded');
+  await expect(page.locator('#sloppad-circle')).toHaveAttribute('data-state', 'expanded');
 }
 
 async function switchToTestProject(page: Page) {
@@ -245,7 +245,7 @@ async function switchToTestProject(page: Page) {
     }
   });
   await expect.poll(async () => page.evaluate(() => {
-    const app = (window as any)._taburaApp;
+    const app = (window as any)._sloppadApp;
     const state = app?.getState?.();
     const wsOpen = (window as any).WebSocket.OPEN;
     if (String(state?.activeWorkspaceId || '') !== 'test') return '';
@@ -257,8 +257,8 @@ async function setLiveMode(page: Page, mode: 'dialogue' | 'meeting') {
   await switchToTestProject(page);
   await openCircle(page);
   const buttonId = mode === 'dialogue'
-    ? 'tabura-circle-segment-dialogue'
-    : 'tabura-circle-segment-meeting';
+    ? 'sloppad-circle-segment-dialogue'
+    : 'sloppad-circle-segment-meeting';
   await page.evaluate((id) => {
     const button = document.getElementById(id);
     if (!(button instanceof HTMLButtonElement)) {
@@ -283,7 +283,7 @@ async function currentDotPosition(page: Page) {
 
 async function triggerVoiceAssistantTTS(page: Page, turnID: string, text = 'Hello there.') {
   await page.evaluate(() => {
-    const app = (window as any)._taburaApp;
+    const app = (window as any)._sloppadApp;
     const s = app.getState();
     s.lastInputOrigin = 'voice';
     s.voiceAwaitingTurn = true;
@@ -300,7 +300,7 @@ test.beforeEach(async ({ page }) => {
 
 test('dialogue tap starts local capture with the tapped cursor context', async ({ page }) => {
   await page.evaluate(() => {
-    (window as any).__taburaConversationListenMs = 1_200;
+    (window as any).__sloppadConversationListenMs = 1_200;
   });
   await setLiveMode(page, 'dialogue');
   await renderTestArtifact(page);
@@ -375,7 +375,7 @@ test('request_position stays local in annotation tools instead of dispatching a 
   expect(log.some((entry) => entry.type === 'canvas_position')).toBe(false);
   await expect(page.locator('#annotation-bubble')).toBeVisible();
   await expect(page.locator('#canvas-pdf .canvas-sticky-note')).toHaveCount(1);
-  expect(await page.evaluate(() => (window as any)._taburaApp.getState().requestedPositionPrompt)).toBe('Tap where the comment should go.');
+  expect(await page.evaluate(() => (window as any)._sloppadApp.getState().requestedPositionPrompt)).toBe('Tap where the comment should go.');
 });
 
 test('request_position in prompt tool starts a local capture instead of streaming a reply', async ({ page }) => {
@@ -395,7 +395,7 @@ test('request_position in prompt tool starts a local capture instead of streamin
 
   let log = await getLog(page);
   expect(log.some((entry) => entry.type === 'canvas_position')).toBe(false);
-  expect(await page.evaluate(() => (window as any)._taburaApp.getState().requestedPositionPrompt)).toBe('');
+  expect(await page.evaluate(() => (window as any)._sloppadApp.getState().requestedPositionPrompt)).toBe('');
 
   await page.mouse.click(420, 360);
   await expect.poll(async () => {

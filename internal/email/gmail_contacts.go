@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/krystophny/tabura/internal/providerdata"
+	"github.com/krystophny/sloppad/internal/providerdata"
 	"google.golang.org/api/option"
 	people "google.golang.org/api/people/v1"
 )

@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/krystophny/tabura/internal/appserver"
-	"github.com/krystophny/tabura/internal/modelprofile"
-	"github.com/krystophny/tabura/internal/plugins"
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/appserver"
+	"github.com/krystophny/sloppad/internal/modelprofile"
+	"github.com/krystophny/sloppad/internal/plugins"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
 func (a *App) runAssistantTurn(sessionID string, turn dequeuedTurn) {

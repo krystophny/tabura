@@ -13,7 +13,7 @@ extract() {
 
 v_zenodo="$(extract .zenodo.json '"version"')"
 v_citation="$(extract CITATION.cff '^version:')"
-v_cli="$(extract cmd/tabura/main.go 'defaultBinaryVersion')"
+v_cli="$(extract cmd/sloppad/main.go 'defaultBinaryVersion')"
 v_mcp="$(extract internal/mcp/server.go 'ServerVersion')"
 v_web_runtime="$(extract internal/web/server.go 'RuntimeVersion:')"
 v_web="$(extract internal/web/server.go '"version":')"
@@ -23,7 +23,7 @@ v_appserver_session="$(extract internal/appserver/session.go '"version":')"
 files=(
   ".zenodo.json"
   "CITATION.cff"
-  "cmd/tabura/main.go"
+  "cmd/sloppad/main.go"
   "internal/mcp/server.go"
   "internal/web/server.go (RuntimeVersion)"
   "internal/web/server.go"

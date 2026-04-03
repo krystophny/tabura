@@ -1,6 +1,6 @@
 # Approval and Execution Policy
 
-Tabura has one execution-policy model. `plan`, `review`, and `yolo` are not separate product universes; they only change how risky work is gated.
+Sloppad has one execution-policy model. `plan`, `review`, and `yolo` are not separate product universes; they only change how risky work is gated.
 
 ## Policy Table
 

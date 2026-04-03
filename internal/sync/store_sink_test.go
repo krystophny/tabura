@@ -5,13 +5,13 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/krystophny/tabura/internal/store"
-	tabsync "github.com/krystophny/tabura/internal/sync"
+	"github.com/krystophny/sloppad/internal/store"
+	tabsync "github.com/krystophny/sloppad/internal/sync"
 )
 
 func newTestStore(t *testing.T) *store.Store {
 	t.Helper()
-	s, err := store.New(filepath.Join(t.TempDir(), "tabura.db"))
+	s, err := store.New(filepath.Join(t.TempDir(), "sloppad.db"))
 	if err != nil {
 		t.Fatalf("store.New() error: %v", err)
 	}

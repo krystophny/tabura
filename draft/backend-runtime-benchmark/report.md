@@ -43,7 +43,7 @@
 ## Porting Decision Notes
 
 - Favor runtime choices that improve p95 latency and throughput without unacceptable build-time and maintenance cost.
-- Keep in mind this is microbenchmark data; validate with end-to-end Tabura workloads before a full migration.
+- Keep in mind this is microbenchmark data; validate with end-to-end Sloppad workloads before a full migration.
 
 - Highest throughput in this run: `rust`.
 - Recommendation: **Evaluate `rust` in a focused prototype before considering any broad port.**

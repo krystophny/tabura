@@ -6,7 +6,7 @@ import {
   sanitizeHtml,
 } from './canvas.js';
 
-const MATH_SEGMENT_TOKEN_PREFIX = '@@TABURA_MATH_SEGMENT_';
+const MATH_SEGMENT_TOKEN_PREFIX = '@@SLOPPAD_MATH_SEGMENT_';
 
 const uiState = {
   mode: 'rasa',

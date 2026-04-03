@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/krystophny/tabura/internal/document"
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/document"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
 func (a *App) handleArtifactFigureExtract(w http.ResponseWriter, r *http.Request) {
@@ -92,9 +92,9 @@ func (a *App) figureExtractionOutputDir(pdfPath string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		return filepath.Join(workspace.DirPath, ".tabura", "artifacts", "figures", stem), nil
+		return filepath.Join(workspace.DirPath, ".sloppad", "artifacts", "figures", stem), nil
 	}
-	return filepath.Join(filepath.Dir(clean), ".tabura", "artifacts", "figures", stem), nil
+	return filepath.Join(filepath.Dir(clean), ".sloppad", "artifacts", "figures", stem), nil
 }
 
 func sanitizeFigureArtifactStem(raw string) string {

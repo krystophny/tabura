@@ -1,6 +1,6 @@
 package extensions
 
-import "github.com/krystophny/tabura/internal/plugins"
+import "github.com/krystophny/sloppad/internal/plugins"
 
 const (
 	HookChatPreUserMessage     = plugins.HookChatPreUserMessage
@@ -46,7 +46,7 @@ type UIContributionManifest struct {
 }
 
 type EngineManifest struct {
-	Tabura string `json:"tabura,omitempty"`
+	Sloppad string `json:"sloppad,omitempty"`
 }
 
 type SigningManifest struct {

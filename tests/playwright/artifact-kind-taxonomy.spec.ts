@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 async function waitReady(page: Page) {
   await page.goto('/tests/playwright/harness.html');
   await page.waitForFunction(() => {
-    const app = (window as any)._taburaApp;
+    const app = (window as any)._sloppadApp;
     if (typeof app?.getState !== 'function') return false;
     const s = app.getState();
     const wsOpen = (window as any).WebSocket.OPEN;

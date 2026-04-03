@@ -9,7 +9,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
 func (a *App) executeSystemActionPlan(sessionID string, session store.ChatSession, userText string, actions []*SystemAction) (string, []map[string]interface{}, error) {

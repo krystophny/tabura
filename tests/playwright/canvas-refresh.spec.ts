@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 async function waitReady(page: Page) {
   await page.goto('/tests/playwright/harness.html');
   await page.waitForFunction(() => {
-    const app = (window as any)._taburaApp;
+    const app = (window as any)._sloppadApp;
     if (typeof app?.getState !== 'function') return false;
     const s = app.getState();
     return s.chatWs && s.chatWs.readyState === (window as any).WebSocket.OPEN;
@@ -32,7 +32,7 @@ async function renderTestArtifact(page: Page, text: string) {
       ct.style.display = '';
       ct.classList.add('is-active');
     }
-    const app = (window as any)._taburaApp;
+    const app = (window as any)._sloppadApp;
     if (app?.getState) app.getState().hasArtifact = true;
   }, text);
 }

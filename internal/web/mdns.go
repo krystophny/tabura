@@ -9,9 +9,9 @@ import (
 )
 
 const (
-	taburaMDNSService = "_tabura._tcp"
-	taburaMDNSDomain  = "local."
-	taburaMDNSVersion = "0.2.1"
+	sloppadMDNSService = "_sloppad._tcp"
+	sloppadMDNSDomain  = "local."
+	sloppadMDNSVersion = "0.2.1"
 )
 
 type mdnsAdvertiser interface {
@@ -19,7 +19,7 @@ type mdnsAdvertiser interface {
 }
 
 func defaultMDNSAdvertiserFactory(name string, port int, txt []string) (mdnsAdvertiser, error) {
-	return zeroconf.Register(name, taburaMDNSService, taburaMDNSDomain, port, txt, nil)
+	return zeroconf.Register(name, sloppadMDNSService, sloppadMDNSDomain, port, txt, nil)
 }
 
 func (a *App) startMDNSAdvertisement(host string, port int) error {
@@ -35,11 +35,11 @@ func (a *App) startMDNSAdvertisement(host string, port int) error {
 	}
 	hostname, err := os.Hostname()
 	if err != nil || strings.TrimSpace(hostname) == "" {
-		hostname = "tabura"
+		hostname = "sloppad"
 	}
-	instance := "tabura-" + sanitizeMDNSLabel(hostname)
+	instance := "sloppad-" + sanitizeMDNSLabel(hostname)
 	advertiser, err := a.mdnsAdvertiserFactory(instance, port, []string{
-		"version=" + taburaMDNSVersion,
+		"version=" + sloppadMDNSVersion,
 		"hostname=" + hostname,
 	})
 	if err != nil {
@@ -87,7 +87,7 @@ func sanitizeMDNSLabel(raw string) string {
 	}
 	label := strings.Trim(b.String(), "-")
 	if label == "" {
-		return "tabura"
+		return "sloppad"
 	}
 	return label
 }

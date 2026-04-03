@@ -7,10 +7,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/krystophny/tabura/internal/email"
-	"github.com/krystophny/tabura/internal/mailtriage"
-	"github.com/krystophny/tabura/internal/providerdata"
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/email"
+	"github.com/krystophny/sloppad/internal/mailtriage"
+	"github.com/krystophny/sloppad/internal/providerdata"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
 type mailTriageManualReviewRequest struct {

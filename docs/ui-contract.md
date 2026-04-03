@@ -1,11 +1,11 @@
 # UI Contract
 
-Tabura now treats shared UI design as a first-class source of truth, not just an after-the-fact test artifact.
+Sloppad now treats shared UI design as a first-class source of truth, not just an after-the-fact test artifact.
 
 ## Layered Source Of Truth
 
 - Component contract:
-  `internal/web/static/tabura-circle-contract.ts`
+  `internal/web/static/sloppad-circle-contract.ts`
 - Interaction flows:
   `tests/flows/`
 - Target mapping per platform:
@@ -24,9 +24,9 @@ Canvas document navigation is also part of the shared UI contract across web, iO
 - Horizontal wheel and trackpad gestures follow the short-swipe rule.
 - Inbox item swipe and edge-panel swipe must share the same horizontal-intent thresholds and axis-dominance semantics, even when the resulting action differs.
 
-## Tabura Circle Contract
+## Sloppad Circle Contract
 
-The Tabura Circle contract currently defines:
+The Sloppad Circle contract currently defines:
 
 - stable segment ids for `dialogue`, `meeting`, `silent`, `prompt`, `text_note`, `pointer`, `highlight`, and `ink`
 - icon-only rendering with accessible labels and tooltips

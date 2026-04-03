@@ -70,7 +70,7 @@ const pdfRenderState = {
 
 let activeCanvasEvent: Record<string, any> | null = null;
 function dispatchCanvasRendered(event) {
-  document.dispatchEvent(new CustomEvent('tabura:canvas-rendered', {
+  document.dispatchEvent(new CustomEvent('sloppad:canvas-rendered', {
     detail: {
       kind: event?.kind || '',
       title: event?.title || '',
@@ -80,7 +80,7 @@ function dispatchCanvasRendered(event) {
   }));
 }
 function dispatchCanvasCleared() {
-  document.dispatchEvent(new CustomEvent('tabura:canvas-cleared'));
+  document.dispatchEvent(new CustomEvent('sloppad:canvas-cleared'));
 }
 export function getEls() {
   if (!els.text) {
@@ -504,7 +504,7 @@ export function clearLineHighlight() {
 function clearTextInteractionHandlers() {
 }
 function getPdfURL(event) {
-  const pdfState = (window._taburaApp || {}).getState ? window._taburaApp.getState() : {};
+  const pdfState = (window._sloppadApp || {}).getState ? window._sloppadApp.getState() : {};
   const pdfSid = String(pdfState.sessionId || '');
   const pdfPath = String(event?.path || '');
   return {
@@ -864,7 +864,7 @@ export function renderCanvas(event) {
     e.text.classList.remove('mail-triage-canvas');
     e.image.style.display = '';
     e.image.classList.add('is-active');
-    const state = (window._taburaApp || {}).getState ? window._taburaApp.getState() : {};
+    const state = (window._sloppadApp || {}).getState ? window._sloppadApp.getState() : {};
     const sid = state.sessionId || '';
     (e.img as HTMLImageElement).src = apiURL(`files/${encodeURIComponent(sid)}/${encodeURIComponent(event.path)}`);
     (e.img as HTMLImageElement).alt = event.title || 'Image';

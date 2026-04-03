@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
 const testPNGDataURL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO5W8xkAAAAASUVORK5CYII="
@@ -21,7 +21,7 @@ func TestHandleBugReportCreateWritesBundleUnderWorkspaceArtifacts(t *testing.T) 
 	workspaceDir := t.TempDir()
 	initGitRepo(t, workspaceDir)
 	addGitRemote(t, workspaceDir, "https://github.com/owner/tabula.git")
-	workspace, err := app.store.CreateWorkspace("Tabura", workspaceDir, store.SphereWork)
+	workspace, err := app.store.CreateWorkspace("Sloppad", workspaceDir, store.SphereWork)
 	if err != nil {
 		t.Fatalf("CreateWorkspace() error: %v", err)
 	}
@@ -42,10 +42,10 @@ func TestHandleBugReportCreateWritesBundleUnderWorkspaceArtifacts(t *testing.T) 
 			return "", nil
 		}
 		if len(args) >= 2 && args[0] == "issue" && args[1] == "create" {
-			return "https://github.com/krystophny/tabura/issues/77\n", nil
+			return "https://github.com/krystophny/sloppad/issues/77\n", nil
 		}
 		if len(args) >= 2 && args[0] == "issue" && args[1] == "view" {
-			return `{"number":77,"title":"Bug report: The indicator froze after the tap","url":"https://github.com/krystophny/tabura/issues/77","state":"OPEN","labels":[{"name":"bug"},{"name":"p0"}],"assignees":[]}`, nil
+			return `{"number":77,"title":"Bug report: The indicator froze after the tap","url":"https://github.com/krystophny/sloppad/issues/77","state":"OPEN","labels":[{"name":"bug"},{"name":"p0"}],"assignees":[]}`, nil
 		}
 		t.Fatalf("unexpected gh invocation: %v", args)
 		return "", nil
@@ -78,7 +78,7 @@ func TestHandleBugReportCreateWritesBundleUnderWorkspaceArtifacts(t *testing.T) 
 			"turn_policy_profile": "balanced",
 			"participant_status": map[string]any{
 				"decision_summary": map[string]any{
-					"pickup":  "Not picked up because the latest request did not address Tabura and did not match the tracked speaker.",
+					"pickup":  "Not picked up because the latest request did not address Sloppad and did not match the tracked speaker.",
 					"overlap": "Wrong-speaker overlap is suppressed while another speaker owns the pending turn.",
 				},
 				"directed_speech_gate": map[string]any{"decision": "target_speaker_follow_up"},
@@ -106,8 +106,8 @@ func TestHandleBugReportCreateWritesBundleUnderWorkspaceArtifacts(t *testing.T) 
 	bundlePath := strFromAny(payload["bundle_path"])
 	screenshotPath := strFromAny(payload["screenshot_path"])
 	annotatedPath := strFromAny(payload["annotated_path"])
-	if !strings.HasPrefix(bundlePath, ".tabura/artifacts/bugs/") {
-		t.Fatalf("bundle_path = %q, want .tabura/artifacts/bugs/... path", bundlePath)
+	if !strings.HasPrefix(bundlePath, ".sloppad/artifacts/bugs/") {
+		t.Fatalf("bundle_path = %q, want .sloppad/artifacts/bugs/... path", bundlePath)
 	}
 	if !strings.HasSuffix(screenshotPath, "screenshot.png") {
 		t.Fatalf("screenshot_path = %q, want screenshot.png suffix", screenshotPath)
@@ -118,7 +118,7 @@ func TestHandleBugReportCreateWritesBundleUnderWorkspaceArtifacts(t *testing.T) 
 	if got := intFromAny(payload["issue_number"], 0); got != 77 {
 		t.Fatalf("issue_number = %d, want 77", got)
 	}
-	if got := strFromAny(payload["issue_url"]); got != "https://github.com/krystophny/tabura/issues/77" {
+	if got := strFromAny(payload["issue_url"]); got != "https://github.com/krystophny/sloppad/issues/77" {
 		t.Fatalf("issue_url = %q", got)
 	}
 	if got := strFromAny(payload["issue_title"]); got != "Bug report: The indicator froze after the tap" {
@@ -132,8 +132,8 @@ func TestHandleBugReportCreateWritesBundleUnderWorkspaceArtifacts(t *testing.T) 
 	if err := json.Unmarshal(bundleBytes, &bundle); err != nil {
 		t.Fatalf("decode bundle: %v", err)
 	}
-	if got := strFromAny(bundle["active_workspace"]); got != "Tabura" {
-		t.Fatalf("active_workspace = %q, want %q", got, "Tabura")
+	if got := strFromAny(bundle["active_workspace"]); got != "Sloppad" {
+		t.Fatalf("active_workspace = %q, want %q", got, "Sloppad")
 	}
 	if got := strFromAny(bundle["active_sphere"]); got != store.SphereWork {
 		t.Fatalf("active_sphere = %q, want %q", got, store.SphereWork)
@@ -205,7 +205,7 @@ func TestHandleBugReportCreateWritesBundleUnderWorkspaceArtifacts(t *testing.T) 
 	if got := strFromAny(bundle["annotated_image"]); got != annotatedPath {
 		t.Fatalf("bundle annotated_image = %q, want %q", got, annotatedPath)
 	}
-	if got := strFromAny(bundle["github_issue_url"]); got != "https://github.com/krystophny/tabura/issues/77" {
+	if got := strFromAny(bundle["github_issue_url"]); got != "https://github.com/krystophny/sloppad/issues/77" {
 		t.Fatalf("bundle github_issue_url = %q", got)
 	}
 	if got := intFromAny(bundle["github_issue_number"], 0); got != 77 {
@@ -221,7 +221,7 @@ func TestHandleBugReportCreateWritesBundleUnderWorkspaceArtifacts(t *testing.T) 
 	if got := strFromAny(canvasState["artifact_title"]); got != "README.md" {
 		t.Fatalf("canvas_state.artifact_title = %q, want %q", got, "README.md")
 	}
-	item, err := app.store.GetItemBySource("github", "krystophny/tabura#77")
+	item, err := app.store.GetItemBySource("github", "krystophny/sloppad#77")
 	if err != nil {
 		t.Fatalf("GetItemBySource() error: %v", err)
 	}
@@ -249,7 +249,7 @@ func TestHandleBugReportCreateWritesBundleUnderWorkspaceArtifacts(t *testing.T) 
 		t.Fatal("missing gh issue create call")
 	}
 	for _, needle := range []string{
-		"--repo krystophny/tabura",
+		"--repo krystophny/sloppad",
 		"--label bug",
 		"--label p0",
 		"--title Bug report: The indicator froze after the tap",
@@ -267,7 +267,7 @@ func TestHandleBugReportCreateWritesBundleUnderWorkspaceArtifacts(t *testing.T) 
 		}
 	}
 	for _, needle := range []string{
-		".tabura/artifacts/bugs/",
+		".sloppad/artifacts/bugs/",
 		"Bundle:",
 		"Screenshot:",
 		"Annotated image:",
@@ -283,7 +283,7 @@ func TestHandleBugReportCreateFallsBackToWorkspaceSphere(t *testing.T) {
 	workspaceDir := t.TempDir()
 	initGitRepo(t, workspaceDir)
 	addGitRemote(t, workspaceDir, "https://github.com/owner/tabula.git")
-	workspace, err := app.store.CreateWorkspace("Tabura", workspaceDir, store.SphereWork)
+	workspace, err := app.store.CreateWorkspace("Sloppad", workspaceDir, store.SphereWork)
 	if err != nil {
 		t.Fatalf("CreateWorkspace() error: %v", err)
 	}
@@ -299,10 +299,10 @@ func TestHandleBugReportCreateFallsBackToWorkspaceSphere(t *testing.T) {
 			return `[{"name":"bug"},{"name":"p0"}]`, nil
 		}
 		if len(args) >= 2 && args[0] == "issue" && args[1] == "create" {
-			return "https://github.com/krystophny/tabura/issues/88\n", nil
+			return "https://github.com/krystophny/sloppad/issues/88\n", nil
 		}
 		if len(args) >= 2 && args[0] == "issue" && args[1] == "view" {
-			return `{"number":88,"title":"Bug report: Sphere fallback","url":"https://github.com/krystophny/tabura/issues/88","state":"OPEN","labels":[{"name":"bug"},{"name":"p0"}],"assignees":[]}`, nil
+			return `{"number":88,"title":"Bug report: Sphere fallback","url":"https://github.com/krystophny/sloppad/issues/88","state":"OPEN","labels":[{"name":"bug"},{"name":"p0"}],"assignees":[]}`, nil
 		}
 		t.Fatalf("unexpected gh invocation: %v", args)
 		return "", nil
@@ -411,10 +411,10 @@ func TestHandleBugReportCreateUsesLocalProjectFallback(t *testing.T) {
 			return `[{"name":"bug"},{"name":"p0"}]`, nil
 		}
 		if len(args) >= 2 && args[0] == "issue" && args[1] == "create" {
-			return "https://github.com/krystophny/tabura/issues/91\n", nil
+			return "https://github.com/krystophny/sloppad/issues/91\n", nil
 		}
 		if len(args) >= 2 && args[0] == "issue" && args[1] == "view" {
-			return `{"number":91,"title":"Bug report: Local project fallback","url":"https://github.com/krystophny/tabura/issues/91","state":"OPEN","labels":[{"name":"bug"},{"name":"p0"}],"assignees":[]}`, nil
+			return `{"number":91,"title":"Bug report: Local project fallback","url":"https://github.com/krystophny/sloppad/issues/91","state":"OPEN","labels":[{"name":"bug"},{"name":"p0"}],"assignees":[]}`, nil
 		}
 		t.Fatalf("unexpected gh invocation: %v", args)
 		return "", nil
@@ -435,7 +435,7 @@ func TestHandleBugReportCreateUsesLocalProjectFallback(t *testing.T) {
 	if workspace.Sphere != store.SphereWork {
 		t.Fatalf("workspace.Sphere = %q, want %q", workspace.Sphere, store.SphereWork)
 	}
-	item, err := app.store.GetItemBySource("github", "krystophny/tabura#91")
+	item, err := app.store.GetItemBySource("github", "krystophny/sloppad#91")
 	if err != nil {
 		t.Fatalf("GetItemBySource() error: %v", err)
 	}
@@ -465,10 +465,10 @@ func TestHandleBugReportCreateUsesCanonicalRepoFromNonGitWorkspace(t *testing.T)
 			return `[{"name":"bug"},{"name":"p0"}]`, nil
 		}
 		if len(args) >= 2 && args[0] == "issue" && args[1] == "create" {
-			return "https://github.com/krystophny/tabura/issues/104\n", nil
+			return "https://github.com/krystophny/sloppad/issues/104\n", nil
 		}
 		if len(args) >= 2 && args[0] == "issue" && args[1] == "view" {
-			return `{"number":104,"title":"Bug report: Submission should work outside git repos","url":"https://github.com/krystophny/tabura/issues/104","state":"OPEN","labels":[{"name":"bug"},{"name":"p0"}],"assignees":[]}`, nil
+			return `{"number":104,"title":"Bug report: Submission should work outside git repos","url":"https://github.com/krystophny/sloppad/issues/104","state":"OPEN","labels":[{"name":"bug"},{"name":"p0"}],"assignees":[]}`, nil
 		}
 		t.Fatalf("unexpected gh invocation: %v", args)
 		return "", nil
@@ -485,10 +485,10 @@ func TestHandleBugReportCreateUsesCanonicalRepoFromNonGitWorkspace(t *testing.T)
 	if got := intFromAny(payload["issue_number"], 0); got != 104 {
 		t.Fatalf("issue_number = %d, want 104", got)
 	}
-	if got := strFromAny(payload["issue_url"]); got != "https://github.com/krystophny/tabura/issues/104" {
+	if got := strFromAny(payload["issue_url"]); got != "https://github.com/krystophny/sloppad/issues/104" {
 		t.Fatalf("issue_url = %q", got)
 	}
-	if _, err := app.store.GetItemBySource("github", "krystophny/tabura#104"); err != nil {
+	if _, err := app.store.GetItemBySource("github", "krystophny/sloppad#104"); err != nil {
 		t.Fatalf("GetItemBySource() error: %v", err)
 	}
 	createCall := ""
@@ -498,15 +498,15 @@ func TestHandleBugReportCreateUsesCanonicalRepoFromNonGitWorkspace(t *testing.T)
 			break
 		}
 	}
-	if !strings.Contains(createCall, "--repo krystophny/tabura") {
+	if !strings.Contains(createCall, "--repo krystophny/sloppad") {
 		t.Fatalf("create call = %q, want canonical repo flag", createCall)
 	}
 }
 
-func TestHandleBugReportCreateFallsBackToTaburaRepoWithoutWorkspace(t *testing.T) {
+func TestHandleBugReportCreateFallsBackToSloppadRepoWithoutWorkspace(t *testing.T) {
 	repoDir := t.TempDir()
 	initGitRepo(t, repoDir)
-	addGitRemote(t, repoDir, "https://github.com/krystophny/tabura.git")
+	addGitRemote(t, repoDir, "https://github.com/krystophny/sloppad.git")
 	t.Chdir(repoDir)
 
 	app, err := New(t.TempDir(), "", "", "", "", "", "", false)
@@ -529,10 +529,10 @@ func TestHandleBugReportCreateFallsBackToTaburaRepoWithoutWorkspace(t *testing.T
 			return `[{"name":"bug"},{"name":"p0"}]`, nil
 		}
 		if len(args) >= 2 && args[0] == "issue" && args[1] == "create" {
-			return "https://github.com/krystophny/tabura/issues/118\n", nil
+			return "https://github.com/krystophny/sloppad/issues/118\n", nil
 		}
 		if len(args) >= 2 && args[0] == "issue" && args[1] == "view" {
-			return `{"number":118,"title":"Bug report: Repo fallback","url":"https://github.com/krystophny/tabura/issues/118","state":"OPEN","labels":[{"name":"bug"},{"name":"p0"}],"assignees":[]}`, nil
+			return `{"number":118,"title":"Bug report: Repo fallback","url":"https://github.com/krystophny/sloppad/issues/118","state":"OPEN","labels":[{"name":"bug"},{"name":"p0"}],"assignees":[]}`, nil
 		}
 		t.Fatalf("unexpected gh invocation: %v", args)
 		return "", nil
@@ -547,11 +547,11 @@ func TestHandleBugReportCreateFallsBackToTaburaRepoWithoutWorkspace(t *testing.T
 	}
 	payload := decodeJSONResponse(t, rr)
 	bundlePath := strFromAny(payload["bundle_path"])
-	if !strings.HasPrefix(bundlePath, ".tabura/artifacts/bugs/") {
-		t.Fatalf("bundle_path = %q, want .tabura/artifacts/bugs/... path", bundlePath)
+	if !strings.HasPrefix(bundlePath, ".sloppad/artifacts/bugs/") {
+		t.Fatalf("bundle_path = %q, want .sloppad/artifacts/bugs/... path", bundlePath)
 	}
 	// Bug report was filed against the default workspace (no local project dir configured)
-	if _, err := app.store.GetItemBySource("github", "krystophny/tabura#118"); err != nil {
+	if _, err := app.store.GetItemBySource("github", "krystophny/sloppad#118"); err != nil {
 		t.Fatalf("GetItemBySource() error: %v", err)
 	}
 }
@@ -625,7 +625,7 @@ func TestBugReportIssueTitleUsesBrowserLogFallback(t *testing.T) {
 	if title != "Bug report: TypeError: Cannot read properties of undefined (reading 'click')" {
 		t.Fatalf("bugReportIssueTitle() = %q", title)
 	}
-	body := bugReportIssueBody(bundle, ".tabura/artifacts/bugs/20260311-110721-568aa357/bundle.json")
+	body := bugReportIssueBody(bundle, ".sloppad/artifacts/bugs/20260311-110721-568aa357/bundle.json")
 	if !strings.Contains(body, "## Summary\n\nTypeError: Cannot read properties of undefined (reading 'click')") {
 		t.Fatalf("bugReportIssueBody() missing browser log summary:\n%s", body)
 	}
@@ -654,11 +654,11 @@ func TestBugReportIssueBodyOmitsLocalPathsAndIncludesDiagnostics(t *testing.T) {
 		Note:                "The indicator froze after the second tap.",
 		DialogueDiagnostics: dialogueDiagnostics,
 		MeetingDiagnostics:  meetingDiagnostics,
-		ScreenshotPath:      ".tabura/artifacts/bugs/20260311-110721-568aa357/screenshot.png",
-		AnnotatedPath:       ".tabura/artifacts/bugs/20260311-110721-568aa357/annotated.png",
+		ScreenshotPath:      ".sloppad/artifacts/bugs/20260311-110721-568aa357/screenshot.png",
+		AnnotatedPath:       ".sloppad/artifacts/bugs/20260311-110721-568aa357/annotated.png",
 	}
 
-	body := bugReportIssueBody(bundle, ".tabura/artifacts/bugs/20260311-110721-568aa357/bundle.json")
+	body := bugReportIssueBody(bundle, ".sloppad/artifacts/bugs/20260311-110721-568aa357/bundle.json")
 	for _, needle := range []string{
 		"## Note",
 		"The indicator froze after the second tap.",
@@ -672,7 +672,7 @@ func TestBugReportIssueBodyOmitsLocalPathsAndIncludesDiagnostics(t *testing.T) {
 		}
 	}
 	for _, needle := range []string{
-		".tabura/artifacts/bugs/",
+		".sloppad/artifacts/bugs/",
 		"Bundle:",
 		"Screenshot:",
 		"Annotated image:",
@@ -693,7 +693,7 @@ func TestBugReportIssueTitleUsesStructuredFallbackWithoutFreeText(t *testing.T) 
 	if title != "Bug report: pen interaction failed in 2026/03/11" {
 		t.Fatalf("bugReportIssueTitle() = %q", title)
 	}
-	body := bugReportIssueBody(bundle, ".tabura/artifacts/bugs/20260311-110721-568aa357/bundle.json")
+	body := bugReportIssueBody(bundle, ".sloppad/artifacts/bugs/20260311-110721-568aa357/bundle.json")
 	if !strings.Contains(body, "## Summary\n\npen interaction failed in 2026/03/11") {
 		t.Fatalf("bugReportIssueBody() missing structured summary:\n%s", body)
 	}
@@ -738,7 +738,7 @@ func TestBugReportIssueTitleUsesActiveModeFallbackForDefaultWorkspace(t *testing
 	if title != "Bug report: pen interaction failed in default" {
 		t.Fatalf("bugReportIssueTitle() = %q", title)
 	}
-	body := bugReportIssueBody(bundle, ".tabura/artifacts/bugs/20260321-183934-48759867/bundle.json")
+	body := bugReportIssueBody(bundle, ".sloppad/artifacts/bugs/20260321-183934-48759867/bundle.json")
 	for _, needle := range []string{
 		"## Summary\n\npen interaction failed in default",
 		"- Active mode: `pen`",
@@ -768,7 +768,7 @@ func TestBugReportIssueTitleUsesTypingFallbackForDefaultWorkspace(t *testing.T) 
 	if title != "Bug report: interaction failed in default while typing" {
 		t.Fatalf("bugReportIssueTitle() = %q", title)
 	}
-	body := bugReportIssueBody(bundle, ".tabura/artifacts/bugs/20260321-164735-94e3e5e1/bundle.json")
+	body := bugReportIssueBody(bundle, ".sloppad/artifacts/bugs/20260321-164735-94e3e5e1/bundle.json")
 	for _, needle := range []string{
 		"## Summary\n\ninteraction failed in default while typing",
 		"- Text input visible: `true`",
@@ -799,7 +799,7 @@ func TestBugReportIssueTitleUsesPRReviewFallbackForDefaultWorkspace(t *testing.T
 	if title != "Bug report: interaction failed in default during PR review" {
 		t.Fatalf("bugReportIssueTitle() = %q", title)
 	}
-	body := bugReportIssueBody(bundle, ".tabura/artifacts/bugs/20260321-164735-94e3e5e1/bundle.json")
+	body := bugReportIssueBody(bundle, ".sloppad/artifacts/bugs/20260321-164735-94e3e5e1/bundle.json")
 	for _, needle := range []string{
 		"## Summary\n\ninteraction failed in default during PR review",
 		"- PR review mode: `true`",
@@ -831,7 +831,7 @@ func TestBugReportIssueTitleUsesCanvasStateFallbackForDefaultWorkspace(t *testin
 	if title != "Bug report: interaction failed in default while browsing docs/interaction-grammar.md" {
 		t.Fatalf("bugReportIssueTitle() = %q", title)
 	}
-	body := bugReportIssueBody(bundle, ".tabura/artifacts/bugs/20260321-161441-a83c6a31/bundle.json")
+	body := bugReportIssueBody(bundle, ".sloppad/artifacts/bugs/20260321-161441-a83c6a31/bundle.json")
 	for _, needle := range []string{
 		"## Summary\n\ninteraction failed in default while browsing docs/interaction-grammar.md",
 		"- Interaction surface: `canvas`",
@@ -849,8 +849,8 @@ func initGitRepo(t *testing.T, dir string) {
 	t.Helper()
 	commands := [][]string{
 		{"git", "init"},
-		{"git", "config", "user.email", "tabura@example.com"},
-		{"git", "config", "user.name", "Tabura Test"},
+		{"git", "config", "user.email", "sloppad@example.com"},
+		{"git", "config", "user.name", "Sloppad Test"},
 	}
 	for _, args := range commands {
 		cmd := exec.Command(args[0], args[1:]...)

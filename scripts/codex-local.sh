@@ -4,16 +4,16 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BASE_CONFIG_PATH="${CODEX_CONFIG_PATH:-$HOME/.codex/config.toml}"
 PLATFORM="$(uname -s)"
-FAST_URL="${TABURA_CODEX_FAST_URL:-http://127.0.0.1:8081/v1}"
-FAST_MODEL="${TABURA_CODEX_FAST_MODEL:-qwen3.5-9b}"
+FAST_URL="${SLOPPAD_CODEX_FAST_URL:-http://127.0.0.1:8081/v1}"
+FAST_MODEL="${SLOPPAD_CODEX_FAST_MODEL:-qwen3.5-9b}"
 if [[ "$PLATFORM" == "Darwin" ]]; then
-  LOCAL_URL="${TABURA_CODEX_LOCAL_URL:-http://127.0.0.1:8081/v1}"
-  LOCAL_MODEL="${TABURA_CODEX_LOCAL_MODEL:-qwen3.5-9b}"
+  LOCAL_URL="${SLOPPAD_CODEX_LOCAL_URL:-http://127.0.0.1:8081/v1}"
+  LOCAL_MODEL="${SLOPPAD_CODEX_LOCAL_MODEL:-qwen3.5-9b}"
 else
-  LOCAL_URL="${TABURA_CODEX_LOCAL_URL:-http://127.0.0.1:8080/v1}"
-  LOCAL_MODEL="${TABURA_CODEX_LOCAL_MODEL:-gpt-oss-120b}"
+  LOCAL_URL="${SLOPPAD_CODEX_LOCAL_URL:-http://127.0.0.1:8080/v1}"
+  LOCAL_MODEL="${SLOPPAD_CODEX_LOCAL_MODEL:-gpt-oss-120b}"
 fi
-MCP_URL="${TABURA_CODEX_MCP_URL:-http://127.0.0.1:9420/mcp}"
+MCP_URL="${SLOPPAD_CODEX_MCP_URL:-http://127.0.0.1:9420/mcp}"
 
 usage() {
   cat <<'EOF'
@@ -60,7 +60,7 @@ esac
 
 command -v codex >/dev/null 2>&1 || fail "codex is not in PATH"
 
-TMPDIR="$(mktemp -d -t tabura-codex-local-XXXXXX)"
+TMPDIR="$(mktemp -d -t sloppad-codex-local-XXXXXX)"
 CONFIG_PATH="${TMPDIR}/config.toml"
 
 cleanup() {
@@ -74,10 +74,10 @@ else
   : >"$CONFIG_PATH"
 fi
 
-TABURA_CODEX_FAST_URL="$FAST_URL" \
-TABURA_CODEX_FAST_MODEL="$FAST_MODEL" \
-TABURA_CODEX_LOCAL_URL="$LOCAL_URL" \
-TABURA_CODEX_LOCAL_MODEL="$LOCAL_MODEL" \
+SLOPPAD_CODEX_FAST_URL="$FAST_URL" \
+SLOPPAD_CODEX_FAST_MODEL="$FAST_MODEL" \
+SLOPPAD_CODEX_LOCAL_URL="$LOCAL_URL" \
+SLOPPAD_CODEX_LOCAL_MODEL="$LOCAL_MODEL" \
 CODEX_CONFIG_PATH="$CONFIG_PATH" \
 "$ROOT_DIR/scripts/setup-codex-mcp.sh" "$MCP_URL" >/dev/null
 

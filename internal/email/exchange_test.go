@@ -24,11 +24,11 @@ func TestExchangeConfigHelpers(t *testing.T) {
 	if cfg.ClientID != "client-id" || cfg.TenantID != "tenant-id" {
 		t.Fatalf("ExchangeConfigFromMap() = %+v", cfg)
 	}
-	if got := ExchangeSecretEnvVar("Work Mail"); got != "TABURA_EXCHANGE_SECRET_WORK_MAIL" {
+	if got := ExchangeSecretEnvVar("Work Mail"); got != "SLOPPAD_EXCHANGE_SECRET_WORK_MAIL" {
 		t.Fatalf("ExchangeSecretEnvVar() = %q", got)
 	}
-	tokenPath := ExchangeTokenPath("/tmp/tabura", "Work Mail")
-	wantPath := filepath.Join("/tmp/tabura", "tokens", "exchange_work_mail.json")
+	tokenPath := ExchangeTokenPath("/tmp/sloppad", "Work Mail")
+	wantPath := filepath.Join("/tmp/sloppad", "tokens", "exchange_work_mail.json")
 	if tokenPath != wantPath {
 		t.Fatalf("ExchangeTokenPath() = %q, want %q", tokenPath, wantPath)
 	}
@@ -173,7 +173,7 @@ func TestExchangeClientUsesRefreshTokenForGraphOperations(t *testing.T) {
 		AuthBaseURL: server.URL,
 		TokenPath:   tokensPath,
 	}, WithExchangeClock(func() time.Time { return now }), WithExchangeEnvLookup(func(key string) (string, bool) {
-		if key != "TABURA_EXCHANGE_SECRET_WORK_MAIL" {
+		if key != "SLOPPAD_EXCHANGE_SECRET_WORK_MAIL" {
 			t.Fatalf("env key = %q", key)
 		}
 		return "secret-value", true

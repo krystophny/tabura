@@ -1,0 +1,37 @@
+name: sloppad_circle_select_ink_tool
+description: Open the Sloppad Circle, select ink, and collapse while keeping the tool selection.
+tags:
+  - circle
+  - tool
+preconditions:
+  tool: pointer
+  session: none
+  silent: false
+steps:
+  - action: tap
+    target: sloppad_circle_dot
+    expect:
+      sloppad_circle: expanded
+  - action: tap
+    target: sloppad_circle_segment_ink
+    expect:
+      active_tool: ink
+      session: none
+      silent: false
+      sloppad_circle: expanded
+      body_class_contains: tool-ink
+      cursor_class: tool-ink
+  - action: verify
+    target: canvas_viewport
+    expect:
+      active_tool: ink
+      session: none
+      silent: false
+      cursor_class: tool-ink
+  - action: tap_outside
+    expect:
+      active_tool: ink
+      session: none
+      silent: false
+      sloppad_circle: collapsed
+      dot_inner_icon: pen_nib

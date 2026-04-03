@@ -1,74 +1,74 @@
 const targetDefinitions = {
-  tabura_circle_dot: {
+  sloppad_circle_dot: {
     category: 'circle',
     platforms: {
-      web: '#tabura-circle-dot',
-      ios: 'tabura_circle_dot',
-      android: 'tabura_circle_dot',
+      web: '#sloppad-circle-dot',
+      ios: 'sloppad_circle_dot',
+      android: 'sloppad_circle_dot',
     },
   },
-  tabura_circle_segment_pointer: {
+  sloppad_circle_segment_pointer: {
     category: 'circle',
     platforms: {
       web: '[data-segment="pointer"]',
-      ios: 'tabura_circle_pointer',
-      android: 'tabura_circle_pointer',
+      ios: 'sloppad_circle_pointer',
+      android: 'sloppad_circle_pointer',
     },
   },
-  tabura_circle_segment_highlight: {
+  sloppad_circle_segment_highlight: {
     category: 'circle',
     platforms: {
       web: '[data-segment="highlight"]',
-      ios: 'tabura_circle_highlight',
-      android: 'tabura_circle_highlight',
+      ios: 'sloppad_circle_highlight',
+      android: 'sloppad_circle_highlight',
     },
   },
-  tabura_circle_segment_ink: {
+  sloppad_circle_segment_ink: {
     category: 'circle',
     platforms: {
       web: '[data-segment="ink"]',
-      ios: 'tabura_circle_ink',
-      android: 'tabura_circle_ink',
+      ios: 'sloppad_circle_ink',
+      android: 'sloppad_circle_ink',
     },
   },
-  tabura_circle_segment_text_note: {
+  sloppad_circle_segment_text_note: {
     category: 'circle',
     platforms: {
       web: '[data-segment="text_note"]',
-      ios: 'tabura_circle_text_note',
-      android: 'tabura_circle_text_note',
+      ios: 'sloppad_circle_text_note',
+      android: 'sloppad_circle_text_note',
     },
   },
-  tabura_circle_segment_prompt: {
+  sloppad_circle_segment_prompt: {
     category: 'circle',
     platforms: {
       web: '[data-segment="prompt"]',
-      ios: 'tabura_circle_prompt',
-      android: 'tabura_circle_prompt',
+      ios: 'sloppad_circle_prompt',
+      android: 'sloppad_circle_prompt',
     },
   },
-  tabura_circle_segment_dialogue: {
+  sloppad_circle_segment_dialogue: {
     category: 'circle',
     platforms: {
       web: '[data-segment="dialogue"]',
-      ios: 'tabura_circle_dialogue',
-      android: 'tabura_circle_dialogue',
+      ios: 'sloppad_circle_dialogue',
+      android: 'sloppad_circle_dialogue',
     },
   },
-  tabura_circle_segment_meeting: {
+  sloppad_circle_segment_meeting: {
     category: 'circle',
     platforms: {
       web: '[data-segment="meeting"]',
-      ios: 'tabura_circle_meeting',
-      android: 'tabura_circle_meeting',
+      ios: 'sloppad_circle_meeting',
+      android: 'sloppad_circle_meeting',
     },
   },
-  tabura_circle_segment_silent: {
+  sloppad_circle_segment_silent: {
     category: 'circle',
     platforms: {
       web: '[data-segment="silent"]',
-      ios: 'tabura_circle_silent',
-      android: 'tabura_circle_silent',
+      ios: 'sloppad_circle_silent',
+      android: 'sloppad_circle_silent',
     },
   },
   canvas_viewport: {
@@ -111,15 +111,15 @@ const targetDefinitions = {
 };
 
 const requiredCoverageTargets = [
-  'tabura_circle_dot',
-  'tabura_circle_segment_pointer',
-  'tabura_circle_segment_highlight',
-  'tabura_circle_segment_ink',
-  'tabura_circle_segment_text_note',
-  'tabura_circle_segment_prompt',
-  'tabura_circle_segment_dialogue',
-  'tabura_circle_segment_meeting',
-  'tabura_circle_segment_silent',
+  'sloppad_circle_dot',
+  'sloppad_circle_segment_pointer',
+  'sloppad_circle_segment_highlight',
+  'sloppad_circle_segment_ink',
+  'sloppad_circle_segment_text_note',
+  'sloppad_circle_segment_prompt',
+  'sloppad_circle_segment_dialogue',
+  'sloppad_circle_segment_meeting',
+  'sloppad_circle_segment_silent',
   'canvas_viewport',
   'indicator_border',
 ];

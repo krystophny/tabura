@@ -3,7 +3,7 @@ package web
 import (
 	"strings"
 
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
 func localAssistantToolUserPrompt(req *assistantTurnRequest, prompt string) string {

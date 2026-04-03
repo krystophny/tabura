@@ -214,7 +214,7 @@ test.describe('STT/TTS system tests @local-only', () => {
     });
 
     test('Piper-generated WAV round-trips through authenticated /api/stt/transcribe', async () => {
-      const wav = await synthesizePiperWav('Tabura end to end speech to text verification.');
+      const wav = await synthesizePiperWav('Sloppad end to end speech to text verification.');
       expect(wav.length).toBeGreaterThan(44);
       expect(wav.slice(0, 4).toString('ascii')).toBe('RIFF');
 
@@ -225,7 +225,7 @@ test.describe('STT/TTS system tests @local-only', () => {
     });
 
     test('Piper-generated M4A round-trips through authenticated /api/stt/transcribe', async () => {
-      const wav = await synthesizePiperWav('Tabura m4a normalization to stt verification.');
+      const wav = await synthesizePiperWav('Sloppad m4a normalization to stt verification.');
       const m4a = transcodeWavToM4A(wav);
       expect(m4a.length).toBeGreaterThan(512);
 

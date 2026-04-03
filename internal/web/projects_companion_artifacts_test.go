@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
 func seedProjectCompanionSession(t *testing.T, app *App) (store.Workspace, store.ParticipantSession) {
@@ -154,7 +154,7 @@ func TestProjectCompanionSummaryAndReferencesAPIAndExports(t *testing.T) {
 		t.Fatalf("references markdown missing captured metadata: %q", rr.Body.String())
 	}
 
-	artifactDir := filepath.Join(project.RootPath, ".tabura", "artifacts", "companion", session.ID)
+	artifactDir := filepath.Join(project.RootPath, ".sloppad", "artifacts", "companion", session.ID)
 	transcriptPath := filepath.Join(artifactDir, "transcript.md")
 	transcriptBody, err := os.ReadFile(transcriptPath)
 	if err != nil {

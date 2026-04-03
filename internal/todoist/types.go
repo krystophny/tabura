@@ -150,7 +150,7 @@ type UpdateTaskRequest struct {
 }
 
 func TokenEnvVar(label string) string {
-	return "TABURA_TODOIST_TOKEN_" + sanitizeEnvSegment(label)
+	return "SLOPPAD_TODOIST_TOKEN_" + sanitizeEnvSegment(label)
 }
 
 func sanitizeEnvSegment(raw string) string {

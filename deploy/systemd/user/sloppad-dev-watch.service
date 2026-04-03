@@ -1,0 +1,14 @@
+[Unit]
+Description=Watch Sloppad source for dev reload
+After=sloppad-codex-app-server.service sloppad-web.service
+Wants=sloppad-codex-app-server.service sloppad-web.service
+
+[Service]
+Type=simple
+WorkingDirectory=@@REPO_ROOT@@
+ExecStart=@@REPO_ROOT@@/scripts/sloppad-dev-watch.sh
+Restart=always
+RestartSec=1
+
+[Install]
+WantedBy=default.target

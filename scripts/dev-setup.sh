@@ -4,7 +4,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PLATFORM="$(uname -s)"
 ARCH="$(uname -m)"
-ASSUME_YES="${TABURA_ASSUME_YES:-0}"
+ASSUME_YES="${SLOPPAD_ASSUME_YES:-0}"
 # shellcheck source=scripts/lib/llama.sh
 source "${REPO_ROOT}/scripts/lib/llama.sh"
 # shellcheck source=scripts/lib/python.sh
@@ -26,11 +26,11 @@ print_help() {
     cat <<USAGE
 Usage: scripts/dev-setup.sh [options]
 
-Sets up a complete Tabura development environment from a repo checkout.
+Sets up a complete Sloppad development environment from a repo checkout.
 
 Steps performed:
   1. Detect platform and architecture
-  2. Build tabura binary from source
+  2. Build sloppad binary from source
   3. Set up Piper TTS (venv + voice models)
   4. Detect existing local LLM or prepare LLM service
   5. Check for voxtype (STT)
@@ -43,9 +43,9 @@ Options:
   -h, --help  Show this help
 
 Environment:
-  TABURA_ASSUME_YES=1         Same as --yes
-  TABURA_INTENT_LLM_URL=<url> Reuse an existing local LLM (skip LLM setup)
-  TABURA_INTENT_LLM_URL=off   Disable intent LLM entirely
+  SLOPPAD_ASSUME_YES=1         Same as --yes
+  SLOPPAD_INTENT_LLM_URL=<url> Reuse an existing local LLM (skip LLM setup)
+  SLOPPAD_INTENT_LLM_URL=off   Disable intent LLM entirely
 USAGE
 }
 
@@ -57,7 +57,7 @@ while [ "$#" -gt 0 ]; do
     esac
 done
 
-export TABURA_ASSUME_YES="$ASSUME_YES"
+export SLOPPAD_ASSUME_YES="$ASSUME_YES"
 
 # --- Step 1: Platform detection ---
 
@@ -73,18 +73,18 @@ command -v go >/dev/null 2>&1 || fail "go not found (https://go.dev/dl/)"
 command -v curl >/dev/null 2>&1 || fail "curl not found"
 command -v codex >/dev/null 2>&1 || fail "codex not found (npm install -g @openai/codex)"
 if [ "$PLATFORM" = "Darwin" ]; then
-    tabura_find_python3 3 10 >/dev/null 2>&1 || fail "python3 3.10+ not found"
+    sloppad_find_python3 3 10 >/dev/null 2>&1 || fail "python3 3.10+ not found"
 else
     command -v python3 >/dev/null 2>&1 || fail "python3 not found"
 fi
 
-# --- Step 3: Build tabura binary ---
+# --- Step 3: Build sloppad binary ---
 
 BIN_DIR="${HOME}/.local/bin"
-BIN_PATH="${BIN_DIR}/tabura"
-log "Building tabura binary"
+BIN_PATH="${BIN_DIR}/sloppad"
+log "Building sloppad binary"
 mkdir -p "$BIN_DIR"
-(cd "$REPO_ROOT" && go build -o "$BIN_PATH" ./cmd/tabura)
+(cd "$REPO_ROOT" && go build -o "$BIN_PATH" ./cmd/sloppad)
 log "Built: $BIN_PATH"
 
 if ! printf ':%s:' "$PATH" | grep -Fq ":${BIN_DIR}:"; then
@@ -94,7 +94,7 @@ fi
 # --- Step 4: Piper TTS setup ---
 
 log "Setting up Piper TTS"
-if "$REPO_ROOT/scripts/setup-tabura-piper-tts.sh"; then
+if "$REPO_ROOT/scripts/setup-sloppad-piper-tts.sh"; then
     log "Piper TTS setup complete"
 else
     warn "Piper TTS setup failed; TTS will be unavailable"
@@ -102,29 +102,29 @@ fi
 
 # --- Step 5: LLM detection ---
 
-if [ -z "${TABURA_INTENT_LLM_URL:-}" ]; then
+if [ -z "${SLOPPAD_INTENT_LLM_URL:-}" ]; then
     for port in 8081 8080; do
         if curl -fsS --max-time 2 "http://127.0.0.1:${port}/health" >/dev/null 2>&1; then
-            export TABURA_INTENT_LLM_URL="http://127.0.0.1:${port}"
-            log "Detected existing local LLM at $TABURA_INTENT_LLM_URL"
+            export SLOPPAD_INTENT_LLM_URL="http://127.0.0.1:${port}"
+            log "Detected existing local LLM at $SLOPPAD_INTENT_LLM_URL"
             break
         fi
     done
 fi
 
-if [ -z "${TABURA_INTENT_LLM_URL:-}" ]; then
+if [ -z "${SLOPPAD_INTENT_LLM_URL:-}" ]; then
     if [ "$PLATFORM" = "Darwin" ]; then
-        export TABURA_INTENT_LLM_URL="http://127.0.0.1:8081"
-    elif ! LLAMA_SERVER_BIN="$(tabura_find_llama_server)"; then
-        if [ -n "${TABURA_LLAMA_LAST_ERROR:-}" ]; then
-            warn "llama-server not usable (${TABURA_LLAMA_LAST_ERROR}); intent LLM will be disabled"
+        export SLOPPAD_INTENT_LLM_URL="http://127.0.0.1:8081"
+    elif ! LLAMA_SERVER_BIN="$(sloppad_find_llama_server)"; then
+        if [ -n "${SLOPPAD_LLAMA_LAST_ERROR:-}" ]; then
+            warn "llama-server not usable (${SLOPPAD_LLAMA_LAST_ERROR}); intent LLM will be disabled"
         else
             warn "llama-server not found; intent LLM will be disabled"
         fi
         if [ "$PLATFORM" != "Darwin" ]; then
             warn "  Build llama.cpp and place llama-server in ~/.local/bin"
         fi
-        export TABURA_INTENT_LLM_URL="off"
+        export SLOPPAD_INTENT_LLM_URL="off"
     else
         export LLAMA_SERVER_BIN
     fi
@@ -147,7 +147,7 @@ fi
 # --- Step 7: Install service definitions and start services ---
 
 log "Installing and starting services"
-"$REPO_ROOT/scripts/install-tabura-user-units.sh"
+"$REPO_ROOT/scripts/install-sloppad-user-units.sh"
 
 # --- Step 8: Bootstrap default project ---
 
@@ -157,9 +157,9 @@ log "Bootstrapping project at $PROJECT_DIR"
 
 # --- Step 9: Configure Codex MCP + local provider profiles ---
 
-if [ -n "${TABURA_INTENT_LLM_URL:-}" ] && [ "${TABURA_INTENT_LLM_URL}" != "off" ]; then
-    TABURA_CODEX_FAST_URL="${TABURA_INTENT_LLM_URL}/v1" \
-    TABURA_CODEX_LOCAL_URL="$(codex_local_url_default)" \
+if [ -n "${SLOPPAD_INTENT_LLM_URL:-}" ] && [ "${SLOPPAD_INTENT_LLM_URL}" != "off" ]; then
+    SLOPPAD_CODEX_FAST_URL="${SLOPPAD_INTENT_LLM_URL}/v1" \
+    SLOPPAD_CODEX_LOCAL_URL="$(codex_local_url_default)" \
     "$REPO_ROOT/scripts/setup-codex-mcp.sh" "http://127.0.0.1:9420/mcp"
 else
     "$REPO_ROOT/scripts/setup-codex-mcp.sh" "http://127.0.0.1:9420/mcp"
@@ -167,10 +167,10 @@ fi
 
 # --- Step 10: Summary ---
 
-EFFECTIVE_LLM_URL="${TABURA_INTENT_LLM_URL:-http://127.0.0.1:8081}"
+EFFECTIVE_LLM_URL="${SLOPPAD_INTENT_LLM_URL:-http://127.0.0.1:8081}"
 cat <<SUMMARY
 
-=== Tabura Dev Setup Complete ===
+=== Sloppad Dev Setup Complete ===
   Platform:    $PLATFORM ($ARCH)
   Binary:      $BIN_PATH
   Repo root:   $REPO_ROOT
@@ -189,19 +189,19 @@ SUMMARY
 if [ "$PLATFORM" = "Darwin" ]; then
     cat <<LOGS
 Log files:
-  /tmp/tabura-web.log
-  /tmp/tabura-codex-app-server.log
-  /tmp/tabura-piper-tts.log
-  /tmp/tabura-llm.log
-  /tmp/tabura-stt.log
+  /tmp/sloppad-web.log
+  /tmp/sloppad-codex-app-server.log
+  /tmp/sloppad-piper-tts.log
+  /tmp/sloppad-llm.log
+  /tmp/sloppad-stt.log
 LOGS
 else
     cat <<LOGS
 Logs:
-  journalctl --user -u tabura-web.service
-  journalctl --user -u tabura-codex-app-server.service
-  journalctl --user -u tabura-piper-tts.service
-  journalctl --user -u tabura-llm.service
-  journalctl --user -u tabura-stt.service
+  journalctl --user -u sloppad-web.service
+  journalctl --user -u sloppad-codex-app-server.service
+  journalctl --user -u sloppad-piper-tts.service
+  journalctl --user -u sloppad-llm.service
+  journalctl --user -u sloppad-stt.service
 LOGS
 fi

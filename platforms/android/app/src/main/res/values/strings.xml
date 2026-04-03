@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Tabura Android</string>
-    <string name="audio_notification_channel">Tabura microphone</string>
-    <string name="audio_notification_title">Tabura is listening</string>
-    <string name="audio_notification_text">Background audio capture is streaming PCM to Tabura.</string>
+    <string name="app_name">Sloppad Android</string>
+    <string name="audio_notification_channel">Sloppad microphone</string>
+    <string name="audio_notification_title">Sloppad is listening</string>
+    <string name="audio_notification_text">Background audio capture is streaming PCM to Sloppad.</string>
 </resources>

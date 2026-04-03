@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/krystophny/tabura/internal/appserver"
-	"github.com/krystophny/tabura/internal/modelprofile"
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/appserver"
+	"github.com/krystophny/sloppad/internal/modelprofile"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
 func newCompanionAppServerClient(t *testing.T, assistantMessage string) *appserver.Client {
@@ -236,7 +236,7 @@ func waitForCapturedThreadStartCWD(t *testing.T, cwdCh <-chan string) string {
 }
 
 func TestCompanionResponseTriggerExecutesAssistantTurn(t *testing.T) {
-	t.Setenv("TABURA_INTENT_LLM_URL", "off")
+	t.Setenv("SLOPPAD_INTENT_LLM_URL", "off")
 	app := newAuthedTestApp(t)
 	app.assistantLLMURL = newCompanionLocalAssistantURL(t, "Companion reply.")
 
@@ -316,7 +316,7 @@ func TestCompanionResponseTriggerExecutesAssistantTurn(t *testing.T) {
 }
 
 func TestCompanionResponseTriggerExecutesTargetSpeakerFollowUp(t *testing.T) {
-	t.Setenv("TABURA_INTENT_LLM_URL", "off")
+	t.Setenv("SLOPPAD_INTENT_LLM_URL", "off")
 	app := newAuthedTestApp(t)
 	app.assistantLLMURL = newCompanionLocalAssistantURL(t, "Companion reply.")
 
@@ -391,7 +391,7 @@ func TestCompanionResponseTriggerExecutesTargetSpeakerFollowUp(t *testing.T) {
 }
 
 func TestCompanionResponseTriggerSkipsWhenCompanionDisabled(t *testing.T) {
-	t.Setenv("TABURA_INTENT_LLM_URL", "off")
+	t.Setenv("SLOPPAD_INTENT_LLM_URL", "off")
 	app := newAuthedTestApp(t)
 	app.assistantLLMURL = newCompanionLocalAssistantURL(t, "unexpected reply")
 
@@ -445,7 +445,7 @@ func TestCompanionResponseTriggerSkipsWhenCompanionDisabled(t *testing.T) {
 }
 
 func TestCompanionResponseTriggerSkipsFalseTriggerTranscript(t *testing.T) {
-	t.Setenv("TABURA_INTENT_LLM_URL", "off")
+	t.Setenv("SLOPPAD_INTENT_LLM_URL", "off")
 	app := newAuthedTestApp(t)
 	app.assistantLLMURL = newCompanionLocalAssistantURL(t, "unexpected reply")
 
@@ -508,7 +508,7 @@ func TestCompanionResponseTriggerSkipsFalseTriggerTranscript(t *testing.T) {
 }
 
 func TestCompanionResponseTriggerUsesSilentModeOutputQueue(t *testing.T) {
-	t.Setenv("TABURA_INTENT_LLM_URL", "off")
+	t.Setenv("SLOPPAD_INTENT_LLM_URL", "off")
 	app := newAuthedTestApp(t)
 	app.assistantLLMURL = newCompanionLocalAssistantURL(t, "Silent companion reply.")
 	if err := app.setSilentModeEnabled(true); err != nil {
@@ -562,7 +562,7 @@ func TestCompanionResponseTriggerUsesSilentModeOutputQueue(t *testing.T) {
 }
 
 func TestCompanionResponseTriggerDoesNotDuplicateSegment(t *testing.T) {
-	t.Setenv("TABURA_INTENT_LLM_URL", "off")
+	t.Setenv("SLOPPAD_INTENT_LLM_URL", "off")
 	app := newAuthedTestApp(t)
 	app.assistantLLMURL = newCompanionLocalAssistantURL(t, "Companion reply.")
 
@@ -619,7 +619,7 @@ func TestCompanionResponseTriggerDoesNotDuplicateSegment(t *testing.T) {
 }
 
 func TestCompanionResponseTriggerInterruptsPendingTurn(t *testing.T) {
-	t.Setenv("TABURA_INTENT_LLM_URL", "off")
+	t.Setenv("SLOPPAD_INTENT_LLM_URL", "off")
 	app := newAuthedTestApp(t)
 
 	project, err := app.ensureDefaultWorkspace()
@@ -728,7 +728,7 @@ func TestCompanionResponseTriggerInterruptsPendingTurn(t *testing.T) {
 }
 
 func TestCompanionResponseTriggerIncludesProjectScopedCompanionContext(t *testing.T) {
-	t.Setenv("TABURA_INTENT_LLM_URL", "off")
+	t.Setenv("SLOPPAD_INTENT_LLM_URL", "off")
 	app := newAuthedTestApp(t)
 	promptURL, promptCh := newCompanionLocalAssistantURLWithCapture(t, "Companion reply.")
 	app.assistantLLMURL = promptURL
@@ -842,7 +842,7 @@ func TestCompanionResponseTriggerIncludesProjectScopedCompanionContext(t *testin
 }
 
 func TestCompanionResponseTriggerUsesWorkspaceDirForAppSession(t *testing.T) {
-	t.Setenv("TABURA_INTENT_LLM_URL", "off")
+	t.Setenv("SLOPPAD_INTENT_LLM_URL", "off")
 	app := newAuthedTestApp(t)
 	client, _, cwdCh := newCompanionAppServerClientWithSessionCapture(t, "Companion reply.")
 	app.appServerClient = client

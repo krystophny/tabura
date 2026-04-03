@@ -13,9 +13,9 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/krystophny/tabura/internal/modelprofile"
-	"github.com/krystophny/tabura/internal/serve"
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/modelprofile"
+	"github.com/krystophny/sloppad/internal/serve"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
 const workspaceServeStartTimeout = 10 * time.Second
@@ -235,7 +235,7 @@ func (a *App) startWorkspaceServe(sessionID, projectDir string) error {
 	stopCtx, stopCancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer stopCancel()
 	_ = projectApp.Stop(stopCtx)
-	return errors.New("project tabura MCP listener did not become healthy in time")
+	return errors.New("project sloppad MCP listener did not become healthy in time")
 }
 
 func (a *App) ensureProjectCanvasReady(project store.Workspace) error {

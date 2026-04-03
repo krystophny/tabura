@@ -12,7 +12,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
 func TestParseFileBlocks_NoMarkers(t *testing.T) {
@@ -112,7 +112,7 @@ func TestStripLangTags_NoTags(t *testing.T) {
 }
 
 func TestAssistantFinalChatContent_StructuredWithCompanion(t *testing.T) {
-	input := "Review ready. [file: .tabura/artifacts/tmp/diff.md] Let's discuss."
+	input := "Review ready. [file: .sloppad/artifacts/tmp/diff.md] Let's discuss."
 	markdown, plain, format := assistantFinalChatContent(input, true, false)
 	normalized := strings.Join(strings.Fields(markdown), " ")
 	if normalized != "Review ready. Let's discuss." {
@@ -127,7 +127,7 @@ func TestAssistantFinalChatContent_StructuredWithCompanion(t *testing.T) {
 }
 
 func TestAssistantFinalChatContent_StructuredMarkersOnly(t *testing.T) {
-	input := "[file: .tabura/artifacts/tmp/diff.md]"
+	input := "[file: .sloppad/artifacts/tmp/diff.md]"
 	markdown, plain, format := assistantFinalChatContent(input, true, false)
 	if markdown != "" {
 		t.Fatalf("markdown = %q, want empty", markdown)
@@ -159,7 +159,7 @@ func TestBuildPromptFromHistory_IncludesSystemPrompt(t *testing.T) {
 	if prompt == "" {
 		t.Fatal("prompt should not be empty")
 	}
-	if !strings.Contains(prompt, "You are Tabura") {
+	if !strings.Contains(prompt, "You are Sloppad") {
 		t.Error("prompt should contain system identity")
 	}
 	if !strings.Contains(prompt, "Voice mode is chat-first") {
@@ -226,7 +226,7 @@ func TestBuildPromptFromHistoryForSession_AutonomousPolicy(t *testing.T) {
 
 func TestBuildPromptFromHistoryForMode_SilentUsesToolOnlyPreamble(t *testing.T) {
 	prompt := buildPromptFromHistoryForMode("chat", nil, nil, turnOutputModeSilent, "")
-	if strings.Contains(prompt, "You are Tabura") {
+	if strings.Contains(prompt, "You are Sloppad") {
 		t.Error("silent prompt should not include identity preamble")
 	}
 	if strings.Contains(prompt, "spoken via TTS") {
@@ -251,7 +251,7 @@ func TestBuildPromptFromHistoryForSession_SilentResearchUsesArtifactContract(t *
 	if !strings.Contains(prompt, "Research Artifact Output") {
 		t.Fatal("silent research prompt should include research artifact contract")
 	}
-	if !strings.Contains(prompt, ".tabura/artifacts/research/session-42/summary.md") {
+	if !strings.Contains(prompt, ".sloppad/artifacts/research/session-42/summary.md") {
 		t.Fatalf("silent research prompt should pin the session research root, got %q", prompt)
 	}
 	if !strings.Contains(prompt, "Produce multiple file-backed canvas artifacts") {
@@ -267,7 +267,7 @@ func TestBuildTurnPromptForSession_SilentResearchUsesArtifactContract(t *testing
 	if !strings.Contains(prompt, "Research Artifact Output") {
 		t.Fatal("silent research turn prompt should include research artifact contract")
 	}
-	if !strings.Contains(prompt, ".tabura/artifacts/research/session-42/summary.md") {
+	if !strings.Contains(prompt, ".sloppad/artifacts/research/session-42/summary.md") {
 		t.Fatalf("silent research turn prompt should pin the session research root, got %q", prompt)
 	}
 }
@@ -496,7 +496,7 @@ func TestResolveCanvasFilePath_ResolvesSimpleWorkspaceQuery(t *testing.T) {
 		t.Fatalf("mkdir docs: %v", err)
 	}
 	target := filepath.Join(tmp, "docs", "README.md")
-	if err := os.WriteFile(target, []byte("# Tabura\n"), 0o644); err != nil {
+	if err := os.WriteFile(target, []byte("# Sloppad\n"), 0o644); err != nil {
 		t.Fatalf("write readme: %v", err)
 	}
 	abs, title, err := resolveCanvasFilePath(tmp, "README")
@@ -524,22 +524,22 @@ func TestResolveCanvasFilePath_DefaultsToTempArtifactPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolveCanvasFilePath returned error: %v", err)
 	}
-	if !strings.Contains(filepath.ToSlash(abs), "/.tabura/artifacts/tmp/") {
+	if !strings.Contains(filepath.ToSlash(abs), "/.sloppad/artifacts/tmp/") {
 		t.Fatalf("expected temp artifact path, got %q", abs)
 	}
-	if !strings.HasPrefix(title, ".tabura/artifacts/tmp/") {
+	if !strings.HasPrefix(title, ".sloppad/artifacts/tmp/") {
 		t.Fatalf("expected temp artifact title, got %q", title)
 	}
 }
 
 func TestIsCanvasScratchArtifactTitle(t *testing.T) {
-	if !isCanvasScratchArtifactTitle(".tabura/artifacts/tmp/reply.md") {
+	if !isCanvasScratchArtifactTitle(".sloppad/artifacts/tmp/reply.md") {
 		t.Fatal("expected relative tmp artifact title to be detected")
 	}
-	if !isCanvasScratchArtifactTitle("/home/u/proj/.tabura/artifacts/tmp/reply.md") {
+	if !isCanvasScratchArtifactTitle("/home/u/proj/.sloppad/artifacts/tmp/reply.md") {
 		t.Fatal("expected absolute tmp artifact title to be detected")
 	}
-	if isCanvasScratchArtifactTitle(".tabura/artifacts/pr/pr-12.diff") {
+	if isCanvasScratchArtifactTitle(".sloppad/artifacts/pr/pr-12.diff") {
 		t.Fatal("did not expect PR artifact title to be detected as scratch")
 	}
 	if isCanvasScratchArtifactTitle("README.md") {
@@ -550,7 +550,7 @@ func TestIsCanvasScratchArtifactTitle(t *testing.T) {
 func TestCanOverwriteSilentAutoCanvasArtifact(t *testing.T) {
 	if !canOverwriteSilentAutoCanvasArtifact(&canvasContext{
 		HasArtifact:   true,
-		ArtifactTitle: ".tabura/artifacts/tmp/reply.md",
+		ArtifactTitle: ".sloppad/artifacts/tmp/reply.md",
 		ArtifactKind:  "text_artifact",
 	}) {
 		t.Fatal("expected text tmp artifact to be overwriteable")
@@ -564,7 +564,7 @@ func TestCanOverwriteSilentAutoCanvasArtifact(t *testing.T) {
 	}
 	if canOverwriteSilentAutoCanvasArtifact(&canvasContext{
 		HasArtifact:   true,
-		ArtifactTitle: ".tabura/artifacts/tmp/reply.md",
+		ArtifactTitle: ".sloppad/artifacts/tmp/reply.md",
 		ArtifactKind:  "image_artifact",
 	}) {
 		t.Fatal("did not expect non-text artifact to be overwriteable")
@@ -715,7 +715,7 @@ func TestFinalizeAssistantResponse_SilentOverwritesScratchArtifact(t *testing.T)
 	}
 
 	mock := &canvasMCPMock{
-		artifactTitle: ".tabura/artifacts/tmp/reply.md",
+		artifactTitle: ".sloppad/artifacts/tmp/reply.md",
 		artifactKind:  "text_artifact",
 		artifactText:  "old content",
 	}
@@ -783,7 +783,7 @@ func TestFinalizeAssistantResponse_VoiceExecutesExplicitFileBlocks(t *testing.T)
 		project.WorkspacePath,
 		`I put it on canvas.
 
-:::file{path=".tabura/artifacts/tmp/voice-note.md"}
+:::file{path=".sloppad/artifacts/tmp/voice-note.md"}
 # Voice Note
 
 Shown from dialogue mode.
@@ -799,7 +799,7 @@ Shown from dialogue mode.
 	if got := atomic.LoadInt32(&mock.artifactShow); got != 1 {
 		t.Fatalf("expected one canvas_artifact_show call for explicit voice canvas output, got %d", got)
 	}
-	if strings.TrimSpace(mock.lastShownTitle) != ".tabura/artifacts/tmp/voice-note.md" {
+	if strings.TrimSpace(mock.lastShownTitle) != ".sloppad/artifacts/tmp/voice-note.md" {
 		t.Fatalf("expected explicit voice canvas title, got %q", mock.lastShownTitle)
 	}
 	if !strings.Contains(mock.lastShownContent, "Shown from dialogue mode.") {
@@ -885,7 +885,7 @@ func TestFinalizeAssistantResponse_SilentFallsBackWhenOverwritePathEscapesProjec
 	}
 
 	mock := &canvasMCPMock{
-		artifactTitle: "/tmp/other-project/.tabura/artifacts/tmp/reply.md",
+		artifactTitle: "/tmp/other-project/.sloppad/artifacts/tmp/reply.md",
 		artifactKind:  "text_artifact",
 		artifactText:  "old",
 	}
@@ -973,8 +973,8 @@ func TestFinalizeAssistantResponse_SilentResearchWritesMultipleArtifacts(t *test
 	if got := atomic.LoadInt32(&mock.artifactShow); got != 2 {
 		t.Fatalf("expected two canvas_artifact_show calls, got %d", got)
 	}
-	wantSummary := ".tabura/artifacts/research/" + session.ID + "/summary.md"
-	wantSources := ".tabura/artifacts/research/" + session.ID + "/sources.md"
+	wantSummary := ".sloppad/artifacts/research/" + session.ID + "/summary.md"
+	wantSources := ".sloppad/artifacts/research/" + session.ID + "/sources.md"
 	mock.mu.Lock()
 	shownTitles := append([]string(nil), mock.shownTitles...)
 	mock.mu.Unlock()
@@ -1028,7 +1028,7 @@ func TestFinalizeAssistantResponse_SilentFileBlocksKeepExplicitPathsOutsideResea
 
 	response := `Done.
 
-:::file{path=".tabura/artifacts/pr/pr-18.diff"}
+:::file{path=".sloppad/artifacts/pr/pr-18.diff"}
 diff --git a/a.go b/a.go
 :::`
 
@@ -1048,7 +1048,7 @@ diff --git a/a.go b/a.go
 
 	mock.mu.Lock()
 	defer mock.mu.Unlock()
-	if len(mock.shownTitles) != 1 || mock.shownTitles[0] != ".tabura/artifacts/pr/pr-18.diff" {
+	if len(mock.shownTitles) != 1 || mock.shownTitles[0] != ".sloppad/artifacts/pr/pr-18.diff" {
 		t.Fatalf("shown titles = %#v, want explicit PR artifact path", mock.shownTitles)
 	}
 }

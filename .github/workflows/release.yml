@@ -37,10 +37,10 @@ jobs:
           scripts/generate-package-manager-artifacts.sh \
             --version "${GITHUB_REF_NAME}" \
             --checksums dist/checksums.txt \
-            --output-dir .tabura/artifacts/package-managers
+            --output-dir .sloppad/artifacts/package-managers
 
       - name: Upload package-manager metadata
         uses: actions/upload-artifact@v4
         with:
           name: package-manager-metadata-${{ github.ref_name }}
-          path: .tabura/artifacts/package-managers/
+          path: .sloppad/artifacts/package-managers/

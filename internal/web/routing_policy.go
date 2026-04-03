@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/krystophny/tabura/internal/modelprofile"
+	"github.com/krystophny/sloppad/internal/modelprofile"
 )
 
 type turnRoutingDirectives struct {

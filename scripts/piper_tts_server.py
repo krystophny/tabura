@@ -23,7 +23,7 @@ from fastapi.responses import StreamingResponse
 
 MODEL_DIR = os.environ.get(
     "PIPER_MODEL_DIR",
-    os.path.join(os.path.dirname(__file__), "..", ".local", "share", "tabura-piper-tts", "models"),
+    os.path.join(os.path.dirname(__file__), "..", ".local", "share", "sloppad-piper-tts", "models"),
 )
 
 MODELS = {

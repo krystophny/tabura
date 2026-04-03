@@ -3,7 +3,7 @@ package web
 import (
 	"strings"
 
-	"github.com/krystophny/tabura/internal/appserver"
+	"github.com/krystophny/sloppad/internal/appserver"
 )
 
 const maxChatVisualDataURLBytes = 2 << 20

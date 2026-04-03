@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/krystophny/tabura/internal/providerdata"
+	"github.com/krystophny/sloppad/internal/providerdata"
 )
 
 // ICSEvent represents an event from an ICS feed.
@@ -267,7 +267,7 @@ func parseICSDateTime(dtStr string) (time.Time, bool) {
 func defaultConfigDir() string {
 	home, err := os.UserHomeDir()
 	if err != nil || strings.TrimSpace(home) == "" {
-		return ".tabura"
+		return ".sloppad"
 	}
-	return filepath.Join(home, ".config", "tabura")
+	return filepath.Join(home, ".config", "sloppad")
 }

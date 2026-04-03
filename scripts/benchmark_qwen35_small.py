@@ -67,12 +67,12 @@ MODEL_SPECS = [
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--llama-bin", default=os.getenv("LLAMA_SERVER_BIN", "llama-server"))
-    parser.add_argument("--model-dir", default=os.getenv("TABURA_LLM_MODEL_DIR", str(Path.home() / ".local/share/tabura-llm/models")))
+    parser.add_argument("--model-dir", default=os.getenv("SLOPPAD_LLM_MODEL_DIR", str(Path.home() / ".local/share/sloppad-llm/models")))
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=18426)
-    parser.add_argument("--ctx-size", type=int, default=int(os.getenv("TABURA_LLM_CTX", "16384")))
-    parser.add_argument("--threads", type=int, default=int(os.getenv("TABURA_LLM_THREADS", "4")))
-    parser.add_argument("--ngl", type=int, default=int(os.getenv("TABURA_LLM_NGL", "99")))
+    parser.add_argument("--ctx-size", type=int, default=int(os.getenv("SLOPPAD_LLM_CTX", "16384")))
+    parser.add_argument("--threads", type=int, default=int(os.getenv("SLOPPAD_LLM_THREADS", "4")))
+    parser.add_argument("--ngl", type=int, default=int(os.getenv("SLOPPAD_LLM_NGL", "99")))
     parser.add_argument("--runs", type=int, default=5)
     parser.add_argument("--warmup-runs", type=int, default=1)
     parser.add_argument("--max-tokens", type=int, default=128)
@@ -89,7 +89,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--results-json",
         default="",
-        help="Optional explicit output path; default writes into .tabura/artifacts/benchmarks/",
+        help="Optional explicit output path; default writes into .sloppad/artifacts/benchmarks/",
     )
     return parser.parse_args()
 
@@ -153,7 +153,7 @@ def start_llama_server(args: argparse.Namespace, model_path: Path, log_file: Pat
     log_file.parent.mkdir(parents=True, exist_ok=True)
     log_handle = open(log_file, "w", encoding="utf-8")
     proc = subprocess.Popen(cmd, stdout=log_handle, stderr=subprocess.STDOUT, preexec_fn=os.setsid)
-    proc._tabura_log_handle = log_handle  # type: ignore[attr-defined]
+    proc._sloppad_log_handle = log_handle  # type: ignore[attr-defined]
     return proc
 
 
@@ -173,7 +173,7 @@ def stop_llama_server(proc: subprocess.Popen[Any] | None) -> None:
             except Exception:
                 pass
             proc.wait(timeout=5)
-    log_handle = getattr(proc, "_tabura_log_handle", None)
+    log_handle = getattr(proc, "_sloppad_log_handle", None)
     if log_handle:
         try:
             log_handle.close()
@@ -272,7 +272,7 @@ def benchmark_model(spec: ModelSpec, model_path: Path, args: argparse.Namespace,
 
 def default_results_path(repo_root: Path) -> Path:
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    out_dir = repo_root / ".tabura" / "artifacts" / "benchmarks"
+    out_dir = repo_root / ".sloppad" / "artifacts" / "benchmarks"
     out_dir.mkdir(parents=True, exist_ok=True)
     return out_dir / f"qwen35-small-benchmark-{stamp}.json"
 
@@ -303,7 +303,7 @@ def main() -> int:
         )
 
     repo_root = Path(__file__).resolve().parents[1]
-    artifacts_dir = repo_root / ".tabura" / "artifacts"
+    artifacts_dir = repo_root / ".sloppad" / "artifacts"
     model_dir = Path(args.model_dir).expanduser().resolve()
 
     all_results: list[dict[str, Any]] = []

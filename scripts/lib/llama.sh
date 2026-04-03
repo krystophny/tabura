@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 
-tabura_llama_library_var() {
+sloppad_llama_library_var() {
     case "$(uname -s)" in
         Darwin) printf '%s' "DYLD_LIBRARY_PATH" ;;
         *) printf '%s' "LD_LIBRARY_PATH" ;;
     esac
 }
 
-tabura_llama_prepend_library_dirs() {
+sloppad_llama_prepend_library_dirs() {
     local candidate="$1"
     local candidate_dir candidate_real prefix lib_var current
     local -a dirs=()
@@ -28,7 +28,7 @@ tabura_llama_prepend_library_dirs() {
         fi
     fi
 
-    lib_var="$(tabura_llama_library_var)"
+    lib_var="$(sloppad_llama_library_var)"
     current="${!lib_var-}"
 
     local dir new_path=""
@@ -57,28 +57,28 @@ tabura_llama_prepend_library_dirs() {
     fi
 }
 
-TABURA_LLAMA_LAST_ERROR=""
+SLOPPAD_LLAMA_LAST_ERROR=""
 
-tabura_llama_server_usable() {
+sloppad_llama_server_usable() {
     local candidate="$1"
     local output
 
-    TABURA_LLAMA_LAST_ERROR=""
+    SLOPPAD_LLAMA_LAST_ERROR=""
     if [ ! -x "$candidate" ]; then
-        TABURA_LLAMA_LAST_ERROR="candidate is not executable: $candidate"
+        SLOPPAD_LLAMA_LAST_ERROR="candidate is not executable: $candidate"
         return 1
     fi
 
-    tabura_llama_prepend_library_dirs "$candidate"
+    sloppad_llama_prepend_library_dirs "$candidate"
     if output="$("$candidate" --version 2>&1)"; then
         return 0
     fi
 
-    TABURA_LLAMA_LAST_ERROR="$(printf '%s' "$output" | head -n 1)"
+    SLOPPAD_LLAMA_LAST_ERROR="$(printf '%s' "$output" | head -n 1)"
     return 1
 }
 
-tabura_llama_server_candidates() {
+sloppad_llama_server_candidates() {
     local explicit resolved prefix
     local -a candidates=()
     local seen=""
@@ -121,19 +121,19 @@ tabura_llama_server_candidates() {
     done
 }
 
-tabura_find_llama_server() {
+sloppad_find_llama_server() {
     local candidate
     local last_error=""
 
     while IFS= read -r candidate; do
         [ -n "$candidate" ] || continue
-        if tabura_llama_server_usable "$candidate"; then
+        if sloppad_llama_server_usable "$candidate"; then
             printf '%s' "$candidate"
             return 0
         fi
-        last_error="$TABURA_LLAMA_LAST_ERROR"
-    done < <(tabura_llama_server_candidates)
+        last_error="$SLOPPAD_LLAMA_LAST_ERROR"
+    done < <(sloppad_llama_server_candidates)
 
-    TABURA_LLAMA_LAST_ERROR="$last_error"
+    SLOPPAD_LLAMA_LAST_ERROR="$last_error"
     return 1
 }

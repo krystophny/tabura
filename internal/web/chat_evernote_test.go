@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
 func TestParseInlineEvernoteIntent(t *testing.T) {
@@ -56,7 +56,7 @@ func TestClassifyAndExecuteSystemActionSyncEvernote(t *testing.T) {
 					"title":       "Reading queue",
 					"created_at":  "2026-03-08T08:00:00Z",
 					"updated_at":  "2026-03-09T09:30:00Z",
-					"tag_names":   []string{"Tabura"},
+					"tag_names":   []string{"Sloppad"},
 					"url":         "https://evernote.test/note-1",
 					"content_enml": `<en-note>` +
 						`<div><en-todo/>Review section 2</div>` +
@@ -277,7 +277,7 @@ func TestClassifyAndExecuteSystemActionSyncEvernoteUsesUpdatedAfterAndRemapsExis
 					"notebook_id": "nb-1",
 					"title":       "Reading queue updated",
 					"updated_at":  "2026-03-09T10:30:00Z",
-					"tag_names":   []string{"Tabura"},
+					"tag_names":   []string{"Sloppad"},
 					"content_enml": `<en-note>` +
 						`<div><en-todo checked="true"/>Review section 2</div>` +
 						`</en-note>`,
@@ -376,7 +376,7 @@ func TestClassifyAndExecuteSystemActionSyncEvernoteUsesUpdatedAfterAndRemapsExis
 
 func createEvernoteTestAccount(t *testing.T, app *App, label, baseURL string) store.ExternalAccount {
 	t.Helper()
-	t.Setenv("TABURA_EVERNOTE_TOKEN_RESEARCH_NOTES", "token-1")
+	t.Setenv("SLOPPAD_EVERNOTE_TOKEN_RESEARCH_NOTES", "token-1")
 	account, err := app.store.CreateExternalAccount(store.SpherePrivate, store.ExternalProviderEvernote, label, map[string]any{
 		"base_url": baseURL,
 	})

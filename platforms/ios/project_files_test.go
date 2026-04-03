@@ -7,12 +7,12 @@ import (
 	"testing"
 )
 
-func TestTaburaIOSProjectIncludesExpectedFiles(t *testing.T) {
+func TestSloppadIOSProjectIncludesExpectedFiles(t *testing.T) {
 	projectRoot, err := filepath.Abs(".")
 	if err != nil {
 		t.Fatalf("Abs: %v", err)
 	}
-	projectFile := filepath.Join(projectRoot, "TaburaIOS.xcodeproj", "project.pbxproj")
+	projectFile := filepath.Join(projectRoot, "SloppadIOS.xcodeproj", "project.pbxproj")
 	data, err := os.ReadFile(projectFile)
 	if err != nil {
 		t.Fatalf("ReadFile(project): %v", err)
@@ -20,21 +20,21 @@ func TestTaburaIOSProjectIncludesExpectedFiles(t *testing.T) {
 	project := string(data)
 	expected := []string{
 		"Package.swift",
-		filepath.Join("Sources", "TaburaFlowContract", "FlowFixture.swift"),
-		filepath.Join("Sources", "TaburaFlowContract", "FlowRunner.swift"),
-		filepath.Join("Tests", "TaburaFlowContractTests", "TaburaFlowContractTests.swift"),
-		filepath.Join("Tests", "TaburaFlowContractTests", "Resources", "flow-fixtures.json"),
-		filepath.Join("Tests", "TaburaIOSModelsTests", "TaburaDialogueModeTests.swift"),
-		"TaburaIOSApp.swift",
+		filepath.Join("Sources", "SloppadFlowContract", "FlowFixture.swift"),
+		filepath.Join("Sources", "SloppadFlowContract", "FlowRunner.swift"),
+		filepath.Join("Tests", "SloppadFlowContractTests", "SloppadFlowContractTests.swift"),
+		filepath.Join("Tests", "SloppadFlowContractTests", "Resources", "flow-fixtures.json"),
+		filepath.Join("Tests", "SloppadIOSModelsTests", "SloppadDialogueModeTests.swift"),
+		"SloppadIOSApp.swift",
 		"ContentView.swift",
-		"TaburaAppModel.swift",
-		"TaburaModels.swift",
-		"TaburaServerDiscovery.swift",
-		"TaburaChatTransport.swift",
-		"TaburaCanvasTransport.swift",
-		"TaburaAudioCapture.swift",
-		"TaburaInkCaptureView.swift",
-		"TaburaCanvasWebView.swift",
+		"SloppadAppModel.swift",
+		"SloppadModels.swift",
+		"SloppadServerDiscovery.swift",
+		"SloppadChatTransport.swift",
+		"SloppadCanvasTransport.swift",
+		"SloppadAudioCapture.swift",
+		"SloppadInkCaptureView.swift",
+		"SloppadCanvasWebView.swift",
 		"Info.plist",
 	}
 	for _, name := range expected {
@@ -45,7 +45,7 @@ func TestTaburaIOSProjectIncludesExpectedFiles(t *testing.T) {
 			}
 			continue
 		}
-		path = filepath.Join(projectRoot, "TaburaIOS", name)
+		path = filepath.Join(projectRoot, "SloppadIOS", name)
 		if _, err := os.Stat(path); err != nil {
 			t.Fatalf("missing expected file %q: %v", path, err)
 		}
@@ -55,12 +55,12 @@ func TestTaburaIOSProjectIncludesExpectedFiles(t *testing.T) {
 	}
 }
 
-func TestTaburaIOSInfoPlistDeclaresMobileCapabilities(t *testing.T) {
+func TestSloppadIOSInfoPlistDeclaresMobileCapabilities(t *testing.T) {
 	projectRoot, err := filepath.Abs(".")
 	if err != nil {
 		t.Fatalf("Abs: %v", err)
 	}
-	infoPath := filepath.Join(projectRoot, "TaburaIOS", "Info.plist")
+	infoPath := filepath.Join(projectRoot, "SloppadIOS", "Info.plist")
 	data, err := os.ReadFile(infoPath)
 	if err != nil {
 		t.Fatalf("ReadFile(Info.plist): %v", err)
@@ -70,7 +70,7 @@ func TestTaburaIOSInfoPlistDeclaresMobileCapabilities(t *testing.T) {
 		"<key>UIBackgroundModes</key>",
 		"<string>audio</string>",
 		"<key>NSBonjourServices</key>",
-		"<string>_tabura._tcp</string>",
+		"<string>_sloppad._tcp</string>",
 		"<key>NSMicrophoneUsageDescription</key>",
 		"<key>NSLocalNetworkUsageDescription</key>",
 	}
@@ -81,7 +81,7 @@ func TestTaburaIOSInfoPlistDeclaresMobileCapabilities(t *testing.T) {
 	}
 }
 
-func TestTaburaIOSSourcesCoverBlackScreenDialogueMode(t *testing.T) {
+func TestSloppadIOSSourcesCoverBlackScreenDialogueMode(t *testing.T) {
 	projectRoot, err := filepath.Abs(".")
 	if err != nil {
 		t.Fatalf("Abs: %v", err)
@@ -91,16 +91,16 @@ func TestTaburaIOSSourcesCoverBlackScreenDialogueMode(t *testing.T) {
 		snippets []string
 	}{
 		{
-			relative: filepath.Join("TaburaIOS", "ContentView.swift"),
+			relative: filepath.Join("SloppadIOS", "ContentView.swift"),
 			snippets: []string{"blackScreenDialoguePanel", "Exit Dialogue", "isIdleTimerDisabled"},
 		},
 		{
-			relative: filepath.Join("TaburaIOS", "TaburaAppModel.swift"),
+			relative: filepath.Join("SloppadIOS", "SloppadAppModel.swift"),
 			snippets: []string{"toggleDialogueMode()", "companion/config", "live-policy", "toggle_live_dialogue"},
 		},
 		{
-			relative: filepath.Join("TaburaIOS", "TaburaModels.swift"),
-			snippets: []string{"TaburaDialogueModePresentation", "usesBlackScreen", "keepScreenAwake", "Tap to stop recording"},
+			relative: filepath.Join("SloppadIOS", "SloppadModels.swift"),
+			snippets: []string{"SloppadDialogueModePresentation", "usesBlackScreen", "keepScreenAwake", "Tap to stop recording"},
 		},
 	}
 	for _, check := range checks {

@@ -1,6 +1,6 @@
 # Release v0.1.5
 
-> **Legal notice:** Tabura is provided "as is" and "as available" without warranties, and to the maximum extent permitted by applicable law the authors/contributors accept no liability for damages, data loss, or misuse. You are solely responsible for backups, verification, and safe operation. See [`DISCLAIMER.md`](/DISCLAIMER.md).
+> **Legal notice:** Sloppad is provided "as is" and "as available" without warranties, and to the maximum extent permitted by applicable law the authors/contributors accept no liability for damages, data loss, or misuse. You are solely responsible for backups, verification, and safe operation. See [`DISCLAIMER.md`](/DISCLAIMER.md).
 
 ## Scope
 
@@ -10,7 +10,7 @@
 
 ### STT Runtime and Packaging
 
-- Removed remaining `whisper.cpp` setup path references from Tabura runtime/docs.
+- Removed remaining `whisper.cpp` setup path references from Sloppad runtime/docs.
 - Renamed installer helper from `setup-whisper-stt.sh` to `setup-voxtype-stt.sh`.
 - Standardized STT sidecar references to OpenAI-compatible endpoint `/v1/audio/transcriptions`.
 
@@ -22,8 +22,8 @@
 
 ### Documentation Alignment
 
-- Updated runtime docs to include explicit `tabura-stt.service` voxtype sidecar usage.
-- Added temporary voxtype source pin for Tabura integrations:
+- Updated runtime docs to include explicit `sloppad-stt.service` voxtype sidecar usage.
+- Added temporary voxtype source pin for Sloppad integrations:
   - repo: `https://github.com/peteonrails/voxtype`
   - branch: `feature/single-daemon-openai-stt-api`
 
@@ -36,5 +36,5 @@
 For publication metadata, associate this release with:
 
 - release label: `v0.1.5`
-- repository: `https://github.com/krystophny/tabura`
+- repository: `https://github.com/krystophny/sloppad`
 - exact source revision: tag target commit hash

@@ -43,12 +43,12 @@ var MCPTools = []Tool{
 	},
 	{
 		Name:        "handoff.create",
-		Description: "Create a producer handoff. Tabura currently supports kind=mail with selector.account_id plus message_id or message_ids.",
+		Description: "Create a producer handoff. Sloppad currently supports kind=mail with selector.account_id plus message_id or message_ids.",
 		Required:    []string{"kind", "selector"},
 		Properties: map[string]ToolProperty{
 			"kind": {
 				Type:        "string",
-				Description: "Handoff kind. Tabura currently supports mail.",
+				Description: "Handoff kind. Sloppad currently supports mail.",
 				Enum:        []string{"mail"},
 			},
 			"selector": {
@@ -107,7 +107,7 @@ var MCPTools = []Tool{
 	},
 	{
 		Name:        "temp_file_create",
-		Description: "Create a temporary file under .tabura/artifacts/tmp for file-backed canvas usage.",
+		Description: "Create a temporary file under .sloppad/artifacts/tmp for file-backed canvas usage.",
 		Properties: map[string]ToolProperty{
 			"cwd": {
 				Type:        "string",
@@ -129,7 +129,7 @@ var MCPTools = []Tool{
 	},
 	{
 		Name:        "temp_file_remove",
-		Description: "Remove a temporary file previously created under .tabura/artifacts/tmp.",
+		Description: "Remove a temporary file previously created under .sloppad/artifacts/tmp.",
 		Required:    []string{"path"},
 		Properties: map[string]ToolProperty{
 			"path": {
@@ -452,7 +452,7 @@ var MCPTools = []Tool{
 	},
 	{
 		Name:        "calendar_list",
-		Description: "List Google calendars available through Tabura's shared Google auth.",
+		Description: "List Google calendars available through Sloppad's shared Google auth.",
 	},
 	{
 		Name:        "calendar_events",
@@ -483,7 +483,7 @@ var MCPTools = []Tool{
 		Properties: map[string]ToolProperty{
 			"calendar_id": {
 				Type:        "string",
-				Description: "Optional Google Calendar id or name. When omitted, Tabura chooses the best matching calendar.",
+				Description: "Optional Google Calendar id or name. When omitted, Sloppad chooses the best matching calendar.",
 			},
 			"sphere": {
 				Type:        "string",
@@ -526,7 +526,7 @@ var MCPTools = []Tool{
 	},
 	{
 		Name:        "mail_account_list",
-		Description: "List enabled email accounts available through Tabura.",
+		Description: "List enabled email accounts available through Sloppad.",
 		Properties: map[string]ToolProperty{
 			"sphere": {
 				Type:        "string",

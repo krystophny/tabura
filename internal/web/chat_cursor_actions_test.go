@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/krystophny/tabura/internal/email"
-	"github.com/krystophny/tabura/internal/providerdata"
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/email"
+	"github.com/krystophny/sloppad/internal/providerdata"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
 func TestParseInlineCursorIntent_ItemAndWorkspaceTargets(t *testing.T) {
@@ -77,7 +77,7 @@ func TestParseInlineCursorIntent_ItemAndWorkspaceTargets(t *testing.T) {
 			cursor: &chatCursorContext{
 				View:          "workspace_browser",
 				WorkspaceID:   7,
-				WorkspaceName: "tabura",
+				WorkspaceName: "sloppad",
 				Path:          "docs",
 				IsDir:         true,
 			},

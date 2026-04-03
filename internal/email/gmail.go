@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/krystophny/tabura/internal/googleauth"
-	"github.com/krystophny/tabura/internal/providerdata"
+	"github.com/krystophny/sloppad/internal/googleauth"
+	"github.com/krystophny/sloppad/internal/providerdata"
 	"golang.org/x/oauth2"
 	"google.golang.org/api/gmail/v1"
 	"google.golang.org/api/option"
@@ -19,7 +19,7 @@ import (
 var gmailScopes = append([]string(nil), googleauth.DefaultScopes...)
 
 func configDir() string {
-	return defaultTaburaConfigDir()
+	return defaultSloppadConfigDir()
 }
 
 // GmailClient provides access to Gmail API with rate limiting.

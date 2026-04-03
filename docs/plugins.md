@@ -1,8 +1,8 @@
 # Legacy Extension Runtime And Future Capability Boundary
 
-> **Legal notice:** Tabura is provided "as is" and "as available" without warranties, and to the maximum extent permitted by applicable law the authors/contributors accept no liability for damages, data loss, or misuse. You are solely responsible for backups, verification, and safe operation. See [`DISCLAIMER.md`](/DISCLAIMER.md).
+> **Legal notice:** Sloppad is provided "as is" and "as available" without warranties, and to the maximum extent permitted by applicable law the authors/contributors accept no liability for damages, data loss, or misuse. You are solely responsible for backups, verification, and safe operation. See [`DISCLAIMER.md`](/DISCLAIMER.md).
 
-This document used to define Tabura's extension/plugin runtime and the split
+This document used to define Sloppad's extension/plugin runtime and the split
 between public core and private capability bundles.
 
 That bundle-oriented product direction is no longer active, but the remaining
@@ -12,9 +12,9 @@ capability providers such as Helpy.
 
 ## Current Direction
 
-- No private `tabura-plugins` repo as a product dependency
+- No private `sloppad-plugins` repo as a product dependency
 - No extension/plugin bundle system as the preferred way to add behavior
-- New product work belongs in the public `krystophny/tabura` repo under normal
+- New product work belongs in the public `krystophny/sloppad` repo under normal
   modular packages in `internal/`
 - Any retained integration boundary should be narrow, local-first, and
   capability-oriented rather than a general marketplace or bundle SDK
@@ -37,7 +37,7 @@ capability providers such as Helpy.
 
 ## Preferred External Integration Shape
 
-When Tabura integrates optional external capabilities in the future, prefer:
+When Sloppad integrates optional external capabilities in the future, prefer:
 
 - local MCP servers
 - explicit HTTP sidecars on loopback
@@ -61,7 +61,7 @@ Helpy is a plausible future local capability provider for:
 - handoff-based artifact exchange
 - operator status/assistant orchestration helpers
 
-Tabura should therefore preserve or revise only the minimum API needed to call
+Sloppad should therefore preserve or revise only the minimum API needed to call
 such local capabilities cleanly. That is different from preserving an
 extension-platform product.
 

@@ -8,7 +8,7 @@ import (
 	"log"
 	"strings"
 
-	"github.com/krystophny/tabura/internal/stt"
+	"github.com/krystophny/sloppad/internal/stt"
 )
 
 type sttMessage struct {

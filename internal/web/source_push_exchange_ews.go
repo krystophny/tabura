@@ -5,9 +5,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/krystophny/tabura/internal/ews"
-	"github.com/krystophny/tabura/internal/store"
-	tabsync "github.com/krystophny/tabura/internal/sync"
+	"github.com/krystophny/sloppad/internal/ews"
+	"github.com/krystophny/sloppad/internal/store"
+	tabsync "github.com/krystophny/sloppad/internal/sync"
 )
 
 func (a *App) exchangeEWSSourceSyncPolicy(context.Context, store.ExternalAccount) (tabsync.SyncPolicy, error) {

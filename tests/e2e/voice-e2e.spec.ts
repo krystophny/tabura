@@ -27,7 +27,7 @@ test.describe('full browser voice flow @local-only', () => {
 
     await expect.poll(async () => {
       return page.evaluate(() => {
-        const app = (window as any)._taburaApp;
+        const app = (window as any)._sloppadApp;
         const state = app?.getState?.();
         return String(state?.voiceLifecycle || '');
       });
@@ -38,7 +38,7 @@ test.describe('full browser voice flow @local-only', () => {
     // E2E stays focused on browser capture -> STT -> chat delivery.
     await page.waitForTimeout(3_000);
     const stillRecording = await page.evaluate(() => {
-      const app = (window as any)._taburaApp;
+      const app = (window as any)._sloppadApp;
       const state = app?.getState?.();
       return String(state?.voiceLifecycle || '') === 'recording';
     });
@@ -81,7 +81,7 @@ test.describe('full browser voice flow @local-only', () => {
 
     await expect.poll(async () => {
       return page.evaluate(() => {
-        const app = (window as any)._taburaApp;
+        const app = (window as any)._sloppadApp;
         const state = app?.getState?.();
         return {
           lifecycle: String(state?.voiceLifecycle || ''),
@@ -97,7 +97,7 @@ test.describe('full browser voice flow @local-only', () => {
 
     await page.waitForTimeout(3_000);
     const stillRecording = await page.evaluate(() => {
-      const app = (window as any)._taburaApp;
+      const app = (window as any)._sloppadApp;
       const state = app?.getState?.();
       return String(state?.voiceLifecycle || '') === 'recording';
     });
@@ -119,7 +119,7 @@ test.describe('full browser voice flow @local-only', () => {
     }).toBeTruthy();
 
     const stateAfter = await page.evaluate(() => {
-      const app = (window as any)._taburaApp;
+      const app = (window as any)._sloppadApp;
       const state = app?.getState?.();
       return {
         mode: String(state?.liveSessionMode || ''),

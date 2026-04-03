@@ -21,7 +21,7 @@ const expectationKeys = new Set([
   'active_tool',
   'session',
   'silent',
-  'tabura_circle',
+  'sloppad_circle',
   'dot_inner_icon',
   'body_class_contains',
   'indicator_state',
@@ -114,7 +114,7 @@ function validateExpectations(expect, context) {
       case 'silent':
         assertBoolean(value, `${context}.${key}`);
         break;
-      case 'tabura_circle':
+      case 'sloppad_circle':
         assertEnum(value, new Set(['expanded', 'collapsed']), `${context}.${key}`);
         break;
       case 'indicator_state':

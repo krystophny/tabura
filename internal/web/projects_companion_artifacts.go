@@ -13,11 +13,11 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/krystophny/tabura/internal/roomstate"
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/roomstate"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
-const companionArtifactRootDir = ".tabura/artifacts/companion"
+const companionArtifactRootDir = ".sloppad/artifacts/companion"
 
 type companionTranscriptResponse struct {
 	OK            bool                       `json:"ok"`

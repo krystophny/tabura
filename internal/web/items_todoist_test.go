@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
 func TestItemCreateTodoistBackedItemCreatesRemoteTask(t *testing.T) {

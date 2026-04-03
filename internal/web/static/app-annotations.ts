@@ -8,7 +8,7 @@ const sttSendBlob = (...args) => refs.sttSendBlob(...args);
 const sttStop = (...args) => refs.sttStop(...args);
 const sttCancel = (...args) => refs.sttCancel(...args);
 const submitMessage = (...args) => refs.submitMessage(...args);
-const ANNOTATION_STORAGE_KEY = 'tabura.annotations.v1';
+const ANNOTATION_STORAGE_KEY = 'sloppad.annotations.v1';
 const HIGHLIGHT_COLOR = 'rgba(253, 230, 138, 0.72)';
 const STICKY_NOTE_LABEL = 'Sticky note';
 const INK_NOTE_LABEL = 'Ink annotation';
@@ -972,11 +972,11 @@ async function stopAnnotationVoiceNote(cancel) {
 export function initAnnotationUi() {
   if (annotationsReady) return;
   annotationsReady = true;
-  document.addEventListener('tabura:canvas-rendered', (event) => {
+  document.addEventListener('sloppad:canvas-rendered', (event) => {
     activeDescriptor = normalizeDescriptor((event as CustomEvent)?.detail);
     renderActiveAnnotations();
   });
-  document.addEventListener('tabura:canvas-cleared', () => {
+  document.addEventListener('sloppad:canvas-cleared', () => {
     activeDescriptor = null;
     clearRenderedAnnotations();
     closeAnnotationBubble();

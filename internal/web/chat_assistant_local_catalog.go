@@ -261,7 +261,7 @@ func localAssistantSystemActionDescription(action string) string {
 	case "cancel_work":
 		return "Stop the active assistant turn or work loop."
 	default:
-		return "Execute native Tabura action " + action + "."
+		return "Execute native Sloppad action " + action + "."
 	}
 }
 

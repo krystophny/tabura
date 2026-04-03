@@ -32,7 +32,7 @@ CREATE TABLE ZSFNOTE (
 );
 INSERT INTO ZSFNOTE (ZUNIQUEIDENTIFIER, ZTITLE, ZTEXT, ZCREATIONDATE, ZMODIFICATIONDATE, ZTRASHED, ZARCHIVED)
 VALUES
-  ('note-1', 'Reading queue', '#Tabura' || char(10) || '- [ ] Review intro' || char(10) || '- [x] Fix refs', 788918400, 788922000, 0, 0),
+  ('note-1', 'Reading queue', '#Sloppad' || char(10) || '- [ ] Review intro' || char(10) || '- [x] Fix refs', 788918400, 788922000, 0, 0),
   ('note-2', 'Archived', '#Skip', 788918400, 788922000, 0, 1),
   ('note-3', 'Trashed', '#Skip', 788918400, 788922000, 1, 0);
 `); err != nil {
@@ -60,8 +60,8 @@ VALUES
 	if note.Modified != "2026-01-01T01:00:00Z" {
 		t.Fatalf("note.Modified = %q, want 2026-01-01T01:00:00Z", note.Modified)
 	}
-	if len(note.Tags) != 1 || note.Tags[0] != "Tabura" {
-		t.Fatalf("note.Tags = %#v, want [Tabura]", note.Tags)
+	if len(note.Tags) != 1 || note.Tags[0] != "Sloppad" {
+		t.Fatalf("note.Tags = %#v, want [Sloppad]", note.Tags)
 	}
 
 	checklist := ExtractChecklist(note.Markdown)

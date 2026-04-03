@@ -155,14 +155,14 @@ body.panel-motion-enabled {
   border-radius: 999px;
 }
 
-.tabura-circle-corner-controls {
+.sloppad-circle-corner-controls {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
   padding-right: 0.1rem;
 }
 
-.tabura-circle-corner-btn[aria-pressed="true"] {
+.sloppad-circle-corner-btn[aria-pressed="true"] {
   background: #0f172a;
   color: #ffffff;
 }

@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
 func enableCompanionForTestProject(t *testing.T, app *App, workspacePath string) {
@@ -793,7 +793,7 @@ func TestParticipantBinaryChunkTranscribesWAVSegmentImmediately(t *testing.T) {
 		t.Fatal("participantBuf should be cleared after immediate chunk transcription")
 	}
 
-	artifactDir := filepath.Join(project.RootPath, ".tabura", "artifacts", "companion", sessionID)
+	artifactDir := filepath.Join(project.RootPath, ".sloppad", "artifacts", "companion", sessionID)
 	transcriptPath := filepath.Join(artifactDir, "transcript.md")
 	transcriptBody, err := os.ReadFile(transcriptPath)
 	if err != nil {
@@ -868,7 +868,7 @@ func TestParticipantBinaryChunkCapturesMeetingNotesAndInboxItems(t *testing.T) {
 		t.Fatalf("captured item title = %q", items[0].Title)
 	}
 
-	summaryPath := filepath.Join(project.RootPath, ".tabura", "artifacts", "companion", started.SessionID, "summary.md")
+	summaryPath := filepath.Join(project.RootPath, ".sloppad", "artifacts", "companion", started.SessionID, "summary.md")
 	summaryBody, err := os.ReadFile(summaryPath)
 	if err != nil {
 		t.Fatalf("read summary artifact: %v", err)

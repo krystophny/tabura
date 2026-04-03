@@ -15,8 +15,8 @@
     return;
   }
 
-  const testEnv = window.__taburaCaptureTestEnv || {};
-  const microphonePermissionCacheKey = 'tabura.capture.microphone_permission';
+  const testEnv = window.__sloppadCaptureTestEnv || {};
+  const microphonePermissionCacheKey = 'sloppad.capture.microphone_permission';
   const maxVoiceRetries = 3;
 
   const state = {
@@ -638,7 +638,7 @@
   updateSaveState();
   applyCaptureAvailability();
   setCaptureState('idle');
-  window.__taburaCapture = {
+  window.__sloppadCapture = {
     deriveItemTitle,
     voiceMemoErrorMessage,
     resetCapture,

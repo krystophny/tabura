@@ -1,8 +1,8 @@
 # Meeting Notes Privacy Contract
 
-> **Legal notice:** Tabura is provided "as is" and "as available" without warranties, and to the maximum extent permitted by applicable law the authors/contributors accept no liability for damages, data loss, or misuse. You are solely responsible for backups, verification, and safe operation. See [`DISCLAIMER.md`](/DISCLAIMER.md).
+> **Legal notice:** Sloppad is provided "as is" and "as available" without warranties, and to the maximum extent permitted by applicable law the authors/contributors accept no liability for damages, data loss, or misuse. You are solely responsible for backups, verification, and safe operation. See [`DISCLAIMER.md`](/DISCLAIMER.md).
 
-This document formalizes the audio privacy guarantees for Tabura's speech-to-text pipeline, including meeting capture, tap-to-talk transcription, and capture-mode voice memos.
+This document formalizes the audio privacy guarantees for Sloppad's speech-to-text pipeline, including meeting capture, tap-to-talk transcription, and capture-mode voice memos.
 
 **Key invariant: audio exists only in RAM during processing and is never persisted to disk or database.**
 
@@ -32,7 +32,7 @@ Only the transcript text is stored. Audio data never reaches the database or fil
 
 ## Banned Operations
 
-The following are prohibited in all Tabura code paths:
+The following are prohibited in all Sloppad code paths:
 
 - Writing audio data to any database table or column.
 - Writing audio data to temporary files (`os.CreateTemp`, `os.WriteFile`, etc.).
@@ -52,7 +52,7 @@ The following are prohibited in all Tabura code paths:
 
 ## Voxtype Sidecar Boundary
 
-The voxtype sidecar (`tabura-stt.service`) receives audio via HTTP multipart POST to `/v1/audio/transcriptions`. The sidecar:
+The voxtype sidecar (`sloppad-stt.service`) receives audio via HTTP multipart POST to `/v1/audio/transcriptions`. The sidecar:
 
 - Processes audio entirely in RAM for request handling.
 - Returns only transcript text as JSON (`{"text": "..."}`).
@@ -60,7 +60,7 @@ The voxtype sidecar (`tabura-stt.service`) receives audio via HTTP multipart POS
 
 ## Operational Notes
 
-- **Swap/page-file**: on a local install, the OS may page RAM to swap. This is outside Tabura's control. Users who require confidentiality against swap forensics should use encrypted swap or disable swap.
+- **Swap/page-file**: on a local install, the OS may page RAM to swap. This is outside Sloppad's control. Users who require confidentiality against swap forensics should use encrypted swap or disable swap.
 - **Crash dumps**: a process crash dump may contain the in-flight audio buffer. Users who require confidentiality against crash-dump forensics should configure their OS to restrict core dumps.
 - **Network**: audio transits the local WebSocket (browser to Go server) and local HTTP (Go server to voxtype sidecar). Both default to loopback (`127.0.0.1`). No audio leaves the machine in the default configuration.
 

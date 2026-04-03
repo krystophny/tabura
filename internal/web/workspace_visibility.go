@@ -1,6 +1,6 @@
 package web
 
-import "github.com/krystophny/tabura/internal/store"
+import "github.com/krystophny/sloppad/internal/store"
 
 func isExplicitWorkspace(_ store.Workspace) bool {
 	return true

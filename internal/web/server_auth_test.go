@@ -80,7 +80,7 @@ func TestHandleLoginFormRedirectsAndSetsCookie(t *testing.T) {
 	form.Set("password", "secret-password")
 	req := httptest.NewRequest(http.MethodPost, "/api/login", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("X-Forwarded-Prefix", "/tabura")
+	req.Header.Set("X-Forwarded-Prefix", "/sloppad")
 	rr := httptest.NewRecorder()
 
 	app.Router().ServeHTTP(rr, req)
@@ -88,8 +88,8 @@ func TestHandleLoginFormRedirectsAndSetsCookie(t *testing.T) {
 	if rr.Code != http.StatusSeeOther {
 		t.Fatalf("POST /api/login form status = %d, want 303", rr.Code)
 	}
-	if got := rr.Header().Get("Location"); got != "/tabura/" {
-		t.Fatalf("POST /api/login form Location = %q, want %q", got, "/tabura/")
+	if got := rr.Header().Get("Location"); got != "/sloppad/" {
+		t.Fatalf("POST /api/login form Location = %q, want %q", got, "/sloppad/")
 	}
 	cookies := rr.Result().Cookies()
 	if len(cookies) == 0 {

@@ -67,7 +67,7 @@ func revisionDocumentSlug(title, path string) string {
 }
 
 func writeLocalRevisionHistory(projectRoot string, manifest localRevisionManifest) (string, error) {
-	revisionsDir := filepath.Join(projectRoot, ".tabura", "revisions", manifest.DocumentID)
+	revisionsDir := filepath.Join(projectRoot, ".sloppad", "revisions", manifest.DocumentID)
 	if err := os.MkdirAll(revisionsDir, 0o755); err != nil {
 		return "", err
 	}
@@ -117,7 +117,7 @@ func writeLocalRevisionHistory(projectRoot string, manifest localRevisionManifes
 
 func appendLocalRevision(projectRoot, title, path, kind, description string, files map[string]string) (string, string, error) {
 	docID := revisionDocumentSlug(title, path)
-	revisionsDir := filepath.Join(projectRoot, ".tabura", "revisions", docID)
+	revisionsDir := filepath.Join(projectRoot, ".sloppad", "revisions", docID)
 	if err := os.MkdirAll(revisionsDir, 0o755); err != nil {
 		return "", "", err
 	}

@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/krystophny/tabura/internal/appserver"
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/appserver"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
 type pendingAppServerApproval struct {

@@ -16,10 +16,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/websocket"
-	"github.com/krystophny/tabura/internal/appserver"
-	"github.com/krystophny/tabura/internal/canvas"
-	"github.com/krystophny/tabura/internal/mcp"
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/appserver"
+	"github.com/krystophny/sloppad/internal/canvas"
+	"github.com/krystophny/sloppad/internal/mcp"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
 const (
@@ -51,7 +51,7 @@ func NewApp(projectDir, dataDir string) *App {
 	}
 	a.Adapter = canvas.NewAdapter(projectDir, a.queueEvent)
 	if strings.TrimSpace(dataDir) != "" {
-		dbPath := filepath.Join(dataDir, "tabura.db")
+		dbPath := filepath.Join(dataDir, "sloppad.db")
 		if st, err := store.New(dbPath); err == nil {
 			a.Store = st
 		} else {
@@ -63,7 +63,7 @@ func NewApp(projectDir, dataDir string) *App {
 }
 
 func mcpAppServerClient() *appserver.Client {
-	appServerURL := strings.TrimSpace(os.Getenv("TABURA_APP_SERVER_URL"))
+	appServerURL := strings.TrimSpace(os.Getenv("SLOPPAD_APP_SERVER_URL"))
 	if appServerURL == "" {
 		appServerURL = DefaultMCPAppServerURL
 	}
@@ -234,7 +234,7 @@ func (a *App) Start(host string, port int) error {
 		WriteTimeout:      60 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
-	fmt.Println("tabura mcp listener listening on:")
+	fmt.Println("sloppad mcp listener listening on:")
 	for _, u := range ListenURLs(host, port) {
 		fmt.Printf("  %s\n", u)
 	}

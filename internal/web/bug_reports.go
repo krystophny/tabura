@@ -17,12 +17,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
 const (
-	taburaVersion            = "0.1.8"
-	taburaBugReportOwnerRepo = "krystophny/tabura"
+	sloppadVersion            = "0.1.8"
+	sloppadBugReportOwnerRepo = "krystophny/sloppad"
 )
 
 type bugReportRequest struct {
@@ -156,7 +156,7 @@ func (a *App) handleBugReportCreate(w http.ResponseWriter, r *http.Request) {
 		Trigger:             strings.TrimSpace(req.Trigger),
 		Timestamp:           timestamp,
 		PageURL:             strings.TrimSpace(req.PageURL),
-		Version:             firstNonEmpty(strings.TrimSpace(req.Version), taburaVersion),
+		Version:             firstNonEmpty(strings.TrimSpace(req.Version), sloppadVersion),
 		BootID:              strings.TrimSpace(req.BootID),
 		StartedAt:           strings.TrimSpace(req.StartedAt),
 		GitSHA:              resolveGitSHA(workspace.DirPath),
@@ -246,7 +246,7 @@ func (a *App) resolveBugReportWorkspace() (bugReportWorkspace, error) {
 		}
 		return bugReportWorkspace{Name: name, DirPath: root}, nil
 	}
-	if workspace, ok, err := a.resolveTaburaBugReportWorkspace(); err != nil {
+	if workspace, ok, err := a.resolveSloppadBugReportWorkspace(); err != nil {
 		return bugReportWorkspace{}, err
 	} else if ok {
 		return workspace, nil
@@ -260,7 +260,7 @@ func (a *App) createGitHubIssueFromBugReport(workspace bugReportWorkspace, bundl
 		return ghIssueListItem{}, 0, err
 	}
 	githubCWD := resolveBugReportGitHubCommandDir(workspace.DirPath)
-	if err := a.ensureGitHubLabels(githubCWD, taburaBugReportOwnerRepo, map[string]struct {
+	if err := a.ensureGitHubLabels(githubCWD, sloppadBugReportOwnerRepo, map[string]struct {
 		Color       string
 		Description string
 	}{
@@ -271,7 +271,7 @@ func (a *App) createGitHubIssueFromBugReport(workspace bugReportWorkspace, bundl
 	}
 	issue, err := a.createGitHubIssueInWorkspaceWithRepo(
 		githubCWD,
-		taburaBugReportOwnerRepo,
+		sloppadBugReportOwnerRepo,
 		bugReportIssueTitle(bundle),
 		bugReportIssueBody(bundle, toBugReportRelativePath(workspace.DirPath, bundlePath)),
 		[]string{"bug", "p0"},
@@ -283,12 +283,12 @@ func (a *App) createGitHubIssueFromBugReport(workspace bugReportWorkspace, bundl
 	item, err := a.store.CreateItem(strings.TrimSpace(issue.Title), store.ItemOptions{
 		WorkspaceID: workspaceID,
 		Source:      optionalTrimmedString("github"),
-		SourceRef:   optionalTrimmedString(githubIssueSourceRef(taburaBugReportOwnerRepo, issue.Number)),
+		SourceRef:   optionalTrimmedString(githubIssueSourceRef(sloppadBugReportOwnerRepo, issue.Number)),
 	})
 	if err != nil {
 		return ghIssueListItem{}, 0, err
 	}
-	if err := a.syncGitHubIssueArtifact(item, taburaBugReportOwnerRepo, issue); err != nil {
+	if err := a.syncGitHubIssueArtifact(item, sloppadBugReportOwnerRepo, issue); err != nil {
 		return ghIssueListItem{}, 0, err
 	}
 	return issue, item.ID, nil
@@ -341,8 +341,8 @@ func normalizeBugReportSphere(raw string) string {
 	}
 }
 
-func (a *App) resolveTaburaBugReportWorkspace() (bugReportWorkspace, bool, error) {
-	workspaceID, err := a.store.FindWorkspaceByGitRemote(taburaBugReportOwnerRepo)
+func (a *App) resolveSloppadBugReportWorkspace() (bugReportWorkspace, bool, error) {
+	workspaceID, err := a.store.FindWorkspaceByGitRemote(sloppadBugReportOwnerRepo)
 	if err != nil {
 		return bugReportWorkspace{}, false, err
 	}
@@ -358,12 +358,12 @@ func (a *App) resolveTaburaBugReportWorkspace() (bugReportWorkspace, bool, error
 			Sphere:  workspace.Sphere,
 		}, true, nil
 	}
-	repoRoot := resolveCanonicalGitHubRepoRoot(taburaBugReportOwnerRepo)
+	repoRoot := resolveCanonicalGitHubRepoRoot(sloppadBugReportOwnerRepo)
 	if repoRoot == "" {
 		return bugReportWorkspace{}, false, nil
 	}
 	return bugReportWorkspace{
-		Name:    "Tabura",
+		Name:    "Sloppad",
 		DirPath: repoRoot,
 		Sphere:  store.SphereWork,
 	}, true, nil
@@ -420,7 +420,7 @@ func withGitHubRepoArg(args []string, ownerRepo string) []string {
 }
 
 func resolveBugReportGitHubCommandDir(workspaceDir string) string {
-	if repoRoot := resolveCanonicalGitHubRepoRoot(taburaBugReportOwnerRepo); repoRoot != "" {
+	if repoRoot := resolveCanonicalGitHubRepoRoot(sloppadBugReportOwnerRepo); repoRoot != "" {
 		return repoRoot
 	}
 	return resolveGitRepoRoot(workspaceDir)
@@ -879,7 +879,7 @@ func createBugReportDir(workspaceDir, rawTimestamp string) (string, string, erro
 		return "", "", err
 	}
 	reportID := stamp + "-" + suffix
-	dir := filepath.Join(workspaceDir, ".tabura", "artifacts", "bugs", reportID)
+	dir := filepath.Join(workspaceDir, ".sloppad", "artifacts", "bugs", reportID)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", "", err
 	}

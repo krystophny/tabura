@@ -1,4 +1,4 @@
-package tabura_test
+package sloppad_test
 
 import (
 	"os"
@@ -67,10 +67,10 @@ output_path.write_bytes(b"computer-model")
 	cmd := exec.Command(filepath.Join(repoRoot, "scripts", "train-hotword.sh"))
 	cmd.Dir = repoRoot
 	cmd.Env = append(os.Environ(),
-		"TABURA_HOTWORD_TRAINER_DIR="+trainerDir,
-		"TABURA_HOTWORD_CONFIG="+configPath,
-		"TABURA_HOTWORD_OUTPUT_DIR="+outputDir,
-		"TABURA_HOTWORD_SKIP_PIP_INSTALL=1",
+		"SLOPPAD_HOTWORD_TRAINER_DIR="+trainerDir,
+		"SLOPPAD_HOTWORD_CONFIG="+configPath,
+		"SLOPPAD_HOTWORD_OUTPUT_DIR="+outputDir,
+		"SLOPPAD_HOTWORD_SKIP_PIP_INSTALL=1",
 		"PYTHON=python3",
 	)
 

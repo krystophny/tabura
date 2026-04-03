@@ -199,7 +199,7 @@ func normalizeExchangeConfig(cfg ExchangeConfig) ExchangeConfig {
 		cfg.AuthBaseURL = defaultExchangeAuthBaseURL
 	}
 	if cfg.ConfigDir == "" {
-		cfg.ConfigDir = defaultTaburaConfigDir()
+		cfg.ConfigDir = defaultSloppadConfigDir()
 	}
 	if cfg.TokenPath == "" {
 		cfg.TokenPath = ExchangeTokenPath(cfg.ConfigDir, cfg.Label)
@@ -235,7 +235,7 @@ func validateExchangeConfig(cfg ExchangeConfig) error {
 }
 
 func ExchangeSecretEnvVar(label string) string {
-	return "TABURA_EXCHANGE_SECRET_" + sanitizeExchangeEnvSegment(label)
+	return "SLOPPAD_EXCHANGE_SECRET_" + sanitizeExchangeEnvSegment(label)
 }
 
 func ExchangeTokenPath(configDir, label string) string {
@@ -609,12 +609,12 @@ func sleepContext(ctx context.Context, d time.Duration) error {
 	}
 }
 
-func defaultTaburaConfigDir() string {
+func defaultSloppadConfigDir() string {
 	home, err := os.UserHomeDir()
 	if err != nil || strings.TrimSpace(home) == "" {
-		return ".tabura"
+		return ".sloppad"
 	}
-	return filepath.Join(home, ".config", "tabura")
+	return filepath.Join(home, ".config", "sloppad")
 }
 
 func sanitizeExchangeEnvSegment(raw string) string {

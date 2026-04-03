@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/krystophny/tabura/internal/hotwordtrain"
+	"github.com/krystophny/sloppad/internal/hotwordtrain"
 )
 
 const (

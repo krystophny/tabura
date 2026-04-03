@@ -9,7 +9,7 @@ const isArtifactEditorActive = (...args) => refs.isArtifactEditorActive(...args)
 const renderInkControls = (...args) => refs.renderInkControls(...args);
 const updateRuntimePreferences = (...args) => refs.updateRuntimePreferences(...args);
 const syncInteractionBodyState = (...args) => refs.syncInteractionBodyState(...args);
-const renderTaburaCircle = (...args) => refs.renderTaburaCircle(...args);
+const renderSloppadCircle = (...args) => refs.renderSloppadCircle(...args);
 
 export function normalizeInteractionTool(modeRaw) {
   const mode = String(modeRaw || '').trim().toLowerCase();
@@ -25,7 +25,7 @@ export function normalizeInteractionSurface(modeRaw) {
 }
 
 export function initToolPalette() {
-  renderTaburaCircle();
+  renderSloppadCircle();
 }
 
 export function interactionConversationMode({
@@ -73,7 +73,7 @@ function shouldAnnotateTextArtifactByDefault() {
   if (descriptor.surfaceDefault === 'annotate') return true;
   if (interactionToolDefaultForCurrentArtifact('canvas-text') !== 'pointer') return true;
   const title = String(descriptor.title || '').trim().toLowerCase();
-  return title.startsWith('.tabura/artifacts/pr/') && title.endsWith('.diff');
+  return title.startsWith('.sloppad/artifacts/pr/') && title.endsWith('.diff');
 }
 
 export function interactionSurfaceDefaultForPane(paneId) {
@@ -168,7 +168,7 @@ export function setInteractionToolLocal(tool) {
 
 export function renderToolPalette() {
   initToolPalette();
-  renderTaburaCircle();
+  renderSloppadCircle();
 }
 
 export function maybeApplySelectionHighlight() {

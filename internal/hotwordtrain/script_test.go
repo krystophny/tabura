@@ -66,10 +66,10 @@ exit 1
 	cmd := exec.Command(filepath.Join(root, "scripts", "train-hotword.sh"), "--step", "resolve-config")
 	cmd.Dir = root
 	cmd.Env = append(os.Environ(),
-		"TABURA_HOTWORD_TRAINER_DIR="+trainerDir,
-		"TABURA_HOTWORD_CONFIG="+configPath,
-		"TABURA_HOTWORD_OUTPUT_DIR="+outputDir,
-		"TABURA_HOTWORD_SKIP_PIP_INSTALL=1",
+		"SLOPPAD_HOTWORD_TRAINER_DIR="+trainerDir,
+		"SLOPPAD_HOTWORD_CONFIG="+configPath,
+		"SLOPPAD_HOTWORD_OUTPUT_DIR="+outputDir,
+		"SLOPPAD_HOTWORD_SKIP_PIP_INSTALL=1",
 	)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -140,10 +140,10 @@ echo "trained model: ` + trainerOutput + `/computer.onnx"
 	cmd := exec.Command(filepath.Join(root, "scripts", "train-hotword.sh"))
 	cmd.Dir = root
 	cmd.Env = append(os.Environ(),
-		"TABURA_HOTWORD_TRAINER_DIR="+trainerDir,
-		"TABURA_HOTWORD_CONFIG="+configPath,
-		"TABURA_HOTWORD_OUTPUT_DIR="+modelsDir,
-		"TABURA_HOTWORD_SKIP_PIP_INSTALL=1",
+		"SLOPPAD_HOTWORD_TRAINER_DIR="+trainerDir,
+		"SLOPPAD_HOTWORD_CONFIG="+configPath,
+		"SLOPPAD_HOTWORD_OUTPUT_DIR="+modelsDir,
+		"SLOPPAD_HOTWORD_SKIP_PIP_INSTALL=1",
 	)
 	out, err := cmd.CombinedOutput()
 	if err != nil {

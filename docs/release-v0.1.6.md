@@ -1,14 +1,14 @@
 # Release v0.1.6
 
-> **Legal notice:** Tabura is provided "as is" and "as available" without warranties, and to the maximum extent permitted by applicable law the authors/contributors accept no liability for damages, data loss, or misuse. You are solely responsible for backups, verification, and safe operation. See [`DISCLAIMER.md`](/DISCLAIMER.md).
+> **Legal notice:** Sloppad is provided "as is" and "as available" without warranties, and to the maximum extent permitted by applicable law the authors/contributors accept no liability for damages, data loss, or misuse. You are solely responsible for backups, verification, and safe operation. See [`DISCLAIMER.md`](/DISCLAIMER.md).
 
 > **Historical note:** This release note documents a now-retired extension/plugin
 > direction. Current product direction is a public modular core in
-> `krystophny/tabura`, not a private extension ecosystem.
+> `krystophny/sloppad`, not a private extension ecosystem.
 
 ## Scope
 
-`v0.1.6` ships the first extension-host redesign in core Tabura, preserves
+`v0.1.6` ships the first extension-host redesign in core Sloppad, preserves
 legacy plugin compatibility, and publishes extension-focused prior-art
 whitepapers for meeting-partner and productivity capability bundles.
 
@@ -24,7 +24,7 @@ whitepapers for meeting-partner and productivity capability bundles.
   - `permissions`
   - `commands`
   - `ui_contributions`
-  - `engine.tabura` compatibility constraints
+  - `engine.sloppad` compatibility constraints
   - signing metadata fields
 - Added hook permission model and command execution path.
 
@@ -77,5 +77,5 @@ whitepapers for meeting-partner and productivity capability bundles.
 For publication metadata, associate this release with:
 
 - release label: `v0.1.6`
-- repository: `https://github.com/krystophny/tabura`
+- repository: `https://github.com/krystophny/sloppad`
 - exact source revision: tag target commit hash

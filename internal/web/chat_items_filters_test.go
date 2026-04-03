@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
 func TestParseInlineItemIntentFilterCommands(t *testing.T) {

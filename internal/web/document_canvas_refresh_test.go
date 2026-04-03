@@ -110,10 +110,10 @@ func TestRefreshCanvasFromDisk_RebuildsRenderedDocumentPDF(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(docPath), 0o755); err != nil {
 		t.Fatalf("mkdir docs dir: %v", err)
 	}
-	if err := os.MkdirAll(filepath.Join(project.RootPath, ".tabura"), 0o755); err != nil {
-		t.Fatalf("mkdir .tabura: %v", err)
+	if err := os.MkdirAll(filepath.Join(project.RootPath, ".sloppad"), 0o755); err != nil {
+		t.Fatalf("mkdir .sloppad: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(project.RootPath, ".tabura", "document.json"), []byte(`{"builder":"pandoc","main_file":"docs/brief.md"}`), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(project.RootPath, ".sloppad", "document.json"), []byte(`{"builder":"pandoc","main_file":"docs/brief.md"}`), 0o644); err != nil {
 		t.Fatalf("write document config: %v", err)
 	}
 	if err := os.WriteFile(docPath, []byte("version one\n"), 0o644); err != nil {
@@ -184,10 +184,10 @@ func TestWatchCanvasFile_RebuildsRenderedDocumentPDFOnSourceWrite(t *testing.T) 
 	if err := os.MkdirAll(filepath.Dir(docPath), 0o755); err != nil {
 		t.Fatalf("mkdir docs dir: %v", err)
 	}
-	if err := os.MkdirAll(filepath.Join(project.RootPath, ".tabura"), 0o755); err != nil {
-		t.Fatalf("mkdir .tabura: %v", err)
+	if err := os.MkdirAll(filepath.Join(project.RootPath, ".sloppad"), 0o755); err != nil {
+		t.Fatalf("mkdir .sloppad: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(project.RootPath, ".tabura", "document.json"), []byte(`{"builder":"pandoc","main_file":"docs/brief.md"}`), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(project.RootPath, ".sloppad", "document.json"), []byte(`{"builder":"pandoc","main_file":"docs/brief.md"}`), 0o644); err != nil {
 		t.Fatalf("write document config: %v", err)
 	}
 	if err := os.WriteFile(docPath, []byte("draft one\n"), 0o644); err != nil {

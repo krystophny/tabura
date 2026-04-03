@@ -12,7 +12,7 @@ const state = {
 };
 
 function resolveMock() {
-  const candidate = window.__taburaVadMock;
+  const candidate = window.__sloppadVadMock;
   if (!candidate || typeof candidate !== 'object') return null;
   if (typeof candidate.init !== 'function') return null;
   return candidate;

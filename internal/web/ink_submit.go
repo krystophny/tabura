@@ -61,7 +61,7 @@ func (a *App) handleInkSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	inkDir := filepath.Join(project.RootPath, ".tabura", "artifacts", "ink")
+	inkDir := filepath.Join(project.RootPath, ".sloppad", "artifacts", "ink")
 	if err := os.MkdirAll(inkDir, 0o755); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -100,9 +100,9 @@ func (a *App) handleInkSubmit(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(&b, "- Artifact kind: `%s`\n", kind)
 	}
 	fmt.Fprintf(&b, "- Stroke count: `%d`\n", len(req.Strokes))
-	fmt.Fprintf(&b, "- SVG artifact: `%s`\n\n", filepath.ToSlash(filepath.Join(".tabura", "artifacts", "ink", svgName)))
+	fmt.Fprintf(&b, "- SVG artifact: `%s`\n\n", filepath.ToSlash(filepath.Join(".sloppad", "artifacts", "ink", svgName)))
 	if pngName != "" {
-		fmt.Fprintf(&b, "- PNG artifact: `%s`\n\n", filepath.ToSlash(filepath.Join(".tabura", "artifacts", "ink", pngName)))
+		fmt.Fprintf(&b, "- PNG artifact: `%s`\n\n", filepath.ToSlash(filepath.Join(".sloppad", "artifacts", "ink", pngName)))
 	}
 	b.WriteString("## Stroke Summary\n\n")
 	for i, stroke := range req.Strokes {

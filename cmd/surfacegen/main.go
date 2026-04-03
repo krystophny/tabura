@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/krystophny/tabura/internal/surface"
+	"github.com/krystophny/sloppad/internal/surface"
 )
 
 func main() {

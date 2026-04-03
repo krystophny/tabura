@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
 func doAuthedRequest(t *testing.T, handler http.Handler, method, path string) *httptest.ResponseRecorder {
@@ -46,7 +46,7 @@ func TestItemPrintHTMLIncludesCoverSheetAndArtifactFileContent(t *testing.T) {
 		t.Fatalf("CreateArtifact() error: %v", err)
 	}
 	source := "github"
-	sourceRef := "owner/tabura#193"
+	sourceRef := "owner/sloppad#193"
 	item, err := app.store.CreateItem("Print packet", store.ItemOptions{
 		WorkspaceID: &workspace.ID,
 		ArtifactID:  &artifact.ID,
@@ -69,7 +69,7 @@ func TestItemPrintHTMLIncludesCoverSheetAndArtifactFileContent(t *testing.T) {
 		"Writer",
 		"Alice",
 		"github",
-		"owner/tabura#193",
+		"owner/sloppad#193",
 		`data-print-marker="line"`,
 		"L001",
 		"L002",

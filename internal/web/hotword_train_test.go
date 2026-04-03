@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/krystophny/tabura/internal/hotwordtrain"
+	"github.com/krystophny/sloppad/internal/hotwordtrain"
 )
 
 func TestHotwordTrainPageRequiresAuthAndServesShell(t *testing.T) {
@@ -32,7 +32,7 @@ func TestHotwordTrainPageRequiresAuthAndServesShell(t *testing.T) {
 	}
 	body := authed.Body.String()
 	for _, needle := range []string{
-		"<title>Hotword Training | Tabura</title>",
+		"<title>Hotword Training | Sloppad</title>",
 		"Train Computer",
 		`src="./static/hotword-train.js`,
 	} {
@@ -141,7 +141,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 mkdir -p "$OUTPUT_DIR"
-cp "$(find "$TABURA_HOTWORD_RECORDINGS_DIR" -maxdepth 1 -type f -name '*.wav' | head -n 1)" "$OUTPUT_DIR/piper-0001.wav"
+cp "$(find "$SLOPPAD_HOTWORD_RECORDINGS_DIR" -maxdepth 1 -type f -name '*.wav' | head -n 1)" "$OUTPUT_DIR/piper-0001.wav"
 echo "generated sample"
 `), 0o755); err != nil {
 		t.Fatalf("write generator script: %v", err)
@@ -149,10 +149,10 @@ echo "generated sample"
 	trainingScript := filepath.Join(root, "train.sh")
 	if err := os.WriteFile(trainingScript, []byte(`#!/usr/bin/env bash
 set -euo pipefail
-mkdir -p "$TABURA_HOTWORD_OUTPUT_DIR"
-printf 'trained-model' >"$TABURA_HOTWORD_OUTPUT_DIR/computer-2026-03-23_21-03-09Z.onnx"
-printf 'trained-data' >"$TABURA_HOTWORD_OUTPUT_DIR/computer-2026-03-23_21-03-09Z.onnx.data"
-echo "trained model: $TABURA_HOTWORD_OUTPUT_DIR/computer-2026-03-23_21-03-09Z.onnx"
+mkdir -p "$SLOPPAD_HOTWORD_OUTPUT_DIR"
+printf 'trained-model' >"$SLOPPAD_HOTWORD_OUTPUT_DIR/computer-2026-03-23_21-03-09Z.onnx"
+printf 'trained-data' >"$SLOPPAD_HOTWORD_OUTPUT_DIR/computer-2026-03-23_21-03-09Z.onnx.data"
+echo "trained model: $SLOPPAD_HOTWORD_OUTPUT_DIR/computer-2026-03-23_21-03-09Z.onnx"
 `), 0o755); err != nil {
 		t.Fatalf("write training script: %v", err)
 	}
@@ -313,10 +313,10 @@ echo "generated sample"
 	trainingScript := filepath.Join(root, "train.sh")
 	if err := os.WriteFile(trainingScript, []byte(`#!/usr/bin/env bash
 set -euo pipefail
-mkdir -p "$TABURA_HOTWORD_OUTPUT_DIR"
-printf 'trained-model' >"$TABURA_HOTWORD_OUTPUT_DIR/computer-2026-03-23_21-03-09Z.onnx"
-printf 'trained-data' >"$TABURA_HOTWORD_OUTPUT_DIR/computer-2026-03-23_21-03-09Z.onnx.data"
-echo "trained model: $TABURA_HOTWORD_OUTPUT_DIR/computer-2026-03-23_21-03-09Z.onnx"
+mkdir -p "$SLOPPAD_HOTWORD_OUTPUT_DIR"
+printf 'trained-model' >"$SLOPPAD_HOTWORD_OUTPUT_DIR/computer-2026-03-23_21-03-09Z.onnx"
+printf 'trained-data' >"$SLOPPAD_HOTWORD_OUTPUT_DIR/computer-2026-03-23_21-03-09Z.onnx.data"
+echo "trained model: $SLOPPAD_HOTWORD_OUTPUT_DIR/computer-2026-03-23_21-03-09Z.onnx"
 `), 0o755); err != nil {
 		t.Fatalf("write training script: %v", err)
 	}

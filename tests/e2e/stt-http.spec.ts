@@ -9,7 +9,7 @@ test.describe('STT over HTTP @local-only', () => {
   });
 
   test('POST WAV speech to /api/stt/transcribe returns transcript', async () => {
-    const wav = await synthesizePiperWav('Tabura end to end speech to text verification.');
+    const wav = await synthesizePiperWav('Sloppad end to end speech to text verification.');
     expect(wav.length).toBeGreaterThan(44);
     expect(wav.slice(0, 4).toString('ascii')).toBe('RIFF');
 
@@ -20,7 +20,7 @@ test.describe('STT over HTTP @local-only', () => {
   });
 
   test('POST M4A speech to /api/stt/transcribe returns transcript', async () => {
-    const wav = await synthesizePiperWav('Tabura m4a normalization to stt verification.');
+    const wav = await synthesizePiperWav('Sloppad m4a normalization to stt verification.');
     const m4a = transcodeWavToM4A(wav);
     expect(m4a.length).toBeGreaterThan(512);
 

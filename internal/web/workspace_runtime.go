@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/krystophny/tabura/internal/protocol"
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/protocol"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
 type runtimeWorkspaceCreateRequest struct {
@@ -134,7 +134,7 @@ func defaultWorkspaceNameFromPath(path string) string {
 	return base
 }
 
-func isTaburaRepoPath(path string) bool {
+func isSloppadRepoPath(path string) bool {
 	cleanPath := strings.TrimSpace(path)
 	if cleanPath == "" {
 		return false
@@ -144,12 +144,12 @@ func isTaburaRepoPath(path string) bool {
 	if err != nil {
 		return false
 	}
-	return strings.Contains(string(data), "module github.com/krystophny/tabura")
+	return strings.Contains(string(data), "module github.com/krystophny/sloppad")
 }
 
 func defaultWorkspaceNameForPath(path string) string {
-	if isTaburaRepoPath(path) {
-		return "Tabura"
+	if isSloppadRepoPath(path) {
+		return "Sloppad"
 	}
 	return defaultWorkspaceNameFromPath(path)
 }

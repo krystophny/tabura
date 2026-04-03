@@ -353,7 +353,7 @@ func sanitizeExternalAccountEnvSegment(raw string) string {
 
 func ExternalAccountPasswordEnvVar(provider, accountName string) string {
 	return fmt.Sprintf(
-		"TABURA_%s_PASSWORD_%s",
+		"SLOPPAD_%s_PASSWORD_%s",
 		sanitizeExternalAccountEnvSegment(provider),
 		sanitizeExternalAccountEnvSegment(accountName),
 	)

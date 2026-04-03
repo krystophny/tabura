@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/krystophny/tabura/internal/store"
-	"github.com/krystophny/tabura/internal/todoist"
+	"github.com/krystophny/sloppad/internal/store"
+	"github.com/krystophny/sloppad/internal/todoist"
 )
 
 const todoistItemSyncTimeout = 10 * time.Second

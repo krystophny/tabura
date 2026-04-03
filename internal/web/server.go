@@ -17,17 +17,17 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/websocket"
-	"github.com/krystophny/tabura/internal/appserver"
-	tabcalendar "github.com/krystophny/tabura/internal/calendar"
-	"github.com/krystophny/tabura/internal/email"
-	"github.com/krystophny/tabura/internal/extensions"
-	"github.com/krystophny/tabura/internal/hotwordtrain"
-	"github.com/krystophny/tabura/internal/ics"
-	"github.com/krystophny/tabura/internal/modelprofile"
-	"github.com/krystophny/tabura/internal/plugins"
-	"github.com/krystophny/tabura/internal/serve"
-	"github.com/krystophny/tabura/internal/llmcache"
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/appserver"
+	tabcalendar "github.com/krystophny/sloppad/internal/calendar"
+	"github.com/krystophny/sloppad/internal/email"
+	"github.com/krystophny/sloppad/internal/extensions"
+	"github.com/krystophny/sloppad/internal/hotwordtrain"
+	"github.com/krystophny/sloppad/internal/ics"
+	"github.com/krystophny/sloppad/internal/modelprofile"
+	"github.com/krystophny/sloppad/internal/plugins"
+	"github.com/krystophny/sloppad/internal/serve"
+	"github.com/krystophny/sloppad/internal/llmcache"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
 const (
@@ -39,7 +39,7 @@ const (
 	DefaultSTTFallbackLanguage   = "en"
 	DefaultSTTPreVADThresholdDB  = -58.0
 	DefaultSTTPreVADMinSpeechMS  = 120
-	SessionCookie                = "tabura_session"
+	SessionCookie                = "sloppad_session"
 	cookieMaxAgeSec              = 60 * 60 * 24 * 365
 	DaemonPort                   = 9420
 	LocalSessionID               = "local"
@@ -156,7 +156,7 @@ type App struct {
 const DefaultModel = modelprofile.ModelSpark
 
 func New(dataDir, localProjectDir, localMCPURL, appServerURL, model, ttsURL, sparkReasoningEffort string, devRuntime bool) (*App, error) {
-	s, err := store.New(filepath.Join(dataDir, "tabura.db"))
+	s, err := store.New(filepath.Join(dataDir, "sloppad.db"))
 	if err != nil {
 		return nil, err
 	}
@@ -177,45 +177,45 @@ func New(dataDir, localProjectDir, localMCPURL, appServerURL, model, ttsURL, spa
 	}
 	resolvedModel := strings.TrimSpace(model)
 	if resolvedModel == "" {
-		resolvedModel = strings.TrimSpace(os.Getenv("TABURA_APP_SERVER_MODEL"))
+		resolvedModel = strings.TrimSpace(os.Getenv("SLOPPAD_APP_SERVER_MODEL"))
 	}
 	if resolvedModel == "" {
 		resolvedModel = DefaultModel
 	}
 	resolvedModel = resolvePrimaryAppServerModel(resolvedModel)
 	if strings.TrimSpace(sparkReasoningEffort) == "" {
-		sparkReasoningEffort = strings.TrimSpace(os.Getenv("TABURA_APP_SERVER_SPARK_REASONING_EFFORT"))
+		sparkReasoningEffort = strings.TrimSpace(os.Getenv("SLOPPAD_APP_SERVER_SPARK_REASONING_EFFORT"))
 	}
 	resolvedSparkReasoningEffort := resolveSparkReasoningEffort(strings.TrimSpace(sparkReasoningEffort))
 	resolvedTTSURL := strings.TrimSpace(ttsURL)
 	if resolvedTTSURL == "" {
-		resolvedTTSURL = strings.TrimSpace(os.Getenv("TABURA_TTS_URL"))
+		resolvedTTSURL = strings.TrimSpace(os.Getenv("SLOPPAD_TTS_URL"))
 	}
-	resolvedAssistantMode := normalizeAssistantMode(os.Getenv("TABURA_ASSISTANT_MODE"))
-	resolvedAssistantLLMURL := strings.TrimSpace(os.Getenv("TABURA_ASSISTANT_LLM_URL"))
+	resolvedAssistantMode := normalizeAssistantMode(os.Getenv("SLOPPAD_ASSISTANT_MODE"))
+	resolvedAssistantLLMURL := strings.TrimSpace(os.Getenv("SLOPPAD_ASSISTANT_LLM_URL"))
 	explicitAssistantLLMURL := resolvedAssistantLLMURL != ""
 	if strings.EqualFold(resolvedAssistantLLMURL, "off") {
 		resolvedAssistantLLMURL = ""
 		explicitAssistantLLMURL = false
 	}
-	resolvedAssistantLLMModel := strings.TrimSpace(os.Getenv("TABURA_ASSISTANT_LLM_MODEL"))
+	resolvedAssistantLLMModel := strings.TrimSpace(os.Getenv("SLOPPAD_ASSISTANT_LLM_MODEL"))
 	if strings.EqualFold(resolvedAssistantLLMModel, "off") {
 		resolvedAssistantLLMModel = ""
 	}
-	resolvedIntentLLMURL := strings.TrimSpace(os.Getenv("TABURA_INTENT_LLM_URL"))
+	resolvedIntentLLMURL := strings.TrimSpace(os.Getenv("SLOPPAD_INTENT_LLM_URL"))
 	if strings.EqualFold(resolvedIntentLLMURL, "off") {
 		resolvedIntentLLMURL = ""
 	} else if resolvedIntentLLMURL == "" {
 		resolvedIntentLLMURL = DefaultIntentLLMURL
 	}
-	resolvedIntentLLMModel := strings.TrimSpace(os.Getenv("TABURA_INTENT_LLM_MODEL"))
+	resolvedIntentLLMModel := strings.TrimSpace(os.Getenv("SLOPPAD_INTENT_LLM_MODEL"))
 	if strings.EqualFold(resolvedIntentLLMModel, "off") {
 		resolvedIntentLLMModel = ""
 	} else if resolvedIntentLLMModel == "" {
 		resolvedIntentLLMModel = DefaultIntentLLMModel
 	}
-	resolvedIntentLLMProfile := resolveIntentLLMProfile(os.Getenv("TABURA_INTENT_LLM_PROFILE"))
-	resolvedIntentLLMProfileOptions := parseIntentLLMProfileOptions(os.Getenv("TABURA_INTENT_LLM_PROFILE_OPTIONS"))
+	resolvedIntentLLMProfile := resolveIntentLLMProfile(os.Getenv("SLOPPAD_INTENT_LLM_PROFILE"))
+	resolvedIntentLLMProfileOptions := parseIntentLLMProfileOptions(os.Getenv("SLOPPAD_INTENT_LLM_PROFILE_OPTIONS"))
 	if len(resolvedIntentLLMProfileOptions) == 0 {
 		resolvedIntentLLMProfileOptions = parseIntentLLMProfileOptions(DefaultIntentLLMProfileOptions)
 	}
@@ -223,25 +223,25 @@ func New(dataDir, localProjectDir, localMCPURL, appServerURL, model, ttsURL, spa
 	if resolvedAssistantLLMModel == "" {
 		resolvedAssistantLLMModel = resolvedIntentLLMModel
 	}
-	resolvedSTTURL := strings.TrimSpace(os.Getenv("TABURA_STT_URL"))
+	resolvedSTTURL := strings.TrimSpace(os.Getenv("SLOPPAD_STT_URL"))
 	if strings.EqualFold(resolvedSTTURL, "off") {
 		resolvedSTTURL = ""
 	} else if resolvedSTTURL == "" {
 		resolvedSTTURL = DefaultSTTURL
 	}
-	resolvedLocaleLanguage := normalizeLanguageCodeEnv(strings.TrimSpace(os.Getenv("TABURA_LANGUAGE")))
+	resolvedLocaleLanguage := normalizeLanguageCodeEnv(strings.TrimSpace(os.Getenv("SLOPPAD_LANGUAGE")))
 	if resolvedLocaleLanguage == "" {
-		resolvedLocaleLanguage = normalizeLanguageCodeEnv(strings.TrimSpace(os.Getenv("TABURA_LOCALE")))
+		resolvedLocaleLanguage = normalizeLanguageCodeEnv(strings.TrimSpace(os.Getenv("SLOPPAD_LOCALE")))
 	}
-	resolvedSTTAllowedLanguages := parseLanguageListEnv(strings.TrimSpace(os.Getenv("TABURA_STT_ALLOWED_LANGUAGES")))
+	resolvedSTTAllowedLanguages := parseLanguageListEnv(strings.TrimSpace(os.Getenv("SLOPPAD_STT_ALLOWED_LANGUAGES")))
 	if len(resolvedSTTAllowedLanguages) == 0 {
-		resolvedSTTAllowedLanguages = parseLanguageListEnv(strings.TrimSpace(os.Getenv("TABURA_STT_LANGUAGE")))
+		resolvedSTTAllowedLanguages = parseLanguageListEnv(strings.TrimSpace(os.Getenv("SLOPPAD_STT_LANGUAGE")))
 	}
 	if len(resolvedSTTAllowedLanguages) == 0 {
 		resolvedSTTAllowedLanguages = parseLanguageListEnv(DefaultSTTAllowedLanguages)
 	}
 	resolvedSTTAllowedLanguages = prependPreferredLanguage(resolvedSTTAllowedLanguages, resolvedLocaleLanguage)
-	resolvedSTTFallbackLanguage := normalizeLanguageCodeEnv(strings.TrimSpace(os.Getenv("TABURA_STT_FALLBACK_LANGUAGE")))
+	resolvedSTTFallbackLanguage := normalizeLanguageCodeEnv(strings.TrimSpace(os.Getenv("SLOPPAD_STT_FALLBACK_LANGUAGE")))
 	if resolvedSTTFallbackLanguage == "" {
 		if resolvedLocaleLanguage != "" {
 			resolvedSTTFallbackLanguage = resolvedLocaleLanguage
@@ -251,10 +251,10 @@ func New(dataDir, localProjectDir, localMCPURL, appServerURL, model, ttsURL, spa
 			resolvedSTTFallbackLanguage = DefaultSTTFallbackLanguage
 		}
 	}
-	resolvedSTTInitialPrompt := strings.TrimSpace(os.Getenv("TABURA_STT_PROMPT"))
-	resolvedSTTPreVADEnabled := parseEnvBoolDefault("TABURA_STT_PREVAD_ENABLED", true)
-	resolvedSTTPreVADThresholdDB := parseEnvFloatDefault("TABURA_STT_PREVAD_THRESHOLD_DB", DefaultSTTPreVADThresholdDB)
-	resolvedSTTPreVADMinSpeechMS := parseEnvIntDefault("TABURA_STT_PREVAD_MIN_SPEECH_MS", DefaultSTTPreVADMinSpeechMS)
+	resolvedSTTInitialPrompt := strings.TrimSpace(os.Getenv("SLOPPAD_STT_PROMPT"))
+	resolvedSTTPreVADEnabled := parseEnvBoolDefault("SLOPPAD_STT_PREVAD_ENABLED", true)
+	resolvedSTTPreVADThresholdDB := parseEnvFloatDefault("SLOPPAD_STT_PREVAD_THRESHOLD_DB", DefaultSTTPreVADThresholdDB)
+	resolvedSTTPreVADMinSpeechMS := parseEnvIntDefault("SLOPPAD_STT_PREVAD_MIN_SPEECH_MS", DefaultSTTPreVADMinSpeechMS)
 	if err := enforceLocalWorkspaceModelDefaults(s); err != nil {
 		_ = s.Close()
 		return nil, err
@@ -267,13 +267,13 @@ func New(dataDir, localProjectDir, localMCPURL, appServerURL, model, ttsURL, spa
 		_ = s.Close()
 		return nil, err
 	}
-	resolvedPluginsDir := strings.TrimSpace(os.Getenv("TABURA_PLUGINS_DIR"))
+	resolvedPluginsDir := strings.TrimSpace(os.Getenv("SLOPPAD_PLUGINS_DIR"))
 	if strings.EqualFold(resolvedPluginsDir, "off") {
 		resolvedPluginsDir = ""
 	} else if resolvedPluginsDir == "" {
 		resolvedPluginsDir = filepath.Join(dataDir, "plugins")
 	}
-	resolvedExtensionsDir := strings.TrimSpace(os.Getenv("TABURA_EXTENSIONS_DIR"))
+	resolvedExtensionsDir := strings.TrimSpace(os.Getenv("SLOPPAD_EXTENSIONS_DIR"))
 	if strings.EqualFold(resolvedExtensionsDir, "off") {
 		resolvedExtensionsDir = ""
 	} else if resolvedExtensionsDir == "" {
@@ -448,7 +448,7 @@ func enforceLocalWorkspaceModelDefaults(s *store.Store) error {
 }
 
 func backgroundSourceSyncEnabled() bool {
-	return !strings.EqualFold(strings.TrimSpace(os.Getenv("TABURA_BACKGROUND_SYNC")), "off")
+	return !strings.EqualFold(strings.TrimSpace(os.Getenv("SLOPPAD_BACKGROUND_SYNC")), "off")
 }
 
 func randomToken() string {
@@ -460,7 +460,7 @@ func defaultSecretPath(fileName string) string {
 	if err != nil || strings.TrimSpace(home) == "" {
 		return ""
 	}
-	return filepath.Join(home, ".config", "tabura", "secrets", fileName)
+	return filepath.Join(home, ".config", "sloppad", "secrets", fileName)
 }
 
 func readOptionalSecretFile(path string) string {
@@ -856,7 +856,7 @@ func (a *App) ListenTLS(host string, port int, certFile, keyFile string) error {
 		WriteTimeout:      60 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
-	fmt.Println("tabura server HTTPS listener listening on:")
+	fmt.Println("sloppad server HTTPS listener listening on:")
 	for _, u := range serve.ListenURLsWithScheme(host, port, "https") {
 		fmt.Printf("  %s\n", u)
 	}
@@ -880,7 +880,7 @@ func (a *App) start(host string, port int, certFile, keyFile string) error {
 	if certFile != "" && keyFile != "" {
 		scheme = "https"
 	}
-	fmt.Println("tabura server web listener listening on:")
+	fmt.Println("sloppad server web listener listening on:")
 	for _, u := range serve.ListenURLsWithScheme(host, port, scheme) {
 		fmt.Printf("  %s\n", u)
 	}

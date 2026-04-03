@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MOUNT="/work"
-CONTAINER_NAME="tabura-playwright"
+CONTAINER_NAME="sloppad-playwright"
 
 # ── runtime detection ────────────────────────────────────────────────
 # Check whether a container daemon is actually reachable, not just

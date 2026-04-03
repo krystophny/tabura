@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
 func TestParseInlineItemReassignmentIntent(t *testing.T) {
@@ -18,7 +18,7 @@ func TestParseInlineItemReassignmentIntent(t *testing.T) {
 		{text: "move this to beta workspace", wantAction: "reassign_workspace", wantTarget: "beta"},
 		{text: "assign to ~/write/paper-x", wantAction: "reassign_workspace", wantTarget: "~/write/paper-x"},
 		{text: "assign to EUROfusion project", wantAction: "reassign_workspace", wantTarget: "EUROfusion"},
-		{text: "this belongs to tabura", wantAction: "reassign_workspace", wantTarget: "tabura"},
+		{text: "this belongs to sloppad", wantAction: "reassign_workspace", wantTarget: "sloppad"},
 		{text: "remove workspace from this item", wantAction: "clear_workspace"},
 		{text: "remove project from this item", wantAction: "clear_workspace"},
 	}
@@ -56,7 +56,7 @@ func TestClassifyAndExecuteSystemActionItemReassignment(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateWorkspace(beta) error: %v", err)
 	}
-	taburaProject, err := app.store.CreateEnrichedWorkspace("Tabura", "tabura", filepath.Join(t.TempDir(), "tabura-project"), "managed", "", "", false)
+	sloppadProject, err := app.store.CreateEnrichedWorkspace("Sloppad", "sloppad", filepath.Join(t.TempDir(), "sloppad-project"), "managed", "", "", false)
 	if err != nil {
 		t.Fatalf("CreateProject() error: %v", err)
 	}
@@ -107,7 +107,7 @@ func TestClassifyAndExecuteSystemActionItemReassignment(t *testing.T) {
 		t.Fatalf("workspace_id = %v, want %d", updatedItem.WorkspaceID, beta.ID)
 	}
 
-	message, payloads, handled = app.classifyAndExecuteSystemAction(context.Background(), session.ID, session, "this belongs to Tabura")
+	message, payloads, handled = app.classifyAndExecuteSystemAction(context.Background(), session.ID, session, "this belongs to Sloppad")
 	if !handled {
 		t.Fatal("expected project reassignment command to be handled")
 	}
@@ -118,8 +118,8 @@ func TestClassifyAndExecuteSystemActionItemReassignment(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetItem(reassigned project) error: %v", err)
 	}
-	if updatedItem.WorkspaceID == nil || *updatedItem.WorkspaceID != taburaProject.ID {
-		t.Fatalf("workspace_id = %v, want %d", updatedItem.WorkspaceID, taburaProject.ID)
+	if updatedItem.WorkspaceID == nil || *updatedItem.WorkspaceID != sloppadProject.ID {
+		t.Fatalf("workspace_id = %v, want %d", updatedItem.WorkspaceID, sloppadProject.ID)
 	}
 
 	message, _, handled = app.classifyAndExecuteSystemAction(context.Background(), session.ID, session, "remove workspace from this item")

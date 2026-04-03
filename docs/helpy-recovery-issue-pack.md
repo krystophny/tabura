@@ -1,17 +1,17 @@
 # Helpy Interop Direction
 
-> **Legal notice:** Tabura is provided "as is" and "as available" without warranties, and to the maximum extent permitted by applicable law the authors/contributors accept no liability for damages, data loss, or misuse. You are solely responsible for backups, verification, and safe operation. See [`DISCLAIMER.md`](/DISCLAIMER.md).
+> **Legal notice:** Sloppad is provided "as is" and "as available" without warranties, and to the maximum extent permitted by applicable law the authors/contributors accept no liability for damages, data loss, or misuse. You are solely responsible for backups, verification, and safe operation. See [`DISCLAIMER.md`](/DISCLAIMER.md).
 
 This document used to track functionality that was intended to move into a
 private Helpy repo.
 
 That recovery-plan framing is no longer the active direction. The relevant
-future question is how Tabura should interoperate with Helpy without reviving a
+future question is how Sloppad should interoperate with Helpy without reviving a
 private extension ecosystem.
 
 ## Current Direction
 
-- Default product behavior should stay public in `krystophny/tabura`
+- Default product behavior should stay public in `krystophny/sloppad`
 - No private recovery repo is required for the meeting-notes or assistant
   roadmap
 - Helpy may still be a useful optional local capability provider
@@ -20,7 +20,7 @@ private extension ecosystem.
 
 ## Candidate Helpy Responsibilities
 
-If Tabura uses Helpy in the future, the likely responsibilities are:
+If Sloppad uses Helpy in the future, the likely responsibilities are:
 
 - deterministic office-workflow actions
 - email listing, reading, and message actions
@@ -28,7 +28,7 @@ If Tabura uses Helpy in the future, the likely responsibilities are:
 - sheet inspection
 - handoff production or consumption across local tools
 
-Tabura should not depend on Helpy for:
+Sloppad should not depend on Helpy for:
 
 - its default speech-to-text path
 - its core privacy invariants

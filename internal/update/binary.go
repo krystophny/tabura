@@ -23,9 +23,9 @@ func extractBinaryFromArchive(archiveData []byte, assetName, targetOS string) ([
 
 func binaryNameForOS(targetOS string) string {
 	if targetOS == "windows" {
-		return "tabura.exe"
+		return "sloppad.exe"
 	}
-	return "tabura"
+	return "sloppad"
 }
 
 func extractFromTarGz(archiveData []byte, wantName string) ([]byte, error) {
@@ -94,7 +94,7 @@ func currentExecutableMode(path string) (os.FileMode, error) {
 }
 
 func replaceExecutable(path string, binaryData []byte, mode os.FileMode, targetOS string) error {
-	tmpFile, err := os.CreateTemp(filepath.Dir(path), "tabura-update-*")
+	tmpFile, err := os.CreateTemp(filepath.Dir(path), "sloppad-update-*")
 	if err != nil {
 		return fmt.Errorf("create temp executable: %w", err)
 	}

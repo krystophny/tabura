@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
 const (

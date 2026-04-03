@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/store"
 
 	_ "modernc.org/sqlite"
 )
@@ -226,7 +226,7 @@ func seedZoteroTestLibrary(t *testing.T) string {
 		`INSERT INTO itemCreators (itemID, creatorID, creatorTypeID, orderIndex) VALUES (1, 1, 1, 0);`,
 		`INSERT INTO collections (collectionID, key, collectionName, parentCollectionID) VALUES (1, 'COLL-1', 'Papers', NULL);`,
 		`INSERT INTO collectionItems (collectionID, itemID) VALUES (1, 1);`,
-		`INSERT INTO tags (tagID, name) VALUES (1, 'Tabura'), (2, 'unread');`,
+		`INSERT INTO tags (tagID, name) VALUES (1, 'Sloppad'), (2, 'unread');`,
 		`INSERT INTO itemTags (itemID, tagID, type) VALUES (1, 1, 0), (1, 2, 0);`,
 		`INSERT INTO itemAttachments (itemID, parentItemID, contentType, path, linkMode) VALUES (2, 1, 'application/pdf', 'storage:paper.pdf', 1);`,
 		`INSERT INTO itemAnnotations (itemID, parentItemID, type, authorName, text, comment, color, pageLabel, sortIndex, position) VALUES (3, 2, 'highlight', 'Ada', 'Important result', 'Revisit this proof', '#ffd400', '4', '00001|00001|00001', '{\"pageIndex\":3}');`,

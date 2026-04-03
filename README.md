@@ -1,4 +1,4 @@
-# タブラ tabura
+# タブラ sloppad
 
 Core paradigm:
 - Full-viewport zen canvas: blank screen (tabula rasa) or artifact fills the view.
@@ -8,7 +8,7 @@ Core paradigm:
 - Live sessions are split into `Dialogue` and `Meeting`, with one shared audio runtime and built-in `Alexa` hotword behavior.
 
 License: MIT (`LICENSE`)
-Legal notice: Tabura is provided "as is" and "as available" without warranties, and to the maximum extent permitted by applicable law the authors/contributors accept no liability for damages, data loss, or misuse. You are solely responsible for backups, verification, and safe operation. See [`DISCLAIMER.md`](DISCLAIMER.md).
+Legal notice: Sloppad is provided "as is" and "as available" without warranties, and to the maximum extent permitted by applicable law the authors/contributors accept no liability for damages, data loss, or misuse. You are solely responsible for backups, verification, and safe operation. See [`DISCLAIMER.md`](DISCLAIMER.md).
 
 ## Start Here
 
@@ -28,30 +28,30 @@ Legal notice: Tabura is provided "as is" and "as available" without warranties, 
 Universal installers:
 
 ```bash
-curl -fsSL https://github.com/krystophny/tabura/releases/latest/download/install.sh | bash
+curl -fsSL https://github.com/krystophny/sloppad/releases/latest/download/install.sh | bash
 ```
 
 ```powershell
-irm https://github.com/krystophny/tabura/releases/latest/download/install.ps1 | iex
+irm https://github.com/krystophny/sloppad/releases/latest/download/install.ps1 | iex
 ```
 
 Package managers:
 
 ```bash
-brew install krystophny/tap/tabura
+brew install krystophny/tap/sloppad
 ```
 
 ```bash
-paru -S tabura-bin
+paru -S sloppad-bin
 # or
-yay -S tabura-bin
+yay -S sloppad-bin
 ```
 
 ```powershell
-winget install krystophny.tabura
+winget install krystophny.sloppad
 ```
 
-Package-manager installs provide the `tabura` binary only. For full local setup, run `tabura server` or the installer scripts above.
+Package-manager installs provide the `sloppad` binary only. For full local setup, run `sloppad server` or the installer scripts above.
 
 Uninstall:
 
@@ -67,8 +67,8 @@ Manual build:
 
 ```bash
 npm run build:frontend
-go build ./cmd/tabura
-go install ./cmd/tabura
+go build ./cmd/sloppad
+go install ./cmd/sloppad
 ```
 
 `npm run build:frontend` auto-fetches the browser VAD runtime assets into
@@ -81,24 +81,24 @@ Requirements:
 ## Core Commands
 
 ```bash
-tabura bootstrap --project-dir .
-tabura mcp-server --project-dir .
-tabura server --project-dir . --data-dir ~/.tabura-web --web-host 0.0.0.0 --web-port 8420 --mcp-host 127.0.0.1 --mcp-port 9420 --app-server-url ws://127.0.0.1:8787 --tts-url http://127.0.0.1:8424
-tabura server --project-dir . --data-dir ~/.tabura-web --web-host 0.0.0.0 --web-port 8443 --web-cert-file ~/.config/tabura/certs/tabura.pem --web-key-file ~/.config/tabura/certs/tabura-key.pem --mcp-host 127.0.0.1 --mcp-port 9420 --app-server-url ws://127.0.0.1:8787 --tts-url http://127.0.0.1:8424
+sloppad bootstrap --project-dir .
+sloppad mcp-server --project-dir .
+sloppad server --project-dir . --data-dir ~/.sloppad-web --web-host 0.0.0.0 --web-port 8420 --mcp-host 127.0.0.1 --mcp-port 9420 --app-server-url ws://127.0.0.1:8787 --tts-url http://127.0.0.1:8424
+sloppad server --project-dir . --data-dir ~/.sloppad-web --web-host 0.0.0.0 --web-port 8443 --web-cert-file ~/.config/sloppad/certs/sloppad.pem --web-key-file ~/.config/sloppad/certs/sloppad-key.pem --mcp-host 127.0.0.1 --mcp-port 9420 --app-server-url ws://127.0.0.1:8787 --tts-url http://127.0.0.1:8424
 ```
 
 ## Runtime Stack (Canonical)
 
-Tabura runs as one Go runtime plus five local services:
+Sloppad runs as one Go runtime plus five local services:
 
-1. `tabura-web.service` (`tabura server`)
+1. `sloppad-web.service` (`sloppad server`)
 2. TTS sidecar on `127.0.0.1:8424/v1/audio/speech`
    - default: Piper
-3. `tabura-stt.service` (voxtype daemon with STT API and push-to-talk, `/v1/audio/transcriptions`)
-4. `tabura-llm.service` (local OpenAI-compatible LLM endpoint at `127.0.0.1:8081/v1/chat/completions`)
+3. `sloppad-stt.service` (voxtype daemon with STT API and push-to-talk, `/v1/audio/transcriptions`)
+4. `sloppad-llm.service` (local OpenAI-compatible LLM endpoint at `127.0.0.1:8081/v1/chat/completions`)
    - macOS default: `vllm-mlx` serving `mlx-community/Qwen3.5-9B-4bit`
    - Linux default: `llama.cpp` serving Qwen3.5 9B GGUF
-5. `tabura-codex-app-server.service`
+5. `sloppad-codex-app-server.service`
 
 Voice commit still uses built-in browser VAD auto-stop, then sends audio to the local voxtype STT service.
 
@@ -115,17 +115,17 @@ Why TTS remains an HTTP sidecar:
 - Codex app-server websocket: `ws://127.0.0.1:8787`
 - TTS endpoint: `http://127.0.0.1:8424/v1/audio/speech`
 - Voxtype STT endpoint: `http://127.0.0.1:8427/v1/audio/transcriptions`
-- Intent LLM endpoint: `http://127.0.0.1:8081/v1/chat/completions` (`TABURA_INTENT_LLM_URL`, set `off` to disable)
+- Intent LLM endpoint: `http://127.0.0.1:8081/v1/chat/completions` (`SLOPPAD_INTENT_LLM_URL`, set `off` to disable)
 - Codex local profile endpoint on macOS: `http://127.0.0.1:8081/v1/responses`
 - Codex local profile endpoint on Linux: `http://127.0.0.1:8080/v1/responses`
-- Intent/delegator request model id: `TABURA_INTENT_LLM_MODEL` (default `local`)
-- Intent/delegator profile selection: `TABURA_INTENT_LLM_PROFILE` (default `qwen3.5-9b`)
-- Intent/delegator profile options: `TABURA_INTENT_LLM_PROFILE_OPTIONS` (macOS unplugged default: `qwen3.5-9b`)
-- Assistant routing mode: `TABURA_ASSISTANT_MODE` (macOS unplugged default: `local`)
+- Intent/delegator request model id: `SLOPPAD_INTENT_LLM_MODEL` (default `local`)
+- Intent/delegator profile selection: `SLOPPAD_INTENT_LLM_PROFILE` (default `qwen3.5-9b`)
+- Intent/delegator profile options: `SLOPPAD_INTENT_LLM_PROFILE_OPTIONS` (macOS unplugged default: `qwen3.5-9b`)
+- Assistant routing mode: `SLOPPAD_ASSISTANT_MODE` (macOS unplugged default: `local`)
 - Codex local profiles written by `scripts/setup-codex-mcp.sh`: `local` and `fast`
 - Codex local wrapper for current CLI builds: `scripts/codex-local.sh fast ...` or `scripts/codex-local.sh local ...`
 - Local canvas session id: `local`
-- Spark thinking budget for Spark model (fast path): `TABURA_APP_SERVER_SPARK_REASONING_EFFORT=low` (`low`/`medium`/`high`/`xhigh`)
+- Spark thinking budget for Spark model (fast path): `SLOPPAD_APP_SERVER_SPARK_REASONING_EFFORT=low` (`low`/`medium`/`high`/`xhigh`)
 
 Security model:
 - MCP routes are intentionally not exposed on the web listener.
@@ -133,12 +133,12 @@ Security model:
 
 ## Temporary Voxtype Branch Pin
 
-Until upstream release catches up, Tabura docs and service integration assume:
+Until upstream release catches up, Sloppad docs and service integration assume:
 
 - Repo: `https://github.com/peteonrails/voxtype`
 - Branch: `feature/single-daemon-openai-stt-api`
 
-If you build voxtype from source for Tabura STT, use that branch.
+If you build voxtype from source for Sloppad STT, use that branch.
 
 On macOS, build voxtype from source using the provided script:
 
@@ -158,10 +158,10 @@ Run the web listener with TLS and open `https://<your-lan-ip>:8443`.
 Example with `mkcert`:
 
 ```bash
-mkdir -p ~/.config/tabura/certs
+mkdir -p ~/.config/sloppad/certs
 mkcert -install
-mkcert -cert-file ~/.config/tabura/certs/tabura.pem -key-file ~/.config/tabura/certs/tabura-key.pem localhost 127.0.0.1 ::1 192.168.1.50
-tabura server --project-dir . --data-dir ~/.tabura-web --web-host 0.0.0.0 --web-port 8443 --web-cert-file ~/.config/tabura/certs/tabura.pem --web-key-file ~/.config/tabura/certs/tabura-key.pem --mcp-host 127.0.0.1 --mcp-port 9420 --app-server-url ws://127.0.0.1:8787 --tts-url http://127.0.0.1:8424
+mkcert -cert-file ~/.config/sloppad/certs/sloppad.pem -key-file ~/.config/sloppad/certs/sloppad-key.pem localhost 127.0.0.1 ::1 192.168.1.50
+sloppad server --project-dir . --data-dir ~/.sloppad-web --web-host 0.0.0.0 --web-port 8443 --web-cert-file ~/.config/sloppad/certs/sloppad.pem --web-key-file ~/.config/sloppad/certs/sloppad-key.pem --mcp-host 127.0.0.1 --mcp-port 9420 --app-server-url ws://127.0.0.1:8787 --tts-url http://127.0.0.1:8424
 ```
 
 If a second device (for example a Mac) connects to this server, trust the same local CA on that device too.
@@ -227,7 +227,7 @@ go test ./...
 ./scripts/playwright.sh
 ```
 
-Test report artifacts are written under `.tabura/artifacts/test-reports/`.
+Test report artifacts are written under `.sloppad/artifacts/test-reports/`.
 
 ## Citation and Archival Metadata
 

@@ -49,9 +49,9 @@ type Session struct {
 func DefaultConfigDir() string {
 	home, err := os.UserHomeDir()
 	if err != nil || strings.TrimSpace(home) == "" {
-		return ".tabura"
+		return ".sloppad"
 	}
-	return filepath.Join(home, ".config", "tabura")
+	return filepath.Join(home, ".config", "sloppad")
 }
 
 func DefaultCredentialsPath() string {

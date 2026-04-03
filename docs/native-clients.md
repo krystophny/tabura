@@ -13,13 +13,13 @@ Use [`native-clients-plan.md`](native-clients-plan.md) for the architecture deci
 
 ## Setup and Run
 
-1. Start a Tabura server reachable from the device:
+1. Start a Sloppad server reachable from the device:
 
    ```bash
-   TMP_ROOT="$(mktemp -d -t tabura-native-XXXXXX)"
+   TMP_ROOT="$(mktemp -d -t sloppad-native-XXXXXX)"
    PROJECT_DIR="$TMP_ROOT/project"
    DATA_DIR="$TMP_ROOT/data"
-   go run ./cmd/tabura server \
+   go run ./cmd/sloppad server \
      --project-dir "$PROJECT_DIR" \
      --data-dir "$DATA_DIR" \
      --web-host 0.0.0.0 \
@@ -54,14 +54,14 @@ Use [`native-clients-plan.md`](native-clients-plan.md) for the architecture deci
    Environment knobs:
 
 - `ANDROID_HOME` or `ANDROID_SDK_ROOT` must point at the local Android SDK.
-- `TABURA_ANDROID_AVD` chooses the Android emulator. If unset, the first local AVD is used.
-- `TABURA_IOS_SSH_HOST` defaults to `faepmac1`.
-- `TABURA_IOS_REMOTE_ROOT` defaults to `~/tabura-ci` on the macOS host.
-- `TABURA_IOS_DESTINATION` overrides the `xcodebuild` simulator destination string.
+- `SLOPPAD_ANDROID_AVD` chooses the Android emulator. If unset, the first local AVD is used.
+- `SLOPPAD_IOS_SSH_HOST` defaults to `faepmac1`.
+- `SLOPPAD_IOS_REMOTE_ROOT` defaults to `~/sloppad-ci` on the macOS host.
+- `SLOPPAD_IOS_DESTINATION` overrides the `xcodebuild` simulator destination string.
 
 4. Manual app runs:
 
-   After the automated checks pass, build and run `TaburaIOS` or the Android app on current hardware when a PR needs human validation beyond the scripted harness.
+   After the automated checks pass, build and run `SloppadIOS` or the Android app on current hardware when a PR needs human validation beyond the scripted harness.
 
 ## Automated Verification
 
@@ -104,7 +104,7 @@ Attach current hardware results to the PR or issue when platform hardware is inv
 
 1. iOS server discovery and transport
 
-   Pass: `_tabura._tcp` discovery finds the server or a manual URL connects, chat history loads, canvas snapshot loads, and live chat events continue after connect.
+   Pass: `_sloppad._tcp` discovery finds the server or a manual URL connects, chat history loads, canvas snapshot loads, and live chat events continue after connect.
 
    Fail: discovery never resolves, connect succeeds without chat/canvas data, or websocket updates stop after the first turn.
 

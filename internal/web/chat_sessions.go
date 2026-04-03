@@ -4,7 +4,7 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
 func (a *App) workspaceForChatSession(session store.ChatSession) (store.Workspace, error) {

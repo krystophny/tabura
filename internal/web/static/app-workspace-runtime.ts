@@ -449,7 +449,7 @@ export function renderEdgeTopModelButtons() {
     }
   } else {
     liveStatus.textContent = 'Manual';
-    liveStatus.title = 'Use the Tabura Circle for Dialogue, Meeting, Silent, and Stop.';
+    liveStatus.title = 'Use the Sloppad Circle for Dialogue, Meeting, Silent, and Stop.';
   }
   actions.appendChild(liveStatus);
 

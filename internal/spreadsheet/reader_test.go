@@ -20,7 +20,7 @@ func TestReaderOpenAndReadSheet(t *testing.T) {
 	if err := wb.SetCellValue("Tasks", "A2", "Port providers"); err != nil {
 		t.Fatalf("SetCellValue(A2) error: %v", err)
 	}
-	if err := wb.SetCellValue("Tasks", "B2", "Tabura"); err != nil {
+	if err := wb.SetCellValue("Tasks", "B2", "Sloppad"); err != nil {
 		t.Fatalf("SetCellValue(B2) error: %v", err)
 	}
 	if err := wb.SaveAs(path); err != nil {
@@ -48,7 +48,7 @@ func TestReaderOpenAndReadSheet(t *testing.T) {
 	if len(rows) != 1 {
 		t.Fatalf("len(rows) = %d, want 1", len(rows))
 	}
-	if rows[0]["Title"] != "Port providers" || rows[0]["Owner"] != "Tabura" {
+	if rows[0]["Title"] != "Port providers" || rows[0]["Owner"] != "Sloppad" {
 		t.Fatalf("rows[0] = %#v", rows[0])
 	}
 }

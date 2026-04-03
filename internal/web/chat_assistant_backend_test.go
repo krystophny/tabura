@@ -391,17 +391,17 @@ func TestExecuteLocalAssistantBoundMCPToolUsesCanvasTunnelForCanvasTools(t *test
 }
 
 func TestAssistantLLMRequestTimeoutUsesEnvOverride(t *testing.T) {
-	t.Setenv("TABURA_ASSISTANT_LLM_TIMEOUT", "")
+	t.Setenv("SLOPPAD_ASSISTANT_LLM_TIMEOUT", "")
 	if got := assistantLLMRequestTimeout(); got != defaultAssistantLLMTimeout {
 		t.Fatalf("assistantLLMRequestTimeout() default = %s, want %s", got, defaultAssistantLLMTimeout)
 	}
 
-	t.Setenv("TABURA_ASSISTANT_LLM_TIMEOUT", "45s")
+	t.Setenv("SLOPPAD_ASSISTANT_LLM_TIMEOUT", "45s")
 	if got := assistantLLMRequestTimeout(); got != 45*time.Second {
 		t.Fatalf("assistantLLMRequestTimeout() override = %s, want %s", got, 45*time.Second)
 	}
 
-	t.Setenv("TABURA_ASSISTANT_LLM_TIMEOUT", "nope")
+	t.Setenv("SLOPPAD_ASSISTANT_LLM_TIMEOUT", "nope")
 	if got := assistantLLMRequestTimeout(); got != defaultAssistantLLMTimeout {
 		t.Fatalf("assistantLLMRequestTimeout() invalid = %s, want %s", got, defaultAssistantLLMTimeout)
 	}

@@ -9,10 +9,10 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/krystophny/tabura/internal/email"
-	"github.com/krystophny/tabura/internal/mailtriage"
-	"github.com/krystophny/tabura/internal/providerdata"
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/email"
+	"github.com/krystophny/sloppad/internal/mailtriage"
+	"github.com/krystophny/sloppad/internal/providerdata"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
 type mailTriagePreviewRequest struct {
@@ -610,7 +610,7 @@ func recommendedMailTriageServerFilters(provider string, reviews []store.MailTri
 		switch rule.Action {
 		case mailtriage.ActionTrash:
 			filters = append(filters, email.ServerFilter{
-				Name:    "tabura/triage/sender-trash/" + sanitizeFilterName(rule.Key),
+				Name:    "sloppad/triage/sender-trash/" + sanitizeFilterName(rule.Key),
 				Enabled: true,
 				Criteria: email.ServerFilterCriteria{
 					From: rule.Key,
@@ -619,7 +619,7 @@ func recommendedMailTriageServerFilters(provider string, reviews []store.MailTri
 			})
 		case mailtriage.ActionCC:
 			filters = append(filters, email.ServerFilter{
-				Name:    "tabura/triage/sender-cc/" + sanitizeFilterName(rule.Key),
+				Name:    "sloppad/triage/sender-cc/" + sanitizeFilterName(rule.Key),
 				Enabled: true,
 				Criteria: email.ServerFilterCriteria{
 					From: rule.Key,
@@ -630,7 +630,7 @@ func recommendedMailTriageServerFilters(provider string, reviews []store.MailTri
 	}
 	if subject := repeatedSubjectForSender(reviews, "system@online.tugraz.at", "trash", "lv-evaluierung"); subject != "" {
 		filters = append(filters, email.ServerFilter{
-			Name:    "tabura/triage/tugrazonline-evaluation-trash",
+			Name:    "sloppad/triage/tugrazonline-evaluation-trash",
 			Enabled: true,
 			Criteria: email.ServerFilterCriteria{
 				From:    "system@online.tugraz.at",

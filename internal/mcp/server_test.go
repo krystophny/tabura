@@ -5,7 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"github.com/krystophny/tabura/internal/canvas"
+	"github.com/krystophny/sloppad/internal/canvas"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -78,7 +78,7 @@ func TestCanvasImportHandoffFileText(t *testing.T) {
 		t.Fatalf("missing artifact_id: %#v", got)
 	}
 
-	matches, err := filepath.Glob(filepath.Join(projectDir, ".tabura", "artifacts", "imports", "h1-*.txt"))
+	matches, err := filepath.Glob(filepath.Join(projectDir, ".sloppad", "artifacts", "imports", "h1-*.txt"))
 	if err != nil {
 		t.Fatalf("glob failed: %v", err)
 	}
@@ -235,7 +235,7 @@ func TestTempFileCreateAndRemove(t *testing.T) {
 		t.Fatalf("temp_file_create failed: %v", err)
 	}
 	path, _ := created["path"].(string)
-	if !strings.HasPrefix(path, ".tabura/artifacts/tmp/") {
+	if !strings.HasPrefix(path, ".sloppad/artifacts/tmp/") {
 		t.Fatalf("expected temp path under artifacts/tmp, got %q", path)
 	}
 	absPath := filepath.Join(adapter.ProjectDir(), filepath.FromSlash(path))

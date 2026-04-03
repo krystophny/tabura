@@ -68,7 +68,7 @@ func (a *App) handleReviewSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	reviewsDir := filepath.Join(project.RootPath, ".tabura", "artifacts", "reviews")
+	reviewsDir := filepath.Join(project.RootPath, ".sloppad", "artifacts", "reviews")
 	if err := os.MkdirAll(reviewsDir, 0o755); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

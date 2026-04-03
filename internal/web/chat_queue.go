@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/krystophny/tabura/internal/appserver"
+	"github.com/krystophny/sloppad/internal/appserver"
 )
 
 type chatTurnTracker struct {
@@ -392,7 +392,7 @@ func (a *App) clearWorkspaceTempCanvasFiles(workspacePath string) int {
 	if cwd == "" {
 		return 0
 	}
-	tmpDir := filepath.Join(cwd, ".tabura", "artifacts", "tmp")
+	tmpDir := filepath.Join(cwd, ".sloppad", "artifacts", "tmp")
 	entries, err := os.ReadDir(tmpDir)
 	if err != nil {
 		return 0

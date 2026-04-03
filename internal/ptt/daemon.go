@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/krystophny/tabura/internal/stt"
+	"github.com/krystophny/sloppad/internal/stt"
 )
 
 const (
@@ -26,7 +26,7 @@ type Config struct {
 	DevicePath string // evdev device path, e.g. /dev/input/event5
 	KeyCode    uint16 // evdev key code (default: KEY_F13 = 183)
 	STTURL     string // STT sidecar URL (default: http://127.0.0.1:8427)
-	WebAPIURL  string // tabura web API URL for replacements (default: http://127.0.0.1:8420)
+	WebAPIURL  string // sloppad web API URL for replacements (default: http://127.0.0.1:8420)
 	OutputMode string // "type" (ydotool) or "clipboard" (wl-copy)
 }
 
@@ -76,7 +76,7 @@ func TranscribeAudio(sttURL string, wav []byte, replacements []stt.Replacement) 
 	if err := writer.WriteField("response_format", "json"); err != nil {
 		return "", fmt.Errorf("ptt multipart field: %w", err)
 	}
-	model := strings.TrimSpace(os.Getenv("TABURA_STT_MODEL_NAME"))
+	model := strings.TrimSpace(os.Getenv("SLOPPAD_STT_MODEL_NAME"))
 	if model == "" {
 		model = "whisper-1"
 	}

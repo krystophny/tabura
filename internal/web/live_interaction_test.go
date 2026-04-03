@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
 func TestLooksLikeSilentLiveEditIntent(t *testing.T) {

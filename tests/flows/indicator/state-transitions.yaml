@@ -42,11 +42,11 @@ steps:
       silent: false
       indicator_state: paused
   - action: tap
-    target: tabura_circle_dot
+    target: sloppad_circle_dot
     expect:
-      tabura_circle: expanded
+      sloppad_circle: expanded
   - action: tap
-    target: tabura_circle_segment_dialogue
+    target: sloppad_circle_segment_dialogue
     expect:
       active_tool: pointer
       session: dialogue

@@ -1,15 +1,15 @@
-# Tabura Spec Index
+# Sloppad Spec Index
 
-> **Legal notice:** Tabura is provided "as is" and "as available" without warranties, and to the maximum extent permitted by applicable law the authors/contributors accept no liability for damages, data loss, or misuse. You are solely responsible for backups, verification, and safe operation. See [`DISCLAIMER.md`](/DISCLAIMER.md).
+> **Legal notice:** Sloppad is provided "as is" and "as available" without warranties, and to the maximum extent permitted by applicable law the authors/contributors accept no liability for damages, data loss, or misuse. You are solely responsible for backups, verification, and safe operation. See [`DISCLAIMER.md`](/DISCLAIMER.md).
 
 Canonical documentation.
 
 Current runtime baseline:
-- `tabura-web.service`
-- `tabura-codex-app-server.service`
-- `tabura-piper-tts.service`
-- `tabura-stt.service`
-- `tabura-llm.service`
+- `sloppad-web.service`
+- `sloppad-codex-app-server.service`
+- `sloppad-piper-tts.service`
+- `sloppad-stt.service`
+- `sloppad-llm.service`
 
 ## Product and Behavior Specs
 
@@ -58,7 +58,7 @@ Migration/support docs:
 
 ### CLI and Runtime Entrypoints
 
-- `cmd/tabura/main.go`
+- `cmd/sloppad/main.go`
 - `internal/serve/app.go`
 - `internal/web/server.go`
 
@@ -80,6 +80,6 @@ Migration/support docs:
 
 ## Scope Boundaries
 
-- Tabura defines the interaction/runtime layer for object-scoped intent workflows.
+- Sloppad defines the interaction/runtime layer for object-scoped intent workflows.
 - Producer-side source access (files/calendar/etc.) is external and pluggable.
 - Handoff transport contracts are documented in this repo under `docs/handoff-protocol/`.

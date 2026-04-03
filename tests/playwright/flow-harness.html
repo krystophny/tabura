@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tabura Flow Harness</title>
+  <title>Sloppad Flow Harness</title>
   <style>
     :root {
       color-scheme: light;
@@ -138,7 +138,7 @@
       border-color: rgba(47, 125, 68, 0.82);
     }
 
-    #tabura-circle {
+    #sloppad-circle {
       position: fixed;
       right: 32px;
       bottom: 32px;
@@ -147,11 +147,11 @@
       pointer-events: none;
     }
 
-    #tabura-circle.is-expanded {
+    #sloppad-circle.is-expanded {
       pointer-events: auto;
     }
 
-    #tabura-circle-dot {
+    #sloppad-circle-dot {
       position: absolute;
       right: 0;
       bottom: 0;
@@ -169,7 +169,7 @@
       position: absolute;
     }
 
-    #tabura-circle-dot::after {
+    #sloppad-circle-dot::after {
       content: attr(data-session-label);
       position: absolute;
       inset: -6px;
@@ -178,9 +178,9 @@
       pointer-events: none;
     }
 
-    body.session-dialogue #tabura-circle-dot::after { border-color: rgba(13, 94, 140, 0.8); }
-    body.session-meeting #tabura-circle-dot::after { border-color: rgba(93, 107, 126, 0.8); }
-    body.silent-on #tabura-circle-dot::before {
+    body.session-dialogue #sloppad-circle-dot::after { border-color: rgba(13, 94, 140, 0.8); }
+    body.session-meeting #sloppad-circle-dot::after { border-color: rgba(93, 107, 126, 0.8); }
+    body.silent-on #sloppad-circle-dot::before {
       content: "";
       position: absolute;
       width: 44px;
@@ -190,7 +190,7 @@
       border-radius: 999px;
     }
 
-    #tabura-circle-menu {
+    #sloppad-circle-menu {
       position: absolute;
       inset: 0;
       display: grid;
@@ -201,7 +201,7 @@
       pointer-events: none;
     }
 
-    #tabura-circle.is-expanded #tabura-circle-menu {
+    #sloppad-circle.is-expanded #sloppad-circle-menu {
       opacity: 1;
       transform: scale(1);
       pointer-events: auto;
@@ -233,8 +233,8 @@
       background: #6b103f;
     }
 
-    .segment .tabura-circle-icon,
-    #tabura-circle-dot .tabura-circle-icon {
+    .segment .sloppad-circle-icon,
+    #sloppad-circle-dot .sloppad-circle-icon {
       width: 20px;
       height: 20px;
       display: inline-flex;
@@ -242,8 +242,8 @@
       justify-content: center;
     }
 
-    .segment .tabura-circle-icon svg,
-    #tabura-circle-dot .tabura-circle-icon svg {
+    .segment .sloppad-circle-icon svg,
+    #sloppad-circle-dot .sloppad-circle-icon svg {
       width: 100%;
       height: 100%;
     }
@@ -274,7 +274,7 @@
     <div id="canvas-viewport" aria-label="Canvas viewport">
       <div class="eyebrow">Flow Harness</div>
       <h1 class="headline">Shared interaction flows drive the same logical state.</h1>
-      <p class="copy">This page simulates the Tabura Circle and indicator contract so the flow runner can execute the shared interaction contract without booting the native clients.</p>
+      <p class="copy">This page simulates the Sloppad Circle and indicator contract so the flow runner can execute the shared interaction contract without booting the native clients.</p>
       <div id="indicator-shell">
         <button id="indicator-border" type="button" aria-label="Stop active indicator state"></button>
         <div id="indicator" aria-live="polite">
@@ -285,8 +285,8 @@
     </div>
   </div>
 
-  <div id="tabura-circle" class="is-collapsed" data-state="collapsed">
-    <div id="tabura-circle-menu" aria-label="Tabura Circle">
+  <div id="sloppad-circle" class="is-collapsed" data-state="collapsed">
+    <div id="sloppad-circle-menu" aria-label="Sloppad Circle">
       <button class="segment" type="button" data-kind="session" data-segment="dialogue" aria-pressed="false"></button>
       <button class="segment" type="button" data-kind="session" data-segment="meeting" aria-pressed="false"></button>
       <button class="segment" type="button" data-kind="toggle" data-segment="silent" aria-pressed="false"></button>
@@ -296,7 +296,7 @@
       <button class="segment" type="button" data-kind="tool" data-segment="highlight" aria-pressed="false"></button>
       <button class="segment" type="button" data-kind="tool" data-segment="ink" aria-pressed="false"></button>
     </div>
-    <button id="tabura-circle-dot" type="button" aria-label="Toggle Tabura Circle"></button>
+    <button id="sloppad-circle-dot" type="button" aria-label="Toggle Sloppad Circle"></button>
   </div>
 
   <div id="harness-controls" aria-label="Indicator simulation">

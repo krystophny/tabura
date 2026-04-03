@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/krystophny/tabura/internal/providerdata"
+	"github.com/krystophny/sloppad/internal/providerdata"
 )
 
 type EmailProvider interface {

@@ -1,12 +1,12 @@
 # Interaction Grammar
 
-This document is the canonical product reference for Tabura's interaction model.
+This document is the canonical product reference for Sloppad's interaction model.
 
 If code, UI copy, storage, tests, or follow-on design notes disagree with this document, the implementation is wrong and should be changed. The document is not a compatibility promise for legacy shapes.
 
 ## Authoritative Ontology
 
-Tabura has exactly five primary product nouns:
+Sloppad has exactly five primary product nouns:
 
 - **Workspace** — a real directory the user works in. Always filesystem-grounded. Composed via symlinks and environment variables, not virtual abstractions. Thin record: path, name, active flag, chat config. One workspace = one chat session (compatible with Codex CLI model). Archivable as a self-contained unit.
 - **Artifact** — curated content shown on canvas. Not every file is an artifact; artifacts are created lazily when interacted with, synced from external systems, or explicitly captured. Has kind, file path or URL, and metadata. Non-file artifacts (email, issue) can be materialized as real files in a workspace.
@@ -34,7 +34,7 @@ work/
   w7x/
   DEMO-2025/
     EURATOM
-  tabura/
+  sloppad/
   plasma-codes/
 private/
   health/
@@ -90,7 +90,7 @@ How real entities map to the five nouns:
 | Entity | Workspace | Artifact | Item | Labels |
 |---|---|---|---|---|
 | Scientific data (`~/data/`) | One workspace (whole git-lfs repo) | Files become artifacts when opened | Items when action needed | work/w7x, work/DEMO-2025 |
-| Code workspace (`~/code/tabula/`) | One workspace per repo | GitHub issues/PRs synced as artifacts | Issues/PRs are items tracked here | work/tabura, work/plasma-codes |
+| Code workspace (`~/code/tabula/`) | One workspace per repo | GitHub issues/PRs synced as artifacts | Issues/PRs are items tracked here | work/sloppad, work/plasma-codes |
 | Paper (`~/write/DEMO-2025/`) | Composed workspace (symlinks to data+code) | Paper draft, figures, linked data | "Redo figure 3", "address reviewer 2" | work/DEMO-2025, work/DEMO-2025/EURATOM |
 | Documentation (`~/Nextcloud/plasma/DOCUMENTS/`) | One workspace | Reports, slides when opened | Rarely — mostly reference | work, per-topic |
 | Management (`~/Nextcloud/plasma_orga/`) | One workspace | Budgets, contracts, receipts | "Process invoice", "submit claim" | work, work/budget, work/personnel |
@@ -98,7 +98,7 @@ How real entities map to the five nouns:
 | Email (personal Gmail) | No workspace by default. | Email body+metadata. Materializable as .eml. | Inbox item. | private + auto from folder mappings |
 | Tasks (Todoist) | Assigned manually or left floating | Often bare (no artifact) | The item IS the task | Auto from Todoist workspace mappings |
 | Calendar (Google) | Assigned manually | Meeting agenda/notes. Transcript after meeting. | Meeting event. Transitions to Meeting live session. | Auto from calendar mappings |
-| GitHub issues/PRs | Tracked in code workspace | Issue/PR content as artifact | Item in code workspace | work/tabura, topic labels |
+| GitHub issues/PRs | Tracked in code workspace | Issue/PR content as artifact | Item in code workspace | work/sloppad, topic labels |
 
 ### Inbox
 
@@ -140,7 +140,7 @@ The backend registry in `internal/web/chat_intent_fast.go` is authoritative for 
 
 ## Authoritative Live Model
 
-Tabura exposes exactly two live runtime modes:
+Sloppad exposes exactly two live runtime modes:
 
 - Dialogue
 - Meeting
@@ -149,7 +149,7 @@ Anything else is either a temporary implementation detail or a bug in naming, UX
 
 ## Control Surface Contract
 
-The canvas runtime exposes one persistent control surface: the Tabura Circle.
+The canvas runtime exposes one persistent control surface: the Sloppad Circle.
 
 - The collapsed circle shows the active tool in its center and the active live session on the outer ring.
 - Expanding the circle exposes the five interaction tools (`pointer`, `highlight`, `ink`, `text_note`, `prompt`) plus the live-session controls (`dialogue`, `meeting`) and the independent `silent` toggle.
@@ -162,9 +162,9 @@ The canvas runtime exposes one persistent control surface: the Tabura Circle.
 
 ## UI Source Of Truth
 
-Tabura uses a layered source of truth for UI behavior across web, iOS, and Android:
+Sloppad uses a layered source of truth for UI behavior across web, iOS, and Android:
 
-- Component contract: `internal/web/static/tabura-circle-contract.ts`
+- Component contract: `internal/web/static/sloppad-circle-contract.ts`
 - Interaction flows: `tests/flows/`
 - Platform target mapping: `tests/flows/targets.cjs`
 
@@ -191,7 +191,7 @@ These actions may appear in different UI contexts, but they must not change mean
 
 ## Allowed Tool Modalities
 
-Tabura may accept input through these modalities:
+Sloppad may accept input through these modalities:
 
 - tap-to-voice
 - right-click and type

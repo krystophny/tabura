@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
 func boolPtr(v bool) *bool {
@@ -39,7 +39,7 @@ func isWelcomeDocName(name string) bool {
 func shouldSkipWelcomeWalkDir(name string) bool {
 	lower := strings.ToLower(strings.TrimSpace(name))
 	switch lower {
-	case "", ".", "..", ".git", ".tabura", "node_modules":
+	case "", ".", "..", ".git", ".sloppad", "node_modules":
 		return true
 	}
 	return strings.HasPrefix(lower, ".")

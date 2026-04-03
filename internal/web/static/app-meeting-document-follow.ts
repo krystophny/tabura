@@ -150,7 +150,7 @@ export function startMeetingDocumentTracking() {
   if (viewport instanceof HTMLElement) {
     viewport.addEventListener('scroll', handleCanvasRendered, { passive: true });
   }
-  document.addEventListener('tabura:canvas-rendered', handleCanvasRendered);
+  document.addEventListener('sloppad:canvas-rendered', handleCanvasRendered);
   if (hasTrackableMeetingDocument()) {
     broadcastCurrentDocumentPosition('meeting_started', { force: true });
   }
@@ -171,5 +171,5 @@ export function stopMeetingDocumentTracking() {
   if (viewport instanceof HTMLElement) {
     viewport.removeEventListener('scroll', handleCanvasRendered);
   }
-  document.removeEventListener('tabura:canvas-rendered', handleCanvasRendered);
+  document.removeEventListener('sloppad:canvas-rendered', handleCanvasRendered);
 }

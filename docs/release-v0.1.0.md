@@ -1,12 +1,12 @@
 # Release v0.1.0
 
-> **Legal notice:** Tabura is provided "as is" and "as available" without warranties, and to the maximum extent permitted by applicable law the authors/contributors accept no liability for damages, data loss, or misuse. You are solely responsible for backups, verification, and safe operation. See [`DISCLAIMER.md`](/DISCLAIMER.md).
+> **Legal notice:** Sloppad is provided "as is" and "as available" without warranties, and to the maximum extent permitted by applicable law the authors/contributors accept no liability for damages, data loss, or misuse. You are solely responsible for backups, verification, and safe operation. See [`DISCLAIMER.md`](/DISCLAIMER.md).
 
 > Historical note: This file documents a past release. For the current runtime stack, use README.md and docs/architecture.md.
 
 ## Scope
 
-`v0.1.0` is the first minor pre-release milestone for Tabura. It consolidates the web+codex+piper runtime baseline and improves voice turn-end reliability with frontend VAD auto-stop behavior.
+`v0.1.0` is the first minor pre-release milestone for Sloppad. It consolidates the web+codex+piper runtime baseline and improves voice turn-end reliability with frontend VAD auto-stop behavior.
 
 ## Highlights
 
@@ -14,9 +14,9 @@
 
 - Simplified and hardened startup behavior for the web runtime and user service setup.
 - Clarified canonical runtime model around:
-  - `tabura-web.service`
-  - `tabura-codex-app-server.service`
-  - `tabura-piper-tts.service`
+  - `sloppad-web.service`
+  - `sloppad-codex-app-server.service`
+  - `sloppad-piper-tts.service`
 - Updated top-level docs and architecture references to reflect the consolidated baseline.
 
 ### Voice EOU and VAD Improvements
@@ -36,5 +36,5 @@
 For publication metadata, associate this release with:
 
 - release label: `v0.1.0`
-- repository: `https://github.com/krystophny/tabura`
+- repository: `https://github.com/krystophny/sloppad`
 - exact source revision: tag target commit hash

@@ -3,7 +3,7 @@ package web
 import (
 	"net/http"
 
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
 type actorCreateRequest struct {

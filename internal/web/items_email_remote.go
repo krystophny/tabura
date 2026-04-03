@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
 type emailArchiveProvider interface {

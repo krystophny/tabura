@@ -25,7 +25,7 @@ func normalizeLocalAssistantAddress(text string) string {
 		return ""
 	}
 	lower := strings.ToLower(clean)
-	for _, name := range []string{"tabura", "computer"} {
+	for _, name := range []string{"sloppad", "computer"} {
 		for _, prefix := range []string{name + " ", name + ",", name + ":", name + ";"} {
 			if strings.HasPrefix(lower, prefix) {
 				return strings.TrimSpace(clean[len(prefix):])

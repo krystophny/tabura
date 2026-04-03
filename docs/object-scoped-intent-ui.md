@@ -1,6 +1,6 @@
 # Object-Scoped Intent UI
 
-> **Legal notice:** Tabura is provided "as is" and "as available" without warranties, and to the maximum extent permitted by applicable law the authors/contributors accept no liability for damages, data loss, or misuse. You are solely responsible for backups, verification, and safe operation. See [`DISCLAIMER.md`](/DISCLAIMER.md).
+> **Legal notice:** Sloppad is provided "as is" and "as available" without warranties, and to the maximum extent permitted by applicable law the authors/contributors accept no liability for damages, data loss, or misuse. You are solely responsible for backups, verification, and safe operation. See [`DISCLAIMER.md`](/DISCLAIMER.md).
 
 ## Purpose
 
@@ -18,7 +18,7 @@ Tap (left-click) anywhere on the canvas toggles voice recording. A recording dot
 Desktop equivalents: tap to toggle voice capture, or hold `Ctrl` (300ms) for push-to-talk.
 Right-click opens a floating text input at the cursor position.
 Keyboard typing (when nothing is focused) auto-activates text input.
-Direct ink is available as an annotate-surface tool; dirty ink shows explicit submit/clear controls and saves artifacts under `.tabura/artifacts/ink/`.
+Direct ink is available as an annotate-surface tool; dirty ink shows explicit submit/clear controls and saves artifacts under `.sloppad/artifacts/ink/`.
 
 On artifact: tap or right-click captures line context prepended to the message.
 
@@ -85,7 +85,7 @@ UI behavior targets minimal redraw and low-motion interaction:
 
 ## Live Sessions
 
-Tabura exposes exactly two live session types through the hidden top edge panel:
+Sloppad exposes exactly two live session types through the hidden top edge panel:
 
 - `Dialogue`
 - `Meeting`
@@ -98,7 +98,7 @@ Shared baseline:
 - one shared browser audio/runtime owner
 - no floating on-canvas launcher
 
-`Dialogue` is for direct back-and-forth with Tabura:
+`Dialogue` is for direct back-and-forth with Sloppad:
 
 - hands-free after entry
 - lower turn-end latency

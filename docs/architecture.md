@@ -1,20 +1,20 @@
-# Tabura Architecture
+# Sloppad Architecture
 
-> **Legal notice:** Tabura is provided "as is" and "as available" without warranties, and to the maximum extent permitted by applicable law the authors/contributors accept no liability for damages, data loss, or misuse. You are solely responsible for backups, verification, and safe operation. See [`DISCLAIMER.md`](/DISCLAIMER.md).
+> **Legal notice:** Sloppad is provided "as is" and "as available" without warranties, and to the maximum extent permitted by applicable law the authors/contributors accept no liability for damages, data loss, or misuse. You are solely responsible for backups, verification, and safe operation. See [`DISCLAIMER.md`](/DISCLAIMER.md).
 
-Tabura is a Go monolithic web runtime with a split listener model:
+Sloppad is a Go monolithic web runtime with a split listener model:
 - public web/UI listener
 - local-only MCP listener
 
 Runtime stack:
-- `tabura-web.service` runs the Go monolith (`tabura server`)
-- `tabura-codex-app-server.service` runs Codex app-server
-- `tabura-piper-tts.service` runs Piper TTS API on loopback
-- `tabura-llm.service` runs the Qwen3 0.6B local coordinator on loopback (`/v1/chat/completions`)
+- `sloppad-web.service` runs the Go monolith (`sloppad server`)
+- `sloppad-codex-app-server.service` runs Codex app-server
+- `sloppad-piper-tts.service` runs Piper TTS API on loopback
+- `sloppad-llm.service` runs the Qwen3 0.6B local coordinator on loopback (`/v1/chat/completions`)
 
 ## Components
 
-- `cmd/tabura/main.go`
+- `cmd/sloppad/main.go`
   - CLI entrypoint and subcommand dispatch.
 - `internal/mcp/server.go`
   - MCP JSON-RPC methods and tool dispatch.
@@ -39,8 +39,8 @@ Runtime stack:
 
 ## Runtime Modes
 
-- `tabura mcp-server`: stdio MCP runtime
-- `tabura server`: monolithic runtime (web + local MCP listeners)
+- `sloppad mcp-server`: stdio MCP runtime
+- `sloppad server`: monolithic runtime (web + local MCP listeners)
 
 ## Local Sidecars
 
@@ -48,7 +48,7 @@ Runtime stack:
 - Piper TTS remains a separate local HTTP service on `http://127.0.0.1:8424`.
 - Intent LLM remains a separate local HTTP service on `http://127.0.0.1:8081/v1/chat/completions`.
 - Voxtype STT remains a separate local HTTP service on `http://127.0.0.1:8427/v1/audio/transcriptions`.
-- Current Tabura integration tracks voxtype branch `feature/single-daemon-openai-stt-api` from `https://github.com/peteonrails/voxtype`.
+- Current Sloppad integration tracks voxtype branch `feature/single-daemon-openai-stt-api` from `https://github.com/peteonrails/voxtype`.
 - Piper is intentionally not linked into the Go binary (`libpiper`) to avoid GPL-linked distribution coupling.
 
 ## UI Layout (Zen Canvas)
@@ -62,7 +62,7 @@ The browser UI is a full-viewport canvas with no visible chrome:
 
 ## Primary Data Flows
 
-1. MCP client calls tool on `tabura mcp-server` or the local MCP listener from `tabura server`.
+1. MCP client calls tool on `sloppad mcp-server` or the local MCP listener from `sloppad server`.
 2. Tool dispatch in `internal/mcp/server.go` resolves into adapter operations.
 3. Adapter updates session/artifact state in memory and emits events.
 4. Browser consumes websocket events: responses stream into ephemeral overlay, artifacts update the canvas in place.
@@ -73,7 +73,7 @@ Chat hook flow:
    bundle ecosystem.
 3. If any hook/API survives, it should be narrowed to explicit local
    capability-provider interop and deterministic compatibility needs.
-4. Meeting-notes follow-up planning lives in public `krystophny/tabura` issues only.
+4. Meeting-notes follow-up planning lives in public `krystophny/sloppad` issues only.
 
 ## Interaction Model
 
@@ -89,13 +89,13 @@ Chat hook flow:
 
 ## Handoff Import Flow
 
-1. Producer creates handoff payload (outside Tabura).
-2. Tabura receives `canvas_import_handoff` with `handoff_id`.
-3. Tabura peeks/consumes producer handoff payload and renders artifact.
+1. Producer creates handoff payload (outside Sloppad).
+2. Sloppad receives `canvas_import_handoff` with `handoff_id`.
+3. Sloppad peeks/consumes producer handoff payload and renders artifact.
 
 ## Current Voice Runtime and Live Sessions
 
-Tabura now exposes one `Live` entry point with two policy variants:
+Sloppad now exposes one `Live` entry point with two policy variants:
 
 - `Dialogue`
 - `Meeting`
@@ -125,7 +125,7 @@ State transitions:
 - Follow-up timeout returns to **Paused** and restarts hotword monitoring.
 
 Control surfaces:
-- The web runtime uses a single floating `#tabura-circle` for tool selection, Dialogue/Meeting activation, and the Silent toggle.
+- The web runtime uses a single floating `#sloppad-circle` for tool selection, Dialogue/Meeting activation, and the Silent toggle.
 - The top edge panel is reduced to workspace navigation and runtime summary only.
 - Configuration-heavy surfaces such as hotword/model/voice management live under `/manage` instead of the canvas shell.
 
@@ -136,21 +136,21 @@ Utterance filtering (server-side in `internal/stt/transcribe.go`):
 
 ## STT Sidecar
 
-- `tabura-stt.service` runs voxtype on loopback (`http://127.0.0.1:8427/v1/audio/transcriptions`).
+- `sloppad-stt.service` runs voxtype on loopback (`http://127.0.0.1:8427/v1/audio/transcriptions`).
 - For source builds, use voxtype branch `feature/single-daemon-openai-stt-api` until this lands in an upstream release.
 - Audio flows: browser WebSocket -> RAM buffer -> HTTP POST to sidecar -> transcript text returned.
 - No audio is persisted to disk or database. See `docs/meeting-notes-privacy.md`.
 
 ## Trust and Access Boundaries
 
-- Tabura does not require direct credentials to producer systems.
-- Producer endpoint authority remains outside Tabura.
-- Tabura stores local auth/session state in SQLite under web data dir.
+- Sloppad does not require direct credentials to producer systems.
+- Producer endpoint authority remains outside Sloppad.
+- Sloppad stores local auth/session state in SQLite under web data dir.
 - MCP routes are not mounted on the web listener and default to loopback-only bind.
 
 ## Modular Core Direction
 
-Tabura's active direction is a single public repo with ordinary modular
+Sloppad's active direction is a single public repo with ordinary modular
 packages under `internal/`. Product behavior should live in public core code,
 not a private repo and not an extension/plugin bundle system.
 

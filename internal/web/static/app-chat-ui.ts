@@ -16,7 +16,7 @@ const sendChatWsJSON = (...args) => refs.sendChatWsJSON(...args);
 const parseOptionalBoolean = (...args) => refs.parseOptionalBoolean(...args);
 const updateRuntimePreferences = (...args) => refs.updateRuntimePreferences(...args);
 
-const MATH_SEGMENT_TOKEN_PREFIX = '@@TABURA_CHAT_MATH_SEGMENT_';
+const MATH_SEGMENT_TOKEN_PREFIX = '@@SLOPPAD_CHAT_MATH_SEGMENT_';
 let localMessageSeq = 0;
 const renderer = new marked.Renderer();
 renderer.code = ({ text, lang }) => {

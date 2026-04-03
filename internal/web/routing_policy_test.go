@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/krystophny/tabura/internal/modelprofile"
+	"github.com/krystophny/sloppad/internal/modelprofile"
 )
 
 func TestParseTurnRoutingDirectivesDefaultsToLocal(t *testing.T) {

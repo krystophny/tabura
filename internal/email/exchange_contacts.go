@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/krystophny/tabura/internal/providerdata"
+	"github.com/krystophny/sloppad/internal/providerdata"
 )
 
 type exchangeContactListResponse struct {

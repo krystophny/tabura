@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/krystophny/tabura/internal/stt"
+	"github.com/krystophny/sloppad/internal/stt"
 )
 
 const sttConfigStateKey = "stt_config"

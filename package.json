@@ -1,5 +1,5 @@
 {
-  "name": "tabura-e2e",
+  "name": "sloppad-e2e",
   "private": true,
   "scripts": {
     "build:frontend": "node ./scripts/build-frontend.mjs",

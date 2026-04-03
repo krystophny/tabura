@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestTaburaAndroidProjectIncludesExpectedFiles(t *testing.T) {
+func TestSloppadAndroidProjectIncludesExpectedFiles(t *testing.T) {
 	projectRoot, err := filepath.Abs(".")
 	if err != nil {
 		t.Fatalf("Abs: %v", err)
@@ -18,24 +18,24 @@ func TestTaburaAndroidProjectIncludesExpectedFiles(t *testing.T) {
 		"gradle.properties",
 		filepath.Join("app", "build.gradle.kts"),
 		filepath.Join("app", "src", "main", "AndroidManifest.xml"),
-		filepath.Join("app", "src", "main", "kotlin", "com", "tabura", "android", "MainActivity.kt"),
-		filepath.Join("app", "src", "main", "kotlin", "com", "tabura", "android", "TaburaAppModel.kt"),
-		filepath.Join("app", "src", "main", "kotlin", "com", "tabura", "android", "TaburaAudioCaptureService.kt"),
-		filepath.Join("app", "src", "main", "kotlin", "com", "tabura", "android", "TaburaBooxDevice.kt"),
-		filepath.Join("app", "src", "main", "kotlin", "com", "tabura", "android", "TaburaBooxInkSurfaceView.kt"),
-		filepath.Join("app", "src", "main", "kotlin", "com", "tabura", "android", "TaburaCanvasTransport.kt"),
-		filepath.Join("app", "src", "main", "kotlin", "com", "tabura", "android", "TaburaCanvasWebView.kt"),
-		filepath.Join("app", "src", "main", "kotlin", "com", "tabura", "android", "TaburaChatTransport.kt"),
-		filepath.Join("app", "src", "main", "kotlin", "com", "tabura", "android", "TaburaInkSurfaceView.kt"),
-		filepath.Join("app", "src", "main", "kotlin", "com", "tabura", "android", "TaburaModels.kt"),
-		filepath.Join("app", "src", "main", "kotlin", "com", "tabura", "android", "TaburaServerDiscovery.kt"),
+		filepath.Join("app", "src", "main", "kotlin", "com", "sloppad", "android", "MainActivity.kt"),
+		filepath.Join("app", "src", "main", "kotlin", "com", "sloppad", "android", "SloppadAppModel.kt"),
+		filepath.Join("app", "src", "main", "kotlin", "com", "sloppad", "android", "SloppadAudioCaptureService.kt"),
+		filepath.Join("app", "src", "main", "kotlin", "com", "sloppad", "android", "SloppadBooxDevice.kt"),
+		filepath.Join("app", "src", "main", "kotlin", "com", "sloppad", "android", "SloppadBooxInkSurfaceView.kt"),
+		filepath.Join("app", "src", "main", "kotlin", "com", "sloppad", "android", "SloppadCanvasTransport.kt"),
+		filepath.Join("app", "src", "main", "kotlin", "com", "sloppad", "android", "SloppadCanvasWebView.kt"),
+		filepath.Join("app", "src", "main", "kotlin", "com", "sloppad", "android", "SloppadChatTransport.kt"),
+		filepath.Join("app", "src", "main", "kotlin", "com", "sloppad", "android", "SloppadInkSurfaceView.kt"),
+		filepath.Join("app", "src", "main", "kotlin", "com", "sloppad", "android", "SloppadModels.kt"),
+		filepath.Join("app", "src", "main", "kotlin", "com", "sloppad", "android", "SloppadServerDiscovery.kt"),
 		filepath.Join("flow-contracts", "build.gradle.kts"),
 		filepath.Join("flow-contracts", "settings.gradle.kts"),
-		filepath.Join("flow-contracts", "src", "test", "kotlin", "com", "tabura", "android", "flow", "FlowFixture.kt"),
-		filepath.Join("flow-contracts", "src", "test", "kotlin", "com", "tabura", "android", "flow", "FlowRunner.kt"),
-		filepath.Join("flow-contracts", "src", "test", "kotlin", "com", "tabura", "android", "flow", "FlowContractTest.kt"),
+		filepath.Join("flow-contracts", "src", "test", "kotlin", "com", "sloppad", "android", "flow", "FlowFixture.kt"),
+		filepath.Join("flow-contracts", "src", "test", "kotlin", "com", "sloppad", "android", "flow", "FlowRunner.kt"),
+		filepath.Join("flow-contracts", "src", "test", "kotlin", "com", "sloppad", "android", "flow", "FlowContractTest.kt"),
 		filepath.Join("flow-contracts", "src", "test", "resources", "flow-fixtures.json"),
-		filepath.Join("app", "src", "test", "kotlin", "com", "tabura", "android", "TaburaDialogueModeTest.kt"),
+		filepath.Join("app", "src", "test", "kotlin", "com", "sloppad", "android", "SloppadDialogueModeTest.kt"),
 		filepath.Join("app", "src", "main", "res", "values", "strings.xml"),
 		filepath.Join("app", "src", "main", "res", "values", "themes.xml"),
 	}
@@ -47,7 +47,7 @@ func TestTaburaAndroidProjectIncludesExpectedFiles(t *testing.T) {
 	}
 }
 
-func TestTaburaAndroidManifestDeclaresMobileCapabilities(t *testing.T) {
+func TestSloppadAndroidManifestDeclaresMobileCapabilities(t *testing.T) {
 	projectRoot, err := filepath.Abs(".")
 	if err != nil {
 		t.Fatalf("Abs: %v", err)
@@ -63,7 +63,7 @@ func TestTaburaAndroidManifestDeclaresMobileCapabilities(t *testing.T) {
 		"android.permission.RECORD_AUDIO",
 		"android.permission.WAKE_LOCK",
 		"android:usesCleartextTraffic=\"true\"",
-		"android:name=\".TaburaAudioCaptureService\"",
+		"android:name=\".SloppadAudioCaptureService\"",
 		"android:foregroundServiceType=\"microphone\"",
 	}
 	for _, snippet := range required {
@@ -73,7 +73,7 @@ func TestTaburaAndroidManifestDeclaresMobileCapabilities(t *testing.T) {
 	}
 }
 
-func TestTaburaAndroidBuildIncludesRealtimeInkStack(t *testing.T) {
+func TestSloppadAndroidBuildIncludesRealtimeInkStack(t *testing.T) {
 	projectRoot, err := filepath.Abs(".")
 	if err != nil {
 		t.Fatalf("Abs: %v", err)
@@ -102,7 +102,7 @@ func TestTaburaAndroidBuildIncludesRealtimeInkStack(t *testing.T) {
 	}
 }
 
-func TestTaburaAndroidBuildIncludesBooxRepository(t *testing.T) {
+func TestSloppadAndroidBuildIncludesBooxRepository(t *testing.T) {
 	projectRoot, err := filepath.Abs(".")
 	if err != nil {
 		t.Fatalf("Abs: %v", err)
@@ -117,7 +117,7 @@ func TestTaburaAndroidBuildIncludesBooxRepository(t *testing.T) {
 	}
 }
 
-func TestTaburaAndroidSourcesCoverThinClientResponsibilities(t *testing.T) {
+func TestSloppadAndroidSourcesCoverThinClientResponsibilities(t *testing.T) {
 	projectRoot, err := filepath.Abs(".")
 	if err != nil {
 		t.Fatalf("Abs: %v", err)
@@ -127,39 +127,39 @@ func TestTaburaAndroidSourcesCoverThinClientResponsibilities(t *testing.T) {
 		snippets []string
 	}{
 		{
-			relative: filepath.Join("app", "src", "main", "kotlin", "com", "tabura", "android", "MainActivity.kt"),
+			relative: filepath.Join("app", "src", "main", "kotlin", "com", "sloppad", "android", "MainActivity.kt"),
 			snippets: []string{"BlackScreenDialogueSurface", "FLAG_KEEP_SCREEN_ON", "Start Dialogue", "Exit Dialogue"},
 		},
 		{
-			relative: filepath.Join("app", "src", "main", "kotlin", "com", "tabura", "android", "TaburaServerDiscovery.kt"),
-			snippets: []string{"NsdManager", "_tabura._tcp."},
+			relative: filepath.Join("app", "src", "main", "kotlin", "com", "sloppad", "android", "SloppadServerDiscovery.kt"),
+			snippets: []string{"NsdManager", "_sloppad._tcp."},
 		},
 		{
-			relative: filepath.Join("app", "src", "main", "kotlin", "com", "tabura", "android", "TaburaChatTransport.kt"),
+			relative: filepath.Join("app", "src", "main", "kotlin", "com", "sloppad", "android", "SloppadChatTransport.kt"),
 			snippets: []string{"WebSocket", "chat/$sessionId"},
 		},
 		{
-			relative: filepath.Join("app", "src", "main", "kotlin", "com", "tabura", "android", "TaburaCanvasTransport.kt"),
+			relative: filepath.Join("app", "src", "main", "kotlin", "com", "sloppad", "android", "SloppadCanvasTransport.kt"),
 			snippets: []string{"canvas/$sessionId", "snapshot"},
 		},
 		{
-			relative: filepath.Join("app", "src", "main", "kotlin", "com", "tabura", "android", "TaburaAudioCaptureService.kt"),
+			relative: filepath.Join("app", "src", "main", "kotlin", "com", "sloppad", "android", "SloppadAudioCaptureService.kt"),
 			snippets: []string{"AudioRecord", "startForeground", "VOICE_RECOGNITION"},
 		},
 		{
-			relative: filepath.Join("app", "src", "main", "kotlin", "com", "tabura", "android", "TaburaInkSurfaceView.kt"),
-			snippets: []string{"InProgressStrokesView", "MotionEventPredictor", "TaburaInkStroke"},
+			relative: filepath.Join("app", "src", "main", "kotlin", "com", "sloppad", "android", "SloppadInkSurfaceView.kt"),
+			snippets: []string{"InProgressStrokesView", "MotionEventPredictor", "SloppadInkStroke"},
 		},
 		{
-			relative: filepath.Join("app", "src", "main", "kotlin", "com", "tabura", "android", "TaburaModels.kt"),
-			snippets: []string{"ink_stroke", "audio_pcm", "TaburaDialogueModePresentation", "Tap to stop recording"},
+			relative: filepath.Join("app", "src", "main", "kotlin", "com", "sloppad", "android", "SloppadModels.kt"),
+			snippets: []string{"ink_stroke", "audio_pcm", "SloppadDialogueModePresentation", "Tap to stop recording"},
 		},
 		{
-			relative: filepath.Join("app", "src", "main", "kotlin", "com", "tabura", "android", "TaburaCanvasWebView.kt"),
+			relative: filepath.Join("app", "src", "main", "kotlin", "com", "sloppad", "android", "SloppadCanvasWebView.kt"),
 			snippets: []string{"WebView", "loadDataWithBaseURL", "body.eink-display", "scroll-behavior: auto !important"},
 		},
 		{
-			relative: filepath.Join("app", "src", "main", "kotlin", "com", "tabura", "android", "TaburaBooxDevice.kt"),
+			relative: filepath.Join("app", "src", "main", "kotlin", "com", "sloppad", "android", "SloppadBooxDevice.kt"),
 			snippets: []string{
 				"Build.MANUFACTURER.lowercase() == \"onyx\"",
 				"setViewDefaultUpdateMode",
@@ -168,7 +168,7 @@ func TestTaburaAndroidSourcesCoverThinClientResponsibilities(t *testing.T) {
 			},
 		},
 		{
-			relative: filepath.Join("app", "src", "main", "kotlin", "com", "tabura", "android", "TaburaBooxInkSurfaceView.kt"),
+			relative: filepath.Join("app", "src", "main", "kotlin", "com", "sloppad", "android", "SloppadBooxInkSurfaceView.kt"),
 			snippets: []string{
 				"TouchHelper.create",
 				"setRawInputReaderEnable(true)",
@@ -176,7 +176,7 @@ func TestTaburaAndroidSourcesCoverThinClientResponsibilities(t *testing.T) {
 				"setRawDrawingEnabled(true)",
 				"closeRawDrawing",
 				"onRawDrawingTouchPointListReceived",
-				"TaburaInkStroke",
+				"SloppadInkStroke",
 			},
 		},
 	}

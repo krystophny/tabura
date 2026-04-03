@@ -24,8 +24,8 @@ func TestSTTConfigGetRequiresAuth(t *testing.T) {
 }
 
 func TestSTTConfigDefaultAndRoundTrip(t *testing.T) {
-	t.Setenv("TABURA_STT_ALLOWED_LANGUAGES", "en,de")
-	t.Setenv("TABURA_STT_PREVAD_ENABLED", "true")
+	t.Setenv("SLOPPAD_STT_ALLOWED_LANGUAGES", "en,de")
+	t.Setenv("SLOPPAD_STT_PREVAD_ENABLED", "true")
 	app := newAuthedTestApp(t)
 
 	rr := doAuthedJSONRequest(t, app.Router(), http.MethodGet, "/api/stt/config", nil)
@@ -92,7 +92,7 @@ func TestSTTConfigDefaultAndRoundTrip(t *testing.T) {
 }
 
 func TestSTTConfigLocalePrefersGermanFallback(t *testing.T) {
-	t.Setenv("TABURA_LOCALE", "de_AT.UTF-8")
+	t.Setenv("SLOPPAD_LOCALE", "de_AT.UTF-8")
 	app := newAuthedTestApp(t)
 
 	cfg := app.loadSTTConfig()

@@ -158,7 +158,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "tabura_runtime_bench"
+name = "sloppad_runtime_bench"
 version = "0.1.0"
 dependencies = [
  "serde",

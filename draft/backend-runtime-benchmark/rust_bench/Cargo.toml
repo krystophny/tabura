@@ -1,5 +1,5 @@
 [package]
-name = "tabura_runtime_bench"
+name = "sloppad_runtime_bench"
 version = "0.1.0"
 edition = "2024"
 

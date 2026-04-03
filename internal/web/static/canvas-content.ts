@@ -56,7 +56,7 @@ const SOURCE_LANGUAGE_BY_BASENAME = {
 };
 
 const MARKDOWN_EXTENSIONS = new Set(['md', 'markdown', 'mdown', 'mkdn', 'mkd', 'mdx']);
-const MATH_SEGMENT_TOKEN_PREFIX = '@@TABURA_MATH_SEGMENT_';
+const MATH_SEGMENT_TOKEN_PREFIX = '@@SLOPPAD_MATH_SEGMENT_';
 
 export function escapeHtml(text) {
   return String(text)
@@ -460,11 +460,11 @@ function annotateToken(token, startLine, endLine, lineMap, changedMap) {
   if (!token || typeof token !== 'object') return;
   const meta = resolveTokenSourceMeta(lineMap, changedMap, startLine, endLine);
   if (Number.isFinite(meta.sourceLine) && meta.sourceLine > 0) {
-    token.taburaSourceLine = Math.trunc(meta.sourceLine);
+    token.sloppadSourceLine = Math.trunc(meta.sourceLine);
   } else {
-    delete token.taburaSourceLine;
+    delete token.sloppadSourceLine;
   }
-  token.taburaDiffChanged = Boolean(meta.changed);
+  token.sloppadDiffChanged = Boolean(meta.changed);
 }
 
 function annotateListItems(token, listStartLine, lineMap, changedMap) {
@@ -502,10 +502,10 @@ function annotateMarkdownTokens(tokens, sourceTextRaw, lineMap, changedMap) {
 function markdownTokenAttrs(token) {
   if (!token || typeof token !== 'object') return '';
   const attrs = [];
-  if (Number.isFinite(token.taburaSourceLine) && token.taburaSourceLine > 0) {
-    attrs.push(`data-source-line="${Math.trunc(token.taburaSourceLine)}"`);
+  if (Number.isFinite(token.sloppadSourceLine) && token.sloppadSourceLine > 0) {
+    attrs.push(`data-source-line="${Math.trunc(token.sloppadSourceLine)}"`);
   }
-  if (token.taburaDiffChanged) {
+  if (token.sloppadDiffChanged) {
     attrs.push('class="md-diff-changed"');
   }
   if (attrs.length === 0) return '';

@@ -286,7 +286,7 @@ func (a *App) persistChatCanvasInkSnapshot(sessionID, raw string) string {
 	if err != nil {
 		return ""
 	}
-	dir := filepath.Join(project.RootPath, ".tabura", "artifacts", "tmp", "live-ink")
+	dir := filepath.Join(project.RootPath, ".sloppad", "artifacts", "tmp", "live-ink")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return ""
 	}

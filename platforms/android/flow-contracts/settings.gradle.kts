@@ -1,1 +1,1 @@
-rootProject.name = "tabura-android-flow-contracts"
+rootProject.name = "sloppad-android-flow-contracts"

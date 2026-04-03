@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tabura Mail Harness</title>
+  <title>Sloppad Mail Harness</title>
   <link rel="stylesheet" href="../../internal/web/static/style.css">
   <style>
     body { margin: 0; padding: 0; }
@@ -23,7 +23,7 @@
   </div>
 
   <script type="module">
-    window.__TABURA_UNDO_TIMEOUT_MS = 80;
+    window.__SLOPPAD_UNDO_TIMEOUT_MS = 80;
     const harnessMessages = [];
     const harnessState = {
       sessionId: 'local',
@@ -42,7 +42,7 @@
     const sttLog = [];
     let sttTranscript = 'hello world';
     let sttFailStop = false;
-    window._taburaApp = {
+    window._sloppadApp = {
       getState() {
         return harnessState;
       },

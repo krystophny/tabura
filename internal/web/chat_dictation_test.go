@@ -90,7 +90,7 @@ func TestChatSessionDictationLifecycle(t *testing.T) {
 	appendPayload := decodeJSONResponse(t, appendResp)
 	dictation = appendPayload["dictation"].(map[string]any)
 	scratchPath := strings.TrimSpace(dictation["scratch_path"].(string))
-	if !strings.HasPrefix(scratchPath, ".tabura/artifacts/tmp/") {
+	if !strings.HasPrefix(scratchPath, ".sloppad/artifacts/tmp/") {
 		t.Fatalf("scratch_path = %q", scratchPath)
 	}
 	if !strings.Contains(strings.TrimSpace(dictation["draft_text"].(string)), "# Review Comment Draft") {

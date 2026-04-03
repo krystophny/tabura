@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/krystophny/tabura/internal/providerdata"
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/providerdata"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
 func GoogleCalendarAccounts(st *store.Store) ([]store.ExternalAccount, error) {

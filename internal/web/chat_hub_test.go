@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/krystophny/tabura/internal/modelprofile"
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/modelprofile"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
 func setupMockIntentLLMServer(t *testing.T, status int, content string) *httptest.Server {
@@ -439,7 +439,7 @@ func TestOpenFileCanvasRendersPresentationAsPDF(t *testing.T) {
 		t.Fatal("expected payload")
 	}
 	renderedPath := strings.TrimSpace(strFromAny(payload["rendered_path"]))
-	if !strings.HasPrefix(renderedPath, ".tabura/artifacts/presentations/") {
+	if !strings.HasPrefix(renderedPath, ".sloppad/artifacts/presentations/") {
 		t.Fatalf("rendered_path = %q", renderedPath)
 	}
 	renderedAbs := filepath.Join(project.RootPath, filepath.FromSlash(renderedPath))

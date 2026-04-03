@@ -15,7 +15,7 @@ let runtimeReloadTimer = null;
 let runtimeReloadInFlight = false;
 let runtimeReloadRequested = false;
 let suppressClickUntil = 0;
-const MATH_SEGMENT_TOKEN_PREFIX = '@@TABURA_CHAT_MATH_SEGMENT_';
+const MATH_SEGMENT_TOKEN_PREFIX = '@@SLOPPAD_CHAT_MATH_SEGMENT_';
 const renderEdgeTopModelButtons = (...args) => refs.renderEdgeTopModelButtons(...args);
 const updateAssistantActivityIndicator = (...args) => refs.updateAssistantActivityIndicator(...args);
 const beginConversationVoiceCapture = (...args) => refs.beginConversationVoiceCapture(...args);
@@ -379,7 +379,7 @@ export function restoreRuntimeReloadContext() {
 export function forceUiHardReload(reason = 'deployment') {
   persistRuntimeReloadContext(reason);
   const url = new URL(window.location.href);
-  url.searchParams.set('__tabura_reload', Date.now().toString(36));
+  url.searchParams.set('__sloppad_reload', Date.now().toString(36));
   window.location.replace(url.toString());
 }
 
@@ -508,7 +508,7 @@ export function showDisclaimerModal() {
     root.innerHTML = `
       <div class=\"liability-modal-card\" role=\"dialog\" aria-modal=\"true\" aria-label=\"Liability notice\">
         <h2>Liability Notice</h2>
-        <p>Tabura is provided as-is. You are solely responsible for backups, verification, and safe operation.</p>
+        <p>Sloppad is provided as-is. You are solely responsible for backups, verification, and safe operation.</p>
         <p>No warranties or liability are assumed to the maximum extent permitted by applicable law.</p>
         <button id=\"liability-ack-btn\" type=\"button\" class=\"edge-project-btn\">I understand</button>
       </div>
@@ -801,8 +801,8 @@ export function hasVisibleRealCanvasArtifact() {
     .replace(/^\.\//, '')
     .toLowerCase();
   if (!ref) return false;
-  return !ref.startsWith('.tabura/artifacts/tmp/')
-    && !ref.startsWith('tabura/artifacts/tmp/');
+  return !ref.startsWith('.sloppad/artifacts/tmp/')
+    && !ref.startsWith('sloppad/artifacts/tmp/');
 }
 
 export function shouldShowCompanionIdleSurface() {

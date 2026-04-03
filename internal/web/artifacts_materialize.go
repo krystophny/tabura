@@ -13,7 +13,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
 type artifactMaterializeRequest struct {
@@ -116,7 +116,7 @@ func resolveArtifactMaterializePath(workspace store.Workspace, artifact store.Ar
 		absolutePath = filepath.Clean(strings.TrimSpace(*artifact.RefPath))
 	default:
 		name := fmt.Sprintf("%s-%d%s", artifactMaterializeStem(artifact), artifact.ID, extension)
-		absolutePath = filepath.Join(root, ".tabura", "artifacts", "materialized", name)
+		absolutePath = filepath.Join(root, ".sloppad", "artifacts", "materialized", name)
 	}
 	relPath, err := filepath.Rel(root, absolutePath)
 	if err != nil {
@@ -203,7 +203,7 @@ func renderMaterializedEmailArtifact(artifact store.Artifact) string {
 		lines = append(lines, "Date: "+date)
 	}
 	if labels != "" {
-		lines = append(lines, "X-Tabura-Contexts: "+labels)
+		lines = append(lines, "X-Sloppad-Contexts: "+labels)
 	}
 	lines = append(lines, "MIME-Version: 1.0", "Content-Type: text/plain; charset=utf-8", "", body)
 	return strings.Join(lines, "\r\n")

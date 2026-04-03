@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	tabcalendar "github.com/krystophny/tabura/internal/calendar"
-	"github.com/krystophny/tabura/internal/providerdata"
-	"github.com/krystophny/tabura/internal/store"
+	tabcalendar "github.com/krystophny/sloppad/internal/calendar"
+	"github.com/krystophny/sloppad/internal/providerdata"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
 type fakePushGateway struct {

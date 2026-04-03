@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 async function waitWsReady(page: Page) {
   await page.waitForFunction(() => {
-    const app = (window as any)._taburaApp;
+    const app = (window as any)._sloppadApp;
     if (typeof app?.getState !== 'function') return false;
     const s = app.getState();
     return s.chatWs && s.chatWs.readyState === (window as any).WebSocket.OPEN;
@@ -125,7 +125,7 @@ test.describe('bug report flow', () => {
     await waitReady(page);
 
     await page.evaluate(() => {
-      (window as any).__taburaBugReportTestEnv = {
+      (window as any).__sloppadBugReportTestEnv = {
         issueMode: 'local',
       };
     });
@@ -170,7 +170,7 @@ test.describe('bug report flow', () => {
         sphere: 'private',
         artifact_id: 0,
         source: 'github',
-        source_ref: 'krystophny/tabura#77',
+        source_ref: 'krystophny/sloppad#77',
         artifact_title: 'Bug report: Harness repro',
         artifact_kind: 'github_issue',
         actor_name: '',
@@ -252,7 +252,7 @@ test.describe('bug report flow', () => {
     await waitReady(page);
 
     await page.evaluate(() => {
-      (window as any).__taburaBugReportTestEnv = {};
+      (window as any).__sloppadBugReportTestEnv = {};
     });
 
     await openTopPanel(page);
@@ -290,7 +290,7 @@ test.describe('bug report flow', () => {
     await waitReady(page);
 
     await page.evaluate(() => {
-      const app = (window as any)._taburaApp;
+      const app = (window as any)._sloppadApp;
       const state = app?.getState?.();
       if (state) {
         state.livePolicy = 'meeting';
@@ -304,7 +304,7 @@ test.describe('bug report flow', () => {
         active_sessions: 1,
         active_session_id: 'psess-harness-001',
         decision_summary: {
-          pickup: 'Not picked up because the latest request did not address Tabura and did not match the tracked speaker.',
+          pickup: 'Not picked up because the latest request did not address Sloppad and did not match the tracked speaker.',
           overlap: 'Wrong-speaker overlap is suppressed while another speaker owns the pending turn.',
         },
         directed_speech_gate: {

@@ -68,7 +68,7 @@ func TestStorePushRegistrationCRUD(t *testing.T) {
 }
 
 func TestStoreMigratesPushRegistrationsOnExistingDatabase(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "tabura.db")
+	dbPath := filepath.Join(t.TempDir(), "sloppad.db")
 	legacy := openLegacySQLiteDB(t, dbPath, `
 CREATE TABLE workspaces (
   id INTEGER PRIMARY KEY,

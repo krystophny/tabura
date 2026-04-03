@@ -303,8 +303,8 @@ export function isTemporaryCanvasArtifactTitle(title) {
     .replaceAll('\\', '/')
     .replace(/^\.\//, '')
     .toLowerCase();
-  return normalized.startsWith('.tabura/artifacts/tmp/')
-    || normalized.startsWith('tabura/artifacts/tmp/');
+  return normalized.startsWith('.sloppad/artifacts/tmp/')
+    || normalized.startsWith('sloppad/artifacts/tmp/');
 }
 
 export function isRealCanvasArtifactEvent(payload) {

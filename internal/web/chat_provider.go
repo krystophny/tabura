@@ -4,8 +4,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/krystophny/tabura/internal/modelprofile"
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/modelprofile"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
 const (

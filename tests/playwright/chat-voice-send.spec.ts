@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { setLiveMode, stopLiveMode } from './tabura-circle-helpers';
+import { setLiveMode, stopLiveMode } from './sloppad-circle-helpers';
 
 type HarnessLogEntry = {
   type: string;
@@ -21,7 +21,7 @@ async function clearLog(page: Page) {
 
 async function injectChatEvent(page: Page, payload: Record<string, unknown>) {
   await page.evaluate((payloadData) => {
-    const app = (window as any)._taburaApp;
+    const app = (window as any)._sloppadApp;
     const activeChatWs = app?.getState?.().chatWs;
     if (activeChatWs && typeof activeChatWs.injectEvent === 'function') {
       activeChatWs.injectEvent(payloadData);
@@ -130,7 +130,7 @@ async function renderTestArtifact(page: Page, text = 'Line one\nLine two\nLine t
       ct.style.display = '';
       ct.classList.add('is-active');
     }
-    const app = (window as any)._taburaApp;
+    const app = (window as any)._sloppadApp;
     if (app?.getState) app.getState().hasArtifact = true;
   });
 }
@@ -196,7 +196,7 @@ async function renderPdfArtifactMock(page: Page) {
     surface.appendChild(pagesHost);
     pane.appendChild(surface);
 
-    const app = (window as any)._taburaApp;
+    const app = (window as any)._sloppadApp;
     if (app?.getState) app.getState().hasArtifact = true;
   });
 }
@@ -231,7 +231,7 @@ test.beforeEach(async ({ page }) => {
   page.on('pageerror', (err) => console.log(`PAGE ERROR: ${err.message}`));
   await page.goto('/tests/playwright/harness.html');
   await page.waitForFunction(() => {
-    const app = (window as any)._taburaApp;
+    const app = (window as any)._sloppadApp;
     if (typeof app?.getState !== 'function') return false;
     const s = app.getState();
     return s.chatWs && s.chatWs.readyState === (window as any).WebSocket.OPEN;
@@ -664,13 +664,13 @@ test('Control long-press on PDF sends page context from cursor position', async 
   expect(anchor).toBeTruthy();
   expect(anchor.page).toBe(2);
   expect(anchor.title).toBe('test.pdf');
-  await expect.poll(async () => page.evaluate(() => (window as any)._taburaApp?.getState?.().hasArtifact)).toBe(true);
+  await expect.poll(async () => page.evaluate(() => (window as any)._sloppadApp?.getState?.().hasArtifact)).toBe(true);
 
   await page.mouse.move(x, y);
   await page.keyboard.down('Control');
   await page.waitForTimeout(300);
   await waitForLogEntry(page, 'recorder', 'start');
-  await expect.poll(async () => page.evaluate(() => (window as any)._taburaApp?.getState?.().hasArtifact)).toBe(true);
+  await expect.poll(async () => page.evaluate(() => (window as any)._sloppadApp?.getState?.().hasArtifact)).toBe(true);
   const captureAnchor = await page.evaluate(async () => {
     const ui = await import('../../internal/web/static/ui.js');
     return ui.getInputAnchor();
@@ -856,7 +856,7 @@ test('focus refreshes cached mic stream before next recording', async ({ page })
   await clearLog(page);
 
   await page.evaluate(async () => {
-    await (window as any)._taburaApp.acquireMicStream();
+    await (window as any)._sloppadApp.acquireMicStream();
   });
 
   await clearLog(page);
@@ -865,7 +865,7 @@ test('focus refreshes cached mic stream before next recording', async ({ page })
   });
 
   await page.evaluate(async () => {
-    await (window as any)._taburaApp.acquireMicStream();
+    await (window as any)._sloppadApp.acquireMicStream();
   });
 
   const log = await getLog(page);
@@ -876,7 +876,7 @@ test('pageshow refreshes cached mic stream before next recording', async ({ page
   await clearLog(page);
 
   await page.evaluate(async () => {
-    await (window as any)._taburaApp.acquireMicStream();
+    await (window as any)._sloppadApp.acquireMicStream();
   });
 
   await clearLog(page);
@@ -885,7 +885,7 @@ test('pageshow refreshes cached mic stream before next recording', async ({ page
   });
 
   await page.evaluate(async () => {
-    await (window as any)._taburaApp.acquireMicStream();
+    await (window as any)._sloppadApp.acquireMicStream();
   });
 
   const log = await getLog(page);
@@ -896,7 +896,7 @@ test('ended mic track invalidates cached stream before next recording', async ({
   await clearLog(page);
 
   await page.evaluate(async () => {
-    await (window as any)._taburaApp.acquireMicStream();
+    await (window as any)._sloppadApp.acquireMicStream();
   });
 
   await clearLog(page);
@@ -906,7 +906,7 @@ test('ended mic track invalidates cached stream before next recording', async ({
   });
 
   await page.evaluate(async () => {
-    await (window as any)._taburaApp.acquireMicStream();
+    await (window as any)._sloppadApp.acquireMicStream();
   });
 
   const log = await getLog(page);
@@ -957,7 +957,7 @@ test.describe('safari-recorder=broken', () => {
     });
     await page.goto('/tests/playwright/harness.html?safari-recorder=broken');
     await page.waitForFunction(() => {
-      const app = (window as any)._taburaApp;
+      const app = (window as any)._sloppadApp;
       if (typeof app?.getState !== 'function') return false;
       const s = app.getState();
       return s.chatWs && s.chatWs.readyState === (window as any).WebSocket.OPEN;

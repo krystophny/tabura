@@ -3,7 +3,7 @@ package web
 import (
 	"strings"
 
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
 func chatMessageText(msg store.ChatMessage) string {

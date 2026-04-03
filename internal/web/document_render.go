@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/krystophny/tabura/internal/document"
+	"github.com/krystophny/sloppad/internal/document"
 )
 
 const documentRenderTimeout = 90 * time.Second

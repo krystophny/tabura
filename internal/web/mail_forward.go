@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/krystophny/tabura/internal/email"
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/email"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
 type mailDraftForwardRequest struct {

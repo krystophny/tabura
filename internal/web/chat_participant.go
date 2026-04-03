@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/krystophny/tabura/internal/store"
-	"github.com/krystophny/tabura/internal/stt"
+	"github.com/krystophny/sloppad/internal/store"
+	"github.com/krystophny/sloppad/internal/stt"
 )
 
 const participantMaxBufBytes = 10 * 1024 * 1024

@@ -16,7 +16,7 @@ async function clearLog(page: Page) {
 
 async function injectChatEvent(page: Page, payload: Record<string, unknown>) {
   await page.evaluate((eventPayload) => {
-    const app = (window as any)._taburaApp;
+    const app = (window as any)._sloppadApp;
     const activeChatWs = app?.getState?.().chatWs;
     if (activeChatWs && typeof activeChatWs.injectEvent === 'function') {
       activeChatWs.injectEvent(eventPayload);
@@ -73,7 +73,7 @@ async function seedTwoProjects(page: Page) {
 
 async function refreshWorkspaceRuntimeState(page: Page) {
   await page.evaluate(async () => {
-    const app = (window as any)._taburaApp;
+    const app = (window as any)._sloppadApp;
     await app?.fetchProjects?.();
   });
 }
@@ -81,7 +81,7 @@ async function refreshWorkspaceRuntimeState(page: Page) {
 test.beforeEach(async ({ page }) => {
   await page.goto('/tests/playwright/harness.html');
   await page.waitForFunction(() => {
-    const app = (window as any)._taburaApp;
+    const app = (window as any)._sloppadApp;
     if (typeof app?.getState !== 'function') return false;
     const s = app.getState();
     return s.chatWs && s.chatWs.readyState === (window as any).WebSocket.OPEN;

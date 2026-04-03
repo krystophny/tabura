@@ -131,7 +131,7 @@ test.describe('local llm conversation flows @local-only', () => {
     const before = await page.locator('#chat-history .chat-message.chat-assistant:not(.is-pending)').count();
     await submitPrompt(page, 'Display the README on canvas.');
     await waitForAssistantReply(page, before, '', 120_000);
-    await expect(canvasArtifactBody(page)).toContainText('Tabura', { timeout: 120_000 });
+    await expect(canvasArtifactBody(page)).toContainText('Sloppad', { timeout: 120_000 });
   });
 
   test('meeting typed flow creates German canvas flowchart content', async ({ page }) => {

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TMP_ROOT="$(mktemp -d -t tabura-e2e-ci-XXXXXX)"
+TMP_ROOT="$(mktemp -d -t sloppad-e2e-ci-XXXXXX)"
 DATA_DIR="${TMP_ROOT}/data"
 PROJECT_DIR="${E2E_PROJECT_DIR:-$ROOT_DIR}"
 WEB_HOST="${E2E_WEB_HOST:-127.0.0.1}"
@@ -10,7 +10,7 @@ WEB_PORT="${E2E_WEB_PORT:-8420}"
 MCP_HOST="${E2E_MCP_HOST:-127.0.0.1}"
 MCP_PORT="${E2E_MCP_PORT:-9420}"
 LOG_FILE="${TMP_ROOT}/web.log"
-PASSWORD="${TABURA_TEST_PASSWORD:-tabura-test-password}"
+PASSWORD="${SLOPPAD_TEST_PASSWORD:-sloppad-test-password}"
 
 cleanup() {
   if [[ -n "${SERVER_PID:-}" ]] && kill -0 "${SERVER_PID}" 2>/dev/null; then
@@ -23,7 +23,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 cd "${ROOT_DIR}"
-go run ./cmd/tabura server \
+go run ./cmd/sloppad server \
   --project-dir "${PROJECT_DIR}" \
   --data-dir "${DATA_DIR}" \
   --web-host "${WEB_HOST}" \
@@ -44,6 +44,6 @@ for _ in $(seq 1 160); do
 done
 
 curl -fsS "http://${WEB_HOST}:${WEB_PORT}/api/setup" >/dev/null
-printf '%s\n' "${PASSWORD}" | go run ./cmd/tabura set-password --data-dir "${DATA_DIR}" >/dev/null
+printf '%s\n' "${PASSWORD}" | go run ./cmd/sloppad set-password --data-dir "${DATA_DIR}" >/dev/null
 
 wait "${SERVER_PID}"

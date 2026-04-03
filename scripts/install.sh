@@ -7,11 +7,11 @@ if [ -f "${SCRIPT_ROOT}/lib/llama.sh" ]; then
     # shellcheck source=scripts/lib/llama.sh
     source "${SCRIPT_ROOT}/lib/llama.sh"
 else
-    TABURA_LLAMA_LAST_ERROR=""
-    tabura_llama_prepend_library_dirs() { :; }
-    tabura_find_llama_server() {
+    SLOPPAD_LLAMA_LAST_ERROR=""
+    sloppad_llama_prepend_library_dirs() { :; }
+    sloppad_find_llama_server() {
         local candidate
-        TABURA_LLAMA_LAST_ERROR=""
+        SLOPPAD_LLAMA_LAST_ERROR=""
         if [ -n "${LLAMA_SERVER_BIN:-}" ]; then
             if [ -x "$LLAMA_SERVER_BIN" ]; then
                 printf '%s' "$LLAMA_SERVER_BIN"
@@ -31,7 +31,7 @@ else
             printf '%s' "$candidate"
             return 0
         fi
-        TABURA_LLAMA_LAST_ERROR="llama-server not found"
+        SLOPPAD_LLAMA_LAST_ERROR="llama-server not found"
         return 1
     }
 fi
@@ -39,7 +39,7 @@ if [ -f "${SCRIPT_ROOT}/lib/python.sh" ]; then
     # shellcheck source=scripts/lib/python.sh
     source "${SCRIPT_ROOT}/lib/python.sh"
 else
-    tabura_python_meets_min_version() {
+    sloppad_python_meets_min_version() {
         local candidate="$1"
         local min_major="$2"
         local min_minor="$3"
@@ -55,15 +55,15 @@ raise SystemExit(0 if sys.version_info >= (min_major, min_minor) else 1)
 PY
     }
 
-    tabura_find_python3() {
+    sloppad_find_python3() {
         local min_major="${1:-3}"
         local min_minor="${2:-10}"
         local candidate resolved
         local -a candidates=()
         local seen=""
 
-        if [ -n "${TABURA_PYTHON3_BIN:-}" ]; then
-            candidates+=("${TABURA_PYTHON3_BIN}")
+        if [ -n "${SLOPPAD_PYTHON3_BIN:-}" ]; then
+            candidates+=("${SLOPPAD_PYTHON3_BIN}")
         fi
         if resolved="$(command -v python3 2>/dev/null)"; then
             candidates+=("$resolved")
@@ -79,7 +79,7 @@ PY
                 *":$candidate:"*) continue ;;
             esac
             seen="${seen:+${seen}:}${candidate}"
-            if tabura_python_meets_min_version "$candidate" "$min_major" "$min_minor"; then
+            if sloppad_python_meets_min_version "$candidate" "$min_major" "$min_minor"; then
                 printf '%s' "$candidate"
                 return 0
             fi
@@ -87,18 +87,18 @@ PY
         return 1
     }
 fi
-REPO_OWNER="${TABURA_REPO_OWNER:-krystophny}"
-REPO_NAME="${TABURA_REPO_NAME:-tabura}"
-RELEASE_API_BASE="${TABURA_RELEASE_API_BASE:-https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases}"
-ASSUME_YES="${TABURA_ASSUME_YES:-0}"
-DRY_RUN="${TABURA_INSTALL_DRY_RUN:-0}"
-SKIP_BROWSER="${TABURA_INSTALL_SKIP_BROWSER:-0}"
-SKIP_STT="${TABURA_INSTALL_SKIP_STT:-0}"
-SKIP_LLM="${TABURA_INSTALL_SKIP_LLM:-0}"
+REPO_OWNER="${SLOPPAD_REPO_OWNER:-krystophny}"
+REPO_NAME="${SLOPPAD_REPO_NAME:-sloppad}"
+RELEASE_API_BASE="${SLOPPAD_RELEASE_API_BASE:-https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases}"
+ASSUME_YES="${SLOPPAD_ASSUME_YES:-0}"
+DRY_RUN="${SLOPPAD_INSTALL_DRY_RUN:-0}"
+SKIP_BROWSER="${SLOPPAD_INSTALL_SKIP_BROWSER:-0}"
+SKIP_STT="${SLOPPAD_INSTALL_SKIP_STT:-0}"
+SKIP_LLM="${SLOPPAD_INSTALL_SKIP_LLM:-0}"
 REQUESTED_VERSION=""
 DO_UNINSTALL=0
-TABURA_OS=""
-TABURA_ARCH=""
+SLOPPAD_OS=""
+SLOPPAD_ARCH=""
 DATA_ROOT=""
 BIN_DIR=""
 BIN_PATH=""
@@ -121,17 +121,17 @@ LLAMA_SERVER_BIN_RESOLVED=""
 PYTHON3_BIN=""
 
 log() {
-    printf '[tabura-install] %s\n' "$*"
+    printf '[sloppad-install] %s\n' "$*"
 }
 
 fail() {
-    printf '[tabura-install] ERROR: %s\n' "$*" >&2
+    printf '[sloppad-install] ERROR: %s\n' "$*" >&2
     exit 1
 }
 
 run_cmd() {
     if [ "$DRY_RUN" = "1" ]; then
-        printf '[tabura-install] [dry-run]'
+        printf '[sloppad-install] [dry-run]'
         printf ' %q' "$@"
         printf '\n'
         return 0
@@ -142,7 +142,7 @@ run_cmd() {
 confirm_default_yes() {
     local prompt="$1"
     if [ "$ASSUME_YES" = "1" ]; then
-        log "TABURA_ASSUME_YES=1 accepted: ${prompt}"
+        log "SLOPPAD_ASSUME_YES=1 accepted: ${prompt}"
         return 0
     fi
     if [ ! -t 0 ]; then
@@ -197,12 +197,12 @@ Options:
   -h, --help           Show this help
 
 Environment overrides:
-  TABURA_INSTALL_DRY_RUN=1
-  TABURA_INSTALL_SKIP_BROWSER=1
-  TABURA_INSTALL_SKIP_STT=1
-  TABURA_INSTALL_SKIP_LLM=1
-  TABURA_INTENT_LLM_URL=<url>   Reuse an existing local LLM (skip download/service)
-  TABURA_REPO_OWNER / TABURA_REPO_NAME / TABURA_RELEASE_API_BASE
+  SLOPPAD_INSTALL_DRY_RUN=1
+  SLOPPAD_INSTALL_SKIP_BROWSER=1
+  SLOPPAD_INSTALL_SKIP_STT=1
+  SLOPPAD_INSTALL_SKIP_LLM=1
+  SLOPPAD_INTENT_LLM_URL=<url>   Reuse an existing local LLM (skip download/service)
+  SLOPPAD_REPO_OWNER / SLOPPAD_REPO_NAME / SLOPPAD_RELEASE_API_BASE
 USAGE
 }
 
@@ -249,29 +249,29 @@ resolve_platform() {
     uname_s="$(uname -s | tr '[:upper:]' '[:lower:]')"
     uname_m="$(uname -m | tr '[:upper:]' '[:lower:]')"
     case "$uname_s" in
-        linux) TABURA_OS="linux" ;;
-        darwin) TABURA_OS="darwin" ;;
+        linux) SLOPPAD_OS="linux" ;;
+        darwin) SLOPPAD_OS="darwin" ;;
         *) fail "unsupported operating system: ${uname_s}" ;;
     esac
     case "$uname_m" in
-        x86_64 | amd64) TABURA_ARCH="amd64" ;;
-        arm64 | aarch64) TABURA_ARCH="arm64" ;;
+        x86_64 | amd64) SLOPPAD_ARCH="amd64" ;;
+        arm64 | aarch64) SLOPPAD_ARCH="arm64" ;;
         *) fail "unsupported architecture: ${uname_m}" ;;
     esac
 }
 
 resolve_paths() {
     local xdg_data
-    BIN_DIR="${TABURA_BIN_DIR:-${HOME}/.local/bin}"
-    BIN_PATH="${BIN_DIR}/tabura"
-    if [ "$TABURA_OS" = "darwin" ]; then
-        DATA_ROOT="${TABURA_DATA_ROOT:-${HOME}/Library/Application Support/tabura}"
+    BIN_DIR="${SLOPPAD_BIN_DIR:-${HOME}/.local/bin}"
+    BIN_PATH="${BIN_DIR}/sloppad"
+    if [ "$SLOPPAD_OS" = "darwin" ]; then
+        DATA_ROOT="${SLOPPAD_DATA_ROOT:-${HOME}/Library/Application Support/sloppad}"
     else
         xdg_data="${XDG_DATA_HOME:-${HOME}/.local/share}"
-        DATA_ROOT="${TABURA_DATA_ROOT:-${xdg_data}/tabura}"
+        DATA_ROOT="${SLOPPAD_DATA_ROOT:-${xdg_data}/sloppad}"
     fi
-    PROJECT_DIR="${TABURA_PROJECT_DIR:-${DATA_ROOT}/project}"
-    WEB_DATA_DIR="${TABURA_WEB_DATA_DIR:-${DATA_ROOT}/web-data}"
+    PROJECT_DIR="${SLOPPAD_PROJECT_DIR:-${DATA_ROOT}/project}"
+    WEB_DATA_DIR="${SLOPPAD_WEB_DATA_DIR:-${DATA_ROOT}/web-data}"
     PIPER_DIR="${DATA_ROOT}/piper-tts"
     MODEL_DIR="${PIPER_DIR}/models"
     VENV_DIR="${PIPER_DIR}/venv"
@@ -307,7 +307,7 @@ sync_vllm_mlx_source_checkout() {
 }
 
 require_python_310() {
-    PYTHON3_BIN="$(tabura_find_python3 3 10 || true)"
+    PYTHON3_BIN="$(sloppad_find_python3 3 10 || true)"
     [ -n "$PYTHON3_BIN" ] || fail "python3 3.10+ is required"
 }
 
@@ -351,7 +351,7 @@ ensure_ffmpeg() {
     if ! confirm_default_yes "ffmpeg is missing. Attempt automatic install?"; then
         fail "ffmpeg is required"
     fi
-    if [ "$TABURA_OS" = "darwin" ]; then
+    if [ "$SLOPPAD_OS" = "darwin" ]; then
         have_cmd brew || fail "Homebrew is required to install ffmpeg on macOS"
         run_cmd brew install ffmpeg
     else
@@ -375,13 +375,13 @@ default_dry_run_release_json() {
     version="$(normalize_version "${REQUESTED_VERSION:-0.0.0-test}")"
     tag_nov="${version#v}"
     cat <<JSON
-{"tag_name":"${version}","assets":[{"name":"tabura_${tag_nov}_${TABURA_OS}_${TABURA_ARCH}.tar.gz","browser_download_url":"https://example.invalid/tabura_${tag_nov}_${TABURA_OS}_${TABURA_ARCH}.tar.gz"},{"name":"checksums.txt","browser_download_url":"https://example.invalid/checksums.txt"}]}
+{"tag_name":"${version}","assets":[{"name":"sloppad_${tag_nov}_${SLOPPAD_OS}_${SLOPPAD_ARCH}.tar.gz","browser_download_url":"https://example.invalid/sloppad_${tag_nov}_${SLOPPAD_OS}_${SLOPPAD_ARCH}.tar.gz"},{"name":"checksums.txt","browser_download_url":"https://example.invalid/checksums.txt"}]}
 JSON
 }
 
 fetch_release_json() {
-    if [ -n "${TABURA_RELEASE_JSON:-}" ]; then
-        printf '%s\n' "$TABURA_RELEASE_JSON"
+    if [ -n "${SLOPPAD_RELEASE_JSON:-}" ]; then
+        printf '%s\n' "$SLOPPAD_RELEASE_JSON"
         return
     fi
     if [ "$DRY_RUN" = "1" ]; then
@@ -394,12 +394,12 @@ fetch_release_json() {
 release_field() {
     local field="$1"
     local payload="$2"
-    TABURA_RELEASE_JSON_PAYLOAD="$payload" python3 - "$field" <<'PY'
+    SLOPPAD_RELEASE_JSON_PAYLOAD="$payload" python3 - "$field" <<'PY'
 import json
 import os
 import sys
 field = sys.argv[1]
-data = json.loads(os.environ["TABURA_RELEASE_JSON_PAYLOAD"])
+data = json.loads(os.environ["SLOPPAD_RELEASE_JSON_PAYLOAD"])
 if field == "tag_name":
     value = data.get("tag_name", "")
     if not value:
@@ -446,7 +446,7 @@ download_release_payload() {
 
     tag="$(release_field tag_name "$release_json")"
     requested="${tag#v}"
-    asset_name="tabura_${requested}_${TABURA_OS}_${TABURA_ARCH}.tar.gz"
+    asset_name="sloppad_${requested}_${SLOPPAD_OS}_${SLOPPAD_ARCH}.tar.gz"
     asset_url="$(release_field "asset:${asset_name}" "$release_json")" || fail "release missing asset ${asset_name}"
     checksums_url="$(release_field 'asset:checksums.txt' "$release_json")" || fail "release missing checksums.txt"
 
@@ -454,11 +454,11 @@ download_release_payload() {
     checksums_file="${tmpdir}/checksums.txt"
 
     if [ "$DRY_RUN" = "1" ]; then
-        cat >"${tmpdir}/tabura" <<'BIN'
+        cat >"${tmpdir}/sloppad" <<'BIN'
 #!/usr/bin/env bash
-echo "tabura dry-run binary"
+echo "sloppad dry-run binary"
 BIN
-        chmod +x "${tmpdir}/tabura"
+        chmod +x "${tmpdir}/sloppad"
         if [ -f "scripts/piper_tts_server.py" ]; then
             cp "scripts/piper_tts_server.py" "${tmpdir}/piper_tts_server.py"
         else
@@ -505,7 +505,7 @@ BIN
     fi
 
     tar -xzf "$archive_file" -C "$tmpdir"
-    [ -x "${tmpdir}/tabura" ] || fail "tabura binary missing in archive"
+    [ -x "${tmpdir}/sloppad" ] || fail "sloppad binary missing in archive"
     [ -f "${tmpdir}/scripts/piper_tts_server.py" ] || fail "scripts/piper_tts_server.py missing in archive"
     cp "${tmpdir}/scripts/piper_tts_server.py" "${tmpdir}/piper_tts_server.py"
     if [ -f "${tmpdir}/scripts/setup-local-llm.sh" ]; then
@@ -523,7 +523,7 @@ BIN
 install_binary_payload() {
     local staging_dir="$1"
     run_cmd mkdir -p "$BIN_DIR" "$SCRIPT_DIR"
-    run_cmd cp "${staging_dir}/tabura" "$BIN_PATH"
+    run_cmd cp "${staging_dir}/sloppad" "$BIN_PATH"
     run_cmd chmod +x "$BIN_PATH"
     run_cmd cp "${staging_dir}/piper_tts_server.py" "$PIPER_SERVER_SCRIPT"
     if [ -f "${staging_dir}/scripts/lib/llama.sh" ]; then
@@ -562,7 +562,7 @@ configure_codex_cli() {
     if [ -n "$REUSE_LLM_URL" ]; then
         fast_url="${REUSE_LLM_URL}/v1"
         agentic_url="${REUSE_LLM_URL}/v1"
-    elif [ "$TABURA_OS" = "darwin" ]; then
+    elif [ "$SLOPPAD_OS" = "darwin" ]; then
         fast_url="http://127.0.0.1:8081/v1"
         agentic_url="http://127.0.0.1:8081/v1"
     else
@@ -575,9 +575,9 @@ configure_codex_cli() {
         return
     fi
 
-    TABURA_CODEX_FAST_URL="$fast_url" \
-    TABURA_CODEX_AGENTIC_URL="$agentic_url" \
-    TABURA_CODEX_LOCAL_URL="$agentic_url" \
+    SLOPPAD_CODEX_FAST_URL="$fast_url" \
+    SLOPPAD_CODEX_AGENTIC_URL="$agentic_url" \
+    SLOPPAD_CODEX_LOCAL_URL="$agentic_url" \
     bash "$script_path" "http://127.0.0.1:9420/mcp" >/dev/null
 }
 
@@ -598,14 +598,14 @@ install_hotword_assets() {
         return
     fi
 
-    TABURA_WEB_DATA_DIR="$WEB_DATA_DIR" bash "$script_path"
+    SLOPPAD_WEB_DATA_DIR="$WEB_DATA_DIR" bash "$script_path"
 }
 
 piper_notice() {
     cat <<NOTICE
 === Piper TTS (GPL, runs as HTTP sidecar) ===
 Piper TTS will be installed as a local HTTP service.
-License: GPL (isolated via HTTP boundary, does not affect Tabura MIT license)
+License: GPL (isolated via HTTP boundary, does not affect Sloppad MIT license)
 Voice models: en_GB-alan-medium (MIT-compatible)
 NOTICE
 }
@@ -663,13 +663,13 @@ setup_piper_tts() {
 }
 
 ensure_llama_server() {
-    if LLAMA_SERVER_BIN_RESOLVED="$(tabura_find_llama_server)"; then
+    if LLAMA_SERVER_BIN_RESOLVED="$(sloppad_find_llama_server)"; then
         return 0
     fi
-    if [ "$TABURA_OS" = "darwin" ]; then
+    if [ "$SLOPPAD_OS" = "darwin" ]; then
         if ! have_cmd brew; then
-            if [ -n "${TABURA_LLAMA_LAST_ERROR:-}" ] && [ "${TABURA_LLAMA_LAST_ERROR}" != "llama-server not found" ]; then
-                log "llama-server not usable: ${TABURA_LLAMA_LAST_ERROR}"
+            if [ -n "${SLOPPAD_LLAMA_LAST_ERROR:-}" ] && [ "${SLOPPAD_LLAMA_LAST_ERROR}" != "llama-server not found" ]; then
+                log "llama-server not usable: ${SLOPPAD_LLAMA_LAST_ERROR}"
             else
                 log "llama-server not found; install llama.cpp via Homebrew: brew install llama.cpp"
             fi
@@ -677,13 +677,13 @@ ensure_llama_server() {
         fi
         if confirm_default_yes "Install llama.cpp via Homebrew?"; then
             run_cmd brew install llama.cpp
-            if LLAMA_SERVER_BIN_RESOLVED="$(tabura_find_llama_server)"; then
+            if LLAMA_SERVER_BIN_RESOLVED="$(sloppad_find_llama_server)"; then
                 return 0
             fi
         fi
     else
-        if [ -n "${TABURA_LLAMA_LAST_ERROR:-}" ]; then
-            log "llama-server not usable: ${TABURA_LLAMA_LAST_ERROR}"
+        if [ -n "${SLOPPAD_LLAMA_LAST_ERROR:-}" ]; then
+            log "llama-server not usable: ${SLOPPAD_LLAMA_LAST_ERROR}"
         else
             log "llama-server not found; install llama.cpp and ensure llama-server is on PATH"
         fi
@@ -693,13 +693,13 @@ ensure_llama_server() {
 
 setup_local_llm() {
     if [ "$SKIP_LLM" = "1" ]; then
-        log "skipping local LLM due to TABURA_INSTALL_SKIP_LLM=1"
+        log "skipping local LLM due to SLOPPAD_INSTALL_SKIP_LLM=1"
         return
     fi
 
-    if [ -n "${TABURA_INTENT_LLM_URL:-}" ]; then
-        REUSE_LLM_URL="$TABURA_INTENT_LLM_URL"
-        log "TABURA_INTENT_LLM_URL set to ${REUSE_LLM_URL}; skipping LLM setup"
+    if [ -n "${SLOPPAD_INTENT_LLM_URL:-}" ]; then
+        REUSE_LLM_URL="$SLOPPAD_INTENT_LLM_URL"
+        log "SLOPPAD_INTENT_LLM_URL set to ${REUSE_LLM_URL}; skipping LLM setup"
         return
     fi
 
@@ -708,21 +708,21 @@ setup_local_llm() {
         log "existing local LLM detected at ${existing_url}"
         if confirm_default_yes "Reuse existing local LLM at ${existing_url}?"; then
             REUSE_LLM_URL="$existing_url"
-            log "TABURA_INTENT_LLM_URL will point to ${REUSE_LLM_URL}"
+            log "SLOPPAD_INTENT_LLM_URL will point to ${REUSE_LLM_URL}"
             return
         fi
     fi
 
-    if [ "$TABURA_OS" = "darwin" ]; then
+    if [ "$SLOPPAD_OS" = "darwin" ]; then
         cat <<NOTICE
 === Local LLM (vLLM-MLX, default on macOS) ===
-A Qwen3.5 9B MLX runtime runs on port 8081 for Tabura routing, replies, and local Codex profiles.
+A Qwen3.5 9B MLX runtime runs on port 8081 for Sloppad routing, replies, and local Codex profiles.
 Dependencies: python3, uv, git.
 NOTICE
     else
         cat <<NOTICE
 === Local LLMs (llama.cpp, optional) ===
-A fast Qwen3.5 9B coordinator runs on port 8081 for Tabura routing and replies.
+A fast Qwen3.5 9B coordinator runs on port 8081 for Sloppad routing and replies.
 A Codex-focused gpt-oss-120b runtime runs on port 8080 for local Codex agent profiles.
 Requires llama.cpp (llama-server binary).
 NOTICE
@@ -732,10 +732,10 @@ NOTICE
         return
     fi
 
-    if [ "$TABURA_OS" = "darwin" ]; then
+    if [ "$SLOPPAD_OS" = "darwin" ]; then
         if [ "$DRY_RUN" = "0" ]; then
             have_cmd brew || fail "Homebrew is required on macOS"
-            if ! tabura_find_python3 3 10 >/dev/null 2>&1; then
+            if ! sloppad_find_python3 3 10 >/dev/null 2>&1; then
                 run_cmd brew install python
             fi
             have_cmd uv || run_cmd brew install uv
@@ -753,7 +753,7 @@ NOTICE
         run_cmd chmod +x "$LLM_SETUP_SCRIPT"
     fi
 
-    if [ "$TABURA_OS" != "darwin" ]; then
+    if [ "$SLOPPAD_OS" != "darwin" ]; then
         local model_file model_url model_size
         model_file="Qwen3.5-9B-Q4_K_M.gguf"
         model_url="https://huggingface.co/lmstudio-community/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf?download=true"
@@ -774,13 +774,13 @@ NOTICE
 
 install_voxtype_stt() {
     if [ "$SKIP_STT" = "1" ]; then
-        log "skipping voxtype STT setup due to TABURA_INSTALL_SKIP_STT=1"
+        log "skipping voxtype STT setup due to SLOPPAD_INSTALL_SKIP_STT=1"
         return
     fi
     cat <<NOTICE
 === Voxtype STT (MIT, runs as HTTP sidecar) ===
 voxtype provides local OpenAI-compatible speech-to-text on port 8427.
-License: MIT (isolated sidecar process, does not affect Tabura MIT license)
+License: MIT (isolated sidecar process, does not affect Sloppad MIT license)
 Model: large-v3-turbo (~1.5 GB download from Hugging Face via voxtype)
 NOTICE
     if ! confirm_default_yes "Install voxtype STT sidecar?"; then
@@ -790,7 +790,7 @@ NOTICE
 
     if voxtype_supports_stt_service voxtype; then
         log "voxtype already installed with STT service support"
-    elif [ "$TABURA_OS" = "linux" ] && have_cmd pacman; then
+    elif [ "$SLOPPAD_OS" = "linux" ] && have_cmd pacman; then
         if confirm_default_yes "Install voxtype via AUR (voxtype-bin, fallback voxtype)?"; then
             if have_cmd paru; then
                 run_cmd paru -S --noconfirm voxtype-bin || run_cmd paru -S --noconfirm voxtype
@@ -800,7 +800,7 @@ NOTICE
                 log "no AUR helper found (paru/yay); install voxtype manually"
             fi
         fi
-    elif [ "$TABURA_OS" = "darwin" ]; then
+    elif [ "$SLOPPAD_OS" = "darwin" ]; then
         if have_cmd brew && brew info voxtype >/dev/null 2>&1; then
             if confirm_default_yes "Install voxtype via Homebrew?"; then
                 run_cmd brew install voxtype
@@ -820,7 +820,7 @@ NOTICE
                 else
                     log "build script not available; build manually:"
                     log "  git clone --branch feature/single-daemon-openai-stt-api https://github.com/peteonrails/voxtype.git"
-                    log "  see: https://github.com/krystophny/tabura#voxtype-stt"
+                    log "  see: https://github.com/krystophny/sloppad#voxtype-stt"
                 fi
             fi
         else
@@ -859,9 +859,9 @@ write_systemd_units() {
 
     run_cmd mkdir -p "$systemd_dir"
 
-    cat >"${systemd_dir}/tabura-codex-app-server.service" <<UNIT
+    cat >"${systemd_dir}/sloppad-codex-app-server.service" <<UNIT
 [Unit]
-Description=Codex App Server (Tabura)
+Description=Codex App Server (Sloppad)
 After=network.target
 
 [Service]
@@ -874,9 +874,9 @@ RestartSec=2
 WantedBy=default.target
 UNIT
 
-    cat >"${systemd_dir}/tabura-piper-tts.service" <<UNIT
+    cat >"${systemd_dir}/sloppad-piper-tts.service" <<UNIT
 [Unit]
-Description=Tabura Piper TTS
+Description=Sloppad Piper TTS
 After=network.target
 
 [Service]
@@ -891,17 +891,17 @@ WantedBy=default.target
 UNIT
 
     if [ -x "$LLM_SETUP_SCRIPT" ] && [ -z "$REUSE_LLM_URL" ]; then
-        cat >"${systemd_dir}/tabura-llm.service" <<UNIT
+        cat >"${systemd_dir}/sloppad-llm.service" <<UNIT
 [Unit]
-Description=Tabura Local Coordinator LLM (Qwen3.5 9B GGUF)
+Description=Sloppad Local Coordinator LLM (Qwen3.5 9B GGUF)
 After=network.target
 
 [Service]
 Type=simple
-Environment=TABURA_LLM_MODEL_DIR=${LLM_MODEL_DIR}
-Environment=TABURA_LLM_MODEL_FILE=Qwen3.5-9B-Q4_K_M.gguf
-Environment=TABURA_LLM_MODEL_URL=https://huggingface.co/lmstudio-community/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf?download=true
-Environment=TABURA_LLM_CTX=65536
+Environment=SLOPPAD_LLM_MODEL_DIR=${LLM_MODEL_DIR}
+Environment=SLOPPAD_LLM_MODEL_FILE=Qwen3.5-9B-Q4_K_M.gguf
+Environment=SLOPPAD_LLM_MODEL_URL=https://huggingface.co/lmstudio-community/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf?download=true
+Environment=SLOPPAD_LLM_CTX=65536
 Environment=LLAMA_SERVER_BIN=${LLAMA_SERVER_BIN_RESOLVED}
 ExecStart=${LLM_SETUP_SCRIPT}
 Restart=on-failure
@@ -912,14 +912,14 @@ TimeoutStopSec=15
 WantedBy=default.target
 UNIT
 
-        cat >"${systemd_dir}/tabura-codex-llm.service" <<UNIT
+        cat >"${systemd_dir}/sloppad-codex-llm.service" <<UNIT
 [Unit]
-Description=Tabura Local Codex LLM (gpt-oss-120b via llama.cpp)
+Description=Sloppad Local Codex LLM (gpt-oss-120b via llama.cpp)
 After=network.target
 
 [Service]
 Type=simple
-Environment=TABURA_LLM_PRESET=codex-gpt-oss-120b
+Environment=SLOPPAD_LLM_PRESET=codex-gpt-oss-120b
 Environment=LLAMA_SERVER_BIN=${LLAMA_SERVER_BIN_RESOLVED}
 ExecStart=${LLM_SETUP_SCRIPT}
 Restart=on-failure
@@ -931,26 +931,26 @@ WantedBy=default.target
 UNIT
     fi
     if [ -n "$REUSE_LLM_URL" ]; then
-        run_cmd rm -f "${systemd_dir}/tabura-llm.service" "${systemd_dir}/tabura-codex-llm.service"
+        run_cmd rm -f "${systemd_dir}/sloppad-llm.service" "${systemd_dir}/sloppad-codex-llm.service"
     fi
 
     local effective_llm_url="${REUSE_LLM_URL:-http://127.0.0.1:8081}"
-    local web_host="${TABURA_WEB_HOST:-127.0.0.1}"
+    local web_host="${SLOPPAD_WEB_HOST:-127.0.0.1}"
 
-    cat >"${systemd_dir}/tabura-web.service" <<UNIT
+    cat >"${systemd_dir}/sloppad-web.service" <<UNIT
 [Unit]
-Description=Tabura Web UI
-After=network.target tabura-codex-app-server.service tabura-piper-tts.service
-Wants=tabura-codex-app-server.service tabura-piper-tts.service
+Description=Sloppad Web UI
+After=network.target sloppad-codex-app-server.service sloppad-piper-tts.service
+Wants=sloppad-codex-app-server.service sloppad-piper-tts.service
 
 [Service]
 Type=simple
-Environment=TABURA_INTENT_LLM_URL=${effective_llm_url}
-Environment=TABURA_INTENT_LLM_MODEL=local
-Environment=TABURA_INTENT_LLM_PROFILE=qwen3.5-9b
-Environment=TABURA_INTENT_LLM_PROFILE_OPTIONS=qwen3.5-9b,qwen3.5-4b
-Environment=TABURA_ASSISTANT_LLM_URL=${effective_llm_url}
-Environment=TABURA_ASSISTANT_LLM_MODEL=local
+Environment=SLOPPAD_INTENT_LLM_URL=${effective_llm_url}
+Environment=SLOPPAD_INTENT_LLM_MODEL=local
+Environment=SLOPPAD_INTENT_LLM_PROFILE=qwen3.5-9b
+Environment=SLOPPAD_INTENT_LLM_PROFILE_OPTIONS=qwen3.5-9b,qwen3.5-4b
+Environment=SLOPPAD_ASSISTANT_LLM_URL=${effective_llm_url}
+Environment=SLOPPAD_ASSISTANT_LLM_MODEL=local
 ExecStart=${BIN_PATH} server --project-dir ${PROJECT_DIR} --data-dir ${WEB_DATA_DIR} --web-host ${web_host} --web-port 8420 --mcp-host 127.0.0.1 --mcp-port 9420 --app-server-url ws://127.0.0.1:8787 --tts-url http://127.0.0.1:8424
 Restart=on-failure
 RestartSec=2
@@ -966,14 +966,14 @@ install_services_linux() {
     write_systemd_units
     run_cmd systemctl --user daemon-reload
     if [ -n "$REUSE_LLM_URL" ]; then
-        run_cmd systemctl --user disable --now tabura-llm.service tabura-codex-llm.service >/dev/null 2>&1 || true
+        run_cmd systemctl --user disable --now sloppad-llm.service sloppad-codex-llm.service >/dev/null 2>&1 || true
     fi
-    units=(tabura-codex-app-server.service tabura-piper-tts.service tabura-web.service)
-    if [ -f "${HOME}/.config/systemd/user/tabura-llm.service" ]; then
-        units+=(tabura-llm.service)
+    units=(sloppad-codex-app-server.service sloppad-piper-tts.service sloppad-web.service)
+    if [ -f "${HOME}/.config/systemd/user/sloppad-llm.service" ]; then
+        units+=(sloppad-llm.service)
     fi
-    if [ -f "${HOME}/.config/systemd/user/tabura-codex-llm.service" ]; then
-        units+=(tabura-codex-llm.service)
+    if [ -f "${HOME}/.config/systemd/user/sloppad-codex-llm.service" ]; then
+        units+=(sloppad-codex-llm.service)
     fi
     run_cmd systemctl --user enable --now "${units[@]}"
 }
@@ -981,7 +981,7 @@ install_services_linux() {
 substitute_launchd_template() {
     local src="$1" dst="$2"
     local effective_llm_url="${REUSE_LLM_URL:-http://127.0.0.1:8081}"
-    local web_host="${TABURA_WEB_HOST:-127.0.0.1}"
+    local web_host="${SLOPPAD_WEB_HOST:-127.0.0.1}"
     local voxtype_bin
     voxtype_bin="$(command -v voxtype 2>/dev/null || echo voxtype)"
     sed \
@@ -989,7 +989,7 @@ substitute_launchd_template() {
         -e "s|@@CODEX_PATH@@|${CODEX_PATH}|g" \
         -e "s|@@PROJECT_DIR@@|${PROJECT_DIR}|g" \
         -e "s|@@WEB_DATA_DIR@@|${WEB_DATA_DIR}|g" \
-        -e "s|@@TABURA_WEB_HOST@@|${web_host}|g" \
+        -e "s|@@SLOPPAD_WEB_HOST@@|${web_host}|g" \
         -e "s|@@VENV_DIR@@|${VENV_DIR}|g" \
         -e "s|@@SCRIPT_DIR@@|${SCRIPT_DIR}|g" \
         -e "s|@@PIPER_MODEL_DIR@@|${MODEL_DIR}|g" \
@@ -1000,7 +1000,7 @@ substitute_launchd_template() {
         -e "s|@@LLAMA_SERVER_BIN@@|${LLAMA_SERVER_BIN_RESOLVED}|g" \
         -e "s|@@STT_SETUP_SCRIPT@@|${STT_SETUP_SCRIPT}|g" \
         -e "s|@@VOXTYPE_BIN@@|${voxtype_bin}|g" \
-        -e "s|@@TABURA_INTENT_LLM_URL@@|${effective_llm_url}|g" \
+        -e "s|@@SLOPPAD_INTENT_LLM_URL@@|${effective_llm_url}|g" \
         "$src" >"$dst"
 }
 
@@ -1019,22 +1019,22 @@ write_launchd_plists() {
 
     [ -d "$template_dir" ] || fail "launchd templates not found in ${template_dir}"
 
-    substitute_launchd_template "${template_dir}/io.tabura.codex-app-server.plist" "${agent_dir}/io.tabura.codex-app-server.plist"
-    substitute_launchd_template "${template_dir}/io.tabura.piper-tts.plist" "${agent_dir}/io.tabura.piper-tts.plist"
-    run_cmd launchctl unload "${agent_dir}/io.tabura.macos-tts.plist" >/dev/null 2>&1 || true
-    run_cmd rm -f "${agent_dir}/io.tabura.macos-tts.plist"
+    substitute_launchd_template "${template_dir}/io.sloppad.codex-app-server.plist" "${agent_dir}/io.sloppad.codex-app-server.plist"
+    substitute_launchd_template "${template_dir}/io.sloppad.piper-tts.plist" "${agent_dir}/io.sloppad.piper-tts.plist"
+    run_cmd launchctl unload "${agent_dir}/io.sloppad.macos-tts.plist" >/dev/null 2>&1 || true
+    run_cmd rm -f "${agent_dir}/io.sloppad.macos-tts.plist"
 
     if [ -x "$LLM_SETUP_SCRIPT" ] && [ -z "$REUSE_LLM_URL" ]; then
-        substitute_launchd_template "${template_dir}/io.tabura.llm.plist" "${agent_dir}/io.tabura.llm.plist"
+        substitute_launchd_template "${template_dir}/io.sloppad.llm.plist" "${agent_dir}/io.sloppad.llm.plist"
     else
-        run_cmd launchctl unload "${agent_dir}/io.tabura.llm.plist" >/dev/null 2>&1 || true
-        run_cmd rm -f "${agent_dir}/io.tabura.llm.plist"
+        run_cmd launchctl unload "${agent_dir}/io.sloppad.llm.plist" >/dev/null 2>&1 || true
+        run_cmd rm -f "${agent_dir}/io.sloppad.llm.plist"
     fi
     if [ -x "$STT_SETUP_SCRIPT" ]; then
-        substitute_launchd_template "${template_dir}/io.tabura.stt.plist" "${agent_dir}/io.tabura.stt.plist"
+        substitute_launchd_template "${template_dir}/io.sloppad.stt.plist" "${agent_dir}/io.sloppad.stt.plist"
     fi
 
-    substitute_launchd_template "${template_dir}/io.tabura.web.plist" "${agent_dir}/io.tabura.web.plist"
+    substitute_launchd_template "${template_dir}/io.sloppad.web.plist" "${agent_dir}/io.sloppad.web.plist"
 }
 
 load_launchd_service() {
@@ -1048,33 +1048,33 @@ install_services_macos() {
     local agent_dir
     agent_dir="${HOME}/Library/LaunchAgents"
     write_launchd_plists "$staging_dir"
-    load_launchd_service "${agent_dir}/io.tabura.codex-app-server.plist"
-    load_launchd_service "${agent_dir}/io.tabura.piper-tts.plist"
-    if [ -f "${agent_dir}/io.tabura.llm.plist" ]; then
-        load_launchd_service "${agent_dir}/io.tabura.llm.plist"
+    load_launchd_service "${agent_dir}/io.sloppad.codex-app-server.plist"
+    load_launchd_service "${agent_dir}/io.sloppad.piper-tts.plist"
+    if [ -f "${agent_dir}/io.sloppad.llm.plist" ]; then
+        load_launchd_service "${agent_dir}/io.sloppad.llm.plist"
     fi
-    if [ -f "${agent_dir}/io.tabura.stt.plist" ]; then
-        load_launchd_service "${agent_dir}/io.tabura.stt.plist"
+    if [ -f "${agent_dir}/io.sloppad.stt.plist" ]; then
+        load_launchd_service "${agent_dir}/io.sloppad.stt.plist"
     fi
-    load_launchd_service "${agent_dir}/io.tabura.web.plist"
+    load_launchd_service "${agent_dir}/io.sloppad.web.plist"
 }
 
 open_browser() {
     local url
     url="http://127.0.0.1:8420"
     if [ "$SKIP_BROWSER" = "1" ]; then
-        log "skipping browser open due to TABURA_INSTALL_SKIP_BROWSER=1"
+        log "skipping browser open due to SLOPPAD_INSTALL_SKIP_BROWSER=1"
         return
     fi
     if [ "$DRY_RUN" = "1" ]; then
         log "[dry-run] open ${url}"
         return
     fi
-    if [ "$TABURA_OS" = "darwin" ] && have_cmd open; then
+    if [ "$SLOPPAD_OS" = "darwin" ] && have_cmd open; then
         open "$url" >/dev/null 2>&1 || true
         return
     fi
-    if [ "$TABURA_OS" = "linux" ] && have_cmd xdg-open; then
+    if [ "$SLOPPAD_OS" = "linux" ] && have_cmd xdg-open; then
         xdg-open "$url" >/dev/null 2>&1 || true
         return
     fi
@@ -1093,17 +1093,17 @@ Install complete
   Data root:     ${DATA_ROOT}
   Project dir:   ${PROJECT_DIR}
   TTS backend:   ${tts_summary}
-  Service mode:  ${TABURA_OS}
+  Service mode:  ${SLOPPAD_OS}
   Web URL:       http://127.0.0.1:8420
   Intent LLM:    ${effective_llm_url}
 SUMMARY
     if [ -n "$REUSE_LLM_URL" ]; then
-        log "using existing local LLM at ${REUSE_LLM_URL} (no tabura-llm service created)"
+        log "using existing local LLM at ${REUSE_LLM_URL} (no sloppad-llm service created)"
     fi
 }
 
 disable_lm_studio_login_item() {
-    [ "$TABURA_OS" = "darwin" ] || return 0
+    [ "$SLOPPAD_OS" = "darwin" ] || return 0
     if [ "$DRY_RUN" = "1" ]; then
         log "[dry-run] remove LM Studio from login items"
         return 0
@@ -1120,37 +1120,37 @@ remove_linux_services() {
     systemd_dir="${HOME}/.config/systemd/user"
     if have_cmd systemctl; then
         run_cmd systemctl --user disable --now \
-            tabura-web.service tabura-piper-tts.service tabura-codex-app-server.service \
-            tabura-llm.service tabura-codex-llm.service >/dev/null 2>&1 || true
+            sloppad-web.service sloppad-piper-tts.service sloppad-codex-app-server.service \
+            sloppad-llm.service sloppad-codex-llm.service >/dev/null 2>&1 || true
         run_cmd systemctl --user daemon-reload >/dev/null 2>&1 || true
     fi
     run_cmd rm -f \
-        "${systemd_dir}/tabura-web.service" \
-        "${systemd_dir}/tabura-piper-tts.service" \
-        "${systemd_dir}/tabura-codex-app-server.service" \
-        "${systemd_dir}/tabura-llm.service" \
-        "${systemd_dir}/tabura-codex-llm.service"
+        "${systemd_dir}/sloppad-web.service" \
+        "${systemd_dir}/sloppad-piper-tts.service" \
+        "${systemd_dir}/sloppad-codex-app-server.service" \
+        "${systemd_dir}/sloppad-llm.service" \
+        "${systemd_dir}/sloppad-codex-llm.service"
 }
 
 remove_macos_services() {
     local agent_dir plist
     agent_dir="${HOME}/Library/LaunchAgents"
-    for plist in io.tabura.web io.tabura.stt io.tabura.llm io.tabura.piper-tts io.tabura.codex-app-server; do
+    for plist in io.sloppad.web io.sloppad.stt io.sloppad.llm io.sloppad.piper-tts io.sloppad.codex-app-server; do
         run_cmd launchctl unload "${agent_dir}/${plist}.plist" >/dev/null 2>&1 || true
     done
     run_cmd rm -f \
-        "${agent_dir}/io.tabura.web.plist" \
-        "${agent_dir}/io.tabura.stt.plist" \
-        "${agent_dir}/io.tabura.piper-tts.plist" \
-        "${agent_dir}/io.tabura.codex-app-server.plist" \
-        "${agent_dir}/io.tabura.llm.plist"
+        "${agent_dir}/io.sloppad.web.plist" \
+        "${agent_dir}/io.sloppad.stt.plist" \
+        "${agent_dir}/io.sloppad.piper-tts.plist" \
+        "${agent_dir}/io.sloppad.codex-app-server.plist" \
+        "${agent_dir}/io.sloppad.llm.plist"
 }
 
 uninstall_flow() {
     resolve_platform
     resolve_paths
     log "starting uninstall"
-    if [ "$TABURA_OS" = "darwin" ]; then
+    if [ "$SLOPPAD_OS" = "darwin" ]; then
         remove_macos_services
     else
         remove_linux_services
@@ -1171,7 +1171,7 @@ install_flow() {
     require_python_310
     ensure_ffmpeg
 
-    tmpdir="$(mktemp -d -t tabura-install-XXXXXX)"
+    tmpdir="$(mktemp -d -t sloppad-install-XXXXXX)"
     trap "rm -rf '$tmpdir'" EXIT
 
     release_json="$(fetch_release_json)"
@@ -1183,7 +1183,7 @@ install_flow() {
     setup_local_llm "$tmpdir"
     install_voxtype_stt "$tmpdir"
     install_hotword_assets "$tmpdir"
-    if [ "$TABURA_OS" = "darwin" ]; then
+    if [ "$SLOPPAD_OS" = "darwin" ]; then
         install_services_macos "$tmpdir"
     else
         install_services_linux

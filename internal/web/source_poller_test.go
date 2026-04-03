@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/krystophny/tabura/internal/store"
-	tabsync "github.com/krystophny/tabura/internal/sync"
+	"github.com/krystophny/sloppad/internal/store"
+	tabsync "github.com/krystophny/sloppad/internal/sync"
 )
 
 type stubSourceSyncRunner struct {

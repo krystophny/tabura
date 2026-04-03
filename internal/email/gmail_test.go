@@ -15,7 +15,7 @@ func TestNewGmailWithFilesLoadsAccountToken(t *testing.T) {
 	credentials := `{
   "installed": {
     "client_id": "client-id.apps.googleusercontent.com",
-    "project_id": "tabura-test",
+    "project_id": "sloppad-test",
     "auth_uri": "https://accounts.google.com/o/oauth2/auth",
     "token_uri": "https://oauth2.googleapis.com/token",
     "client_secret": "secret",

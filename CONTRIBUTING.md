@@ -1,6 +1,6 @@
 # Contributing
 
-Tabura is pre-stable and still young. Optimize for the best product and codebase,
+Sloppad is pre-stable and still young. Optimize for the best product and codebase,
 not for speculative compatibility.
 
 ## Rewrite Policy

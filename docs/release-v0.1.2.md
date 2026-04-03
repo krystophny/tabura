@@ -1,6 +1,6 @@
 # Release v0.1.2
 
-> **Legal notice:** Tabura is provided "as is" and "as available" without warranties, and to the maximum extent permitted by applicable law the authors/contributors accept no liability for damages, data loss, or misuse. You are solely responsible for backups, verification, and safe operation. See [`DISCLAIMER.md`](/DISCLAIMER.md).
+> **Legal notice:** Sloppad is provided "as is" and "as available" without warranties, and to the maximum extent permitted by applicable law the authors/contributors accept no liability for damages, data loss, or misuse. You are solely responsible for backups, verification, and safe operation. See [`DISCLAIMER.md`](/DISCLAIMER.md).
 
 ## Scope
 
@@ -31,12 +31,12 @@
 ### Prompt and Delegation Defaults
 
 - Centralized default Codex instruction handling with `git` and `gh` as preferred repository/PR workflows.
-- Made default prompt templates configurable by output mode (`voice`/`silent`) while preserving `.tabura/prompt-injection.txt` overrides.
+- Made default prompt templates configurable by output mode (`voice`/`silent`) while preserving `.sloppad/prompt-injection.txt` overrides.
 
 ## Traceability
 
 For publication metadata, associate this release with:
 
 - release label: `v0.1.2`
-- repository: `https://github.com/krystophny/tabura`
+- repository: `https://github.com/krystophny/sloppad`
 - exact source revision: tag target commit hash

@@ -5,7 +5,7 @@ const VISUAL_REASONING_MARKER_RADIUS_PX = 18;
 const VISUAL_REASONING_MARKER_STROKE_PX = 4;
 
 function currentCanvasState() {
-  return (window._taburaApp || {}).getState ? window._taburaApp.getState() : {};
+  return (window._sloppadApp || {}).getState ? window._sloppadApp.getState() : {};
 }
 
 export function currentCanvasSessionID() {

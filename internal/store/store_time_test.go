@@ -11,7 +11,7 @@ import (
 func TestTimeEntrySwitchAndSummaryLifecycle(t *testing.T) {
 	s := newTestStore(t)
 
-	workspace, err := s.CreateWorkspace("Tabura", filepath.Join(t.TempDir(), "tabura"), SphereWork)
+	workspace, err := s.CreateWorkspace("Sloppad", filepath.Join(t.TempDir(), "sloppad"), SphereWork)
 	if err != nil {
 		t.Fatalf("CreateWorkspace() error: %v", err)
 	}

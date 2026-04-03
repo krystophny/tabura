@@ -7,7 +7,7 @@ const { refs, state } = context;
 const showStatus = (...args) => refs.showStatus(...args);
 
 const VOICE_VAD_AUTO_SEND_DEFAULT = true;
-const VOICE_VAD_AUTO_SEND_STORAGE_KEY = 'tabura.voiceVadAutoSend';
+const VOICE_VAD_AUTO_SEND_STORAGE_KEY = 'sloppad.voiceVadAutoSend';
 const VOICE_VAD_AUTO_SEND_QUERY_PARAM = 'voice_vad_auto_send';
 
 function isFirefoxLinux() {
@@ -349,7 +349,7 @@ export function openPrintView(url) {
     document.body.appendChild(frame);
   }
   const separator = target.includes('?') ? '&' : '?';
-  const nextURL = `${target}${separator}__tabura_print=${Date.now()}`;
+  const nextURL = `${target}${separator}__sloppad_print=${Date.now()}`;
   frame.setAttribute('src', nextURL);
   if (Array.isArray(window.__harnessLog)) {
     window.__harnessLog.push({ type: 'print', action: 'open', url: nextURL });

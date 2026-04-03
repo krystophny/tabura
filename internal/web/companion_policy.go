@@ -6,7 +6,7 @@ import (
 	"sync"
 	"unicode"
 
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
 const (
@@ -263,7 +263,7 @@ func isCompanionNoiseSuppressed(raw string) bool {
 	meaningful := make([]string, 0, len(words))
 	for _, word := range words {
 		switch word {
-		case "computer", "tabura", "assistant", "hey", "please":
+		case "computer", "sloppad", "assistant", "hey", "please":
 			continue
 		default:
 			meaningful = append(meaningful, word)

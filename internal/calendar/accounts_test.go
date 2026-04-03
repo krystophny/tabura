@@ -4,11 +4,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
 func TestGoogleCalendarAccountsFallsBackToGmail(t *testing.T) {
-	st, err := store.New(filepath.Join(t.TempDir(), "tabura.db"))
+	st, err := store.New(filepath.Join(t.TempDir(), "sloppad.db"))
 	if err != nil {
 		t.Fatalf("store.New: %v", err)
 	}
@@ -33,7 +33,7 @@ func TestGoogleCalendarAccountsFallsBackToGmail(t *testing.T) {
 }
 
 func TestResolveCalendarSpherePrefersContainerMapping(t *testing.T) {
-	st, err := store.New(filepath.Join(t.TempDir(), "tabura.db"))
+	st, err := store.New(filepath.Join(t.TempDir(), "sloppad.db"))
 	if err != nil {
 		t.Fatalf("store.New: %v", err)
 	}

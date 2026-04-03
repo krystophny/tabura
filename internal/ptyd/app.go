@@ -10,8 +10,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/websocket"
-	"github.com/krystophny/tabura/internal/pty"
-	"github.com/krystophny/tabura/internal/serve"
+	"github.com/krystophny/sloppad/internal/pty"
+	"github.com/krystophny/sloppad/internal/serve"
 )
 
 const (
@@ -229,7 +229,7 @@ func writeJSON(w http.ResponseWriter, v interface{}) {
 
 func (a *App) Start(host string, port int) error {
 	a.httpSrv = &http.Server{Addr: fmt.Sprintf("%s:%d", host, port), Handler: a.Router(), ReadHeaderTimeout: 15 * time.Second}
-	fmt.Println("tabura ptyd listening on:")
+	fmt.Println("sloppad ptyd listening on:")
 	for _, u := range serve.ListenURLs(host, port) {
 		fmt.Printf("  %s\n", u)
 	}

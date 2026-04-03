@@ -28,8 +28,8 @@ func TestManagePageServesDashboardShell(t *testing.T) {
 		t.Fatalf("content type = %q, want text/html", rr.Header().Get("Content-Type"))
 	}
 	for _, needle := range []string{
-		"<title>tabura manage</title>",
-		"Tabura Manage",
+		"<title>sloppad manage</title>",
+		"Sloppad Manage",
 		`href="./manage/hotword"`,
 		`src="./static/manage.js`,
 	} {

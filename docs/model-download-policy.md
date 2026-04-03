@@ -1,8 +1,8 @@
 # Model Download Policy
 
-> **Legal notice:** Tabura is provided "as is" and "as available" without warranties, and to the maximum extent permitted by applicable law the authors/contributors accept no liability for damages, data loss, or misuse. You are solely responsible for backups, verification, and safe operation. See [`DISCLAIMER.md`](/DISCLAIMER.md).
+> **Legal notice:** Sloppad is provided "as is" and "as available" without warranties, and to the maximum extent permitted by applicable law the authors/contributors accept no liability for damages, data loss, or misuse. You are solely responsible for backups, verification, and safe operation. See [`DISCLAIMER.md`](/DISCLAIMER.md).
 
-This policy defines what Tabura downloads, from where, under which license, and
+This policy defines what Sloppad downloads, from where, under which license, and
 how user consent is handled.
 
 ## Consent Tiers
@@ -13,7 +13,7 @@ Permissive components (MIT/BSD/Apache/OFL) may be bundled or auto-downloaded
 without an explicit prompt.
 
 Examples:
-- Tabura binary (MIT)
+- Sloppad binary (MIT)
 - ONNX Runtime Web (MIT)
 - openWakeWord models (Apache-2.0)
 - DistilBERT model artifacts (Apache-2.0)

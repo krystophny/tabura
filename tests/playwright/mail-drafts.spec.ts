@@ -5,7 +5,7 @@ type HarnessLogEntry = Record<string, unknown>;
 async function waitReady(page: Page) {
   await page.goto('/tests/playwright/harness.html');
   await page.waitForFunction(() => {
-    const app = (window as any)._taburaApp;
+    const app = (window as any)._sloppadApp;
     if (typeof app?.getState !== 'function') return false;
     const s = app.getState();
     const wsOpen = (window as any).WebSocket.OPEN;
@@ -47,7 +47,7 @@ async function waitForLogEntry(page: Page, type: string, action?: string) {
 async function setInteractionTool(page: Page, tool: 'pointer' | 'highlight' | 'ink' | 'text_note' | 'prompt') {
   await page.evaluate((mode) => {
     (window as any).__setRuntimeState?.({ tool: mode });
-    const app = (window as any)._taburaApp;
+    const app = (window as any)._sloppadApp;
     if (app?.getState) {
       const interaction = app.getState().interaction;
       interaction.tool = mode;
@@ -311,7 +311,7 @@ test.describe('mail drafts', () => {
     await expect(page.locator('.mail-draft-title')).toContainText('Draft email');
     await expect(page.locator('#dictation-indicator')).toBeHidden();
     await expect.poll(async () => page.evaluate(() => {
-      const app = (window as any)._taburaApp;
+      const app = (window as any)._sloppadApp;
       return String(app?.getState?.().voiceLifecycle || '');
     })).toBe('recording');
   });
@@ -370,7 +370,7 @@ test.describe('mail drafts', () => {
     await expect(page.locator('[name="subject"]')).toHaveValue('Re: Client question');
     await expect(page.locator('#dictation-indicator')).toBeHidden();
     await expect.poll(async () => page.evaluate(() => {
-      const app = (window as any)._taburaApp;
+      const app = (window as any)._sloppadApp;
       return String(app?.getState?.().voiceLifecycle || '');
     })).toBe('recording');
   });

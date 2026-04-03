@@ -9,14 +9,14 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-$RepoOwner = if ($env:TABURA_REPO_OWNER) { $env:TABURA_REPO_OWNER } else { "krystophny" }
-$RepoName = if ($env:TABURA_REPO_NAME) { $env:TABURA_REPO_NAME } else { "tabura" }
-$ReleaseApiBase = if ($env:TABURA_RELEASE_API_BASE) { $env:TABURA_RELEASE_API_BASE } else { "https://api.github.com/repos/$RepoOwner/$RepoName/releases" }
-$SkipBrowser = $env:TABURA_INSTALL_SKIP_BROWSER -eq "1"
-$AssumeYes = $Yes.IsPresent -or ($env:TABURA_ASSUME_YES -eq "1")
+$RepoOwner = if ($env:SLOPPAD_REPO_OWNER) { $env:SLOPPAD_REPO_OWNER } else { "krystophny" }
+$RepoName = if ($env:SLOPPAD_REPO_NAME) { $env:SLOPPAD_REPO_NAME } else { "sloppad" }
+$ReleaseApiBase = if ($env:SLOPPAD_RELEASE_API_BASE) { $env:SLOPPAD_RELEASE_API_BASE } else { "https://api.github.com/repos/$RepoOwner/$RepoName/releases" }
+$SkipBrowser = $env:SLOPPAD_INSTALL_SKIP_BROWSER -eq "1"
+$AssumeYes = $Yes.IsPresent -or ($env:SLOPPAD_ASSUME_YES -eq "1")
 
-$InstallRoot = if ($env:TABURA_INSTALL_ROOT) { $env:TABURA_INSTALL_ROOT } else { Join-Path $env:LOCALAPPDATA "tabura" }
-$BinaryPath = Join-Path $InstallRoot "tabura.exe"
+$InstallRoot = if ($env:SLOPPAD_INSTALL_ROOT) { $env:SLOPPAD_INSTALL_ROOT } else { Join-Path $env:LOCALAPPDATA "sloppad" }
+$BinaryPath = Join-Path $InstallRoot "sloppad.exe"
 $DataRoot = Join-Path $InstallRoot "data"
 $ProjectDir = Join-Path $DataRoot "project"
 $WebDataDir = Join-Path $DataRoot "web-data"
@@ -28,17 +28,17 @@ $PiperScriptPath = Join-Path $ScriptDir "piper_tts_server.py"
 $LlmDir = Join-Path $DataRoot "llm"
 $LlmModelDir = Join-Path $LlmDir "models"
 $LlmSetupScript = Join-Path $ScriptDir "setup-local-llm.sh"
-$SkipLlm = $env:TABURA_INSTALL_SKIP_LLM -eq "1"
-$WebHost = if ($env:TABURA_WEB_HOST) { $env:TABURA_WEB_HOST } else { "127.0.0.1" }
+$SkipLlm = $env:SLOPPAD_INSTALL_SKIP_LLM -eq "1"
+$WebHost = if ($env:SLOPPAD_WEB_HOST) { $env:SLOPPAD_WEB_HOST } else { "127.0.0.1" }
 
 function Write-Log {
     param([string]$Message)
-    Write-Host "[tabura-install] $Message"
+    Write-Host "[sloppad-install] $Message"
 }
 
 function Throw-InstallError {
     param([string]$Message)
-    throw "[tabura-install] ERROR: $Message"
+    throw "[sloppad-install] ERROR: $Message"
 }
 
 function Invoke-Step {
@@ -53,7 +53,7 @@ function Invoke-Step {
 function Confirm-DefaultYes {
     param([string]$Prompt)
     if ($AssumeYes) {
-        Write-Log "TABURA_ASSUME_YES accepted: $Prompt"
+        Write-Log "SLOPPAD_ASSUME_YES accepted: $Prompt"
         return $true
     }
     if (-not [Environment]::UserInteractive) {
@@ -109,8 +109,8 @@ function Require-Python {
 function Get-Release {
     param([string]$Requested)
 
-    if ($env:TABURA_RELEASE_JSON) {
-        return ($env:TABURA_RELEASE_JSON | ConvertFrom-Json)
+    if ($env:SLOPPAD_RELEASE_JSON) {
+        return ($env:SLOPPAD_RELEASE_JSON | ConvertFrom-Json)
     }
     if ($DryRun.IsPresent) {
         $tag = if ($Requested) { Normalize-Version $Requested } else { "v0.0.0-test" }
@@ -120,7 +120,7 @@ function Get-Release {
 {
   "tag_name": "$tag",
   "assets": [
-    {"name":"tabura_${plain}_windows_${arch}.zip","browser_download_url":"https://example.invalid/tabura.zip"},
+    {"name":"sloppad_${plain}_windows_${arch}.zip","browser_download_url":"https://example.invalid/sloppad.zip"},
     {"name":"checksums.txt","browser_download_url":"https://example.invalid/checksums.txt"}
   ]
 }
@@ -158,16 +158,16 @@ function Install-Binary {
     if (-not $tag) { Throw-InstallError "release did not provide tag_name" }
     $plainVersion = $tag.TrimStart('v')
     $arch = Resolve-Arch
-    $assetName = "tabura_${plainVersion}_windows_${arch}.zip"
+    $assetName = "sloppad_${plainVersion}_windows_${arch}.zip"
     $asset = Get-Asset -Release $Release -Name $assetName
 
     if ($DryRun.IsPresent) {
-        Invoke-Step -Display "Install tabura.exe to $BinaryPath" -Action {}
+        Invoke-Step -Display "Install sloppad.exe to $BinaryPath" -Action {}
         return $tag
     }
 
     $checksumAsset = Get-Asset -Release $Release -Name "checksums.txt"
-    $tmpDir = Join-Path ([IO.Path]::GetTempPath()) ("tabura-install-" + [guid]::NewGuid().ToString('N'))
+    $tmpDir = Join-Path ([IO.Path]::GetTempPath()) ("sloppad-install-" + [guid]::NewGuid().ToString('N'))
     New-Item -ItemType Directory -Path $tmpDir | Out-Null
     try {
         $zipPath = Join-Path $tmpDir $assetName
@@ -186,9 +186,9 @@ function Install-Binary {
 
         $extractDir = Join-Path $tmpDir "extract"
         Expand-Archive -Path $zipPath -DestinationPath $extractDir -Force
-        $exeSource = Get-ChildItem -Path $extractDir -Filter "tabura.exe" -Recurse | Select-Object -First 1
+        $exeSource = Get-ChildItem -Path $extractDir -Filter "sloppad.exe" -Recurse | Select-Object -First 1
         if (-not $exeSource) {
-            Throw-InstallError "tabura.exe missing in release archive"
+            Throw-InstallError "sloppad.exe missing in release archive"
         }
         Copy-Item -Path $exeSource.FullName -Destination $BinaryPath -Force
 
@@ -226,7 +226,7 @@ function Ensure-UserPath {
 function Setup-Piper {
     Write-Host "=== Piper TTS (GPL, runs as HTTP sidecar) ==="
     Write-Host "Piper TTS will be installed as a local HTTP service."
-    Write-Host "License: GPL (isolated via HTTP boundary, does not affect Tabura MIT license)"
+    Write-Host "License: GPL (isolated via HTTP boundary, does not affect Sloppad MIT license)"
     Write-Host "Voice models: en_GB-alan-medium (MIT-compatible)"
 
     if (-not (Confirm-DefaultYes "Install Piper TTS?")) {
@@ -259,11 +259,11 @@ function Setup-Piper {
 
 function Setup-LocalLlm {
     if ($SkipLlm) {
-        Write-Log "skipping local LLM due to TABURA_INSTALL_SKIP_LLM=1"
+        Write-Log "skipping local LLM due to SLOPPAD_INSTALL_SKIP_LLM=1"
         return
     }
     Write-Host "=== Local LLMs (llama.cpp, optional) ==="
-    Write-Host "A fast Qwen3.5 9B coordinator runs on port 8081 for Tabura routing and replies."
+    Write-Host "A fast Qwen3.5 9B coordinator runs on port 8081 for Sloppad routing and replies."
     Write-Host "A Codex-focused gpt-oss-120b runtime runs on port 8080 for local Codex agent profiles."
     Write-Host "Requires llama.cpp (llama-server binary)."
 
@@ -303,7 +303,7 @@ function Setup-LocalLlm {
 function Write-TaskFiles {
     param([string]$CodexPath)
 
-    $webCmd = 'set "TABURA_INTENT_LLM_URL=http://127.0.0.1:8081" && set "TABURA_INTENT_LLM_MODEL=local" && set "TABURA_INTENT_LLM_PROFILE=qwen3.5-9b" && set "TABURA_INTENT_LLM_PROFILE_OPTIONS=qwen3.5-9b,qwen3.5-4b" && "' + $BinaryPath + '" server --project-dir "' + $ProjectDir + '" --data-dir "' + $WebDataDir + '" --web-host ' + $WebHost + ' --web-port 8420 --mcp-host 127.0.0.1 --mcp-port 9420 --app-server-url ws://127.0.0.1:8787 --tts-url http://127.0.0.1:8424'
+    $webCmd = 'set "SLOPPAD_INTENT_LLM_URL=http://127.0.0.1:8081" && set "SLOPPAD_INTENT_LLM_MODEL=local" && set "SLOPPAD_INTENT_LLM_PROFILE=qwen3.5-9b" && set "SLOPPAD_INTENT_LLM_PROFILE_OPTIONS=qwen3.5-9b,qwen3.5-4b" && "' + $BinaryPath + '" server --project-dir "' + $ProjectDir + '" --data-dir "' + $WebDataDir + '" --web-host ' + $WebHost + ' --web-port 8420 --mcp-host 127.0.0.1 --mcp-port 9420 --app-server-url ws://127.0.0.1:8787 --tts-url http://127.0.0.1:8424'
     $piperCmd = 'set "PIPER_MODEL_DIR=' + $ModelDir + '" && "' + (Join-Path $PiperVenv 'Scripts\python.exe') + '" -m uvicorn piper_tts_server:app --app-dir "' + $ScriptDir + '" --host 127.0.0.1 --port 8424'
     $codexCmd = '"' + $CodexPath + '" app-server --listen ws://127.0.0.1:8787'
 
@@ -316,26 +316,26 @@ function Write-TaskFiles {
     }
 
     if ($DryRun.IsPresent) {
-        Write-Log "[dry-run] Register scheduled tasks tabura-web, tabura-piper-tts, tabura-codex-app-server, tabura-llm, tabura-codex-llm"
+        Write-Log "[dry-run] Register scheduled tasks sloppad-web, sloppad-piper-tts, sloppad-codex-app-server, sloppad-llm, sloppad-codex-llm"
         return
     }
 
-    schtasks /Create /SC ONLOGON /TN "tabura-codex-app-server" /TR $codexCmd /F | Out-Null
-    schtasks /Create /SC ONLOGON /TN "tabura-piper-tts" /TR ("cmd /c " + $piperCmd) /F | Out-Null
-    schtasks /Run /TN "tabura-codex-app-server" | Out-Null
-    schtasks /Run /TN "tabura-piper-tts" | Out-Null
+    schtasks /Create /SC ONLOGON /TN "sloppad-codex-app-server" /TR $codexCmd /F | Out-Null
+    schtasks /Create /SC ONLOGON /TN "sloppad-piper-tts" /TR ("cmd /c " + $piperCmd) /F | Out-Null
+    schtasks /Run /TN "sloppad-codex-app-server" | Out-Null
+    schtasks /Run /TN "sloppad-piper-tts" | Out-Null
 
     if ($llmCmd) {
-        schtasks /Create /SC ONLOGON /TN "tabura-llm" /TR $llmCmd /F | Out-Null
-        schtasks /Run /TN "tabura-llm" | Out-Null
+        schtasks /Create /SC ONLOGON /TN "sloppad-llm" /TR $llmCmd /F | Out-Null
+        schtasks /Run /TN "sloppad-llm" | Out-Null
     }
     if ($codexLlmCmd) {
-        schtasks /Create /SC ONLOGON /TN "tabura-codex-llm" /TR $codexLlmCmd /F | Out-Null
-        schtasks /Run /TN "tabura-codex-llm" | Out-Null
+        schtasks /Create /SC ONLOGON /TN "sloppad-codex-llm" /TR $codexLlmCmd /F | Out-Null
+        schtasks /Run /TN "sloppad-codex-llm" | Out-Null
     }
 
-    schtasks /Create /SC ONLOGON /TN "tabura-web" /TR $webCmd /F | Out-Null
-    schtasks /Run /TN "tabura-web" | Out-Null
+    schtasks /Create /SC ONLOGON /TN "sloppad-web" /TR $webCmd /F | Out-Null
+    schtasks /Run /TN "sloppad-web" | Out-Null
 }
 
 function Print-WindowsSTTNotice {
@@ -344,7 +344,7 @@ function Print-WindowsSTTNotice {
 
 function Open-Browser {
     if ($SkipBrowser) {
-        Write-Log "skipping browser open due to TABURA_INSTALL_SKIP_BROWSER=1"
+        Write-Log "skipping browser open due to SLOPPAD_INSTALL_SKIP_BROWSER=1"
         return
     }
     if ($DryRun.IsPresent) {
@@ -377,12 +377,12 @@ function Remove-Task {
     schtasks /Delete /TN $TaskName /F | Out-Null 2>$null
 }
 
-function Uninstall-Tabura {
-    Remove-Task "tabura-web"
-    Remove-Task "tabura-llm"
-    Remove-Task "tabura-codex-llm"
-    Remove-Task "tabura-piper-tts"
-    Remove-Task "tabura-codex-app-server"
+function Uninstall-Sloppad {
+    Remove-Task "sloppad-web"
+    Remove-Task "sloppad-llm"
+    Remove-Task "sloppad-codex-llm"
+    Remove-Task "sloppad-piper-tts"
+    Remove-Task "sloppad-codex-app-server"
 
     if ($DryRun.IsPresent) {
         Write-Log "[dry-run] Remove $BinaryPath"
@@ -401,7 +401,7 @@ function Uninstall-Tabura {
     Write-Log "uninstall complete"
 }
 
-function Install-Tabura {
+function Install-Sloppad {
     $codexPath = Require-Codex
     Require-Python | Out-Null
     Ensure-InstallDirectories
@@ -417,7 +417,7 @@ function Install-Tabura {
 }
 
 if ($Uninstall.IsPresent) {
-    Uninstall-Tabura
+    Uninstall-Sloppad
 } else {
-    Install-Tabura
+    Install-Sloppad
 }

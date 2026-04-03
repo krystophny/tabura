@@ -2,11 +2,11 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TRAINER_DIR="${TABURA_HOTWORD_TRAINER_DIR:-$ROOT_DIR/tools/openwakeword-trainer}"
-CONFIG_PATH="${TABURA_HOTWORD_CONFIG:-$ROOT_DIR/scripts/hotword-config.yaml}"
-OUTPUT_DIR="${TABURA_HOTWORD_OUTPUT_DIR:-$ROOT_DIR/models/hotword}"
+TRAINER_DIR="${SLOPPAD_HOTWORD_TRAINER_DIR:-$ROOT_DIR/tools/openwakeword-trainer}"
+CONFIG_PATH="${SLOPPAD_HOTWORD_CONFIG:-$ROOT_DIR/scripts/hotword-config.yaml}"
+OUTPUT_DIR="${SLOPPAD_HOTWORD_OUTPUT_DIR:-$ROOT_DIR/models/hotword}"
 PYTHON_BIN="${PYTHON:-python3}"
-SKIP_PIP_INSTALL="${TABURA_HOTWORD_SKIP_PIP_INSTALL:-0}"
+SKIP_PIP_INSTALL="${SLOPPAD_HOTWORD_SKIP_PIP_INSTALL:-0}"
 
 read_config_scalar() {
   local key="$1"
@@ -91,8 +91,8 @@ if [[ "$SKIP_PIP_INSTALL" != "1" ]]; then
   # piper-phonemize has no wheels for Python >=3.12; use the community fix package.
   "$VENV_DIR/bin/python" -m pip install piper-phonemize-fix >/dev/null
   ORT_PACKAGE="onnxruntime"
-  if [[ "${TABURA_HOTWORD_ORT_PACKAGE:-}" != "" ]]; then
-    ORT_PACKAGE="$TABURA_HOTWORD_ORT_PACKAGE"
+  if [[ "${SLOPPAD_HOTWORD_ORT_PACKAGE:-}" != "" ]]; then
+    ORT_PACKAGE="$SLOPPAD_HOTWORD_ORT_PACKAGE"
   elif [[ "$(uname -s)" == "Linux" ]] && command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi -L >/dev/null 2>&1; then
     ORT_PACKAGE="onnxruntime-gpu"
   fi

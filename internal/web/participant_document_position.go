@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
 const participantDocumentPositionEventType = "document_position_changed"

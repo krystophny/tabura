@@ -1,26 +1,26 @@
 # Design Lineage
 
-Tabura's interaction model draws on a consistent thread in computing research: the workspace, not the app, should be the unit of design. This document traces that lineage and records the specific influences on Tabura's product decisions.
+Sloppad's interaction model draws on a consistent thread in computing research: the workspace, not the app, should be the unit of design. This document traces that lineage and records the specific influences on Sloppad's product decisions.
 
 ## Foundational papers
 
-**Bush, "As We May Think" (1945)** — the Memex. A personal workspace where all documents are linked and annotable. The user follows association trails across materials, not app boundaries. Tabura's canvas-with-artifacts model is a direct descendant: receive a document, annotate it, link it to other artifacts, compose a response.
+**Bush, "As We May Think" (1945)** — the Memex. A personal workspace where all documents are linked and annotable. The user follows association trails across materials, not app boundaries. Sloppad's canvas-with-artifacts model is a direct descendant: receive a document, annotate it, link it to other artifacts, compose a response.
 
-**Licklider, "Man-Computer Symbiosis" (1960)** — the computer as thinking partner, not discrete tool. Interaction is continuous, not transactional. This is the theoretical basis for Tabura's Dialogue mode: an ongoing collaborative presence rather than request-response prompting.
+**Licklider, "Man-Computer Symbiosis" (1960)** — the computer as thinking partner, not discrete tool. Interaction is continuous, not transactional. This is the theoretical basis for Sloppad's Dialogue mode: an ongoing collaborative presence rather than request-response prompting.
 
-**Engelbart, "Augmenting Human Intellect: A Conceptual Framework" (1962)** — the theoretical paper behind NLS. The unit of design is the human activity system, not the software component. Engelbart's H-LAM/T framework (Human using Language, Artifacts, Methodology, in which he is Trained) argues that workspace, artifacts, and interaction grammar form one system. Tabura's five-noun ontology is a modern reduction of this.
+**Engelbart, "Augmenting Human Intellect: A Conceptual Framework" (1962)** — the theoretical paper behind NLS. The unit of design is the human activity system, not the software component. Engelbart's H-LAM/T framework (Human using Language, Artifacts, Methodology, in which he is Trained) argues that workspace, artifacts, and interaction grammar form one system. Sloppad's five-noun ontology is a modern reduction of this.
 
-**Nelson, Computer Lib / Dream Machines (1974)** — universal hypertext, transclusion, no app boundaries. Everything is one interconnected document space. Nelson's vision of documents that include and reference each other without copying is the conceptual ancestor of Tabura's artifact-reference model.
+**Nelson, Computer Lib / Dream Machines (1974)** — universal hypertext, transclusion, no app boundaries. Everything is one interconnected document space. Nelson's vision of documents that include and reference each other without copying is the conceptual ancestor of Sloppad's artifact-reference model.
 
 ## Cognitive science foundations
 
 **Gibson, The Ecological Approach to Visual Perception (1979)** — affordances in the original sense. The environment directly offers possibilities for action. A unified workspace affords working; app boundaries fragment the action space. Every context switch destroys ecological structure. This is the deepest theoretical argument for one surface.
 
-**Suchman, Plans and Situated Actions (1987)** — human action is situated, not pre-planned. People respond to evolving context rather than executing pre-formed plans. This is a direct argument against immediate-dispatch (tap then AI fires) and for annotation-accumulation (observe, mark up, bundle, decide). Tabura's receive-annotate-bundle-send flow is Suchman-correct.
+**Suchman, Plans and Situated Actions (1987)** — human action is situated, not pre-planned. People respond to evolving context rather than executing pre-formed plans. This is a direct argument against immediate-dispatch (tap then AI fires) and for annotation-accumulation (observe, mark up, bundle, decide). Sloppad's receive-annotate-bundle-send flow is Suchman-correct.
 
-**Norman, The Design of Everyday Things (1988)** — mode errors. When the same gesture means different things in different modes, people make mistakes. Tabura's gesture truth table is the direct engineering response: no gesture may have two incompatible meanings in the same visible state.
+**Norman, The Design of Everyday Things (1988)** — mode errors. When the same gesture means different things in different modes, people make mistakes. Sloppad's gesture truth table is the direct engineering response: no gesture may have two incompatible meanings in the same visible state.
 
-**Hutchins, Cognition in the Wild (1995)** — cognition is distributed across people, artifacts, and spatial arrangements. The workspace is part of the cognitive system, not just a container for tools. An artifact arranged on a canvas is not decoration; it is thinking. Tabura's artifact-on-canvas model follows from this: spatial arrangement of artifacts is a cognitive act.
+**Hutchins, Cognition in the Wild (1995)** — cognition is distributed across people, artifacts, and spatial arrangements. The workspace is part of the cognitive system, not just a container for tools. An artifact arranged on a canvas is not decoration; it is thinking. Sloppad's artifact-on-canvas model follows from this: spatial arrangement of artifacts is a cognitive act.
 
 **Kirsh, "The Intelligent Use of Space" (1995)** — empirical study of how spatial arrangement simplifies choice, reduces search, and serves as external memory. All three functions break when the space is fragmented into app windows. This is empirical support for the single-canvas approach.
 
@@ -34,15 +34,15 @@ Tabura's interaction model draws on a consistent thread in computing research: t
 
 **Kaptelinin & Nardi, Acting with Technology (2006)** — applied activity theory (Vygotsky, Leont'ev) to HCI. The unit of analysis is the activity, not the tool. The interface should be organized around the object of activity (what you are working on), not around which app you are in. This is the theoretical argument for organizing around Artifact and Item rather than application.
 
-**Weiser, "The Computer for the 21st Century" (1991)** — calm technology. The most profound technologies disappear. Tabura's hidden chrome, edge-reveal panels, and indicator model follow from this: the system is present but not attention-demanding.
+**Weiser, "The Computer for the 21st Century" (1991)** — calm technology. The most profound technologies disappear. Sloppad's hidden chrome, edge-reveal panels, and indicator model follow from this: the system is present but not attention-demanding.
 
 **Weiser & Brown, "The Coming Age of Calm Technology" (1996)** — center versus periphery of attention. Information should move smoothly between them. Items at the periphery, artifacts at the center, smooth transitions between. A notification that demands focus when it should be peripheral is a design failure.
 
-**Raskin, The Humane Interface (2000)** — no modes, no apps, one continuous document surface. Raskin argued this was the only correct interaction model. Tabura's one calm surface principle is Raskin's thesis with modern capabilities.
+**Raskin, The Humane Interface (2000)** — no modes, no apps, one continuous document surface. Raskin argued this was the only correct interaction model. Sloppad's one calm surface principle is Raskin's thesis with modern capabilities.
 
 ## System precedents
 
-**Xerox Star (1981)** — the first commercial GUI was document-centric, not app-centric. You opened documents; the system activated the right tools. When Apple and Microsoft copied the Star, they copied the window chrome but replaced the document-centric model with an app-centric one. Tabura returns to the Star's original intent.
+**Xerox Star (1981)** — the first commercial GUI was document-centric, not app-centric. You opened documents; the system activated the right tools. When Apple and Microsoft copied the Star, they copied the window chrome but replaced the document-centric model with an app-centric one. Sloppad returns to the Star's original intent.
 
 **HyperCard (1987)** — stacks of cards, mixed media, embedded scripting. The stack was the unit of work and could be anything. It was the closest thing to one substrate for all creative work that millions of people actually used. Apple killed it by neglect because it undermined the app-as-product model.
 
@@ -52,11 +52,11 @@ Tabura's interaction model draws on a consistent thread in computing research: t
 
 **Emacs** — everything is a buffer. Mail, code, shell, calendar, notes, all in the same substrate. Tools vary; fundamental operations (point, mark, kill, yank) do not. This is the longest-running existence proof that tools vary, semantics don't works.
 
-**Apple Newton (1993)** — pen-first, no files. The data model was a shared object store (soup), not a filesystem. Applications were views into the same data, not silos. Architecturally close to Tabura's single-ontology model.
+**Apple Newton (1993)** — pen-first, no files. The data model was a shared object store (soup), not a filesystem. Applications were views into the same data, not silos. Architecturally close to Sloppad's single-ontology model.
 
-**OpenDoc (1992-1997)** — compound documents where parts of a document could be handled by different editors. The document was sovereign. Failed because incumbent app vendors had no incentive to unbundle, and the component architecture was too complex for the hardware. Tabura avoids this failure mode: the AI layer replaces what OpenDoc tried to do with component architecture.
+**OpenDoc (1992-1997)** — compound documents where parts of a document could be handled by different editors. The document was sovereign. Failed because incumbent app vendors had no incentive to unbundle, and the component architecture was too complex for the hardware. Sloppad avoids this failure mode: the AI layer replaces what OpenDoc tried to do with component architecture.
 
-**Microsoft Courier (cancelled 2010)** — dual-screen journal. Pen-first, canvas plus journal, document-centric. The leaked designs show exactly the receive-annotate-bundle-send flow that Tabura's annotation model describes. Microsoft killed it because it threatened the Office business model.
+**Microsoft Courier (cancelled 2010)** — dual-screen journal. Pen-first, canvas plus journal, document-centric. The leaked designs show exactly the receive-annotate-bundle-send flow that Sloppad's annotation model describes. Microsoft killed it because it threatened the Office business model.
 
 **Smalltalk / Squeak** — one live object world. No files, no apps. Objects on a canvas, directly manipulable. Everything is inspectable and composable. Kay's Dynabook vision (1972): a personal dynamic medium, not a personal tool.
 
@@ -66,7 +66,7 @@ Tabura's interaction model draws on a consistent thread in computing research: t
 
 ## Modern research
 
-**Ink & Switch, "Local-First Software" (2019, Kleppmann et al.)** — local data ownership, offline capability, collaboration without cloud dependency. Their subsequent Crosscut work (2023) addresses the data-trapped-in-app-silos problem directly. Tabura's filesystem-native approach sidesteps this: if everything is a real file in a real directory, there are no silos to bridge.
+**Ink & Switch, "Local-First Software" (2019, Kleppmann et al.)** — local data ownership, offline capability, collaboration without cloud dependency. Their subsequent Crosscut work (2023) addresses the data-trapped-in-app-silos problem directly. Sloppad's filesystem-native approach sidesteps this: if everything is a real file in a real directory, there are no silos to bridge.
 
 **Matuschak & Nielsen, "How can we develop transformative tools for thought?" (2019)** — tools for thought should be environments you inhabit, not apps you visit. Tool boundaries are artificial and cognitively harmful.
 
@@ -76,17 +76,17 @@ Tabura's interaction model draws on a consistent thread in computing research: t
 
 ## Labels, attention, and time
 
-**Allen, Getting Things Done (2001)** — GTD contexts (@office, @phone, @computer) are situational filters: "given where I am, what can I do?" The key insight is that filtering by context is the primary way to decide what to work on next. Tabura generalizes this into hierarchical labels that include topics, urgency, and privacy, not just situational constraints.
+**Allen, Getting Things Done (2001)** — GTD contexts (@office, @phone, @computer) are situational filters: "given where I am, what can I do?" The key insight is that filtering by context is the primary way to decide what to work on next. Sloppad generalizes this into hierarchical labels that include topics, urgency, and privacy, not just situational constraints.
 
-**Gonzalez & Mark, "Constant, Constant, Multi-tasking Craziness: Managing Multiple Working Spheres" (2004)** — empirical study of how knowledge workers manage multiple concurrent work contexts ("working spheres") throughout the day. People switch between spheres frequently, and the cost of switching is high. The system should support rapid label-based filtering with minimal state loss. Tabura's label model is a direct implementation: switch the label filter, everything relevant appears.
+**Gonzalez & Mark, "Constant, Constant, Multi-tasking Craziness: Managing Multiple Working Spheres" (2004)** — empirical study of how knowledge workers manage multiple concurrent work contexts ("working spheres") throughout the day. People switch between spheres frequently, and the cost of switching is high. The system should support rapid label-based filtering with minimal state loss. Sloppad's label model is a direct implementation: switch the label filter, everything relevant appears.
 
 **Bardram, "Activity-Based Computing" (2005)** — proposes the activity, not the application, as the unit of computing. Users move between activities throughout the day. The system saves and restores the full state of each activity. This is the theoretical basis for label-as-active-filter: enter a label scope, see everything relevant, leave, state preserved.
 
-**TaskWarrior + Timewarrior** — the clearest existing implementation. `task context work` activates a filter. Everything you see is scoped to that context. Timewarrior tracks time against it. Switch context, switch filter, time accrues to the new one. Tabura's time model goes further: time accrues to all labels on whatever you touch, so cross-cutting queries ("how much time on urgent things?") work without explicit activation.
+**TaskWarrior + Timewarrior** — the clearest existing implementation. `task context work` activates a filter. Everything you see is scoped to that context. Timewarrior tracks time against it. Switch context, switch filter, time accrues to the new one. Sloppad's time model goes further: time accrues to all labels on whatever you touch, so cross-cutting queries ("how much time on urgent things?") work without explicit activation.
 
 ## Research compendium and FAIR principles
 
-**Gentleman & Temple Lang, "Statistical Analyses and Reproducible Research" (2007)** — proposed the research compendium: data, code, and narrative bundled into one unit. A Tabura paper workspace composed via symlinks and archived with materialized artifacts is exactly this. The workspace is the compendium.
+**Gentleman & Temple Lang, "Statistical Analyses and Reproducible Research" (2007)** — proposed the research compendium: data, code, and narrative bundled into one unit. A Sloppad paper workspace composed via symlinks and archived with materialized artifacts is exactly this. The workspace is the compendium.
 
 **Wilkinson et al., "The FAIR Guiding Principles for scientific data management and stewardship" (2016)** — Findable, Accessible, Interoperable, Reusable. Labels make artifacts findable. Materialization as standard files (.eml, .md, .ics) makes them accessible. Filesystem-native storage makes them interoperable. Archivable workspaces with DOIs make them reusable and citable.
 
@@ -98,7 +98,7 @@ Every serious attempt to build a document-centric or environment-centric system 
 
 The app as organizing unit is the aberration, not the norm, in computing's intellectual history. The dominant commercial model won for business reasons, not UX reasons.
 
-## What Tabura takes from this
+## What Sloppad takes from this
 
 1. From the Star and Kay: the artifact, not the app, is the unit of work.
 2. From Raskin and the Canon Cat: one surface, no modes, no hidden state. The gesture truth table is the engineering response to mode proliferation.
@@ -113,4 +113,4 @@ The app as organizing unit is the aberration, not the norm, in computing's intel
 11. From Gonzalez/Mark and TaskWarrior: time accrues to all labels on what you touch. Cross-cutting time queries work without explicit tracking activation.
 12. From Gentleman and FAIR: the workspace is the research compendium. Materialization and archival make personal work publishable and auditable.
 
-Tabura's position (local-first, filesystem-native, no platform tax, AI as integration layer) avoids the historical failure modes. There is no app monopoly to protect, no component architecture to over-engineer, and the AI layer means tools do not need to be heavyweight app-like components.
+Sloppad's position (local-first, filesystem-native, no platform tax, AI as integration layer) avoids the historical failure modes. There is no app monopoly to protect, no component architecture to over-engineer, and the AI layer means tools do not need to be heavyweight app-like components.

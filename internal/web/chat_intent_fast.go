@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
 type deterministicFastPathContext struct {

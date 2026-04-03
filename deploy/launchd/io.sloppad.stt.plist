@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>io.sloppad.stt</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>@@STT_SETUP_SCRIPT@@</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>VOXTYPE_BIN</key>
+    <string>@@VOXTYPE_BIN@@</string>
+    <key>SLOPPAD_STT_LANGUAGE</key>
+    <string>de,en</string>
+    <key>SLOPPAD_STT_MODEL</key>
+    <string>large-v3-turbo</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/tmp/sloppad-stt.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/sloppad-stt.log</string>
+</dict>
+</plist>

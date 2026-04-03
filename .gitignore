@@ -1,4 +1,4 @@
-.tabura/
+.sloppad/
 node_modules/
 dist/
 build/
@@ -7,11 +7,11 @@ __pycache__/
 *.egg-info/
 .coverage
 
-.tabura/artifacts/
+.sloppad/artifacts/
 playwright-report/
 test-results/
 tests/manual/
-/tabura
+/sloppad
 tools/
 .env
 internal/web/static/vad/

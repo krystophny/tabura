@@ -1,6 +1,6 @@
 # Third-Party Licenses
 
-This document tracks third-party components used by Tabura and whether they are
+This document tracks third-party components used by Sloppad and whether they are
 bundled in the repository build outputs or downloaded at setup/runtime.
 
 ## Bundled In Binary
@@ -35,7 +35,7 @@ bundled in the repository build outputs or downloaded at setup/runtime.
 
 ## Licensing Boundary
 
-- Tabura's Go binary remains MIT-licensed.
+- Sloppad's Go binary remains MIT-licensed.
 - GPL-governed Piper runtime is integrated as a loopback HTTP sidecar process and
   is not linked into the Go binary.
 - Voice model licensing is handled per model card; setup scripts print a Tier-2

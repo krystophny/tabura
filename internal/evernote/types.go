@@ -120,7 +120,7 @@ type tagPayload struct {
 }
 
 func TokenEnvVar(label string) string {
-	return "TABURA_EVERNOTE_TOKEN_" + sanitizeEnvSegment(label)
+	return "SLOPPAD_EVERNOTE_TOKEN_" + sanitizeEnvSegment(label)
 }
 
 func sanitizeEnvSegment(raw string) string {

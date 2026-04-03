@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 async function waitReady(page: Page) {
   await page.goto('/tests/playwright/harness.html');
   await page.waitForFunction(() => {
-    const app = (window as any)._taburaApp;
+    const app = (window as any)._sloppadApp;
     if (typeof app?.getState !== 'function') return false;
     const s = app.getState();
     const wsOpen = (window as any).WebSocket.OPEN;
@@ -13,9 +13,9 @@ async function waitReady(page: Page) {
 
 async function injectCanvasEvent(page: Page, payload: Record<string, unknown>) {
   await page.evaluate((eventPayload) => {
-    const app = (window as any)._taburaApp;
+    const app = (window as any)._sloppadApp;
     if (typeof app?.getState !== 'function') {
-      throw new Error('tabura app state unavailable');
+      throw new Error('sloppad app state unavailable');
     }
     const canvasWs = app.getState().canvasWs;
     if (!canvasWs || typeof canvasWs.injectEvent !== 'function') {
@@ -107,7 +107,7 @@ test.describe('pr review canvas mode', () => {
     await injectCanvasEvent(page, {
       kind: 'text_artifact',
       event_id: 'evt-pr-1',
-      title: '.tabura/artifacts/pr/pr-17.diff',
+      title: '.sloppad/artifacts/pr/pr-17.diff',
       text: twoFileDiff(),
     });
 
@@ -129,7 +129,7 @@ test.describe('pr review canvas mode', () => {
     await injectCanvasEvent(page, {
       kind: 'text_artifact',
       event_id: 'evt-pr-2',
-      title: '.tabura/artifacts/pr/pr-18.diff',
+      title: '.sloppad/artifacts/pr/pr-18.diff',
       text: twoFileDiff(),
     });
     await expect(page.locator('#pr-file-list .pr-file-item.is-active .pr-file-name')).toContainText('docs/one.md');
@@ -148,7 +148,7 @@ test.describe('pr review canvas mode', () => {
     await injectCanvasEvent(page, {
       kind: 'text_artifact',
       event_id: 'evt-pr-2b',
-      title: '.tabura/artifacts/pr/pr-18.diff',
+      title: '.sloppad/artifacts/pr/pr-18.diff',
       text: twoFileDiff(),
     });
     await expect(page.locator('#pr-file-list .pr-file-item.is-active .pr-file-name')).toContainText('docs/one.md');
@@ -167,7 +167,7 @@ test.describe('pr review canvas mode', () => {
     await injectCanvasEvent(page, {
       kind: 'text_artifact',
       event_id: 'evt-pr-2c',
-      title: '.tabura/artifacts/pr/pr-18.diff',
+      title: '.sloppad/artifacts/pr/pr-18.diff',
       text: twoFileDiff(),
     });
     await expect(page.locator('#pr-file-list .pr-file-item.is-active .pr-file-name')).toContainText('docs/one.md');
@@ -186,7 +186,7 @@ test.describe('pr review canvas mode', () => {
     await injectCanvasEvent(page, {
       kind: 'text_artifact',
       event_id: 'evt-pr-3',
-      title: '.tabura/artifacts/pr/pr-19.diff',
+      title: '.sloppad/artifacts/pr/pr-19.diff',
       text: twoFileDiff(),
     });
 
@@ -229,20 +229,20 @@ test.describe('pr review canvas mode', () => {
     await page.locator('.sidebar-tab', { hasText: 'Files' }).click();
     await page.locator('#pr-file-list .pr-file-item', { hasText: 'README.md' }).click();
     await page.waitForFunction(() => {
-      const app = (window as any)._taburaApp;
+      const app = (window as any)._sloppadApp;
       return app?.getState?.().workspaceOpenFilePath === 'README.md';
     });
 
     await horizontalFlip(page, 140);
     await page.waitForFunction(() => {
-      const app = (window as any)._taburaApp;
+      const app = (window as any)._sloppadApp;
       return app?.getState?.().workspaceOpenFilePath === 'NOTES.md';
     });
     await expect(page.locator('#canvas-text')).toContainText('NOTES.md');
 
     await horizontalFlip(page, -140);
     await page.waitForFunction(() => {
-      const app = (window as any)._taburaApp;
+      const app = (window as any)._sloppadApp;
       return app?.getState?.().workspaceOpenFilePath === 'README.md';
     });
     await expect(page.locator('#canvas-text')).toContainText('README.md');
@@ -257,14 +257,14 @@ test.describe('pr review canvas mode', () => {
     await page.locator('.sidebar-tab', { hasText: 'Files' }).click();
     await page.locator('#pr-file-list .pr-file-item', { hasText: 'README.md' }).click();
     await page.waitForFunction(() => {
-      const app = (window as any)._taburaApp;
+      const app = (window as any)._sloppadApp;
       return app?.getState?.().workspaceOpenFilePath === 'README.md';
     });
     await expect(page.locator('#canvas-text')).toContainText('README.md');
     await expect(page.locator('#pr-file-pane')).not.toHaveClass(/is-open/);
 
     const debugBefore = await page.evaluate(async () => {
-      const app = (window as any)._taburaApp;
+      const app = (window as any)._sloppadApp;
       const mod = await import('../../internal/web/static/canvas.js');
       if (!app || typeof app.getState !== 'function') return null;
       const s = app.getState();
@@ -281,13 +281,13 @@ test.describe('pr review canvas mode', () => {
     // Simulate state desync after external canvas activity: path state was
     // cleared, but the active artifact title still points at README.md.
     await page.evaluate(() => {
-      const app = (window as any)._taburaApp;
+      const app = (window as any)._sloppadApp;
       if (!app || typeof app.getState !== 'function') return;
       app.getState().workspaceOpenFilePath = '';
     });
 
     const debugAfterClear = await page.evaluate(async () => {
-      const app = (window as any)._taburaApp;
+      const app = (window as any)._sloppadApp;
       const mod = await import('../../internal/web/static/canvas.js');
       if (!app || typeof app.getState !== 'function') return null;
       const s = app.getState();
@@ -306,7 +306,7 @@ test.describe('pr review canvas mode', () => {
       await touchHorizontalFlip(page, 300, 130);
       try {
         await page.waitForFunction(() => {
-          const app = (window as any)._taburaApp;
+          const app = (window as any)._sloppadApp;
           return app?.getState?.().workspaceOpenFilePath === 'NOTES.md';
         }, null, { timeout: 1200 });
         flipped = true;

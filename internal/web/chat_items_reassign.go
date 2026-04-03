@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
 var (

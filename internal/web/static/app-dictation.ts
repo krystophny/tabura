@@ -68,7 +68,7 @@ function dictationCanvasPayload() {
   if (!current.draftText) return null;
   return {
     kind: 'text_artifact',
-    title: current.scratchPath || '.tabura/artifacts/tmp/dictation.md',
+    title: current.scratchPath || '.sloppad/artifacts/tmp/dictation.md',
     text: current.draftText,
     surface_default: 'editor',
     meta: { surface_default: 'editor' },

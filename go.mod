@@ -1,4 +1,4 @@
-module github.com/krystophny/tabura
+module github.com/krystophny/sloppad
 
 go 1.24.0
 

@@ -4,14 +4,14 @@ import { authenticate } from './helpers';
 
 async function enableDialogueMode(page: Page) {
   await page.evaluate(() => {
-    const circle = document.getElementById('tabura-circle-dot');
+    const circle = document.getElementById('sloppad-circle-dot');
     if (circle instanceof HTMLButtonElement) {
       circle.click();
     }
   });
-  await expect(page.locator('#tabura-circle')).toHaveAttribute('data-state', 'expanded');
+  await expect(page.locator('#sloppad-circle')).toHaveAttribute('data-state', 'expanded');
   await page.evaluate(() => {
-    const button = document.querySelector('#tabura-circle-menu .tabura-circle-segment[data-segment="dialogue"]');
+    const button = document.querySelector('#sloppad-circle-menu .sloppad-circle-segment[data-segment="dialogue"]');
     if (!(button instanceof HTMLButtonElement)) {
       throw new Error('dialogue circle segment not found');
     }
@@ -31,7 +31,7 @@ test.describe('dialogue mode diagnostics @local-only', () => {
     await openLiveApp(page, sessionToken);
 
     await page.evaluate(() => {
-      const app = (window as any)._taburaApp;
+      const app = (window as any)._sloppadApp;
       app?.clearDialogueDiagnostics?.();
     });
     await enableDialogueMode(page);
@@ -40,7 +40,7 @@ test.describe('dialogue mode diagnostics @local-only', () => {
 
     await expect.poll(async () => {
       return page.evaluate(() => {
-        const app = (window as any)._taburaApp;
+        const app = (window as any)._sloppadApp;
         const state = app?.getState?.();
         return Boolean(state?.liveSessionActive && state?.liveSessionMode === 'dialogue');
       });
@@ -48,7 +48,7 @@ test.describe('dialogue mode diagnostics @local-only', () => {
 
     await expect.poll(async () => {
       return page.evaluate(() => {
-        const diagnostics = (window as any)._taburaApp?.getDialogueDiagnostics?.();
+        const diagnostics = (window as any)._sloppadApp?.getDialogueDiagnostics?.();
         if (!diagnostics) return null;
         return {
           connected: diagnostics.connected === true,
@@ -67,7 +67,7 @@ test.describe('dialogue mode diagnostics @local-only', () => {
       hasMetrics: true,
     });
 
-    const diagnostics = await page.evaluate(() => (window as any)._taburaApp?.getDialogueDiagnostics?.());
+    const diagnostics = await page.evaluate(() => (window as any)._sloppadApp?.getDialogueDiagnostics?.());
     expect(Array.isArray(diagnostics?.recentEvents)).toBe(true);
     expect(diagnostics.recentEvents.some((entry: any) => entry?.kind === 'turn_metrics')).toBe(true);
   });

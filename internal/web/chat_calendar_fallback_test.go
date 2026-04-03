@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/krystophny/tabura/internal/providerdata"
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/providerdata"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
 func TestCollectGoogleCalendarEventsFallsBackToGmailAccount(t *testing.T) {

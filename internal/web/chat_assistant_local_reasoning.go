@@ -1,6 +1,6 @@
 package web
 
-import "github.com/krystophny/tabura/internal/modelprofile"
+import "github.com/krystophny/sloppad/internal/modelprofile"
 
 func localAssistantThinkingEnabled(req *assistantTurnRequest) bool {
 	if req == nil {

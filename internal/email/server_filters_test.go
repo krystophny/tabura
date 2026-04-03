@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/krystophny/tabura/internal/ews"
+	"github.com/krystophny/sloppad/internal/ews"
 	"google.golang.org/api/gmail/v1"
 )
 

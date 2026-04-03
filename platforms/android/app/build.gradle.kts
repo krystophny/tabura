@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.tabura.android"
+    namespace = "com.sloppad.android"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.tabura.android"
+        applicationId = "com.sloppad.android"
         minSdk = 28
         targetSdk = 35
         versionCode = 1

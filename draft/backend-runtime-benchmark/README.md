@@ -42,4 +42,4 @@ Outputs:
 ## Notes
 
 - This is a synthetic microbenchmark and should be used as a directional signal.
-- It does not include network stack, websocket fanout, database contention, or full Tabura end-to-end behavior.
+- It does not include network stack, websocket fanout, database contention, or full Sloppad end-to-end behavior.

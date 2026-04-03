@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/krystophny/tabura/internal/store"
+	"github.com/krystophny/sloppad/internal/store"
 )
 
 const testScanPNGBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a3xwAAAAASUVORK5CYII="
@@ -290,7 +290,7 @@ func TestScanSummariesAndPromptPreserveParagraphMarkers(t *testing.T) {
 		{Content: "reply here", AnchorText: "Second paragraph", Paragraph: 2, Confidence: 0.88},
 	}
 
-	uploadSummary := buildScanUploadSummary(project, item, artifact, ".tabura/artifacts/scans/demo.png", scanExtractResult{
+	uploadSummary := buildScanUploadSummary(project, item, artifact, ".sloppad/artifacts/scans/demo.png", scanExtractResult{
 		Summary:     "One margin note detected.",
 		Annotations: annotations,
 	})

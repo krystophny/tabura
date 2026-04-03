@@ -9,7 +9,7 @@ type HarnessLogEntry = {
 async function waitReady(page: Page) {
   await page.goto('/tests/playwright/harness.html');
   await page.waitForFunction(() => {
-    const app = (window as any)._taburaApp;
+    const app = (window as any)._sloppadApp;
     if (typeof app?.getState !== 'function') return false;
     const state = app.getState();
     const wsOpen = (window as any).WebSocket.OPEN;
@@ -36,7 +36,7 @@ async function waitForSentMessage(page: Page) {
 
 async function submitVoiceStyleMessage(page: Page, text: string) {
   await page.evaluate(async (messageText) => {
-    const app = (window as any)._taburaApp;
+    const app = (window as any)._sloppadApp;
     if (app?.getState) app.getState().lastInputOrigin = 'voice';
     const mod = await import('../../internal/web/static/app-chat-submit.js');
     await mod.submitMessage(messageText, { kind: 'voice_transcript' });
@@ -45,7 +45,7 @@ async function submitVoiceStyleMessage(page: Page, text: string) {
 
 async function injectChatEvent(page: Page, payload: Record<string, unknown>) {
   await page.evaluate((eventPayload) => {
-    const app = (window as any)._taburaApp;
+    const app = (window as any)._sloppadApp;
     const activeChatWs = app?.getState?.().chatWs;
     if (activeChatWs && typeof activeChatWs.injectEvent === 'function') {
       activeChatWs.injectEvent(eventPayload);
@@ -77,7 +77,7 @@ test('pointed inbox and workspace views send structured cursor context', async (
   await page.getByRole('button', { name: 'Files' }).click();
   await page.locator('#pr-file-list .pr-file-item', { hasText: 'docs' }).focus();
   await page.waitForFunction(() => {
-    const app = (window as any)._taburaApp;
+    const app = (window as any)._sloppadApp;
     return app?.getState?.().workspaceBrowserActivePath === 'docs';
   });
 
@@ -121,7 +121,7 @@ test('cursor-driven system actions reopen the pointed item and workspace path', 
     },
   });
   await page.waitForFunction(() => {
-    const app = (window as any)._taburaApp;
+    const app = (window as any)._sloppadApp;
     return app?.getState?.().workspaceBrowserPath === 'docs';
   });
   await expect(page.locator('#pr-file-list')).toContainText('guide.md');
@@ -135,7 +135,7 @@ test('cursor-driven system actions reopen the pointed item and workspace path', 
     },
   });
   await page.waitForFunction(() => {
-    const app = (window as any)._taburaApp;
+    const app = (window as any)._sloppadApp;
     return app?.getState?.().workspaceOpenFilePath === 'docs/guide.md';
   });
   await expect(page.locator('#canvas-text')).toContainText('docs/guide.md');

@@ -1,10 +1,10 @@
 # Native Clients Plan
 
-> **Legal notice:** Tabura is provided "as is" and "as available" without warranties, and to the maximum extent permitted by applicable law the authors/contributors accept no liability for damages, data loss, or misuse. You are solely responsible for backups, verification, and safe operation. See [`DISCLAIMER.md`](/DISCLAIMER.md).
+> **Legal notice:** Sloppad is provided "as is" and "as available" without warranties, and to the maximum extent permitted by applicable law the authors/contributors accept no liability for damages, data loss, or misuse. You are solely responsible for backups, verification, and safe operation. See [`DISCLAIMER.md`](/DISCLAIMER.md).
 
 ## Architecture Decision
 
-Tabura's mobile direction is server-driven thin native clients.
+Sloppad's mobile direction is server-driven thin native clients.
 
 Business logic lives in the Go server. Native clients stay focused on platform
 I/O, low-latency capture, native rendering, and background/runtime integration.
@@ -36,37 +36,37 @@ The shipped native surfaces match the thin-client split.
 
 ### iOS
 
-- `platforms/ios/TaburaIOS/TaburaInkCaptureView.swift` uses `PencilKit` for ink
+- `platforms/ios/SloppadIOS/SloppadInkCaptureView.swift` uses `PencilKit` for ink
   capture.
-- `platforms/ios/TaburaIOS/TaburaAudioCapture.swift` owns microphone capture.
-- `platforms/ios/TaburaIOS/TaburaCanvasTransport.swift` and
-  `platforms/ios/TaburaIOS/TaburaChatTransport.swift` connect to the server.
-- `platforms/ios/TaburaIOS/TaburaServerDiscovery.swift` handles `_tabura._tcp`
+- `platforms/ios/SloppadIOS/SloppadAudioCapture.swift` owns microphone capture.
+- `platforms/ios/SloppadIOS/SloppadCanvasTransport.swift` and
+  `platforms/ios/SloppadIOS/SloppadChatTransport.swift` connect to the server.
+- `platforms/ios/SloppadIOS/SloppadServerDiscovery.swift` handles `_sloppad._tcp`
   discovery.
-- `platforms/ios/TaburaIOS/ContentView.swift` now exposes an explicit native
+- `platforms/ios/SloppadIOS/ContentView.swift` now exposes an explicit native
   dialogue surface selector and a full-screen black dialogue mode.
-- `platforms/ios/TaburaIOS/TaburaAppModel.swift` wires dialogue entry and exit
+- `platforms/ios/SloppadIOS/SloppadAppModel.swift` wires dialogue entry and exit
   to `/api/live-policy`, `/api/workspaces/{id}/companion/config`, and incoming
   `toggle_live_dialogue` / `companion_state` chat events.
 
 ### Android and Boox
 
-- `platforms/android/app/src/main/kotlin/com/tabura/android/TaburaInkSurfaceView.kt`
+- `platforms/android/app/src/main/kotlin/com/sloppad/android/SloppadInkSurfaceView.kt`
   uses `MotionEventPredictor` for low-latency stylus capture.
-- `platforms/android/app/src/main/kotlin/com/tabura/android/TaburaBooxInkSurfaceView.kt`
+- `platforms/android/app/src/main/kotlin/com/sloppad/android/SloppadBooxInkSurfaceView.kt`
   uses `TouchHelper.create` and raw drawing for Onyx Boox devices.
-- `platforms/android/app/src/main/kotlin/com/tabura/android/TaburaAudioCaptureService.kt`
+- `platforms/android/app/src/main/kotlin/com/sloppad/android/SloppadAudioCaptureService.kt`
   owns background microphone capture.
-- `platforms/android/app/src/main/kotlin/com/tabura/android/TaburaCanvasTransport.kt`
+- `platforms/android/app/src/main/kotlin/com/sloppad/android/SloppadCanvasTransport.kt`
   and
-  `platforms/android/app/src/main/kotlin/com/tabura/android/TaburaChatTransport.kt`
+  `platforms/android/app/src/main/kotlin/com/sloppad/android/SloppadChatTransport.kt`
   connect to the server.
-- `platforms/android/app/src/main/kotlin/com/tabura/android/TaburaServerDiscovery.kt`
-  handles `_tabura._tcp` discovery.
-- `platforms/android/app/src/main/kotlin/com/tabura/android/MainActivity.kt`
+- `platforms/android/app/src/main/kotlin/com/sloppad/android/SloppadServerDiscovery.kt`
+  handles `_sloppad._tcp` discovery.
+- `platforms/android/app/src/main/kotlin/com/sloppad/android/MainActivity.kt`
   now exposes an explicit native dialogue surface selector and a full-screen
   black dialogue mode.
-- `platforms/android/app/src/main/kotlin/com/tabura/android/TaburaAppModel.kt`
+- `platforms/android/app/src/main/kotlin/com/sloppad/android/SloppadAppModel.kt`
   wires dialogue entry and exit to `/api/live-policy`,
   `/api/workspaces/{id}/companion/config`, and incoming
   `toggle_live_dialogue` / `companion_state` chat events.

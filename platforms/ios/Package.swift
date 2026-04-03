@@ -2,47 +2,47 @@
 import PackageDescription
 
 let package = Package(
-    name: "TaburaFlowContract",
+    name: "SloppadFlowContract",
     products: [
         .library(
-            name: "TaburaFlowContract",
-            targets: ["TaburaFlowContract"]
+            name: "SloppadFlowContract",
+            targets: ["SloppadFlowContract"]
         ),
         .library(
-            name: "TaburaIOSModels",
-            targets: ["TaburaIOSModels"]
+            name: "SloppadIOSModels",
+            targets: ["SloppadIOSModels"]
         ),
     ],
     targets: [
         .target(
-            name: "TaburaFlowContract"
+            name: "SloppadFlowContract"
         ),
         .target(
-            name: "TaburaIOSModels",
-            path: "TaburaIOS",
+            name: "SloppadIOSModels",
+            path: "SloppadIOS",
             exclude: [
                 "ContentView.swift",
                 "Info.plist",
-                "TaburaAppModel.swift",
-                "TaburaAudioCapture.swift",
-                "TaburaCanvasTransport.swift",
-                "TaburaCanvasWebView.swift",
-                "TaburaChatTransport.swift",
-                "TaburaIOSApp.swift",
-                "TaburaInkCaptureView.swift",
-                "TaburaServerDiscovery.swift",
+                "SloppadAppModel.swift",
+                "SloppadAudioCapture.swift",
+                "SloppadCanvasTransport.swift",
+                "SloppadCanvasWebView.swift",
+                "SloppadChatTransport.swift",
+                "SloppadIOSApp.swift",
+                "SloppadInkCaptureView.swift",
+                "SloppadServerDiscovery.swift",
             ],
-            sources: ["TaburaModels.swift"]
+            sources: ["SloppadModels.swift"]
         ),
         .testTarget(
-            name: "TaburaFlowContractTests",
-            dependencies: ["TaburaFlowContract"],
+            name: "SloppadFlowContractTests",
+            dependencies: ["SloppadFlowContract"],
             resources: [.process("Resources")]
         ),
         .testTarget(
-            name: "TaburaIOSModelsTests",
-            dependencies: ["TaburaIOSModels"],
-            path: "Tests/TaburaIOSModelsTests"
+            name: "SloppadIOSModelsTests",
+            dependencies: ["SloppadIOSModels"],
+            path: "Tests/SloppadIOSModelsTests"
         ),
     ]
 )
