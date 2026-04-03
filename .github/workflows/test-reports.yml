@@ -62,7 +62,7 @@ jobs:
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         env:
           SLOPSHELL_COVERAGE_MIN_TOTAL: "50.0"
-          SLOPSHELL_COVERAGE_MIN_PACKAGES: "github.com/krystophny/slopshell/internal/web=52.0,github.com/krystophny/slopshell/internal/serve=40.0,github.com/krystophny/slopshell/cmd/slopshell=35.0,github.com/krystophny/slopshell/internal/store=70.0,github.com/krystophny/slopshell/internal/protocol=70.0,github.com/krystophny/slopshell/internal/surface=70.0"
+          SLOPSHELL_COVERAGE_MIN_PACKAGES: "github.com/sloppy-org/slopshell/internal/web=52.0,github.com/sloppy-org/slopshell/internal/serve=40.0,github.com/sloppy-org/slopshell/cmd/slopshell=35.0,github.com/sloppy-org/slopshell/internal/store=70.0,github.com/sloppy-org/slopshell/internal/protocol=70.0,github.com/sloppy-org/slopshell/internal/surface=70.0"
           PLAYWRIGHT_GREP_INVERT: "@local-only"
         run: ./scripts/test-reports.sh
 

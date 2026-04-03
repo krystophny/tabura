@@ -10,7 +10,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/krystophny/slopshell/internal/store"
+	"github.com/sloppy-org/slopshell/internal/store"
 )
 
 const maxArtifactContentBytes = 64 * 1024

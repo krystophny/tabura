@@ -1,0 +1,73 @@
+digraph TabulaOverview {
+  rankdir=LR;
+  splines=true;
+  overlap=false;
+  graph [fontname="Helvetica", bgcolor="white", labelloc="t", label="Tabula Project Overview"];
+  node [shape=box, style="rounded,filled", fillcolor="#f8fafc", color="#1f2937", fontname="Helvetica", fontsize=10];
+  edge [color="#475569", penwidth=1.2, arrowsize=0.8, fontname="Helvetica", fontsize=9];
+
+  subgraph cluster_entry {
+    label="Entry / Tooling";
+    color="#cbd5e1";
+    cli [label="CLI\ncli.py"];
+    protocol [label="Bootstrap Protocol\nprotocol.py"];
+    runner [label="Assistant Launch\nrun + mcp-http-bridge"];
+  }
+
+  subgraph cluster_core {
+    label="Core MCP + Canvas";
+    color="#cbd5e1";
+    mcp [label="MCP Server\nmcp_server.py"];
+    adapter [label="Canvas Adapter\ncanvas_adapter.py"];
+    events [label="Event Model\nevents.py"];
+    state [label="State Reducer\nstate.py"];
+  }
+
+  subgraph cluster_runtime {
+    label="Runtime Modes";
+    color="#cbd5e1";
+    window [label="Desktop Canvas\nwindow.py (PySide6)"];
+    serve [label="HTTP Daemon\nserve.py\n/mcp + /ws/canvas + /files"];
+    web [label="Web App\nweb/server.py"];
+    pty [label="Terminal + SSH\nweb/pty.py + web/ssh.py"];
+    store [label="Auth/Hosts Store\nweb/store.py (SQLite)"];
+    static [label="Browser UI\nweb/static/*"];
+  }
+
+  subgraph cluster_quality {
+    label="Quality + Specs";
+    color="#cbd5e1";
+    tests [label="Test Suites\nunit / bdd / integration / system / gui"];
+    docs [label="Architecture & Spec Index\ndocs/*"];
+  }
+
+  ai [shape=ellipse, fillcolor="#e2e8f0", label="AI Assistant\n(Codex/Claude)"];
+
+  ai -> cli [label="invokes"];
+  cli -> protocol [label="bootstrap"];
+  cli -> mcp [label="mcp-server / stdio"];
+  cli -> serve [label="serve"];
+  cli -> web [label="web"];
+  cli -> runner [label="run"];
+  runner -> mcp [label="stdio or HTTP bridge"];
+
+  mcp -> adapter [label="tool dispatch"];
+  adapter -> events [label="emit/parse"];
+  adapter -> state [label="reduce"];
+
+  adapter -> window [label="local GUI mode"];
+  serve -> mcp [label="wraps server"];
+  serve -> adapter [label="headless adapter"];
+  serve -> static [label="canvas/file streams"];
+
+  web -> pty [label="terminal transport"];
+  web -> store [label="auth + sessions"];
+  web -> serve [label="local or tunneled daemon"];
+  web -> static [label="serves SPA"];
+
+  tests -> mcp [label="protocol coverage", style=dashed];
+  tests -> web [label="web/e2e", style=dashed];
+  tests -> adapter [label="state + events", style=dashed];
+  docs -> cli [label="contracts map", style=dashed];
+  docs -> mcp [style=dashed];
+}

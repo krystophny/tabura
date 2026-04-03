@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/krystophny/slopshell/internal/store"
+	"github.com/sloppy-org/slopshell/internal/store"
 )
 
 func TestActorCRUDAPI(t *testing.T) {

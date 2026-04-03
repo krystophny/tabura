@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/krystophny/slopshell/internal/ews"
-	"github.com/krystophny/slopshell/internal/providerdata"
+	"github.com/sloppy-org/slopshell/internal/ews"
+	"github.com/sloppy-org/slopshell/internal/providerdata"
 )
 
 type ExchangeEWSConfig struct {

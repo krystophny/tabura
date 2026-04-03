@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/krystophny/slopshell/internal/document"
+	"github.com/sloppy-org/slopshell/internal/document"
 )
 
 const documentRenderTimeout = 90 * time.Second

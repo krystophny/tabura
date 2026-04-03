@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	tabcalendar "github.com/krystophny/slopshell/internal/calendar"
-	"github.com/krystophny/slopshell/internal/canvas"
-	"github.com/krystophny/slopshell/internal/providerdata"
-	"github.com/krystophny/slopshell/internal/store"
+	tabcalendar "github.com/sloppy-org/slopshell/internal/calendar"
+	"github.com/sloppy-org/slopshell/internal/canvas"
+	"github.com/sloppy-org/slopshell/internal/providerdata"
+	"github.com/sloppy-org/slopshell/internal/store"
 )
 
 type stubCalendarReader struct {

@@ -28,17 +28,17 @@ Legal notice: Slopshell is provided "as is" and "as available" without warrantie
 Universal installers:
 
 ```bash
-curl -fsSL https://github.com/krystophny/slopshell/releases/latest/download/install.sh | bash
+curl -fsSL https://github.com/sloppy-org/slopshell/releases/latest/download/install.sh | bash
 ```
 
 ```powershell
-irm https://github.com/krystophny/slopshell/releases/latest/download/install.ps1 | iex
+irm https://github.com/sloppy-org/slopshell/releases/latest/download/install.ps1 | iex
 ```
 
 Package managers:
 
 ```bash
-brew install krystophny/tap/slopshell
+brew install sloppy-org/tap/slopshell
 ```
 
 ```bash
@@ -48,7 +48,7 @@ yay -S slopshell-bin
 ```
 
 ```powershell
-winget install krystophny.slopshell
+winget install sloppy-org.slopshell
 ```
 
 Package-manager installs provide the `slopshell` binary only. For full local setup, run `slopshell server` or the installer scripts above.

@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/krystophny/slopshell/internal/protocol"
-	"github.com/krystophny/slopshell/internal/store"
+	"github.com/sloppy-org/slopshell/internal/protocol"
+	"github.com/sloppy-org/slopshell/internal/store"
 )
 
 type temporaryWorkspacePersistRequest struct {

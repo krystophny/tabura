@@ -43,7 +43,7 @@ cd "${ROOT_DIR}"
 VERSION=""
 CHECKSUMS_FILE=""
 OUTPUT_DIR=".slopshell/artifacts/package-managers"
-OWNER="krystophny"
+OWNER="sloppy-org"
 REPO="slopshell"
 PUBLISHER="Christopher Albert"
 
@@ -116,7 +116,7 @@ RELEASE_URL="https://github.com/${OWNER}/${REPO}/releases/download/${VERSION_TAG
 
 HOMEBREW_DIR="${OUTPUT_DIR}/homebrew/Formula"
 AUR_DIR="${OUTPUT_DIR}/aur"
-WINGET_DIR="${OUTPUT_DIR}/winget/manifests/k/krystophny/slopshell/${VERSION_BARE}"
+WINGET_DIR="${OUTPUT_DIR}/winget/manifests/s/sloppy-org/slopshell/${VERSION_BARE}"
 
 mkdir -p "${HOMEBREW_DIR}" "${AUR_DIR}" "${WINGET_DIR}"
 
@@ -184,16 +184,16 @@ package() {
 }
 EOF
 
-cat > "${WINGET_DIR}/krystophny.slopshell.yaml" <<EOF
-PackageIdentifier: krystophny.slopshell
+cat > "${WINGET_DIR}/sloppy-org.slopshell.yaml" <<EOF
+PackageIdentifier: sloppy-org.slopshell
 PackageVersion: ${VERSION_BARE}
 DefaultLocale: en-US
 ManifestType: version
 ManifestVersion: 1.10.0
 EOF
 
-cat > "${WINGET_DIR}/krystophny.slopshell.locale.en-US.yaml" <<EOF
-PackageIdentifier: krystophny.slopshell
+cat > "${WINGET_DIR}/sloppy-org.slopshell.locale.en-US.yaml" <<EOF
+PackageIdentifier: sloppy-org.slopshell
 PackageVersion: ${VERSION_BARE}
 PackageLocale: en-US
 Publisher: ${PUBLISHER}
@@ -215,8 +215,8 @@ ManifestType: defaultLocale
 ManifestVersion: 1.10.0
 EOF
 
-cat > "${WINGET_DIR}/krystophny.slopshell.installer.yaml" <<EOF
-PackageIdentifier: krystophny.slopshell
+cat > "${WINGET_DIR}/sloppy-org.slopshell.installer.yaml" <<EOF
+PackageIdentifier: sloppy-org.slopshell
 PackageVersion: ${VERSION_BARE}
 InstallerType: zip
 NestedInstallerType: portable

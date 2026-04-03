@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/krystophny/slopshell/internal/protocol"
-	"github.com/krystophny/slopshell/internal/store"
+	"github.com/sloppy-org/slopshell/internal/protocol"
+	"github.com/sloppy-org/slopshell/internal/store"
 )
 
 type runtimeWorkspaceCreateRequest struct {
@@ -144,7 +144,7 @@ func isSlopshellRepoPath(path string) bool {
 	if err != nil {
 		return false
 	}
-	return strings.Contains(string(data), "module github.com/krystophny/slopshell")
+	return strings.Contains(string(data), "module github.com/sloppy-org/slopshell")
 }
 
 func defaultWorkspaceNameForPath(path string) string {

@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/krystophny/slopshell/internal/canvas"
-	"github.com/krystophny/slopshell/internal/store"
+	"github.com/sloppy-org/slopshell/internal/canvas"
+	"github.com/sloppy-org/slopshell/internal/store"
 )
 
 func newDomainServerForTest(t *testing.T) (*Server, *store.Store, string) {

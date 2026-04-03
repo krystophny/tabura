@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/krystophny/slopshell/internal/store"
+	"github.com/sloppy-org/slopshell/internal/store"
 )
 
 func seedProjectCompanionSession(t *testing.T, app *App) (store.Workspace, store.ParticipantSession) {

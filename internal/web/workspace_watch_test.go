@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/krystophny/slopshell/internal/store"
+	"github.com/sloppy-org/slopshell/internal/store"
 )
 
 func waitForCondition(t *testing.T, timeout time.Duration, fn func() bool) {

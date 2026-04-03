@@ -48,7 +48,7 @@ surface.
 
 - no private repo is required
 - no extension/plugin product architecture is required
-- new product behavior belongs in the public `krystophny/slopshell` repo
+- new product behavior belongs in the public `sloppy-org/slopshell` repo
 - live voice behavior is governed by one shared live-session runtime
 - product modularity should come from normal `internal/` package boundaries
 

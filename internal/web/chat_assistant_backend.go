@@ -3,8 +3,8 @@ package web
 import (
 	"strings"
 
-	"github.com/krystophny/slopshell/internal/modelprofile"
-	"github.com/krystophny/slopshell/internal/store"
+	"github.com/sloppy-org/slopshell/internal/modelprofile"
+	"github.com/sloppy-org/slopshell/internal/store"
 )
 
 type assistantTurnRequest struct {

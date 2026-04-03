@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/krystophny/slopshell/internal/calendar"
-	"github.com/krystophny/slopshell/internal/ics"
-	"github.com/krystophny/slopshell/internal/providerdata"
-	"github.com/krystophny/slopshell/internal/store"
+	"github.com/sloppy-org/slopshell/internal/calendar"
+	"github.com/sloppy-org/slopshell/internal/ics"
+	"github.com/sloppy-org/slopshell/internal/providerdata"
+	"github.com/sloppy-org/slopshell/internal/store"
 )
 
 type stubGoogleCalendarReader struct {

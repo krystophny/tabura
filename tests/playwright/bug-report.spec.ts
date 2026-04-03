@@ -170,7 +170,7 @@ test.describe('bug report flow', () => {
         sphere: 'private',
         artifact_id: 0,
         source: 'github',
-        source_ref: 'krystophny/slopshell#77',
+        source_ref: 'sloppy-org/slopshell#77',
         artifact_title: 'Bug report: Harness repro',
         artifact_kind: 'github_issue',
         actor_name: '',

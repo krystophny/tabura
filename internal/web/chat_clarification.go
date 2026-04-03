@@ -3,7 +3,7 @@ package web
 import (
 	"strings"
 
-	"github.com/krystophny/slopshell/internal/store"
+	"github.com/sloppy-org/slopshell/internal/store"
 )
 
 func chatMessageText(msg store.ChatMessage) string {

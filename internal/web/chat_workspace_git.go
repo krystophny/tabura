@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/krystophny/slopshell/internal/protocol"
-	"github.com/krystophny/slopshell/internal/store"
+	"github.com/sloppy-org/slopshell/internal/protocol"
+	"github.com/sloppy-org/slopshell/internal/store"
 )
 
 const workspaceCloneTimeout = 45 * time.Second

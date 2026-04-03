@@ -14,7 +14,7 @@ import (
 
 const (
 	defaultAPIBaseURL = "https://api.github.com"
-	defaultRepoOwner  = "krystophny"
+	defaultRepoOwner  = "sloppy-org"
 	defaultRepoName   = "slopshell"
 )
 

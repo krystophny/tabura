@@ -1,0 +1,169 @@
+{
+  "results": [
+    {
+      "model_key": "2b",
+      "model_name": "Qwen3.5-2B-Q4_K_M",
+      "model_path": "/home/ert/.local/share/tabura-llm/models/Qwen3.5-2B-Q4_K_M.gguf",
+      "runs": [
+        {
+          "run": 1,
+          "latency_ms": 271.22,
+          "completion_tokens": 40,
+          "prompt_tokens": 27,
+          "throughput_tps": 160.24,
+          "timings": {
+            "cache_n": 0,
+            "prompt_n": 27,
+            "prompt_ms": 14.701,
+            "prompt_per_token_ms": 0.5444814814814815,
+            "prompt_per_second": 1836.6097544384736,
+            "predicted_n": 40,
+            "predicted_ms": 249.624,
+            "predicted_per_token_ms": 6.2406,
+            "predicted_per_second": 160.24100246771144
+          },
+          "response_preview": "I cannot provide real-time weather information as my knowledge has a cutoff date and I don't have access to live data feeds, so please check a trusted weather s"
+        },
+        {
+          "run": 2,
+          "latency_ms": 228.46,
+          "completion_tokens": 33,
+          "prompt_tokens": 27,
+          "throughput_tps": 159.05,
+          "timings": {
+            "cache_n": 0,
+            "prompt_n": 27,
+            "prompt_ms": 14.975,
+            "prompt_per_token_ms": 0.5546296296296296,
+            "prompt_per_second": 1803.0050083472454,
+            "predicted_n": 33,
+            "predicted_ms": 207.483,
+            "predicted_per_token_ms": 6.2873636363636365,
+            "predicted_per_second": 159.04917511314179
+          },
+          "response_preview": "The current weather in Vienna is uncertain as I don't have real-time access to live data, so please check a local weather website for the most accurate informat"
+        },
+        {
+          "run": 3,
+          "latency_ms": 146.99,
+          "completion_tokens": 20,
+          "prompt_tokens": 27,
+          "throughput_tps": 161.73,
+          "timings": {
+            "cache_n": 0,
+            "prompt_n": 27,
+            "prompt_ms": 15.689,
+            "prompt_per_token_ms": 0.5810740740740741,
+            "prompt_per_second": 1720.950984766397,
+            "predicted_n": 20,
+            "predicted_ms": 123.66,
+            "predicted_per_token_ms": 6.183,
+            "predicted_per_second": 161.73378618793467
+          },
+          "response_preview": "The current weather in Vienna is sunny with temperatures around 15\u00b0C (59\u00b0F)."
+        },
+        {
+          "run": 4,
+          "latency_ms": 192.54,
+          "completion_tokens": 28,
+          "prompt_tokens": 27,
+          "throughput_tps": 160.4,
+          "timings": {
+            "cache_n": 0,
+            "prompt_n": 27,
+            "prompt_ms": 16.598,
+            "prompt_per_token_ms": 0.6147407407407407,
+            "prompt_per_second": 1626.7020122906374,
+            "predicted_n": 28,
+            "predicted_ms": 174.565,
+            "predicted_per_token_ms": 6.234464285714286,
+            "predicted_per_second": 160.3987053533068
+          },
+          "response_preview": "The current weather in Vienna is a mix of sunshine and rain, with temperatures hovering around 12\u00b0C to 15\u00b0C."
+        },
+        {
+          "run": 5,
+          "latency_ms": 209.84,
+          "completion_tokens": 31,
+          "prompt_tokens": 27,
+          "throughput_tps": 160.6,
+          "timings": {
+            "cache_n": 0,
+            "prompt_n": 27,
+            "prompt_ms": 15.441,
+            "prompt_per_token_ms": 0.5718888888888889,
+            "prompt_per_second": 1748.5914124732853,
+            "predicted_n": 31,
+            "predicted_ms": 193.029,
+            "predicted_per_token_ms": 6.2267419354838704,
+            "predicted_per_second": 160.5976304078662
+          },
+          "response_preview": "I cannot provide real-time weather data as my knowledge has a cutoff date and I do not have access to live meteorological information for your specific location"
+        },
+        {
+          "run": 6,
+          "latency_ms": 169.47,
+          "completion_tokens": 23,
+          "prompt_tokens": 27,
+          "throughput_tps": 156.32,
+          "timings": {
+            "cache_n": 0,
+            "prompt_n": 27,
+            "prompt_ms": 15.77,
+            "prompt_per_token_ms": 0.5840740740740741,
+            "prompt_per_second": 1712.1116043119848,
+            "predicted_n": 23,
+            "predicted_ms": 147.138,
+            "predicted_per_token_ms": 6.397304347826087,
+            "predicted_per_second": 156.3158395519852
+          },
+          "response_preview": "The current weather in Vienna is clear and sunny with a high of 24\u00b0C (75\u00b0F)."
+        },
+        {
+          "run": 7,
+          "latency_ms": 233.46,
+          "completion_tokens": 36,
+          "prompt_tokens": 27,
+          "throughput_tps": 167.03,
+          "timings": {
+            "cache_n": 0,
+            "prompt_n": 27,
+            "prompt_ms": 16.509,
+            "prompt_per_token_ms": 0.6114444444444445,
+            "prompt_per_second": 1635.4715609667453,
+            "predicted_n": 36,
+            "predicted_ms": 215.533,
+            "predicted_per_token_ms": 5.987027777777778,
+            "predicted_per_second": 167.02778692821983
+          },
+          "response_preview": "As an AI, I don't have real-time access to your specific location or current weather data, so I cannot tell you what the weather is like in Vienna right now."
+        },
+        {
+          "run": 8,
+          "latency_ms": 156.67,
+          "completion_tokens": 23,
+          "prompt_tokens": 27,
+          "throughput_tps": 169.98,
+          "timings": {
+            "cache_n": 0,
+            "prompt_n": 27,
+            "prompt_ms": 14.707,
+            "prompt_per_token_ms": 0.5447037037037037,
+            "prompt_per_second": 1835.86047460393,
+            "predicted_n": 23,
+            "predicted_ms": 135.308,
+            "predicted_per_token_ms": 5.88295652173913,
+            "predicted_per_second": 169.98255831140804
+          },
+          "response_preview": "I don't have access to real-time data, so I can't tell you the current weather in Vienna."
+        }
+      ],
+      "summary": {
+        "median_latency_ms": 201.19,
+        "p95_latency_ms": 233.46,
+        "median_throughput_tps": 160.5,
+        "median_completion_tokens": 29
+      }
+    }
+  ]
+}

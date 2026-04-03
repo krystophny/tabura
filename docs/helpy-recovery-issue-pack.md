@@ -11,7 +11,7 @@ private extension ecosystem.
 
 ## Current Direction
 
-- Default product behavior should stay public in `krystophny/slopshell`
+- Default product behavior should stay public in `sloppy-org/slopshell`
 - No private recovery repo is required for the meeting-notes or assistant
   roadmap
 - Helpy may still be a useful optional local capability provider

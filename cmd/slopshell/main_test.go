@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	updater "github.com/krystophny/slopshell/internal/update"
+	updater "github.com/sloppy-org/slopshell/internal/update"
 )
 
 func TestParseServerConfigDefaultsToLoopbackWebHost(t *testing.T) {

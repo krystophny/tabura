@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/krystophny/slopshell/internal/store"
-	"github.com/krystophny/slopshell/internal/todoist"
+	"github.com/sloppy-org/slopshell/internal/store"
+	"github.com/sloppy-org/slopshell/internal/todoist"
 )
 
 func TestParseInlineTodoistIntent(t *testing.T) {

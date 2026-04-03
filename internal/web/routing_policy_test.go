@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/krystophny/slopshell/internal/modelprofile"
+	"github.com/sloppy-org/slopshell/internal/modelprofile"
 )
 
 func TestParseTurnRoutingDirectivesDefaultsToLocal(t *testing.T) {

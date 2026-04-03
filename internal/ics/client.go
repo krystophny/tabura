@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/krystophny/slopshell/internal/providerdata"
+	"github.com/sloppy-org/slopshell/internal/providerdata"
 )
 
 // ICSEvent represents an event from an ICS feed.

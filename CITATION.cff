@@ -8,8 +8,8 @@ authors:
 license: MIT
 version: v0.2.1
 date-released: 2026-03-14
-repository-code: https://github.com/krystophny/slopshell
-url: https://github.com/krystophny/slopshell
+repository-code: https://github.com/sloppy-org/slopshell
+url: https://github.com/sloppy-org/slopshell
 abstract: >-
   Slopshell is a local-first MCP canvas and review runtime that defines an
   object-scoped intent interface with local invocation, mode-aware intent

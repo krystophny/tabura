@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/krystophny/slopshell/internal/appserver"
-	"github.com/krystophny/slopshell/internal/modelprofile"
-	"github.com/krystophny/slopshell/internal/store"
+	"github.com/sloppy-org/slopshell/internal/appserver"
+	"github.com/sloppy-org/slopshell/internal/modelprofile"
+	"github.com/sloppy-org/slopshell/internal/store"
 )
 
 func newCompanionAppServerClient(t *testing.T, assistantMessage string) *appserver.Client {

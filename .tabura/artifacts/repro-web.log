@@ -1,0 +1,40 @@
+tabula web listening on:
+  http://127.0.0.1:8420
+  local project: /home/ert/code/tabula
+  local MCP:     http://127.0.0.1:9420/mcp
+failed to start local serve on port 9420: [Errno 98] error while attempting to bind on address ('127.0.0.1', 9420): [errno 98] address already in use
+Traceback (most recent call last):
+  File "/home/ert/code/tabula/src/tabula/web/server.py", line 405, in _start_local_serve
+    await site.start()
+  File "/home/ert/.local/lib/python3.14/site-packages/aiohttp/web_runner.py", line 121, in start
+    self._server = await loop.create_server(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<7 lines>...
+    )
+    ^
+  File "/usr/lib/python3.14/asyncio/base_events.py", line 1627, in create_server
+    raise OSError(err.errno, msg) from None
+OSError: [Errno 98] error while attempting to bind on address ('127.0.0.1', 9420): [errno 98] address already in use
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/ert/code/tabula/src/tabula/__main__.py", line 3, in <module>
+    raise SystemExit(main())
+                     ~~~~^^
+  File "/home/ert/code/tabula/src/tabula/cli.py", line 313, in main
+    return _cmd_web(args.data_dir, args.host, args.port, args.project_dir)
+  File "/home/ert/code/tabula/src/tabula/cli.py", line 215, in _cmd_web
+    return run_web(data_dir=data_dir, host=host, port=port, local_project_dir=resolved_project)
+  File "/home/ert/code/tabula/src/tabula/web/server.py", line 490, in run_web
+    web.run_app(app, host=host, port=port, print=None)
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ert/.local/lib/python3.14/site-packages/aiohttp/web.py", line 517, in run_app
+    loop.run_until_complete(main_task)
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "/usr/lib/python3.14/asyncio/base_events.py", line 719, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+RuntimeError: port 9420 already in use; is another tabula serve running?

@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/krystophny/slopshell/internal/modelprofile"
-	"github.com/krystophny/slopshell/internal/store"
+	"github.com/sloppy-org/slopshell/internal/modelprofile"
+	"github.com/sloppy-org/slopshell/internal/store"
 )
 
 func setupMockIntentLLMServer(t *testing.T, status int, content string) *httptest.Server {

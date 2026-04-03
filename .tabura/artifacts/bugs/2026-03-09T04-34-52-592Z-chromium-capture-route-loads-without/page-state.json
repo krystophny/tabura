@@ -1,0 +1,21 @@
+{
+  "url": "http://127.0.0.1:8420/capture",
+  "title": "",
+  "bodyClass": "",
+  "activeElement": {
+    "tag": "BODY",
+    "id": "",
+    "className": ""
+  },
+  "overlayVisible": false,
+  "floatingInputVisible": false,
+  "fileSidebarOpen": false,
+  "edgeTopClass": "",
+  "edgeRightClass": "",
+  "viewport": {
+    "width": 980,
+    "height": 2121
+  },
+  "localStorage": {},
+  "sessionStorage": {}
+}

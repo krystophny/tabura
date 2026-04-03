@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/krystophny/slopshell/internal/store"
+	"github.com/sloppy-org/slopshell/internal/store"
 )
 
 const participantDocumentPositionEventType = "document_position_changed"

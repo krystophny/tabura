@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/krystophny/slopshell/internal/store"
+	"github.com/sloppy-org/slopshell/internal/store"
 )
 
 func TestGitHubIssueSyncAPI(t *testing.T) {
@@ -180,7 +180,7 @@ func TestGitHubIssueSyncMigratesLegacyBugReportItems(t *testing.T) {
 	app := newAuthedTestApp(t)
 
 	repoDir := filepath.Join(t.TempDir(), "workspace")
-	initGitHubWorkspaceRepo(t, repoDir, "https://github.com/krystophny/slopshell.git")
+	initGitHubWorkspaceRepo(t, repoDir, "https://github.com/sloppy-org/slopshell.git")
 	workspace, err := app.store.CreateWorkspace("Repo", repoDir)
 	if err != nil {
 		t.Fatalf("CreateWorkspace() error: %v", err)
@@ -200,7 +200,7 @@ func TestGitHubIssueSyncMigratesLegacyBugReportItems(t *testing.T) {
 	app.ghCommandRunner = func(_ context.Context, cwd string, args ...string) (string, error) {
 		calls = append(calls, append([]string(nil), args...))
 		return `[
-			{"number":77,"title":"Bug report: Inbox sync migration","url":"https://github.com/krystophny/slopshell/issues/77","state":"CLOSED","labels":[{"name":"bug"}],"assignees":[]}
+			{"number":77,"title":"Bug report: Inbox sync migration","url":"https://github.com/sloppy-org/slopshell/issues/77","state":"CLOSED","labels":[{"name":"bug"}],"assignees":[]}
 		]`, nil
 	}
 
@@ -211,7 +211,7 @@ func TestGitHubIssueSyncMigratesLegacyBugReportItems(t *testing.T) {
 		t.Fatalf("sync status = %d, want 200: %s", rr.Code, rr.Body.String())
 	}
 
-	migrated, err := app.store.GetItemBySource("github", "krystophny/slopshell#77")
+	migrated, err := app.store.GetItemBySource("github", "sloppy-org/slopshell#77")
 	if err != nil {
 		t.Fatalf("GetItemBySource(migrated) error: %v", err)
 	}
@@ -261,7 +261,7 @@ func TestTrackedGitHubIssueSyncUsesSourceRefRepo(t *testing.T) {
 	app.ghCommandRunner = func(_ context.Context, cwd string, args ...string) (string, error) {
 		calls = append(calls, append([]string(nil), args...))
 		return `[
-			{"number":77,"title":"Bug report: sidebar closes on sync","url":"https://github.com/krystophny/slopshell/issues/77","state":"CLOSED","labels":[{"name":"bug"}],"assignees":[]}
+			{"number":77,"title":"Bug report: sidebar closes on sync","url":"https://github.com/sloppy-org/slopshell/issues/77","state":"CLOSED","labels":[{"name":"bug"}],"assignees":[]}
 		]`, nil
 	}
 

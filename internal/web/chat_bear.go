@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/krystophny/slopshell/internal/bear"
-	"github.com/krystophny/slopshell/internal/store"
+	"github.com/sloppy-org/slopshell/internal/bear"
+	"github.com/sloppy-org/slopshell/internal/store"
 )
 
 type bearAccountConfig struct {

@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/krystophny/slopshell/internal/store"
+	"github.com/sloppy-org/slopshell/internal/store"
 )
 
 const testPNGDataURL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO5W8xkAAAAASUVORK5CYII="
@@ -42,10 +42,10 @@ func TestHandleBugReportCreateWritesBundleUnderWorkspaceArtifacts(t *testing.T) 
 			return "", nil
 		}
 		if len(args) >= 2 && args[0] == "issue" && args[1] == "create" {
-			return "https://github.com/krystophny/slopshell/issues/77\n", nil
+			return "https://github.com/sloppy-org/slopshell/issues/77\n", nil
 		}
 		if len(args) >= 2 && args[0] == "issue" && args[1] == "view" {
-			return `{"number":77,"title":"Bug report: The indicator froze after the tap","url":"https://github.com/krystophny/slopshell/issues/77","state":"OPEN","labels":[{"name":"bug"},{"name":"p0"}],"assignees":[]}`, nil
+			return `{"number":77,"title":"Bug report: The indicator froze after the tap","url":"https://github.com/sloppy-org/slopshell/issues/77","state":"OPEN","labels":[{"name":"bug"},{"name":"p0"}],"assignees":[]}`, nil
 		}
 		t.Fatalf("unexpected gh invocation: %v", args)
 		return "", nil
@@ -118,7 +118,7 @@ func TestHandleBugReportCreateWritesBundleUnderWorkspaceArtifacts(t *testing.T) 
 	if got := intFromAny(payload["issue_number"], 0); got != 77 {
 		t.Fatalf("issue_number = %d, want 77", got)
 	}
-	if got := strFromAny(payload["issue_url"]); got != "https://github.com/krystophny/slopshell/issues/77" {
+	if got := strFromAny(payload["issue_url"]); got != "https://github.com/sloppy-org/slopshell/issues/77" {
 		t.Fatalf("issue_url = %q", got)
 	}
 	if got := strFromAny(payload["issue_title"]); got != "Bug report: The indicator froze after the tap" {
@@ -205,7 +205,7 @@ func TestHandleBugReportCreateWritesBundleUnderWorkspaceArtifacts(t *testing.T) 
 	if got := strFromAny(bundle["annotated_image"]); got != annotatedPath {
 		t.Fatalf("bundle annotated_image = %q, want %q", got, annotatedPath)
 	}
-	if got := strFromAny(bundle["github_issue_url"]); got != "https://github.com/krystophny/slopshell/issues/77" {
+	if got := strFromAny(bundle["github_issue_url"]); got != "https://github.com/sloppy-org/slopshell/issues/77" {
 		t.Fatalf("bundle github_issue_url = %q", got)
 	}
 	if got := intFromAny(bundle["github_issue_number"], 0); got != 77 {
@@ -221,7 +221,7 @@ func TestHandleBugReportCreateWritesBundleUnderWorkspaceArtifacts(t *testing.T) 
 	if got := strFromAny(canvasState["artifact_title"]); got != "README.md" {
 		t.Fatalf("canvas_state.artifact_title = %q, want %q", got, "README.md")
 	}
-	item, err := app.store.GetItemBySource("github", "krystophny/slopshell#77")
+	item, err := app.store.GetItemBySource("github", "sloppy-org/slopshell#77")
 	if err != nil {
 		t.Fatalf("GetItemBySource() error: %v", err)
 	}
@@ -249,7 +249,7 @@ func TestHandleBugReportCreateWritesBundleUnderWorkspaceArtifacts(t *testing.T) 
 		t.Fatal("missing gh issue create call")
 	}
 	for _, needle := range []string{
-		"--repo krystophny/slopshell",
+		"--repo sloppy-org/slopshell",
 		"--label bug",
 		"--label p0",
 		"--title Bug report: The indicator froze after the tap",
@@ -299,10 +299,10 @@ func TestHandleBugReportCreateFallsBackToWorkspaceSphere(t *testing.T) {
 			return `[{"name":"bug"},{"name":"p0"}]`, nil
 		}
 		if len(args) >= 2 && args[0] == "issue" && args[1] == "create" {
-			return "https://github.com/krystophny/slopshell/issues/88\n", nil
+			return "https://github.com/sloppy-org/slopshell/issues/88\n", nil
 		}
 		if len(args) >= 2 && args[0] == "issue" && args[1] == "view" {
-			return `{"number":88,"title":"Bug report: Sphere fallback","url":"https://github.com/krystophny/slopshell/issues/88","state":"OPEN","labels":[{"name":"bug"},{"name":"p0"}],"assignees":[]}`, nil
+			return `{"number":88,"title":"Bug report: Sphere fallback","url":"https://github.com/sloppy-org/slopshell/issues/88","state":"OPEN","labels":[{"name":"bug"},{"name":"p0"}],"assignees":[]}`, nil
 		}
 		t.Fatalf("unexpected gh invocation: %v", args)
 		return "", nil
@@ -411,10 +411,10 @@ func TestHandleBugReportCreateUsesLocalProjectFallback(t *testing.T) {
 			return `[{"name":"bug"},{"name":"p0"}]`, nil
 		}
 		if len(args) >= 2 && args[0] == "issue" && args[1] == "create" {
-			return "https://github.com/krystophny/slopshell/issues/91\n", nil
+			return "https://github.com/sloppy-org/slopshell/issues/91\n", nil
 		}
 		if len(args) >= 2 && args[0] == "issue" && args[1] == "view" {
-			return `{"number":91,"title":"Bug report: Local project fallback","url":"https://github.com/krystophny/slopshell/issues/91","state":"OPEN","labels":[{"name":"bug"},{"name":"p0"}],"assignees":[]}`, nil
+			return `{"number":91,"title":"Bug report: Local project fallback","url":"https://github.com/sloppy-org/slopshell/issues/91","state":"OPEN","labels":[{"name":"bug"},{"name":"p0"}],"assignees":[]}`, nil
 		}
 		t.Fatalf("unexpected gh invocation: %v", args)
 		return "", nil
@@ -435,7 +435,7 @@ func TestHandleBugReportCreateUsesLocalProjectFallback(t *testing.T) {
 	if workspace.Sphere != store.SphereWork {
 		t.Fatalf("workspace.Sphere = %q, want %q", workspace.Sphere, store.SphereWork)
 	}
-	item, err := app.store.GetItemBySource("github", "krystophny/slopshell#91")
+	item, err := app.store.GetItemBySource("github", "sloppy-org/slopshell#91")
 	if err != nil {
 		t.Fatalf("GetItemBySource() error: %v", err)
 	}
@@ -465,10 +465,10 @@ func TestHandleBugReportCreateUsesCanonicalRepoFromNonGitWorkspace(t *testing.T)
 			return `[{"name":"bug"},{"name":"p0"}]`, nil
 		}
 		if len(args) >= 2 && args[0] == "issue" && args[1] == "create" {
-			return "https://github.com/krystophny/slopshell/issues/104\n", nil
+			return "https://github.com/sloppy-org/slopshell/issues/104\n", nil
 		}
 		if len(args) >= 2 && args[0] == "issue" && args[1] == "view" {
-			return `{"number":104,"title":"Bug report: Submission should work outside git repos","url":"https://github.com/krystophny/slopshell/issues/104","state":"OPEN","labels":[{"name":"bug"},{"name":"p0"}],"assignees":[]}`, nil
+			return `{"number":104,"title":"Bug report: Submission should work outside git repos","url":"https://github.com/sloppy-org/slopshell/issues/104","state":"OPEN","labels":[{"name":"bug"},{"name":"p0"}],"assignees":[]}`, nil
 		}
 		t.Fatalf("unexpected gh invocation: %v", args)
 		return "", nil
@@ -485,10 +485,10 @@ func TestHandleBugReportCreateUsesCanonicalRepoFromNonGitWorkspace(t *testing.T)
 	if got := intFromAny(payload["issue_number"], 0); got != 104 {
 		t.Fatalf("issue_number = %d, want 104", got)
 	}
-	if got := strFromAny(payload["issue_url"]); got != "https://github.com/krystophny/slopshell/issues/104" {
+	if got := strFromAny(payload["issue_url"]); got != "https://github.com/sloppy-org/slopshell/issues/104" {
 		t.Fatalf("issue_url = %q", got)
 	}
-	if _, err := app.store.GetItemBySource("github", "krystophny/slopshell#104"); err != nil {
+	if _, err := app.store.GetItemBySource("github", "sloppy-org/slopshell#104"); err != nil {
 		t.Fatalf("GetItemBySource() error: %v", err)
 	}
 	createCall := ""
@@ -498,7 +498,7 @@ func TestHandleBugReportCreateUsesCanonicalRepoFromNonGitWorkspace(t *testing.T)
 			break
 		}
 	}
-	if !strings.Contains(createCall, "--repo krystophny/slopshell") {
+	if !strings.Contains(createCall, "--repo sloppy-org/slopshell") {
 		t.Fatalf("create call = %q, want canonical repo flag", createCall)
 	}
 }
@@ -506,7 +506,7 @@ func TestHandleBugReportCreateUsesCanonicalRepoFromNonGitWorkspace(t *testing.T)
 func TestHandleBugReportCreateFallsBackToSlopshellRepoWithoutWorkspace(t *testing.T) {
 	repoDir := t.TempDir()
 	initGitRepo(t, repoDir)
-	addGitRemote(t, repoDir, "https://github.com/krystophny/slopshell.git")
+	addGitRemote(t, repoDir, "https://github.com/sloppy-org/slopshell.git")
 	t.Chdir(repoDir)
 
 	app, err := New(t.TempDir(), "", "", "", "", "", "", false)
@@ -529,10 +529,10 @@ func TestHandleBugReportCreateFallsBackToSlopshellRepoWithoutWorkspace(t *testin
 			return `[{"name":"bug"},{"name":"p0"}]`, nil
 		}
 		if len(args) >= 2 && args[0] == "issue" && args[1] == "create" {
-			return "https://github.com/krystophny/slopshell/issues/118\n", nil
+			return "https://github.com/sloppy-org/slopshell/issues/118\n", nil
 		}
 		if len(args) >= 2 && args[0] == "issue" && args[1] == "view" {
-			return `{"number":118,"title":"Bug report: Repo fallback","url":"https://github.com/krystophny/slopshell/issues/118","state":"OPEN","labels":[{"name":"bug"},{"name":"p0"}],"assignees":[]}`, nil
+			return `{"number":118,"title":"Bug report: Repo fallback","url":"https://github.com/sloppy-org/slopshell/issues/118","state":"OPEN","labels":[{"name":"bug"},{"name":"p0"}],"assignees":[]}`, nil
 		}
 		t.Fatalf("unexpected gh invocation: %v", args)
 		return "", nil
@@ -551,7 +551,7 @@ func TestHandleBugReportCreateFallsBackToSlopshellRepoWithoutWorkspace(t *testin
 		t.Fatalf("bundle_path = %q, want .slopshell/artifacts/bugs/... path", bundlePath)
 	}
 	// Bug report was filed against the default workspace (no local project dir configured)
-	if _, err := app.store.GetItemBySource("github", "krystophny/slopshell#118"); err != nil {
+	if _, err := app.store.GetItemBySource("github", "sloppy-org/slopshell#118"); err != nil {
 		t.Fatalf("GetItemBySource() error: %v", err)
 	}
 }

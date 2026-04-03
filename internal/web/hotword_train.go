@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/krystophny/slopshell/internal/hotwordtrain"
+	"github.com/sloppy-org/slopshell/internal/hotwordtrain"
 )
 
 type hotwordTrainDeployRequest struct {

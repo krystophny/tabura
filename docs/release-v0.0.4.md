@@ -29,5 +29,5 @@
 For publication metadata, associate this release with:
 
 - release label: `v0.0.4`
-- repository: `https://github.com/krystophny/slopshell`
+- repository: `https://github.com/sloppy-org/slopshell`
 - exact source revision: tag target commit hash

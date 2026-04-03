@@ -15,8 +15,8 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/krystophny/slopshell/internal/canvas"
-	"github.com/krystophny/slopshell/internal/surface"
+	"github.com/sloppy-org/slopshell/internal/canvas"
+	"github.com/sloppy-org/slopshell/internal/surface"
 )
 
 func isPathWithinDir(path, dir string) bool {

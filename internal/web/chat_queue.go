@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/krystophny/slopshell/internal/appserver"
+	"github.com/sloppy-org/slopshell/internal/appserver"
 )
 
 type chatTurnTracker struct {

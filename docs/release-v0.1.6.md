@@ -77,5 +77,5 @@ whitepapers for meeting-partner and productivity capability bundles.
 For publication metadata, associate this release with:
 
 - release label: `v0.1.6`
-- repository: `https://github.com/krystophny/slopshell`
+- repository: `https://github.com/sloppy-org/slopshell`
 - exact source revision: tag target commit hash

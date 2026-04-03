@@ -1,0 +1,169 @@
+{
+  "results": [
+    {
+      "model_key": "0.8b",
+      "model_name": "Qwen3.5-0.8B-Q4_K_M",
+      "model_path": "/home/ert/.local/share/tabura-llm/models/Qwen3.5-0.8B-Q4_K_M.gguf",
+      "runs": [
+        {
+          "run": 1,
+          "latency_ms": 97.36,
+          "completion_tokens": 18,
+          "prompt_tokens": 27,
+          "throughput_tps": 220.0,
+          "timings": {
+            "cache_n": 0,
+            "prompt_n": 27,
+            "prompt_ms": 14.114,
+            "prompt_per_token_ms": 0.5227407407407407,
+            "prompt_per_second": 1912.9941901657926,
+            "predicted_n": 18,
+            "predicted_ms": 81.819,
+            "predicted_per_token_ms": 4.5455000000000005,
+            "predicted_per_second": 219.99780002199975
+          },
+          "response_preview": "The weather in Vienna is currently cloudy and slightly cool with a high chance of rain."
+        },
+        {
+          "run": 2,
+          "latency_ms": 133.4,
+          "completion_tokens": 26,
+          "prompt_tokens": 27,
+          "throughput_tps": 219.63,
+          "timings": {
+            "cache_n": 0,
+            "prompt_n": 27,
+            "prompt_ms": 13.58,
+            "prompt_per_token_ms": 0.502962962962963,
+            "prompt_per_second": 1988.2179675994107,
+            "predicted_n": 26,
+            "predicted_ms": 118.383,
+            "predicted_per_token_ms": 4.553192307692307,
+            "predicted_per_second": 219.62612875159442
+          },
+          "response_preview": "The sky looks bright and sunny with clouds gathering, and the temperature seems pleasant, so the forecast for today is generally mild."
+        },
+        {
+          "run": 3,
+          "latency_ms": 95.76,
+          "completion_tokens": 18,
+          "prompt_tokens": 27,
+          "throughput_tps": 219.36,
+          "timings": {
+            "cache_n": 0,
+            "prompt_n": 27,
+            "prompt_ms": 12.312,
+            "prompt_per_token_ms": 0.45599999999999996,
+            "prompt_per_second": 2192.982456140351,
+            "predicted_n": 18,
+            "predicted_ms": 82.058,
+            "predicted_per_token_ms": 4.558777777777778,
+            "predicted_per_second": 219.35704014233832
+          },
+          "response_preview": "It is currently sunny and warm with a light breeze, making for pleasant travel conditions."
+        },
+        {
+          "run": 4,
+          "latency_ms": 147.0,
+          "completion_tokens": 29,
+          "prompt_tokens": 27,
+          "throughput_tps": 217.57,
+          "timings": {
+            "cache_n": 0,
+            "prompt_n": 27,
+            "prompt_ms": 12.279,
+            "prompt_per_token_ms": 0.4547777777777778,
+            "prompt_per_second": 2198.8761299780112,
+            "predicted_n": 29,
+            "predicted_ms": 133.289,
+            "predicted_per_token_ms": 4.596172413793103,
+            "predicted_per_second": 217.57234280398234
+          },
+          "response_preview": "The weather here is currently cloudy and slightly chilly, likely at 59\u00b0F (15\u00b0C) with a low chance of rain."
+        },
+        {
+          "run": 5,
+          "latency_ms": 137.43,
+          "completion_tokens": 26,
+          "prompt_tokens": 27,
+          "throughput_tps": 221.18,
+          "timings": {
+            "cache_n": 0,
+            "prompt_n": 27,
+            "prompt_ms": 12.885,
+            "prompt_per_token_ms": 0.4772222222222222,
+            "prompt_per_second": 2095.4598370197905,
+            "predicted_n": 26,
+            "predicted_ms": 117.55,
+            "predicted_per_token_ms": 4.521153846153846,
+            "predicted_per_second": 221.1824755423224
+          },
+          "response_preview": "Today's forecast shows fair, partly cloudy skies with light to moderate rain possible, making it a pleasant day for outdoor activities."
+        },
+        {
+          "run": 6,
+          "latency_ms": 115.64,
+          "completion_tokens": 23,
+          "prompt_tokens": 27,
+          "throughput_tps": 226.29,
+          "timings": {
+            "cache_n": 0,
+            "prompt_n": 27,
+            "prompt_ms": 12.504,
+            "prompt_per_token_ms": 0.4631111111111111,
+            "prompt_per_second": 2159.309021113244,
+            "predicted_n": 23,
+            "predicted_ms": 101.639,
+            "predicted_per_token_ms": 4.419086956521739,
+            "predicted_per_second": 226.29108905046292
+          },
+          "response_preview": "The sky is currently clearing and bright, with warm sunshine visible over Vienna's hills at this time of year."
+        },
+        {
+          "run": 7,
+          "latency_ms": 97.31,
+          "completion_tokens": 19,
+          "prompt_tokens": 27,
+          "throughput_tps": 227.19,
+          "timings": {
+            "cache_n": 0,
+            "prompt_n": 27,
+            "prompt_ms": 12.326,
+            "prompt_per_token_ms": 0.45651851851851855,
+            "prompt_per_second": 2190.491643680026,
+            "predicted_n": 19,
+            "predicted_ms": 83.631,
+            "predicted_per_token_ms": 4.401631578947368,
+            "predicted_per_second": 227.18848273965395
+          },
+          "response_preview": "It is currently sunny and cool with a gentle breeze, making it ideal for outdoor activities."
+        },
+        {
+          "run": 8,
+          "latency_ms": 74.8,
+          "completion_tokens": 14,
+          "prompt_tokens": 27,
+          "throughput_tps": 229.82,
+          "timings": {
+            "cache_n": 0,
+            "prompt_n": 27,
+            "prompt_ms": 12.507,
+            "prompt_per_token_ms": 0.4632222222222222,
+            "prompt_per_second": 2158.7910769968817,
+            "predicted_n": 14,
+            "predicted_ms": 60.918,
+            "predicted_per_token_ms": 4.351285714285714,
+            "predicted_per_second": 229.81713122558193
+          },
+          "response_preview": "It's currently raining heavily with a cold wind and snow outside."
+        }
+      ],
+      "summary": {
+        "median_latency_ms": 106.5,
+        "p95_latency_ms": 137.43,
+        "median_throughput_tps": 220.59,
+        "median_completion_tokens": 21
+      }
+    }
+  ]
+}

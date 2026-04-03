@@ -10,7 +10,7 @@ integration boundary, if any, should survive for local capability providers.
 
 ## Current Direction
 
-- One public repo for product behavior: `krystophny/slopshell`
+- One public repo for product behavior: `sloppy-org/slopshell`
 - Modular internal packages instead of extension bundles
 - No private premium bundle repo as part of the intended architecture
 - Optional external capabilities should integrate through explicit local

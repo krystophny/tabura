@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/krystophny/slopshell/internal/ews"
-	"github.com/krystophny/slopshell/internal/store"
-	tabsync "github.com/krystophny/slopshell/internal/sync"
+	"github.com/sloppy-org/slopshell/internal/ews"
+	"github.com/sloppy-org/slopshell/internal/store"
+	tabsync "github.com/sloppy-org/slopshell/internal/sync"
 )
 
 func TestSourcePushManagerStartsWatcherAndTriggersSync(t *testing.T) {

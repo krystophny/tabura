@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/krystophny/slopshell/internal/store"
+	"github.com/sloppy-org/slopshell/internal/store"
 )
 
 //go:embed testdata/conference_replay_corpus.json

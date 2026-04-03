@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/krystophny/slopshell/internal/store"
-	tabsync "github.com/krystophny/slopshell/internal/sync"
+	"github.com/sloppy-org/slopshell/internal/store"
+	tabsync "github.com/sloppy-org/slopshell/internal/sync"
 )
 
 func newTestStore(t *testing.T) *store.Store {

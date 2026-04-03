@@ -1,0 +1,71 @@
+{
+  "trigger": "button",
+  "timestamp": "2026-03-10T07:43:00Z",
+  "page_url": "https://tabura.eu:2204/",
+  "version": "0.1.8",
+  "boot_id": "189b4f081cf494ac",
+  "started_at": "2026-03-09T23:09:34.564546229Z",
+  "git_sha": "11dfc644ae2c8adebabb5e51aa3735cc0b5377f4",
+  "active_mode": "highlight",
+  "active_workspace": "tabula",
+  "canvas_state": {
+    "has_artifact": false,
+    "artifact_title": "",
+    "artifact_event_id": "",
+    "chat_mode": "chat",
+    "active_sphere": "private",
+    "interaction_conversation": "idle",
+    "interaction_surface": "annotate",
+    "interaction_tool": "highlight",
+    "overlay_visible": false,
+    "text_input_visible": false,
+    "pr_review_mode": false,
+    "active_project_id": "proj-87e856e2e942",
+    "item_sidebar_view": "inbox",
+    "workspace_browser_path": "",
+    "last_input_origin": "text",
+    "last_input_x": 0,
+    "last_input_y": 0
+  },
+  "recent_events": [
+    "2026-03-10T07:42:56.799Z pointer touch at (8,447)",
+    "2026-03-10T07:42:58.486Z pointer touch at (8,542)",
+    "2026-03-10T07:42:59.992Z pointer touch at (702,872)",
+    "2026-03-10T07:43:00.143Z bug report button"
+  ],
+  "device": {
+    "architecture": "",
+    "brands": [],
+    "browser_version": "",
+    "color_depth": 24,
+    "device_memory_gb": 0,
+    "full_version_list": [],
+    "hardware_concurrency": 8,
+    "language": "en-US",
+    "languages": [
+      "en-US"
+    ],
+    "max_touch_points": 5,
+    "mobile": false,
+    "model": "",
+    "os_version": "",
+    "pixel_ratio": 1.875,
+    "platform": "Linux armv81",
+    "screen": "749x998",
+    "timezone": "Europe/Vienna",
+    "ua": "Mozilla/5.0 (Android 11; Mobile; rv:147.0) Gecko/147.0 Firefox/147.0",
+    "vendor": "",
+    "viewport": "749x906"
+  },
+  "note": "Reply foorward etc buttons shhoukd also exist in email on canvas view",
+  "screenshot": ".tabura/artifacts/bugs/20260310-074300-9914ffb5/screenshot.png",
+  "annotated_image": ".tabura/artifacts/bugs/20260310-074300-9914ffb5/annotated.png",
+  "workspace_dir_path": "/home/ert/code/assi/tabula",
+  "github_issue_url": "https://github.com/krystophny/tabura/issues/422",
+  "github_issue_number": 422,
+  "item_id": 12,
+  "issue_labels": [
+    "bug",
+    "p0"
+  ]
+}

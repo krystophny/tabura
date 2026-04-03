@@ -87,7 +87,7 @@ PY
         return 1
     }
 fi
-REPO_OWNER="${SLOPSHELL_REPO_OWNER:-krystophny}"
+REPO_OWNER="${SLOPSHELL_REPO_OWNER:-sloppy-org}"
 REPO_NAME="${SLOPSHELL_REPO_NAME:-slopshell}"
 RELEASE_API_BASE="${SLOPSHELL_RELEASE_API_BASE:-https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases}"
 ASSUME_YES="${SLOPSHELL_ASSUME_YES:-0}"
@@ -820,7 +820,7 @@ NOTICE
                 else
                     log "build script not available; build manually:"
                     log "  git clone --branch feature/single-daemon-openai-stt-api https://github.com/peteonrails/voxtype.git"
-                    log "  see: https://github.com/krystophny/slopshell#voxtype-stt"
+                    log "  see: https://github.com/sloppy-org/slopshell#voxtype-stt"
                 fi
             fi
         else

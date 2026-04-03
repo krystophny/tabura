@@ -40,14 +40,14 @@ EOF
   assert_contains "${output_dir}/homebrew/Formula/slopshell.rb" "Run 'slopshell server' or use the full installer:"
 
   assert_contains "${output_dir}/aur/PKGBUILD" 'pkgver=1.2.3'
-  assert_contains "${output_dir}/aur/PKGBUILD" 'source_x86_64=("https://github.com/krystophny/slopshell/releases/download/v1.2.3/slopshell_1.2.3_linux_amd64.tar.gz")'
+  assert_contains "${output_dir}/aur/PKGBUILD" 'source_x86_64=("https://github.com/sloppy-org/slopshell/releases/download/v1.2.3/slopshell_1.2.3_linux_amd64.tar.gz")'
   assert_contains "${output_dir}/aur/PKGBUILD" "sha256sums_aarch64=('2222222222222222222222222222222222222222222222222222222222222222')"
   assert_contains "${output_dir}/aur/PKGBUILD" "voxtype: speech-to-text sidecar"
 
-  assert_contains "${output_dir}/winget/manifests/k/krystophny/slopshell/1.2.3/krystophny.slopshell.yaml" 'PackageVersion: 1.2.3'
-  assert_contains "${output_dir}/winget/manifests/k/krystophny/slopshell/1.2.3/krystophny.slopshell.installer.yaml" 'InstallerUrl: https://github.com/krystophny/slopshell/releases/download/v1.2.3/slopshell_1.2.3_windows_amd64.zip'
-  assert_contains "${output_dir}/winget/manifests/k/krystophny/slopshell/1.2.3/krystophny.slopshell.installer.yaml" 'InstallerSha256: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
-  assert_contains "${output_dir}/winget/manifests/k/krystophny/slopshell/1.2.3/krystophny.slopshell.installer.yaml" 'InstallerSha256: BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'
+  assert_contains "${output_dir}/winget/manifests/s/sloppy-org/slopshell/1.2.3/sloppy-org.slopshell.yaml" 'PackageVersion: 1.2.3'
+  assert_contains "${output_dir}/winget/manifests/s/sloppy-org/slopshell/1.2.3/sloppy-org.slopshell.installer.yaml" 'InstallerUrl: https://github.com/sloppy-org/slopshell/releases/download/v1.2.3/slopshell_1.2.3_windows_amd64.zip'
+  assert_contains "${output_dir}/winget/manifests/s/sloppy-org/slopshell/1.2.3/sloppy-org.slopshell.installer.yaml" 'InstallerSha256: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+  assert_contains "${output_dir}/winget/manifests/s/sloppy-org/slopshell/1.2.3/sloppy-org.slopshell.installer.yaml" 'InstallerSha256: BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'
 
   echo "distribution artifact tests passed"
 }

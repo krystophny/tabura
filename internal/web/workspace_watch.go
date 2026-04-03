@@ -12,8 +12,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/krystophny/slopshell/internal/appserver"
-	"github.com/krystophny/slopshell/internal/store"
+	"github.com/sloppy-org/slopshell/internal/appserver"
+	"github.com/sloppy-org/slopshell/internal/store"
 )
 
 const (

@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/gorilla/websocket"
-	"github.com/krystophny/slopshell/internal/serve"
+	"github.com/sloppy-org/slopshell/internal/serve"
 )
 
 type tunnelRegistry struct {

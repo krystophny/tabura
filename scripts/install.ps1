@@ -9,7 +9,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-$RepoOwner = if ($env:SLOPSHELL_REPO_OWNER) { $env:SLOPSHELL_REPO_OWNER } else { "krystophny" }
+$RepoOwner = if ($env:SLOPSHELL_REPO_OWNER) { $env:SLOPSHELL_REPO_OWNER } else { "sloppy-org" }
 $RepoName = if ($env:SLOPSHELL_REPO_NAME) { $env:SLOPSHELL_REPO_NAME } else { "slopshell" }
 $ReleaseApiBase = if ($env:SLOPSHELL_RELEASE_API_BASE) { $env:SLOPSHELL_RELEASE_API_BASE } else { "https://api.github.com/repos/$RepoOwner/$RepoName/releases" }
 $SkipBrowser = $env:SLOPSHELL_INSTALL_SKIP_BROWSER -eq "1"

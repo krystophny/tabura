@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/krystophny/slopshell/internal/hotwordtrain"
+	"github.com/sloppy-org/slopshell/internal/hotwordtrain"
 )
 
 func TestHotwordTrainPageRequiresAuthAndServesShell(t *testing.T) {

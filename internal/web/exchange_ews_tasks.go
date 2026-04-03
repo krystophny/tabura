@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/krystophny/slopshell/internal/ews"
-	"github.com/krystophny/slopshell/internal/store"
+	"github.com/sloppy-org/slopshell/internal/ews"
+	"github.com/sloppy-org/slopshell/internal/store"
 )
 
 func (a *App) syncExchangeEWSTaskAccount(ctx context.Context, account store.ExternalAccount) (int, error) {

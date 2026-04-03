@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/krystophny/slopshell/internal/roomstate"
-	"github.com/krystophny/slopshell/internal/store"
+	"github.com/sloppy-org/slopshell/internal/roomstate"
+	"github.com/sloppy-org/slopshell/internal/store"
 )
 
 const companionArtifactRootDir = ".slopshell/artifacts/companion"

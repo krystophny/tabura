@@ -1,6 +1,6 @@
 package extensions
 
-import "github.com/krystophny/slopshell/internal/plugins"
+import "github.com/sloppy-org/slopshell/internal/plugins"
 
 const (
 	HookChatPreUserMessage     = plugins.HookChatPreUserMessage

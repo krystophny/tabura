@@ -12,7 +12,7 @@ a private bundle product.
 ## Current Direction
 
 - Meeting-notes and assistant-intervention work stays in the public
-  `krystophny/slopshell` repo
+  `sloppy-org/slopshell` repo
 - Behavior should be implemented as normal modular core code
 - No private meeting-partner bundle/repo is required
 - Any retained interop surface should be a narrow local capability boundary,

@@ -1,0 +1,12 @@
+Playwright E2E Summary
+Generated at: 2026-03-21T23:59:38Z
+
+Expected (pass): 360
+Unexpected (fail): 0
+Skipped: 40
+Flaky: 0
+Duration (ms): 160569.79700000002
+
+Report dir: /home/ert/code/assi/tabura/.tabura/artifacts/test-reports/e2e/playwright-report
+Raw JSON: /home/ert/code/assi/tabura/.tabura/artifacts/test-reports/e2e/playwright-summary.json
+Log: /home/ert/code/assi/tabura/.tabura/artifacts/test-reports/e2e/playwright.log

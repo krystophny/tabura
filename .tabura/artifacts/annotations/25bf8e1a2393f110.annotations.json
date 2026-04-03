@@ -1,0 +1,292 @@
+{
+  "marks": [
+    {
+      "mark_id": "3e138c0c191d9e77ebd8e2e97d2cf749",
+      "session_id": "local",
+      "artifact_id": "b9c4c2fdc4d760543ccea228926ff992",
+      "intent": "persistent",
+      "type": "highlight",
+      "target_kind": "text_range",
+      "target": {
+        "end_offset": 212,
+        "line_end": 6,
+        "line_start": 6,
+        "rects": [
+          [
+            0,
+            264.90000915527344,
+            428.3999938964844,
+            19
+          ]
+        ],
+        "start_offset": 161
+      },
+      "comment": "Rephrase",
+      "state": "active",
+      "created_at": "2026-02-21T11:16:46.997993337Z",
+      "updated_at": "2026-02-21T11:17:09.399215456Z"
+    },
+    {
+      "mark_id": "ba61908697ee839c0328625f2ce6f294",
+      "session_id": "local",
+      "artifact_id": "b9c4c2fdc4d760543ccea228926ff992",
+      "intent": "persistent",
+      "type": "comment_point",
+      "target_kind": "text_range",
+      "target": {
+        "end_offset": 252,
+        "line_end": 7,
+        "line_start": 7,
+        "rects": [
+          [
+            319,
+            316.1999969482422,
+            10,
+            10
+          ]
+        ],
+        "start_offset": 252
+      },
+      "comment": "rephrase",
+      "state": "active",
+      "created_at": "2026-02-21T11:16:52.198249138Z",
+      "updated_at": "2026-02-21T11:17:09.39921745Z"
+    },
+    {
+      "mark_id": "draft-mark-1",
+      "session_id": "local",
+      "artifact_id": "51a6123e289b19cf2c6b8147b2630c6d",
+      "intent": "persistent",
+      "type": "comment_point",
+      "target_kind": "text_range",
+      "target": {
+        "end_offset": 108,
+        "line_end": 3,
+        "line_start": 3,
+        "rects": [
+          [
+            142.33333333333331,
+            149.22395833333331,
+            16,
+            16
+          ]
+        ],
+        "start_offset": 108
+      },
+      "comment": "This is much too technical. I want the introduction really to a bit of vision",
+      "state": "active",
+      "created_at": "2026-02-22T14:59:44.349290068Z",
+      "updated_at": "2026-02-22T14:59:45.481610217Z"
+    },
+    {
+      "mark_id": "draft-mark-2",
+      "session_id": "local",
+      "artifact_id": "42da6fb72bd9405efe14a76403e59b18",
+      "intent": "persistent",
+      "type": "comment_point",
+      "target_kind": "text_range",
+      "target": {
+        "end_offset": 103,
+        "line_end": 3,
+        "line_start": 3,
+        "rects": [
+          [
+            100.33333333333333,
+            146.86458333333331,
+            16,
+            16
+          ]
+        ],
+        "start_offset": 103
+      },
+      "comment": "The intro is too technical and even more general intro.",
+      "state": "active",
+      "created_at": "2026-02-22T00:13:33.648400386Z",
+      "updated_at": "2026-02-22T12:07:52.684513746Z"
+    },
+    {
+      "mark_id": "draft-mark-3",
+      "session_id": "local",
+      "artifact_id": "cdf90590f65f0e64b3684c76a3ce9263",
+      "intent": "persistent",
+      "type": "highlight",
+      "target_kind": "text_range",
+      "target": {
+        "end_offset": 2859,
+        "line_end": 69,
+        "line_start": 69,
+        "rects": [
+          [
+            189,
+            3018.199951171875,
+            302.3999938964844,
+            28
+          ]
+        ],
+        "start_offset": 2835
+      },
+      "comment": "remove this",
+      "state": "active",
+      "created_at": "2026-02-21T19:04:17.973265989Z",
+      "updated_at": "2026-02-22T00:08:55.209409749Z"
+    },
+    {
+      "mark_id": "draft-mark-4",
+      "session_id": "local",
+      "artifact_id": "cdf90590f65f0e64b3684c76a3ce9263",
+      "intent": "draft",
+      "type": "highlight",
+      "target_kind": "text_range",
+      "target": {
+        "end_offset": 3260,
+        "line_end": 82,
+        "line_start": 82,
+        "rects": [
+          [
+            239.39999389648438,
+            3543.199951171875,
+            138.60000610351562,
+            28
+          ]
+        ],
+        "start_offset": 3249
+      },
+      "comment": "remove",
+      "state": "active",
+      "created_at": "2026-02-21T12:33:28.940869469Z",
+      "updated_at": "2026-02-22T00:09:00.192157393Z"
+    },
+    {
+      "mark_id": "draft-mark-5",
+      "session_id": "local",
+      "artifact_id": "cdf90590f65f0e64b3684c76a3ce9263",
+      "intent": "draft",
+      "type": "comment_point",
+      "target_kind": "text_range",
+      "target": {
+        "end_offset": 1521,
+        "line_end": 42,
+        "line_start": 42,
+        "rects": [
+          [
+            676,
+            1782.7666015625,
+            16,
+            16
+          ]
+        ],
+        "start_offset": 1521
+      },
+      "comment": "Thank you.",
+      "state": "active",
+      "created_at": "2026-02-21T19:05:35.069297333Z",
+      "updated_at": "2026-02-22T00:09:25.41756407Z"
+    },
+    {
+      "mark_id": "draft-mark-6",
+      "session_id": "local",
+      "artifact_id": "3f3148701265b28a625ad5751cf99908",
+      "intent": "persistent",
+      "type": "comment_point",
+      "target_kind": "text_range",
+      "target": {
+        "end_offset": 831,
+        "line_end": 20,
+        "line_start": 20,
+        "rects": [
+          [
+            176,
+            889.7666625976562,
+            16,
+            16
+          ]
+        ],
+        "start_offset": 831
+      },
+      "comment": "Tant list releases explicitly it's too much.",
+      "state": "active",
+      "created_at": "2026-02-21T19:05:58.72933999Z",
+      "updated_at": "2026-02-22T00:10:29.513185026Z"
+    },
+    {
+      "mark_id": "draft-mark-7",
+      "session_id": "local",
+      "artifact_id": "3f3148701265b28a625ad5751cf99908",
+      "intent": "persistent",
+      "type": "highlight",
+      "target_kind": "text_range",
+      "target": {
+        "end_offset": 2739,
+        "line_end": 69,
+        "line_start": 69,
+        "rects": [
+          [
+            189,
+            2973.399932861328,
+            302.3999938964844,
+            28
+          ]
+        ],
+        "start_offset": 2715
+      },
+      "comment": "delete",
+      "state": "active",
+      "created_at": "2026-02-22T00:10:29.511166584Z",
+      "updated_at": "2026-02-22T00:10:29.513183493Z"
+    },
+    {
+      "mark_id": "draft-mark-8",
+      "session_id": "local",
+      "artifact_id": "0ecf4bf06da294f06efd6df28ae44c4e",
+      "intent": "persistent",
+      "type": "highlight",
+      "target_kind": "text_range",
+      "target": {
+        "end_offset": 2558,
+        "line_end": 66,
+        "line_start": 66,
+        "rects": [
+          [
+            189,
+            2816.5999298095703,
+            302.3999938964844,
+            28
+          ]
+        ],
+        "start_offset": 2534
+      },
+      "comment": "delete",
+      "state": "active",
+      "created_at": "2026-02-22T00:11:39.588746109Z",
+      "updated_at": "2026-02-22T00:13:34.976282728Z"
+    },
+    {
+      "mark_id": "draft-mark-9",
+      "session_id": "local",
+      "artifact_id": "0ecf4bf06da294f06efd6df28ae44c4e",
+      "intent": "persistent",
+      "type": "highlight",
+      "target_kind": "text_range",
+      "target": {
+        "end_offset": 2959,
+        "line_end": 79,
+        "line_start": 79,
+        "rects": [
+          [
+            252,
+            3341.5999145507812,
+            126,
+            28
+          ]
+        ],
+        "start_offset": 2949
+      },
+      "comment": "delete",
+      "state": "active",
+      "created_at": "2026-02-22T00:11:44.70929045Z",
+      "updated_at": "2026-02-22T00:13:34.976279823Z"
+    }
+  ],
+  "session_id": "local",
+  "written_at": "2026-02-22T14:59:45.482490715Z"
+}

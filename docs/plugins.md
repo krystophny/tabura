@@ -14,7 +14,7 @@ capability providers such as Helpy.
 
 - No private `slopshell-plugins` repo as a product dependency
 - No extension/plugin bundle system as the preferred way to add behavior
-- New product work belongs in the public `krystophny/slopshell` repo under normal
+- New product work belongs in the public `sloppy-org/slopshell` repo under normal
   modular packages in `internal/`
 - Any retained integration boundary should be narrow, local-first, and
   capability-oriented rather than a general marketplace or bundle SDK

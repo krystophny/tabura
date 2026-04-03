@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/krystophny/slopshell/internal/stt"
+	"github.com/sloppy-org/slopshell/internal/stt"
 )
 
 const (

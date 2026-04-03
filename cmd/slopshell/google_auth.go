@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/krystophny/slopshell/internal/googleauth"
+	"github.com/sloppy-org/slopshell/internal/googleauth"
 )
 
 func cmdGoogleAuth() error {

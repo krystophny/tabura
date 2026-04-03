@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/krystophny/slopshell/internal/store"
+	"github.com/sloppy-org/slopshell/internal/store"
 )
 
 type deterministicFastPathContext struct {

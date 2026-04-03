@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/krystophny/slopshell/internal/email"
-	"github.com/krystophny/slopshell/internal/store"
+	"github.com/sloppy-org/slopshell/internal/email"
+	"github.com/sloppy-org/slopshell/internal/store"
 )
 
 const artifactKindEmailDraft store.ArtifactKind = "email_draft"

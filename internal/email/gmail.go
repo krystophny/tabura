@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/krystophny/slopshell/internal/googleauth"
-	"github.com/krystophny/slopshell/internal/providerdata"
+	"github.com/sloppy-org/slopshell/internal/googleauth"
+	"github.com/sloppy-org/slopshell/internal/providerdata"
 	"golang.org/x/oauth2"
 	"google.golang.org/api/gmail/v1"
 	"google.golang.org/api/option"

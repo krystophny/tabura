@@ -8,7 +8,7 @@ import (
 	"log"
 	"strings"
 
-	"github.com/krystophny/slopshell/internal/stt"
+	"github.com/sloppy-org/slopshell/internal/stt"
 )
 
 type sttMessage struct {

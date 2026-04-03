@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/krystophny/slopshell/internal/store"
+	"github.com/sloppy-org/slopshell/internal/store"
 )
 
 type itemGitHubPRReviewSyncResponse struct {

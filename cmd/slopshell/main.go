@@ -17,14 +17,14 @@ import (
 
 	"golang.org/x/term"
 
-	"github.com/krystophny/slopshell/internal/canvas"
-	"github.com/krystophny/slopshell/internal/mcp"
-	"github.com/krystophny/slopshell/internal/protocol"
-	"github.com/krystophny/slopshell/internal/ptt"
-	"github.com/krystophny/slopshell/internal/serve"
-	"github.com/krystophny/slopshell/internal/store"
-	updater "github.com/krystophny/slopshell/internal/update"
-	"github.com/krystophny/slopshell/internal/web"
+	"github.com/sloppy-org/slopshell/internal/canvas"
+	"github.com/sloppy-org/slopshell/internal/mcp"
+	"github.com/sloppy-org/slopshell/internal/protocol"
+	"github.com/sloppy-org/slopshell/internal/ptt"
+	"github.com/sloppy-org/slopshell/internal/serve"
+	"github.com/sloppy-org/slopshell/internal/store"
+	updater "github.com/sloppy-org/slopshell/internal/update"
+	"github.com/sloppy-org/slopshell/internal/web"
 )
 
 const defaultBinaryVersion = "0.2.1"

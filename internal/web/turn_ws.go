@@ -9,7 +9,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/websocket"
-	"github.com/krystophny/slopshell/internal/turn"
+	"github.com/sloppy-org/slopshell/internal/turn"
 )
 
 type turnWSConn struct {

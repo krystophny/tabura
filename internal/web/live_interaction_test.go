@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/krystophny/slopshell/internal/store"
+	"github.com/sloppy-org/slopshell/internal/store"
 )
 
 func TestLooksLikeSilentLiveEditIntent(t *testing.T) {

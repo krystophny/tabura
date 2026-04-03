@@ -16,10 +16,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/websocket"
-	"github.com/krystophny/slopshell/internal/appserver"
-	"github.com/krystophny/slopshell/internal/canvas"
-	"github.com/krystophny/slopshell/internal/mcp"
-	"github.com/krystophny/slopshell/internal/store"
+	"github.com/sloppy-org/slopshell/internal/appserver"
+	"github.com/sloppy-org/slopshell/internal/canvas"
+	"github.com/sloppy-org/slopshell/internal/mcp"
+	"github.com/sloppy-org/slopshell/internal/store"
 )
 
 const (

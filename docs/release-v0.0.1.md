@@ -34,4 +34,4 @@
 For archival publication records, pair this version with:
 - release label: `v0.0.1`
 - source revision: exact git commit hash in release metadata
-- repository URL: `https://github.com/krystophny/slopshell`
+- repository URL: `https://github.com/sloppy-org/slopshell`

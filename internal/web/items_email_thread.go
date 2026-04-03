@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/krystophny/slopshell/internal/providerdata"
-	"github.com/krystophny/slopshell/internal/store"
-	tabsync "github.com/krystophny/slopshell/internal/sync"
+	"github.com/sloppy-org/slopshell/internal/providerdata"
+	"github.com/sloppy-org/slopshell/internal/store"
+	tabsync "github.com/sloppy-org/slopshell/internal/sync"
 )
 
 const emailThreadBindingObjectType = "email_thread"

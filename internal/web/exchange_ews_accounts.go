@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/krystophny/slopshell/internal/email"
-	"github.com/krystophny/slopshell/internal/ews"
-	"github.com/krystophny/slopshell/internal/providerdata"
-	"github.com/krystophny/slopshell/internal/store"
+	"github.com/sloppy-org/slopshell/internal/email"
+	"github.com/sloppy-org/slopshell/internal/ews"
+	"github.com/sloppy-org/slopshell/internal/providerdata"
+	"github.com/sloppy-org/slopshell/internal/store"
 )
 
 func decodeExchangeEWSAccountConfig(account store.ExternalAccount) (email.ExchangeEWSConfig, error) {

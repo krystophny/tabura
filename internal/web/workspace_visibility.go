@@ -1,6 +1,6 @@
 package web
 
-import "github.com/krystophny/slopshell/internal/store"
+import "github.com/sloppy-org/slopshell/internal/store"
 
 func isExplicitWorkspace(_ store.Workspace) bool {
 	return true

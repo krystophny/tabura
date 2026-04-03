@@ -1,0 +1,169 @@
+{
+  "results": [
+    {
+      "model_key": "0.6b",
+      "model_name": "Qwen3-0.6B-Q4_K_M",
+      "model_path": "/home/ert/.local/share/tabura-llm/models/Qwen3-0.6B-Q4_K_M.gguf",
+      "runs": [
+        {
+          "run": 1,
+          "latency_ms": 37.74,
+          "completion_tokens": 13,
+          "prompt_tokens": 27,
+          "throughput_tps": 383.55,
+          "timings": {
+            "cache_n": 26,
+            "prompt_n": 1,
+            "prompt_ms": 2.809,
+            "prompt_per_token_ms": 2.809,
+            "prompt_per_second": 355.99857600569595,
+            "predicted_n": 13,
+            "predicted_ms": 33.894,
+            "predicted_per_token_ms": 2.6072307692307692,
+            "predicted_per_second": 383.5487106862572
+          },
+          "response_preview": "The current weather in Vienna is partly cloudy with light rain."
+        },
+        {
+          "run": 2,
+          "latency_ms": 41.43,
+          "completion_tokens": 14,
+          "prompt_tokens": 27,
+          "throughput_tps": 378.96,
+          "timings": {
+            "cache_n": 26,
+            "prompt_n": 1,
+            "prompt_ms": 3.244,
+            "prompt_per_token_ms": 3.244,
+            "prompt_per_second": 308.26140567200986,
+            "predicted_n": 14,
+            "predicted_ms": 36.943,
+            "predicted_per_token_ms": 2.638785714285714,
+            "predicted_per_second": 378.96218498768377
+          },
+          "response_preview": "The current weather in Vienna is mostly sunny with a light breeze."
+        },
+        {
+          "run": 3,
+          "latency_ms": 36.06,
+          "completion_tokens": 12,
+          "prompt_tokens": 27,
+          "throughput_tps": 373.29,
+          "timings": {
+            "cache_n": 26,
+            "prompt_n": 1,
+            "prompt_ms": 2.785,
+            "prompt_per_token_ms": 2.785,
+            "prompt_per_second": 359.0664272890485,
+            "predicted_n": 12,
+            "predicted_ms": 32.147,
+            "predicted_per_token_ms": 2.6789166666666664,
+            "predicted_per_second": 373.285221015958
+          },
+          "response_preview": "The current weather in Vienna is mild with light rain."
+        },
+        {
+          "run": 4,
+          "latency_ms": 38.32,
+          "completion_tokens": 13,
+          "prompt_tokens": 27,
+          "throughput_tps": 379.22,
+          "timings": {
+            "cache_n": 26,
+            "prompt_n": 1,
+            "prompt_ms": 2.941,
+            "prompt_per_token_ms": 2.941,
+            "prompt_per_second": 340.02040122407345,
+            "predicted_n": 13,
+            "predicted_ms": 34.281,
+            "predicted_per_token_ms": 2.637,
+            "predicted_per_second": 379.21880925293897
+          },
+          "response_preview": "The current weather in Vienna is sunny with a mild breeze."
+        },
+        {
+          "run": 5,
+          "latency_ms": 38.71,
+          "completion_tokens": 13,
+          "prompt_tokens": 27,
+          "throughput_tps": 376.22,
+          "timings": {
+            "cache_n": 26,
+            "prompt_n": 1,
+            "prompt_ms": 3.051,
+            "prompt_per_token_ms": 3.051,
+            "prompt_per_second": 327.76138970829237,
+            "predicted_n": 13,
+            "predicted_ms": 34.554,
+            "predicted_per_token_ms": 2.6580000000000004,
+            "predicted_per_second": 376.22272385252063
+          },
+          "response_preview": "The current weather in Vienna is mostly sunny with light winds."
+        },
+        {
+          "run": 6,
+          "latency_ms": 37.88,
+          "completion_tokens": 13,
+          "prompt_tokens": 27,
+          "throughput_tps": 383.62,
+          "timings": {
+            "cache_n": 26,
+            "prompt_n": 1,
+            "prompt_ms": 2.806,
+            "prompt_per_token_ms": 2.806,
+            "prompt_per_second": 356.3791874554526,
+            "predicted_n": 13,
+            "predicted_ms": 33.888,
+            "predicted_per_token_ms": 2.6067692307692307,
+            "predicted_per_second": 383.6166194523135
+          },
+          "response_preview": "The weather in Vienna is partly cloudy with a light breeze."
+        },
+        {
+          "run": 7,
+          "latency_ms": 35.15,
+          "completion_tokens": 12,
+          "prompt_tokens": 27,
+          "throughput_tps": 383.78,
+          "timings": {
+            "cache_n": 26,
+            "prompt_n": 1,
+            "prompt_ms": 2.808,
+            "prompt_per_token_ms": 2.808,
+            "prompt_per_second": 356.1253561253561,
+            "predicted_n": 12,
+            "predicted_ms": 31.268,
+            "predicted_per_token_ms": 2.6056666666666666,
+            "predicted_per_second": 383.7789433286427
+          },
+          "response_preview": "The current weather in Vienna is cloudy with light rain."
+        },
+        {
+          "run": 8,
+          "latency_ms": 37.71,
+          "completion_tokens": 13,
+          "prompt_tokens": 27,
+          "throughput_tps": 383.07,
+          "timings": {
+            "cache_n": 26,
+            "prompt_n": 1,
+            "prompt_ms": 2.783,
+            "prompt_per_token_ms": 2.783,
+            "prompt_per_second": 359.3244699964068,
+            "predicted_n": 13,
+            "predicted_ms": 33.936,
+            "predicted_per_token_ms": 2.6104615384615384,
+            "predicted_per_second": 383.0740216878831
+          },
+          "response_preview": "The current weather in Vienna is partly cloudy with light rain."
+        }
+      ],
+      "summary": {
+        "median_latency_ms": 37.81,
+        "p95_latency_ms": 38.71,
+        "median_throughput_tps": 381.14,
+        "median_completion_tokens": 13
+      }
+    }
+  ]
+}

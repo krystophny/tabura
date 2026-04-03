@@ -16,7 +16,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/websocket"
-	"github.com/krystophny/slopshell/internal/serve"
+	"github.com/sloppy-org/slopshell/internal/serve"
 )
 
 func (a *App) handleCanvasWS(w http.ResponseWriter, r *http.Request) {

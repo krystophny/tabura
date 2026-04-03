@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/krystophny/slopshell/tests/flows/schema.json",
+  "$id": "https://github.com/sloppy-org/slopshell/tests/flows/schema.json",
   "title": "Slopshell Shared UI Flow",
   "type": "object",
   "additionalProperties": false,

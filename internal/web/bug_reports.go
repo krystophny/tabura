@@ -17,12 +17,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/krystophny/slopshell/internal/store"
+	"github.com/sloppy-org/slopshell/internal/store"
 )
 
 const (
 	slopshellVersion            = "0.1.8"
-	slopshellBugReportOwnerRepo = "krystophny/slopshell"
+	slopshellBugReportOwnerRepo = "sloppy-org/slopshell"
 )
 
 type bugReportRequest struct {

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/krystophny/slopshell/internal/store"
+	"github.com/sloppy-org/slopshell/internal/store"
 )
 
 func TestParseInlineItemIntentFilterCommands(t *testing.T) {

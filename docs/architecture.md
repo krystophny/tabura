@@ -73,7 +73,7 @@ Chat hook flow:
    bundle ecosystem.
 3. If any hook/API survives, it should be narrowed to explicit local
    capability-provider interop and deterministic compatibility needs.
-4. Meeting-notes follow-up planning lives in public `krystophny/slopshell` issues only.
+4. Meeting-notes follow-up planning lives in public `sloppy-org/slopshell` issues only.
 
 ## Interaction Model
 

@@ -1,0 +1,29 @@
+## What was tested
+
+The dedicated mobile capture route on the live runtime.
+
+## Expected behavior
+
+The capture UI should load on a mobile viewport while the full canvas shell stays absent.
+
+## Actual behavior
+
+Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed Locator: locator('#capture-page') Expected: visible Timeout: 10000ms Error: element(s) not found Call log: [2m - Expect "toBeVisible" with timeout 10000ms[22m [2m - waiting for locator('#capture-page')[22m Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed Locator: locator('#capture-page') Expected: visible Timeout: 10000ms Error: element(s) not found Call log: [2m - Expect "toBeVisible" with timeout 10000ms[22m [2m - waiting for locator('#capture-page')[22m
+
+## Console errors
+
+```text
+[console:error] Failed to load resource: the server responded with a status of 404 (Not Found) (http://127.0.0.1:8420/capture:0:0)
+```
+
+## Steps to reproduce
+
+1. ./scripts/playtest.sh --grep "capture route loads without the full canvas shell"
+2. Open http://127.0.0.1:8420/capture on a mobile-sized viewport.
+
+## Evidence
+
+- Screenshot link: https://files.catbox.moe/jt9w5m.png
+- Local artifact dir: `.tabura/artifacts/bugs/2026-03-09T04-34-52-592Z-chromium-capture-route-loads-without`
+- Page state: `.tabura/artifacts/bugs/2026-03-09T04-34-52-592Z-chromium-capture-route-loads-without/page-state.json`
+- Browser logs: `.tabura/artifacts/bugs/2026-03-09T04-34-52-592Z-chromium-capture-route-loads-without/browser-logs.txt`

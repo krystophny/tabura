@@ -14,7 +14,7 @@ import (
 	"testing"
 
 	"github.com/gorilla/websocket"
-	"github.com/krystophny/slopshell/internal/stt"
+	"github.com/sloppy-org/slopshell/internal/stt"
 )
 
 func TestWebRouterDoesNotExposeMCPRoute(t *testing.T) {

@@ -17,17 +17,17 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/websocket"
-	"github.com/krystophny/slopshell/internal/appserver"
-	tabcalendar "github.com/krystophny/slopshell/internal/calendar"
-	"github.com/krystophny/slopshell/internal/email"
-	"github.com/krystophny/slopshell/internal/extensions"
-	"github.com/krystophny/slopshell/internal/hotwordtrain"
-	"github.com/krystophny/slopshell/internal/ics"
-	"github.com/krystophny/slopshell/internal/modelprofile"
-	"github.com/krystophny/slopshell/internal/plugins"
-	"github.com/krystophny/slopshell/internal/serve"
-	"github.com/krystophny/slopshell/internal/llmcache"
-	"github.com/krystophny/slopshell/internal/store"
+	"github.com/sloppy-org/slopshell/internal/appserver"
+	tabcalendar "github.com/sloppy-org/slopshell/internal/calendar"
+	"github.com/sloppy-org/slopshell/internal/email"
+	"github.com/sloppy-org/slopshell/internal/extensions"
+	"github.com/sloppy-org/slopshell/internal/hotwordtrain"
+	"github.com/sloppy-org/slopshell/internal/ics"
+	"github.com/sloppy-org/slopshell/internal/modelprofile"
+	"github.com/sloppy-org/slopshell/internal/plugins"
+	"github.com/sloppy-org/slopshell/internal/serve"
+	"github.com/sloppy-org/slopshell/internal/llmcache"
+	"github.com/sloppy-org/slopshell/internal/store"
 )
 
 const (

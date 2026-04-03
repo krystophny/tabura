@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/krystophny/slopshell/internal/hotwordtrain"
+	"github.com/sloppy-org/slopshell/internal/hotwordtrain"
 )
 
 const (

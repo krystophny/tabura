@@ -5,7 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"github.com/krystophny/slopshell/internal/canvas"
+	"github.com/sloppy-org/slopshell/internal/canvas"
 	"net/http"
 	"net/http/httptest"
 	"os"

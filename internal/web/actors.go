@@ -3,7 +3,7 @@ package web
 import (
 	"net/http"
 
-	"github.com/krystophny/slopshell/internal/store"
+	"github.com/sloppy-org/slopshell/internal/store"
 )
 
 type actorCreateRequest struct {
