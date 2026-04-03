@@ -1,12 +1,12 @@
 # Release v0.0.3
 
-> **Legal notice:** Sloppad is provided "as is" and "as available" without warranties, and to the maximum extent permitted by applicable law the authors/contributors accept no liability for damages, data loss, or misuse. You are solely responsible for backups, verification, and safe operation. See [`DISCLAIMER.md`](/DISCLAIMER.md).
+> **Legal notice:** Slopshell is provided "as is" and "as available" without warranties, and to the maximum extent permitted by applicable law the authors/contributors accept no liability for damages, data loss, or misuse. You are solely responsible for backups, verification, and safe operation. See [`DISCLAIMER.md`](/DISCLAIMER.md).
 
 > Historical note: This file documents a past release. For the current runtime stack, use README.md and docs/architecture.md.
 
 ## Scope
 
-`v0.0.3` consolidates protocol publication into Sloppad while keeping the object-scoped UI paradigm as the primary project framing.
+`v0.0.3` consolidates protocol publication into Slopshell while keeping the object-scoped UI paradigm as the primary project framing.
 
 ## Highlights
 
@@ -32,5 +32,5 @@
 
 For publication metadata, associate this release with:
 - release label: `v0.0.3`
-- repository: `https://github.com/krystophny/sloppad`
+- repository: `https://github.com/krystophny/slopshell`
 - exact source revision: tag target commit hash

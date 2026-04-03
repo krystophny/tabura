@@ -1,10 +1,10 @@
 import {
-  SLOPPAD_CIRCLE_SEGMENTS,
-  SLOPPAD_CIRCLE_TOOL_ICON_IDS,
-  SLOPPAD_CIRCLE_TOOL_ICONS,
-} from '../../internal/web/static/sloppad-circle-contract.js';
+  SLOPSHELL_CIRCLE_SEGMENTS,
+  SLOPSHELL_CIRCLE_TOOL_ICON_IDS,
+  SLOPSHELL_CIRCLE_TOOL_ICONS,
+} from '../../internal/web/static/slopshell-circle-contract.js';
 
-const toolIcons = { ...SLOPPAD_CIRCLE_TOOL_ICON_IDS };
+const toolIcons = { ...SLOPSHELL_CIRCLE_TOOL_ICON_IDS };
 
 const indicatorLabels = {
   idle: 'Idle',
@@ -25,9 +25,9 @@ const state = {
 let lastTouchActivationAt = 0;
 
 const body = document.body;
-const circle = document.getElementById('sloppad-circle');
-const dot = document.getElementById('sloppad-circle-dot');
-const menu = document.getElementById('sloppad-circle-menu');
+const circle = document.getElementById('slopshell-circle');
+const dot = document.getElementById('slopshell-circle-dot');
+const menu = document.getElementById('slopshell-circle-menu');
 const indicator = document.getElementById('indicator');
 const indicatorLabel = document.getElementById('indicator-label');
 const indicatorBorder = document.getElementById('indicator-border');
@@ -63,9 +63,9 @@ function syncSegments() {
   for (const segment of segments) {
     const name = segment.getAttribute('data-segment') || '';
     const kind = segment.getAttribute('data-kind') || '';
-    const segmentContract = SLOPPAD_CIRCLE_SEGMENTS.find((entry) => entry.id === name);
+    const segmentContract = SLOPSHELL_CIRCLE_SEGMENTS.find((entry) => entry.id === name);
     if (segmentContract) {
-      segment.innerHTML = `<span class="sloppad-circle-icon" aria-hidden="true">${segmentContract.icon}</span>`;
+      segment.innerHTML = `<span class="slopshell-circle-icon" aria-hidden="true">${segmentContract.icon}</span>`;
       segment.dataset.icon = segmentContract.icon_id;
       segment.setAttribute('aria-label', segmentContract.label);
       segment.title = segmentContract.label;
@@ -102,7 +102,7 @@ function sync() {
   circle.classList.toggle('is-collapsed', !state.circleExpanded);
   dot.dataset.icon = toolIcons[state.tool];
   dot.dataset.sessionLabel = state.session === 'none' ? '' : state.session;
-  dot.innerHTML = `<span class="sloppad-circle-icon" aria-hidden="true">${SLOPPAD_CIRCLE_TOOL_ICONS[state.tool] || SLOPPAD_CIRCLE_TOOL_ICONS.pointer}</span>`;
+  dot.innerHTML = `<span class="slopshell-circle-icon" aria-hidden="true">${SLOPSHELL_CIRCLE_TOOL_ICONS[state.tool] || SLOPSHELL_CIRCLE_TOOL_ICONS.pointer}</span>`;
   applyCircleGeometry();
 
   indicator.dataset.state = indicatorState;
@@ -132,7 +132,7 @@ function applyCircleGeometry() {
   };
   dot.style.left = `${left}px`;
   dot.style.top = `${top}px`;
-  for (const segmentContract of SLOPPAD_CIRCLE_SEGMENTS) {
+  for (const segmentContract of SLOPSHELL_CIRCLE_SEGMENTS) {
     const segment = menu.querySelector(`[data-segment="${segmentContract.id}"]`);
     if (!(segment instanceof HTMLElement)) continue;
     const theta = (segmentContract.angle_deg * Math.PI) / 180;
@@ -329,45 +329,45 @@ document.addEventListener('keydown', (event) => {
 window.__flowHarness = {
   activateTarget(target) {
     switch (String(target || '')) {
-      case 'sloppad_circle_dot':
+      case 'slopshell_circle_dot':
         toggleCircle();
         return true;
-      case 'sloppad_circle_segment_pointer':
+      case 'slopshell_circle_segment_pointer':
         setTool('pointer');
         state.circleExpanded = true;
         sync();
         return true;
-      case 'sloppad_circle_segment_highlight':
+      case 'slopshell_circle_segment_highlight':
         setTool('highlight');
         state.circleExpanded = true;
         sync();
         return true;
-      case 'sloppad_circle_segment_ink':
+      case 'slopshell_circle_segment_ink':
         setTool('ink');
         state.circleExpanded = true;
         sync();
         return true;
-      case 'sloppad_circle_segment_text_note':
+      case 'slopshell_circle_segment_text_note':
         setTool('text_note');
         state.circleExpanded = true;
         sync();
         return true;
-      case 'sloppad_circle_segment_prompt':
+      case 'slopshell_circle_segment_prompt':
         setTool('prompt');
         state.circleExpanded = true;
         sync();
         return true;
-      case 'sloppad_circle_segment_dialogue':
+      case 'slopshell_circle_segment_dialogue':
         setSession('dialogue');
         state.circleExpanded = true;
         sync();
         return true;
-      case 'sloppad_circle_segment_meeting':
+      case 'slopshell_circle_segment_meeting':
         setSession('meeting');
         state.circleExpanded = true;
         sync();
         return true;
-      case 'sloppad_circle_segment_silent':
+      case 'slopshell_circle_segment_silent':
         setSilent(!state.silent);
         state.circleExpanded = true;
         sync();
@@ -403,7 +403,7 @@ window.__flowHarness = {
       active_tool: state.tool,
       session: state.session,
       silent: state.silent,
-      sloppad_circle: state.circleExpanded ? 'expanded' : 'collapsed',
+      slopshell_circle: state.circleExpanded ? 'expanded' : 'collapsed',
       dot_inner_icon: toolIcons[state.tool],
       indicator_state: currentIndicatorState(),
       body_class: body.className,

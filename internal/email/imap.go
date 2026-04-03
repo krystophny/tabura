@@ -17,7 +17,7 @@ import (
 	"github.com/emersion/go-imap/v2/imapclient"
 	_ "github.com/emersion/go-message/charset"
 	gomessage "github.com/emersion/go-message/mail"
-	"github.com/krystophny/sloppad/internal/providerdata"
+	"github.com/krystophny/slopshell/internal/providerdata"
 )
 
 // searchResult holds a message reference with its date for sorting.
@@ -94,9 +94,9 @@ func (c *IMAPClient) ConfigureDraftTransport(cfg SMTPConfig) {
 }
 
 // NewIMAPFromConfig creates an IMAP client from a provider configuration.
-// Password is read from environment variable SLOPPAD_IMAP_PASSWORD_<NAME>.
+// Password is read from environment variable SLOPSHELL_IMAP_PASSWORD_<NAME>.
 func NewIMAPFromConfig(name string, config ProviderConfig) (*IMAPClient, error) {
-	envName := "SLOPPAD_IMAP_PASSWORD_" + strings.ToUpper(strings.ReplaceAll(name, "-", "_"))
+	envName := "SLOPSHELL_IMAP_PASSWORD_" + strings.ToUpper(strings.ReplaceAll(name, "-", "_"))
 	password := os.Getenv(envName)
 	if password == "" {
 		return nil, fmt.Errorf("password not set - export %s environment variable", envName)

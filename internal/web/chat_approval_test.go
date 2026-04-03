@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/krystophny/sloppad/internal/appserver"
+	"github.com/krystophny/slopshell/internal/appserver"
 )
 
 func TestApprovalPolicyForSession(t *testing.T) {

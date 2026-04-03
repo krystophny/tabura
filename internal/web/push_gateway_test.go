@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/krystophny/sloppad/internal/store"
+	"github.com/krystophny/slopshell/internal/store"
 )
 
 func TestAPNSGatewaySendFormatsRequest(t *testing.T) {
@@ -32,8 +32,8 @@ func TestAPNSGatewaySendFormatsRequest(t *testing.T) {
 		if !strings.HasPrefix(r.Header.Get("Authorization"), "bearer ") {
 			t.Fatalf("authorization = %q", r.Header.Get("Authorization"))
 		}
-		if got := r.Header.Get("apns-topic"); got != "dev.sloppad" {
-			t.Fatalf("apns-topic = %q, want %q", got, "dev.sloppad")
+		if got := r.Header.Get("apns-topic"); got != "dev.slopshell" {
+			t.Fatalf("apns-topic = %q, want %q", got, "dev.slopshell")
 		}
 		if err := json.NewDecoder(r.Body).Decode(&gotBody); err != nil {
 			t.Fatalf("decode body: %v", err)
@@ -45,7 +45,7 @@ func TestAPNSGatewaySendFormatsRequest(t *testing.T) {
 	gateway := &apnsGateway{
 		keyID:      "kid",
 		teamID:     "team",
-		topic:      "dev.sloppad",
+		topic:      "dev.slopshell",
 		baseURL:    server.URL,
 		privateKey: privateKey,
 		client:     server.Client(),

@@ -9,9 +9,9 @@ import (
 )
 
 const (
-	sloppadMDNSService = "_sloppad._tcp"
-	sloppadMDNSDomain  = "local."
-	sloppadMDNSVersion = "0.2.1"
+	slopshellMDNSService = "_slopshell._tcp"
+	slopshellMDNSDomain  = "local."
+	slopshellMDNSVersion = "0.2.1"
 )
 
 type mdnsAdvertiser interface {
@@ -19,7 +19,7 @@ type mdnsAdvertiser interface {
 }
 
 func defaultMDNSAdvertiserFactory(name string, port int, txt []string) (mdnsAdvertiser, error) {
-	return zeroconf.Register(name, sloppadMDNSService, sloppadMDNSDomain, port, txt, nil)
+	return zeroconf.Register(name, slopshellMDNSService, slopshellMDNSDomain, port, txt, nil)
 }
 
 func (a *App) startMDNSAdvertisement(host string, port int) error {
@@ -35,11 +35,11 @@ func (a *App) startMDNSAdvertisement(host string, port int) error {
 	}
 	hostname, err := os.Hostname()
 	if err != nil || strings.TrimSpace(hostname) == "" {
-		hostname = "sloppad"
+		hostname = "slopshell"
 	}
-	instance := "sloppad-" + sanitizeMDNSLabel(hostname)
+	instance := "slopshell-" + sanitizeMDNSLabel(hostname)
 	advertiser, err := a.mdnsAdvertiserFactory(instance, port, []string{
-		"version=" + sloppadMDNSVersion,
+		"version=" + slopshellMDNSVersion,
 		"hostname=" + hostname,
 	})
 	if err != nil {
@@ -87,7 +87,7 @@ func sanitizeMDNSLabel(raw string) string {
 	}
 	label := strings.Trim(b.String(), "-")
 	if label == "" {
-		return "sloppad"
+		return "slopshell"
 	}
 	return label
 }

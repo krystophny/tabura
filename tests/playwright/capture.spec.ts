@@ -99,10 +99,10 @@ test.describe('capture page', () => {
 
   test('shows an actionable HTTPS warning on insecure non-loopback origins', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto('/tests/playwright/capture-harness.html?secure=0&protocol=http:&host=sloppad.local:8420');
+    await page.goto('/tests/playwright/capture-harness.html?secure=0&protocol=http:&host=slopshell.local:8420');
 
     await expect(page.locator('#capture-alert')).toContainText('Voice capture requires HTTPS.');
-    await expect(page.locator('#capture-alert')).toContainText('https://sloppad.local:8420/tests/playwright/capture-harness.html');
+    await expect(page.locator('#capture-alert')).toContainText('https://slopshell.local:8420/tests/playwright/capture-harness.html');
     await expect(page.locator('#capture-record')).toBeDisabled();
   });
 

@@ -1,4 +1,4 @@
-module github.com/krystophny/sloppad
+module github.com/krystophny/slopshell
 
 go 1.24.0
 

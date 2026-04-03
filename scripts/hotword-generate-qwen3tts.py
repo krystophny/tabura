@@ -12,8 +12,8 @@ import torch
 from qwen_tts import Qwen3TTSModel
 
 
-DEFAULT_MODEL_ID = os.environ.get("SLOPPAD_HOTWORD_QWEN3TTS_MODEL", "Qwen/Qwen3-TTS-12Hz-1.7B-Base")
-DEFAULT_LANGUAGE = os.environ.get("SLOPPAD_HOTWORD_QWEN3TTS_LANGUAGE", "English")
+DEFAULT_MODEL_ID = os.environ.get("SLOPSHELL_HOTWORD_QWEN3TTS_MODEL", "Qwen/Qwen3-TTS-12Hz-1.7B-Base")
+DEFAULT_LANGUAGE = os.environ.get("SLOPSHELL_HOTWORD_QWEN3TTS_LANGUAGE", "English")
 TARGET_VARIANTS = (
     "Computer",
     "Computer.",

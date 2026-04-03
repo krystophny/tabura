@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Replaced the floating tool palette and top-panel live controls with the unified Sloppad Circle.
+- Replaced the floating tool palette and top-panel live controls with the unified Slopshell Circle.
 - Added the dedicated `/manage` surface for runtime, hotword, model, and voice status.
 
 ## v0.2.0 - 2026-03-11

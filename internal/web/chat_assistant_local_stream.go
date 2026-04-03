@@ -13,7 +13,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/krystophny/sloppad/internal/llmcache"
+	"github.com/krystophny/slopshell/internal/llmcache"
 )
 
 func firstNonEmptyLocalAssistantChunk(values ...string) string {

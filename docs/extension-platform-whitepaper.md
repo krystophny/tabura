@@ -1,8 +1,8 @@
 # Retired Bundle Platform Whitepaper
 
-> **Legal notice:** Sloppad is provided "as is" and "as available" without warranties, and to the maximum extent permitted by applicable law the authors/contributors accept no liability for damages, data loss, or misuse. You are solely responsible for backups, verification, and safe operation. See [`DISCLAIMER.md`](/DISCLAIMER.md).
+> **Legal notice:** Slopshell is provided "as is" and "as available" without warranties, and to the maximum extent permitted by applicable law the authors/contributors accept no liability for damages, data loss, or misuse. You are solely responsible for backups, verification, and safe operation. See [`DISCLAIMER.md`](/DISCLAIMER.md).
 
-This file previously documented a local-first extension platform for Sloppad.
+This file previously documented a local-first extension platform for Slopshell.
 
 That general bundle-platform direction is no longer the active product
 direction. The useful residue is a much smaller question: what narrow
@@ -10,7 +10,7 @@ integration boundary, if any, should survive for local capability providers.
 
 ## Current Direction
 
-- One public repo for product behavior: `krystophny/sloppad`
+- One public repo for product behavior: `krystophny/slopshell`
 - Modular internal packages instead of extension bundles
 - No private premium bundle repo as part of the intended architecture
 - Optional external capabilities should integrate through explicit local

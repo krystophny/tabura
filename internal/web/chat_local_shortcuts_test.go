@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/krystophny/sloppad/internal/store"
+	"github.com/krystophny/slopshell/internal/store"
 )
 
 func TestSelectLocalAssistantToolFamilySupportsGermanCanvasRequests(t *testing.T) {
@@ -109,7 +109,7 @@ func TestNormalizeLocalAssistantAddressSupportsVisibleNames(t *testing.T) {
 		text string
 		want string
 	}{
-		{text: "Sloppad, was ist los?", want: "was ist los?"},
+		{text: "Slopshell, was ist los?", want: "was ist los?"},
 		{text: "Computer: draw a diagram", want: "draw a diagram"},
 		{text: "Computer; open the readme", want: "open the readme"},
 	}

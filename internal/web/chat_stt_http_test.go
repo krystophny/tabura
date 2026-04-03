@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/krystophny/sloppad/internal/stt"
+	"github.com/krystophny/slopshell/internal/stt"
 )
 
 func multipartRequestForTest(t *testing.T, path string, build func(*multipart.Writer)) (*httptest.ResponseRecorder, *http.Request) {

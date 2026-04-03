@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 async function waitReady(page: Page) {
   await page.goto('/tests/playwright/harness.html');
   await page.waitForFunction(() => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     if (typeof app?.getState !== 'function') return false;
     const s = app.getState();
     const wsOpen = (window as any).WebSocket.OPEN;
@@ -88,7 +88,7 @@ test.describe('sidebar close strip', () => {
 
     await expect(page.locator('#pr-file-pane')).not.toHaveClass(/is-open/);
     await expect.poll(async () => page.evaluate(() => {
-      const app = (window as any)._sloppadApp;
+      const app = (window as any)._slopshellApp;
       return Number(app?.getState?.().itemSidebarActiveItemID || 0);
     })).toBe(0);
   });
@@ -105,7 +105,7 @@ test.describe('sidebar close strip', () => {
 
     await expect(page.locator('#pr-file-pane')).not.toHaveClass(/is-open/);
     await expect.poll(async () => page.evaluate(() => {
-      const app = (window as any)._sloppadApp;
+      const app = (window as any)._slopshellApp;
       return ({
         open: Boolean(app?.getState?.().prReviewDrawerOpen),
         activeItemID: Number(app?.getState?.().itemSidebarActiveItemID || 0),

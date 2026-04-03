@@ -11,11 +11,11 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 const fixtureTargets = [
   {
     platform: 'ios',
-    output: path.join(repoRoot, 'platforms', 'ios', 'Tests', 'SloppadFlowContractTests', 'Resources', 'flow-fixtures.json'),
+    output: path.join(repoRoot, 'platforms', 'ios', 'Tests', 'SlopshellFlowContractTests', 'Resources', 'flow-fixtures.json'),
   },
   {
     platform: 'ios',
-    output: path.join(repoRoot, 'platforms', 'ios', 'SloppadIOSUITests', 'Resources', 'flow-fixtures.json'),
+    output: path.join(repoRoot, 'platforms', 'ios', 'SlopshellIOSUITests', 'Resources', 'flow-fixtures.json'),
   },
   {
     platform: 'android',

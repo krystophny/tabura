@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
-	tabcalendar "github.com/krystophny/sloppad/internal/calendar"
-	"github.com/krystophny/sloppad/internal/ics"
-	"github.com/krystophny/sloppad/internal/providerdata"
-	"github.com/krystophny/sloppad/internal/store"
+	tabcalendar "github.com/krystophny/slopshell/internal/calendar"
+	"github.com/krystophny/slopshell/internal/ics"
+	"github.com/krystophny/slopshell/internal/providerdata"
+	"github.com/krystophny/slopshell/internal/store"
 )
 
 const (
@@ -190,7 +190,7 @@ func (a *App) executeCalendarAction(session store.ChatSession, action *SystemAct
 	if strings.TrimSpace(req.Query) != "" {
 		pathSeed = append(pathSeed, sanitizeCalendarFileToken(req.Query))
 	}
-	relativePath := filepath.ToSlash(filepath.Join(".sloppad", "artifacts", "calendar", strings.Join(pathSeed, "-")+".md"))
+	relativePath := filepath.ToSlash(filepath.Join(".slopshell", "artifacts", "calendar", strings.Join(pathSeed, "-")+".md"))
 	absPath, canvasTitle, err := resolveCanvasFilePath(cwd, relativePath)
 	if err != nil {
 		return "", nil, err

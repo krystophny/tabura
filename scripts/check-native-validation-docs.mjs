@@ -44,7 +44,7 @@ const flowDocNeedles = [
   'npm run test:flows:ios',
   'npm run test:flows:android',
   'npm run test:flows:native',
-  'platforms/ios/SloppadIOSUITests/Resources/flow-fixtures.json',
+  'platforms/ios/SlopshellIOSUITests/Resources/flow-fixtures.json',
   'platforms/android/app/src/androidTest/assets/flow-fixtures.json',
 ];
 

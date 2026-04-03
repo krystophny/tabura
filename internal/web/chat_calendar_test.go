@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/krystophny/sloppad/internal/calendar"
-	"github.com/krystophny/sloppad/internal/ics"
-	"github.com/krystophny/sloppad/internal/providerdata"
-	"github.com/krystophny/sloppad/internal/store"
+	"github.com/krystophny/slopshell/internal/calendar"
+	"github.com/krystophny/slopshell/internal/ics"
+	"github.com/krystophny/slopshell/internal/providerdata"
+	"github.com/krystophny/slopshell/internal/store"
 )
 
 type stubGoogleCalendarReader struct {
@@ -262,7 +262,7 @@ func TestClassifyAndExecuteSystemActionShowCalendarRendersSphereAwareArtifact(t 
 		t.Fatalf("canvas_artifact_show calls = %d, want 1", showCalls)
 	}
 	path := strFromAny(payloads[0]["path"])
-	if !strings.HasPrefix(path, ".sloppad/artifacts/calendar/2026-03-09-day") {
+	if !strings.HasPrefix(path, ".slopshell/artifacts/calendar/2026-03-09-day") {
 		t.Fatalf("payload path = %q", path)
 	}
 	rendered, err := os.ReadFile(filepath.Join(workWorkspace.DirPath, path))

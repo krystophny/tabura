@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 async function waitReady(page: Page) {
   await page.goto('/tests/playwright/harness.html');
   await page.waitForFunction(() => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     if (typeof app?.getState !== 'function') return false;
     const s = app.getState();
     const wsOpen = (window as any).WebSocket.OPEN;
@@ -13,7 +13,7 @@ async function waitReady(page: Page) {
 
 async function injectChatEvent(page: Page, payload: Record<string, unknown>) {
   await page.evaluate((p) => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     const activeChatWs = app?.getState?.().chatWs;
     if (activeChatWs && typeof activeChatWs.injectEvent === 'function') {
       activeChatWs.injectEvent(p);
@@ -73,8 +73,8 @@ test.describe('someday review flow', () => {
   test('weekly someday nudge appears and the disable action persists the preference', async ({ page }) => {
     await waitReady(page);
     await page.evaluate(() => {
-      window.localStorage.setItem('sloppad.somedayReviewNudgeEnabled', 'true');
-      window.localStorage.removeItem('sloppad.somedayReviewNudgeLastShownAt');
+      window.localStorage.setItem('slopshell.somedayReviewNudgeEnabled', 'true');
+      window.localStorage.removeItem('slopshell.somedayReviewNudgeLastShownAt');
     });
 
     await openSidebar(page);
@@ -86,14 +86,14 @@ test.describe('someday review flow', () => {
       type: 'system_action',
       action: { type: 'set_someday_review_nudge', enabled: false },
     });
-    await expect.poll(async () => page.evaluate(() => window.localStorage.getItem('sloppad.somedayReviewNudgeEnabled')))
+    await expect.poll(async () => page.evaluate(() => window.localStorage.getItem('slopshell.somedayReviewNudgeEnabled')))
       .toBe('false');
   });
 
   test('disabled someday reminders suppress the weekly nudge', async ({ page }) => {
     await page.addInitScript(() => {
-      window.localStorage.setItem('sloppad.somedayReviewNudgeEnabled', 'false');
-      window.localStorage.removeItem('sloppad.somedayReviewNudgeLastShownAt');
+      window.localStorage.setItem('slopshell.somedayReviewNudgeEnabled', 'false');
+      window.localStorage.removeItem('slopshell.somedayReviewNudgeLastShownAt');
     });
 
     await waitReady(page);

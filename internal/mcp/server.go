@@ -12,22 +12,22 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/krystophny/sloppad/internal/appserver"
-	tabcalendar "github.com/krystophny/sloppad/internal/calendar"
-	"github.com/krystophny/sloppad/internal/canvas"
-	"github.com/krystophny/sloppad/internal/email"
-	"github.com/krystophny/sloppad/internal/providerdata"
-	"github.com/krystophny/sloppad/internal/store"
+	"github.com/krystophny/slopshell/internal/appserver"
+	tabcalendar "github.com/krystophny/slopshell/internal/calendar"
+	"github.com/krystophny/slopshell/internal/canvas"
+	"github.com/krystophny/slopshell/internal/email"
+	"github.com/krystophny/slopshell/internal/providerdata"
+	"github.com/krystophny/slopshell/internal/store"
 )
 
 const (
-	ServerName            = "sloppad"
+	ServerName            = "sloppy"
 	ServerVersion         = "0.2.1"
 	LatestProtocolVersion = "2025-03-26"
 	defaultProducerMCPURL = "http://127.0.0.1:8090/mcp"
 	handoffKindFile       = "file"
 	handoffKindMail       = "mail"
-	tempArtifactsDirRel   = ".sloppad/artifacts/tmp"
+	tempArtifactsDirRel   = ".slopshell/artifacts/tmp"
 )
 
 var supportedProtocolVersions = map[string]struct{}{

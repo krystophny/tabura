@@ -74,7 +74,7 @@ func presentationArtifactOutputPath(projectRoot, inputPath string) (string, stri
 	}
 	sum := sha256.Sum256([]byte(filepath.ToSlash(rel)))
 	relOutput := filepath.ToSlash(filepath.Join(
-		".sloppad",
+		".slopshell",
 		"artifacts",
 		"presentations",
 		fmt.Sprintf("%s-%x.pdf", sanitizePresentationArtifactName(inputPath), sum[:6]),

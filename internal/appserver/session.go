@@ -101,8 +101,8 @@ func (s *Session) handshake(ctx context.Context) error {
 		"method":  "initialize",
 		"params": map[string]interface{}{
 			"clientInfo": map[string]interface{}{
-				"name":    "sloppad-web",
-				"title":   "Sloppad Web",
+				"name":    "slopshell-web",
+				"title":   "Slopshell Web",
 				"version": "0.2.1",
 			},
 			"capabilities": map[string]interface{}{

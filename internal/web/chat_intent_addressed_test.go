@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/krystophny/sloppad/internal/store"
+	"github.com/krystophny/slopshell/internal/store"
 )
 
 func TestParseIntentPlanClassificationReadsAddressedField(t *testing.T) {

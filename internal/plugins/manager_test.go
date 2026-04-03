@@ -36,7 +36,7 @@ func TestManagerApplyRewriteAndBlockSequence(t *testing.T) {
 	}))
 	defer blockServer.Close()
 
-	t.Setenv("SLOPPAD_PLUGIN_TEST_SECRET", "abc123")
+	t.Setenv("SLOPSHELL_PLUGIN_TEST_SECRET", "abc123")
 	dir := t.TempDir()
 	writeManifest(t, dir, "01-rewrite.json", map[string]any{
 		"id":         "rewrite",
@@ -44,7 +44,7 @@ func TestManagerApplyRewriteAndBlockSequence(t *testing.T) {
 		"endpoint":   rewriteServer.URL,
 		"hooks":      []string{HookChatPreUserMessage},
 		"enabled":    true,
-		"secret_env": "SLOPPAD_PLUGIN_TEST_SECRET",
+		"secret_env": "SLOPSHELL_PLUGIN_TEST_SECRET",
 	})
 	writeManifest(t, dir, "02-block.json", map[string]any{
 		"id":       "blocker",

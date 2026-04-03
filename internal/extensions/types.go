@@ -1,6 +1,6 @@
 package extensions
 
-import "github.com/krystophny/sloppad/internal/plugins"
+import "github.com/krystophny/slopshell/internal/plugins"
 
 const (
 	HookChatPreUserMessage     = plugins.HookChatPreUserMessage
@@ -46,7 +46,7 @@ type UIContributionManifest struct {
 }
 
 type EngineManifest struct {
-	Sloppad string `json:"sloppad,omitempty"`
+	Slopshell string `json:"slopshell,omitempty"`
 }
 
 type SigningManifest struct {

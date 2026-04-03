@@ -246,7 +246,7 @@ func (m *Manager) call(parent context.Context, plug runtimePlugin, req HookReque
 		return out, err
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("X-Sloppad-Plugin-ID", plug.info.ID)
+	httpReq.Header.Set("X-Slopshell-Plugin-ID", plug.info.ID)
 	if secret := strings.TrimSpace(os.Getenv(plug.secretEnv)); secret != "" {
 		httpReq.Header.Set("Authorization", "Bearer "+secret)
 	}

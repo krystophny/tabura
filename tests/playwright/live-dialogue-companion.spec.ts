@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { setLiveMode, stopLiveMode } from './sloppad-circle-helpers';
+import { setLiveMode, stopLiveMode } from './slopshell-circle-helpers';
 
 type HarnessLogEntry = {
   type: string;
@@ -21,7 +21,7 @@ async function clearLog(page: Page) {
 async function waitReady(page: Page) {
   await page.goto('/tests/playwright/harness.html');
   await page.waitForFunction(() => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     if (typeof app?.getState !== 'function') return false;
     const s = app.getState();
     return s.chatWs && s.chatWs.readyState === (window as any).WebSocket.OPEN;
@@ -31,7 +31,7 @@ async function waitReady(page: Page) {
 
 async function injectChatEvent(page: Page, payload: Record<string, unknown>) {
   await page.evaluate((eventPayload) => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     const sessionId = String(app?.getState?.().chatSessionId || '');
     const sessions = (window as any).__mockWsSessions || [];
     const chatWs = sessions.find((ws: any) => typeof ws.url === 'string'
@@ -45,13 +45,13 @@ async function injectChatEvent(page: Page, payload: Record<string, unknown>) {
 
 async function setDialogueListenWindowMs(page: Page, ms: number) {
   await page.evaluate((value) => {
-    (window as any).__sloppadConversationListenMs = value;
+    (window as any).__slopshellConversationListenMs = value;
   }, ms);
 }
 
 async function enableCompanion(page: Page, idleSurface: 'robot' | 'black' = 'robot') {
   await page.evaluate((nextIdleSurface) => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     const s = app?.getState?.();
     if (!s) throw new Error('app state unavailable');
     s.companionEnabled = true;
@@ -69,7 +69,7 @@ async function setDialogueMode(page: Page, enabled: boolean) {
 
 async function triggerVoiceAssistantTTS(page: Page, turnID: string, text = 'Hello there.') {
   await page.evaluate(() => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     const s = app.getState();
     s.lastInputOrigin = 'voice';
     s.voiceAwaitingTurn = true;
@@ -101,7 +101,7 @@ test('companion face stays idle until dialogue speech is detected', async ({ pag
   await setDialogueMode(page, true);
   await enableCompanion(page);
   await page.evaluate(() => {
-    (window as any)._sloppadApp?.syncCompanionIdleSurface?.();
+    (window as any)._slopshellApp?.syncCompanionIdleSurface?.();
   });
   await page.evaluate(() => {
     (window as any).__setVadDbFrames([
@@ -128,7 +128,7 @@ test('"recording..." status text suppressed when companion visible', async ({ pa
   await setDialogueMode(page, true);
   await enableCompanion(page);
   await page.evaluate(() => {
-    (window as any)._sloppadApp?.syncCompanionIdleSurface?.();
+    (window as any)._slopshellApp?.syncCompanionIdleSurface?.();
   });
   await page.evaluate(() => {
     (window as any).__setVadDbFrames([
@@ -154,7 +154,7 @@ test('"recording..." status text suppressed when companion visible', async ({ pa
 test('recording cue stays visible while companion surface is visible', async ({ page }) => {
   await enableCompanion(page);
   await page.evaluate(() => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     app?.syncCompanionIdleSurface?.();
   });
 
@@ -176,13 +176,13 @@ test('companion reaches thinking state during assistant turn', async ({ page }) 
   await setDialogueMode(page, true);
   await enableCompanion(page);
   await page.evaluate(() => {
-    (window as any)._sloppadApp?.syncCompanionIdleSurface?.();
+    (window as any)._slopshellApp?.syncCompanionIdleSurface?.();
   });
   await clearLog(page);
 
   // Set up voice-awaiting-turn state to enter thinking
   await page.evaluate(() => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     const s = app.getState();
     s.lastInputOrigin = 'voice';
     s.voiceAwaitingTurn = true;
@@ -212,7 +212,7 @@ test('black idle surface turns dialogue into a full-screen black tap target', as
   await setDialogueMode(page, true);
   await enableCompanion(page, 'black');
   await page.evaluate(() => {
-    (window as any)._sloppadApp?.syncCompanionIdleSurface?.();
+    (window as any)._slopshellApp?.syncCompanionIdleSurface?.();
   });
   await clearLog(page);
 

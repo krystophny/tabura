@@ -1,0 +1,37 @@
+name: slopshell_circle_multi_select_tool_and_session
+description: Keep the circle open while changing both the active tool and the active session.
+tags:
+  - circle
+  - multi
+preconditions:
+  tool: pointer
+  session: none
+  silent: false
+steps:
+  - action: tap
+    target: slopshell_circle_dot
+    expect:
+      slopshell_circle: expanded
+  - action: tap
+    target: slopshell_circle_segment_ink
+    expect:
+      active_tool: ink
+      session: none
+      silent: false
+      slopshell_circle: expanded
+  - action: tap
+    target: slopshell_circle_segment_dialogue
+    expect:
+      active_tool: ink
+      session: dialogue
+      silent: false
+      indicator_state: listening
+      slopshell_circle: expanded
+  - action: tap_outside
+    expect:
+      active_tool: ink
+      session: dialogue
+      silent: false
+      indicator_state: listening
+      slopshell_circle: collapsed
+      dot_inner_icon: pen_nib

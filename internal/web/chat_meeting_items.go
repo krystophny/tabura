@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/krystophny/sloppad/internal/store"
+	"github.com/krystophny/slopshell/internal/store"
 )
 
 const meetingSummaryItemSource = "meeting_summary"

@@ -1,74 +1,74 @@
 const targetDefinitions = {
-  sloppad_circle_dot: {
+  slopshell_circle_dot: {
     category: 'circle',
     platforms: {
-      web: '#sloppad-circle-dot',
-      ios: 'sloppad_circle_dot',
-      android: 'sloppad_circle_dot',
+      web: '#slopshell-circle-dot',
+      ios: 'slopshell_circle_dot',
+      android: 'slopshell_circle_dot',
     },
   },
-  sloppad_circle_segment_pointer: {
+  slopshell_circle_segment_pointer: {
     category: 'circle',
     platforms: {
       web: '[data-segment="pointer"]',
-      ios: 'sloppad_circle_pointer',
-      android: 'sloppad_circle_pointer',
+      ios: 'slopshell_circle_pointer',
+      android: 'slopshell_circle_pointer',
     },
   },
-  sloppad_circle_segment_highlight: {
+  slopshell_circle_segment_highlight: {
     category: 'circle',
     platforms: {
       web: '[data-segment="highlight"]',
-      ios: 'sloppad_circle_highlight',
-      android: 'sloppad_circle_highlight',
+      ios: 'slopshell_circle_highlight',
+      android: 'slopshell_circle_highlight',
     },
   },
-  sloppad_circle_segment_ink: {
+  slopshell_circle_segment_ink: {
     category: 'circle',
     platforms: {
       web: '[data-segment="ink"]',
-      ios: 'sloppad_circle_ink',
-      android: 'sloppad_circle_ink',
+      ios: 'slopshell_circle_ink',
+      android: 'slopshell_circle_ink',
     },
   },
-  sloppad_circle_segment_text_note: {
+  slopshell_circle_segment_text_note: {
     category: 'circle',
     platforms: {
       web: '[data-segment="text_note"]',
-      ios: 'sloppad_circle_text_note',
-      android: 'sloppad_circle_text_note',
+      ios: 'slopshell_circle_text_note',
+      android: 'slopshell_circle_text_note',
     },
   },
-  sloppad_circle_segment_prompt: {
+  slopshell_circle_segment_prompt: {
     category: 'circle',
     platforms: {
       web: '[data-segment="prompt"]',
-      ios: 'sloppad_circle_prompt',
-      android: 'sloppad_circle_prompt',
+      ios: 'slopshell_circle_prompt',
+      android: 'slopshell_circle_prompt',
     },
   },
-  sloppad_circle_segment_dialogue: {
+  slopshell_circle_segment_dialogue: {
     category: 'circle',
     platforms: {
       web: '[data-segment="dialogue"]',
-      ios: 'sloppad_circle_dialogue',
-      android: 'sloppad_circle_dialogue',
+      ios: 'slopshell_circle_dialogue',
+      android: 'slopshell_circle_dialogue',
     },
   },
-  sloppad_circle_segment_meeting: {
+  slopshell_circle_segment_meeting: {
     category: 'circle',
     platforms: {
       web: '[data-segment="meeting"]',
-      ios: 'sloppad_circle_meeting',
-      android: 'sloppad_circle_meeting',
+      ios: 'slopshell_circle_meeting',
+      android: 'slopshell_circle_meeting',
     },
   },
-  sloppad_circle_segment_silent: {
+  slopshell_circle_segment_silent: {
     category: 'circle',
     platforms: {
       web: '[data-segment="silent"]',
-      ios: 'sloppad_circle_silent',
-      android: 'sloppad_circle_silent',
+      ios: 'slopshell_circle_silent',
+      android: 'slopshell_circle_silent',
     },
   },
   canvas_viewport: {
@@ -111,15 +111,15 @@ const targetDefinitions = {
 };
 
 const requiredCoverageTargets = [
-  'sloppad_circle_dot',
-  'sloppad_circle_segment_pointer',
-  'sloppad_circle_segment_highlight',
-  'sloppad_circle_segment_ink',
-  'sloppad_circle_segment_text_note',
-  'sloppad_circle_segment_prompt',
-  'sloppad_circle_segment_dialogue',
-  'sloppad_circle_segment_meeting',
-  'sloppad_circle_segment_silent',
+  'slopshell_circle_dot',
+  'slopshell_circle_segment_pointer',
+  'slopshell_circle_segment_highlight',
+  'slopshell_circle_segment_ink',
+  'slopshell_circle_segment_text_note',
+  'slopshell_circle_segment_prompt',
+  'slopshell_circle_segment_dialogue',
+  'slopshell_circle_segment_meeting',
+  'slopshell_circle_segment_silent',
   'canvas_viewport',
   'indicator_border',
 ];

@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/krystophny/sloppad/internal/store"
-	"github.com/krystophny/sloppad/internal/todoist"
+	"github.com/krystophny/slopshell/internal/store"
+	"github.com/krystophny/slopshell/internal/todoist"
 )
 
 func TestParseInlineTodoistIntent(t *testing.T) {
@@ -312,7 +312,7 @@ func TestClassifyAndExecuteSystemActionSyncTodoistRemapUpdatesExistingItem(t *te
 	if _, _, handled := app.classifyAndExecuteSystemAction(context.Background(), session.ID, session, "sync todoist"); !handled {
 		t.Fatal("expected initial sync command to be handled")
 	}
-	targetWorkspace, err := app.store.CreateWorkspace("Sloppad", filepath.Join(t.TempDir(), "sloppad-target"))
+	targetWorkspace, err := app.store.CreateWorkspace("Slopshell", filepath.Join(t.TempDir(), "slopshell-target"))
 	if err != nil {
 		t.Fatalf("CreateWorkspace(target) error: %v", err)
 	}

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/krystophny/sloppad/internal/stt"
+	"github.com/krystophny/slopshell/internal/stt"
 )
 
 const sttConfigStateKey = "stt_config"

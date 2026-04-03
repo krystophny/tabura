@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/krystophny/sloppad/internal/store"
+	"github.com/krystophny/slopshell/internal/store"
 )
 
 func (a *App) workspaceOfWorkspace(project store.Workspace) (*store.Workspace, error) {

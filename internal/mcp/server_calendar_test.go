@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	tabcalendar "github.com/krystophny/sloppad/internal/calendar"
-	"github.com/krystophny/sloppad/internal/canvas"
-	"github.com/krystophny/sloppad/internal/providerdata"
-	"github.com/krystophny/sloppad/internal/store"
+	tabcalendar "github.com/krystophny/slopshell/internal/calendar"
+	"github.com/krystophny/slopshell/internal/canvas"
+	"github.com/krystophny/slopshell/internal/providerdata"
+	"github.com/krystophny/slopshell/internal/store"
 )
 
 type stubCalendarReader struct {
@@ -48,7 +48,7 @@ func (s *stubCalendarReader) CreateEvent(_ context.Context, opts tabcalendar.Cre
 }
 
 func TestCalendarListUsesGmailFallback(t *testing.T) {
-	st, err := store.New(filepath.Join(t.TempDir(), "sloppad.db"))
+	st, err := store.New(filepath.Join(t.TempDir(), "slopshell.db"))
 	if err != nil {
 		t.Fatalf("store.New: %v", err)
 	}
@@ -77,7 +77,7 @@ func TestCalendarListUsesGmailFallback(t *testing.T) {
 }
 
 func TestCalendarEventsReturnsStructuredEvents(t *testing.T) {
-	st, err := store.New(filepath.Join(t.TempDir(), "sloppad.db"))
+	st, err := store.New(filepath.Join(t.TempDir(), "slopshell.db"))
 	if err != nil {
 		t.Fatalf("store.New: %v", err)
 	}
@@ -127,7 +127,7 @@ func TestCalendarEventsReturnsStructuredEvents(t *testing.T) {
 }
 
 func TestCalendarEventCreateUsesPreferredSphereCalendar(t *testing.T) {
-	st, err := store.New(filepath.Join(t.TempDir(), "sloppad.db"))
+	st, err := store.New(filepath.Join(t.TempDir(), "slopshell.db"))
 	if err != nil {
 		t.Fatalf("store.New: %v", err)
 	}

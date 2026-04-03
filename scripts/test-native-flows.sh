@@ -45,13 +45,13 @@ if [[ -n "$android_sdk_root" ]]; then
   export ANDROID_SDK_ROOT="$android_sdk_root"
 fi
 
-if [[ "${SLOPPAD_IOS_REMOTE_ROOT:-}" = /* ]]; then
-  ios_remote_root="${SLOPPAD_IOS_REMOTE_ROOT}"
+if [[ "${SLOPSHELL_IOS_REMOTE_ROOT:-}" = /* ]]; then
+  ios_remote_root="${SLOPSHELL_IOS_REMOTE_ROOT}"
 else
-  ios_remote_root="~/${SLOPPAD_IOS_REMOTE_ROOT:-sloppad-ci}"
+  ios_remote_root="~/${SLOPSHELL_IOS_REMOTE_ROOT:-slopshell-ci}"
 fi
-ios_ssh_host="${SLOPPAD_IOS_SSH_HOST:-faepmac1}"
-ios_destination="${SLOPPAD_IOS_DESTINATION:-platform=iOS Simulator,name=iPhone 17 Pro,OS=26.2}"
+ios_ssh_host="${SLOPSHELL_IOS_SSH_HOST:-faepmac1}"
+ios_destination="${SLOPSHELL_IOS_DESTINATION:-platform=iOS Simulator,name=iPhone 17 Pro,OS=26.2}"
 ios_repo_synced=0
 
 need_cmd node
@@ -128,18 +128,18 @@ boot_android_emulator() {
     return
   fi
 
-  avd="${SLOPPAD_ANDROID_AVD:-}"
+  avd="${SLOPSHELL_ANDROID_AVD:-}"
   if [[ -z "$avd" ]]; then
     avd="$("$emulator_bin" -list-avds | head -n1)"
   fi
   if [[ -z "$avd" ]]; then
-    echo "no Android AVD available; set SLOPPAD_ANDROID_AVD" >&2
+    echo "no Android AVD available; set SLOPSHELL_ANDROID_AVD" >&2
     exit 1
   fi
 
-  log_file="${SLOPPAD_ANDROID_EMULATOR_LOG:-/tmp/sloppad-android-emulator.log}"
+  log_file="${SLOPSHELL_ANDROID_EMULATOR_LOG:-/tmp/slopshell-android-emulator.log}"
   log_step "Boot Android emulator $avd"
-  nohup "$emulator_bin" -avd "$avd" ${SLOPPAD_ANDROID_EMULATOR_ARGS:--no-window -gpu swiftshader_indirect -no-audio -no-snapshot-save} >"$log_file" 2>&1 &
+  nohup "$emulator_bin" -avd "$avd" ${SLOPSHELL_ANDROID_EMULATOR_ARGS:--no-window -gpu swiftshader_indirect -no-audio -no-snapshot-save} >"$log_file" 2>&1 &
 
   for _ in $(seq 1 120); do
     serial="$("$adb_bin" devices | awk 'NR > 1 && $2 == "device" { print $1; exit }')"
@@ -186,7 +186,7 @@ ensure_ios_repo_synced() {
 run_ios_ui() {
   ensure_ios_repo_synced
   log_step "Run iOS UI harness on $ios_ssh_host ($ios_destination)"
-  ssh "$ios_ssh_host" "cd $ios_remote_root && xcodebuild test -project platforms/ios/SloppadIOS.xcodeproj -scheme SloppadIOS -destination '$ios_destination' -only-testing:SloppadIOSUITests"
+  ssh "$ios_ssh_host" "cd $ios_remote_root && xcodebuild test -project platforms/ios/SlopshellIOS.xcodeproj -scheme SlopshellIOS -destination '$ios_destination' -only-testing:SlopshellIOSUITests"
 }
 
 sync_native_fixtures

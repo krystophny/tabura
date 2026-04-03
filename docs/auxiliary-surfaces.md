@@ -1,6 +1,6 @@
 # Auxiliary Surfaces
 
-The main Sloppad environment is `/`. Auxiliary surfaces are allowed only when they are narrower than the main workspace, materially faster for one job, and write back into the same Workspace / Artifact / Item / Actor model.
+The main Slopshell environment is `/`. Auxiliary surfaces are allowed only when they are narrower than the main workspace, materially faster for one job, and write back into the same Workspace / Artifact / Item / Actor model.
 
 ## Allowed exceptions
 

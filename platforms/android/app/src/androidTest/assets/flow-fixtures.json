@@ -64,14 +64,14 @@
         },
         {
           "action": "tap",
-          "target": "sloppad_circle_dot",
+          "target": "slopshell_circle_dot",
           "expect": {
-            "sloppad_circle": "expanded"
+            "slopshell_circle": "expanded"
           }
         },
         {
           "action": "tap",
-          "target": "sloppad_circle_segment_dialogue",
+          "target": "slopshell_circle_segment_dialogue",
           "expect": {
             "active_tool": "pointer",
             "session": "dialogue",
@@ -128,7 +128,7 @@
       "file": "tests/flows/indicator/tap-to-stop-dialogue.yaml"
     },
     {
-      "name": "sloppad_circle_combined_states",
+      "name": "slopshell_circle_combined_states",
       "description": "Cover every tool, session, and silent-mode combination through the flow system.",
       "tags": [
         "circle",
@@ -150,14 +150,14 @@
         },
         {
           "action": "tap",
-          "target": "sloppad_circle_dot",
+          "target": "slopshell_circle_dot",
           "expect": {
-            "sloppad_circle": "expanded"
+            "slopshell_circle": "expanded"
           }
         },
         {
           "action": "tap",
-          "target": "sloppad_circle_segment_highlight",
+          "target": "slopshell_circle_segment_highlight",
           "expect": {
             "active_tool": "highlight",
             "session": "none",
@@ -166,7 +166,7 @@
         },
         {
           "action": "tap",
-          "target": "sloppad_circle_segment_ink",
+          "target": "slopshell_circle_segment_ink",
           "expect": {
             "active_tool": "ink",
             "session": "none",
@@ -175,7 +175,7 @@
         },
         {
           "action": "tap",
-          "target": "sloppad_circle_segment_text_note",
+          "target": "slopshell_circle_segment_text_note",
           "expect": {
             "active_tool": "text_note",
             "session": "none",
@@ -184,7 +184,7 @@
         },
         {
           "action": "tap",
-          "target": "sloppad_circle_segment_prompt",
+          "target": "slopshell_circle_segment_prompt",
           "expect": {
             "active_tool": "prompt",
             "session": "none",
@@ -193,7 +193,7 @@
         },
         {
           "action": "tap",
-          "target": "sloppad_circle_segment_pointer",
+          "target": "slopshell_circle_segment_pointer",
           "expect": {
             "active_tool": "pointer",
             "session": "none",
@@ -202,7 +202,7 @@
         },
         {
           "action": "tap",
-          "target": "sloppad_circle_segment_silent",
+          "target": "slopshell_circle_segment_silent",
           "expect": {
             "active_tool": "pointer",
             "session": "none",
@@ -211,7 +211,7 @@
         },
         {
           "action": "tap",
-          "target": "sloppad_circle_segment_highlight",
+          "target": "slopshell_circle_segment_highlight",
           "expect": {
             "active_tool": "highlight",
             "session": "none",
@@ -220,7 +220,7 @@
         },
         {
           "action": "tap",
-          "target": "sloppad_circle_segment_ink",
+          "target": "slopshell_circle_segment_ink",
           "expect": {
             "active_tool": "ink",
             "session": "none",
@@ -229,7 +229,7 @@
         },
         {
           "action": "tap",
-          "target": "sloppad_circle_segment_text_note",
+          "target": "slopshell_circle_segment_text_note",
           "expect": {
             "active_tool": "text_note",
             "session": "none",
@@ -238,7 +238,7 @@
         },
         {
           "action": "tap",
-          "target": "sloppad_circle_segment_prompt",
+          "target": "slopshell_circle_segment_prompt",
           "expect": {
             "active_tool": "prompt",
             "session": "none",
@@ -247,7 +247,7 @@
         },
         {
           "action": "tap",
-          "target": "sloppad_circle_segment_pointer",
+          "target": "slopshell_circle_segment_pointer",
           "expect": {
             "active_tool": "pointer",
             "session": "none",
@@ -256,7 +256,7 @@
         },
         {
           "action": "tap",
-          "target": "sloppad_circle_segment_dialogue",
+          "target": "slopshell_circle_segment_dialogue",
           "expect": {
             "active_tool": "pointer",
             "session": "dialogue",
@@ -265,7 +265,7 @@
         },
         {
           "action": "tap",
-          "target": "sloppad_circle_segment_highlight",
+          "target": "slopshell_circle_segment_highlight",
           "expect": {
             "active_tool": "highlight",
             "session": "dialogue",
@@ -274,7 +274,7 @@
         },
         {
           "action": "tap",
-          "target": "sloppad_circle_segment_ink",
+          "target": "slopshell_circle_segment_ink",
           "expect": {
             "active_tool": "ink",
             "session": "dialogue",
@@ -283,7 +283,7 @@
         },
         {
           "action": "tap",
-          "target": "sloppad_circle_segment_text_note",
+          "target": "slopshell_circle_segment_text_note",
           "expect": {
             "active_tool": "text_note",
             "session": "dialogue",
@@ -292,7 +292,7 @@
         },
         {
           "action": "tap",
-          "target": "sloppad_circle_segment_prompt",
+          "target": "slopshell_circle_segment_prompt",
           "expect": {
             "active_tool": "prompt",
             "session": "dialogue",
@@ -301,7 +301,7 @@
         },
         {
           "action": "tap",
-          "target": "sloppad_circle_segment_pointer",
+          "target": "slopshell_circle_segment_pointer",
           "expect": {
             "active_tool": "pointer",
             "session": "dialogue",
@@ -310,7 +310,7 @@
         },
         {
           "action": "tap",
-          "target": "sloppad_circle_segment_silent",
+          "target": "slopshell_circle_segment_silent",
           "expect": {
             "active_tool": "pointer",
             "session": "dialogue",
@@ -319,7 +319,7 @@
         },
         {
           "action": "tap",
-          "target": "sloppad_circle_segment_highlight",
+          "target": "slopshell_circle_segment_highlight",
           "expect": {
             "active_tool": "highlight",
             "session": "dialogue",
@@ -328,7 +328,7 @@
         },
         {
           "action": "tap",
-          "target": "sloppad_circle_segment_ink",
+          "target": "slopshell_circle_segment_ink",
           "expect": {
             "active_tool": "ink",
             "session": "dialogue",
@@ -337,7 +337,7 @@
         },
         {
           "action": "tap",
-          "target": "sloppad_circle_segment_text_note",
+          "target": "slopshell_circle_segment_text_note",
           "expect": {
             "active_tool": "text_note",
             "session": "dialogue",
@@ -346,7 +346,7 @@
         },
         {
           "action": "tap",
-          "target": "sloppad_circle_segment_prompt",
+          "target": "slopshell_circle_segment_prompt",
           "expect": {
             "active_tool": "prompt",
             "session": "dialogue",
@@ -355,7 +355,7 @@
         },
         {
           "action": "tap",
-          "target": "sloppad_circle_segment_pointer",
+          "target": "slopshell_circle_segment_pointer",
           "expect": {
             "active_tool": "pointer",
             "session": "dialogue",
@@ -364,7 +364,7 @@
         },
         {
           "action": "tap",
-          "target": "sloppad_circle_segment_meeting",
+          "target": "slopshell_circle_segment_meeting",
           "expect": {
             "active_tool": "pointer",
             "session": "meeting",
@@ -373,7 +373,7 @@
         },
         {
           "action": "tap",
-          "target": "sloppad_circle_segment_highlight",
+          "target": "slopshell_circle_segment_highlight",
           "expect": {
             "active_tool": "highlight",
             "session": "meeting",
@@ -382,7 +382,7 @@
         },
         {
           "action": "tap",
-          "target": "sloppad_circle_segment_ink",
+          "target": "slopshell_circle_segment_ink",
           "expect": {
             "active_tool": "ink",
             "session": "meeting",
@@ -391,7 +391,7 @@
         },
         {
           "action": "tap",
-          "target": "sloppad_circle_segment_text_note",
+          "target": "slopshell_circle_segment_text_note",
           "expect": {
             "active_tool": "text_note",
             "session": "meeting",
@@ -400,7 +400,7 @@
         },
         {
           "action": "tap",
-          "target": "sloppad_circle_segment_prompt",
+          "target": "slopshell_circle_segment_prompt",
           "expect": {
             "active_tool": "prompt",
             "session": "meeting",
@@ -409,7 +409,7 @@
         },
         {
           "action": "tap",
-          "target": "sloppad_circle_segment_pointer",
+          "target": "slopshell_circle_segment_pointer",
           "expect": {
             "active_tool": "pointer",
             "session": "meeting",
@@ -418,7 +418,7 @@
         },
         {
           "action": "tap",
-          "target": "sloppad_circle_segment_silent",
+          "target": "slopshell_circle_segment_silent",
           "expect": {
             "active_tool": "pointer",
             "session": "meeting",
@@ -427,7 +427,7 @@
         },
         {
           "action": "tap",
-          "target": "sloppad_circle_segment_highlight",
+          "target": "slopshell_circle_segment_highlight",
           "expect": {
             "active_tool": "highlight",
             "session": "meeting",
@@ -436,7 +436,7 @@
         },
         {
           "action": "tap",
-          "target": "sloppad_circle_segment_ink",
+          "target": "slopshell_circle_segment_ink",
           "expect": {
             "active_tool": "ink",
             "session": "meeting",
@@ -445,7 +445,7 @@
         },
         {
           "action": "tap",
-          "target": "sloppad_circle_segment_text_note",
+          "target": "slopshell_circle_segment_text_note",
           "expect": {
             "active_tool": "text_note",
             "session": "meeting",
@@ -454,7 +454,7 @@
         },
         {
           "action": "tap",
-          "target": "sloppad_circle_segment_prompt",
+          "target": "slopshell_circle_segment_prompt",
           "expect": {
             "active_tool": "prompt",
             "session": "meeting",
@@ -467,14 +467,14 @@
             "active_tool": "prompt",
             "session": "meeting",
             "silent": true,
-            "sloppad_circle": "collapsed"
+            "slopshell_circle": "collapsed"
           }
         }
       ],
-      "file": "tests/flows/sloppad-circle/combined-states.yaml"
+      "file": "tests/flows/slopshell-circle/combined-states.yaml"
     },
     {
-      "name": "sloppad_circle_multi_select_tool_and_session",
+      "name": "slopshell_circle_multi_select_tool_and_session",
       "description": "Keep the circle open while changing both the active tool and the active session.",
       "tags": [
         "circle",
@@ -488,30 +488,30 @@
       "steps": [
         {
           "action": "tap",
-          "target": "sloppad_circle_dot",
+          "target": "slopshell_circle_dot",
           "expect": {
-            "sloppad_circle": "expanded"
+            "slopshell_circle": "expanded"
           }
         },
         {
           "action": "tap",
-          "target": "sloppad_circle_segment_ink",
+          "target": "slopshell_circle_segment_ink",
           "expect": {
             "active_tool": "ink",
             "session": "none",
             "silent": false,
-            "sloppad_circle": "expanded"
+            "slopshell_circle": "expanded"
           }
         },
         {
           "action": "tap",
-          "target": "sloppad_circle_segment_dialogue",
+          "target": "slopshell_circle_segment_dialogue",
           "expect": {
             "active_tool": "ink",
             "session": "dialogue",
             "silent": false,
             "indicator_state": "listening",
-            "sloppad_circle": "expanded"
+            "slopshell_circle": "expanded"
           }
         },
         {
@@ -521,15 +521,15 @@
             "session": "dialogue",
             "silent": false,
             "indicator_state": "listening",
-            "sloppad_circle": "collapsed",
+            "slopshell_circle": "collapsed",
             "dot_inner_icon": "pen_nib"
           }
         }
       ],
-      "file": "tests/flows/sloppad-circle/multi-selection.yaml"
+      "file": "tests/flows/slopshell-circle/multi-selection.yaml"
     },
     {
-      "name": "sloppad_circle_toggle_sessions",
+      "name": "slopshell_circle_toggle_sessions",
       "description": "Toggle dialogue and meeting through the circle while keeping only one active session.",
       "tags": [
         "circle",
@@ -543,49 +543,49 @@
       "steps": [
         {
           "action": "tap",
-          "target": "sloppad_circle_dot",
+          "target": "slopshell_circle_dot",
           "expect": {
-            "sloppad_circle": "expanded"
+            "slopshell_circle": "expanded"
           }
         },
         {
           "action": "tap",
-          "target": "sloppad_circle_segment_dialogue",
+          "target": "slopshell_circle_segment_dialogue",
           "expect": {
             "active_tool": "pointer",
             "session": "dialogue",
             "silent": false,
             "indicator_state": "listening",
-            "sloppad_circle": "expanded"
+            "slopshell_circle": "expanded"
           }
         },
         {
           "action": "tap",
-          "target": "sloppad_circle_segment_meeting",
+          "target": "slopshell_circle_segment_meeting",
           "expect": {
             "active_tool": "pointer",
             "session": "meeting",
             "silent": false,
             "indicator_state": "paused",
-            "sloppad_circle": "expanded"
+            "slopshell_circle": "expanded"
           }
         },
         {
           "action": "tap",
-          "target": "sloppad_circle_segment_meeting",
+          "target": "slopshell_circle_segment_meeting",
           "expect": {
             "active_tool": "pointer",
             "session": "none",
             "silent": false,
             "indicator_state": "idle",
-            "sloppad_circle": "expanded"
+            "slopshell_circle": "expanded"
           }
         }
       ],
-      "file": "tests/flows/sloppad-circle/session-toggle.yaml"
+      "file": "tests/flows/slopshell-circle/session-toggle.yaml"
     },
     {
-      "name": "sloppad_circle_toggle_silent",
+      "name": "slopshell_circle_toggle_silent",
       "description": "Toggle silent independently from tool and session selection.",
       "tags": [
         "circle",
@@ -599,39 +599,39 @@
       "steps": [
         {
           "action": "tap",
-          "target": "sloppad_circle_dot",
+          "target": "slopshell_circle_dot",
           "expect": {
-            "sloppad_circle": "expanded"
+            "slopshell_circle": "expanded"
           }
         },
         {
           "action": "tap",
-          "target": "sloppad_circle_segment_silent",
+          "target": "slopshell_circle_segment_silent",
           "expect": {
             "active_tool": "prompt",
             "session": "dialogue",
             "silent": true,
             "indicator_state": "listening",
-            "sloppad_circle": "expanded"
+            "slopshell_circle": "expanded"
           }
         },
         {
           "action": "tap",
-          "target": "sloppad_circle_segment_silent",
+          "target": "slopshell_circle_segment_silent",
           "expect": {
             "active_tool": "prompt",
             "session": "dialogue",
             "silent": false,
             "indicator_state": "listening",
-            "sloppad_circle": "expanded"
+            "slopshell_circle": "expanded"
           }
         }
       ],
-      "file": "tests/flows/sloppad-circle/silent-toggle.yaml"
+      "file": "tests/flows/slopshell-circle/silent-toggle.yaml"
     },
     {
-      "name": "sloppad_circle_select_ink_tool",
-      "description": "Open the Sloppad Circle, select ink, and collapse while keeping the tool selection.",
+      "name": "slopshell_circle_select_ink_tool",
+      "description": "Open the Slopshell Circle, select ink, and collapse while keeping the tool selection.",
       "tags": [
         "circle",
         "tool"
@@ -644,19 +644,19 @@
       "steps": [
         {
           "action": "tap",
-          "target": "sloppad_circle_dot",
+          "target": "slopshell_circle_dot",
           "expect": {
-            "sloppad_circle": "expanded"
+            "slopshell_circle": "expanded"
           }
         },
         {
           "action": "tap",
-          "target": "sloppad_circle_segment_ink",
+          "target": "slopshell_circle_segment_ink",
           "expect": {
             "active_tool": "ink",
             "session": "none",
             "silent": false,
-            "sloppad_circle": "expanded",
+            "slopshell_circle": "expanded",
             "body_class_contains": "tool-ink",
             "cursor_class": "tool-ink"
           }
@@ -677,24 +677,24 @@
             "active_tool": "ink",
             "session": "none",
             "silent": false,
-            "sloppad_circle": "collapsed",
+            "slopshell_circle": "collapsed",
             "dot_inner_icon": "pen_nib"
           }
         }
       ],
-      "file": "tests/flows/sloppad-circle/tool-selection.yaml"
+      "file": "tests/flows/slopshell-circle/tool-selection.yaml"
     }
   ],
   "selectors": {
-    "sloppad_circle_dot": "sloppad_circle_dot",
-    "sloppad_circle_segment_pointer": "sloppad_circle_pointer",
-    "sloppad_circle_segment_highlight": "sloppad_circle_highlight",
-    "sloppad_circle_segment_ink": "sloppad_circle_ink",
-    "sloppad_circle_segment_text_note": "sloppad_circle_text_note",
-    "sloppad_circle_segment_prompt": "sloppad_circle_prompt",
-    "sloppad_circle_segment_dialogue": "sloppad_circle_dialogue",
-    "sloppad_circle_segment_meeting": "sloppad_circle_meeting",
-    "sloppad_circle_segment_silent": "sloppad_circle_silent",
+    "slopshell_circle_dot": "slopshell_circle_dot",
+    "slopshell_circle_segment_pointer": "slopshell_circle_pointer",
+    "slopshell_circle_segment_highlight": "slopshell_circle_highlight",
+    "slopshell_circle_segment_ink": "slopshell_circle_ink",
+    "slopshell_circle_segment_text_note": "slopshell_circle_text_note",
+    "slopshell_circle_segment_prompt": "slopshell_circle_prompt",
+    "slopshell_circle_segment_dialogue": "slopshell_circle_dialogue",
+    "slopshell_circle_segment_meeting": "slopshell_circle_meeting",
+    "slopshell_circle_segment_silent": "slopshell_circle_silent",
     "canvas_viewport": "canvas_viewport",
     "indicator_border": "indicator_border"
   }

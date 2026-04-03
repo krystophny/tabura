@@ -78,7 +78,7 @@ func TestHostEngineVersionCompatibility(t *testing.T) {
 		"hooks":    []string{HookChatPreAssistantPrompt},
 		"enabled":  true,
 		"engine": map[string]any{
-			"sloppad": ">=9.9.9",
+			"slopshell": ">=9.9.9",
 		},
 	})
 	_, err := New(Options{Dir: dir, RuntimeVersion: "0.1.6"})

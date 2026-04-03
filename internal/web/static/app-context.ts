@@ -1,5 +1,5 @@
 import { LIVE_SESSION_HOTWORD_DEFAULT } from './live-session.js';
-import { SLOPPAD_CIRCLE_LAYOUT } from './sloppad-circle-contract.js';
+import { SLOPSHELL_CIRCLE_LAYOUT } from './slopshell-circle-contract.js';
 
 export const refs: Record<string, any> = {};
 
@@ -7,7 +7,7 @@ export function setAppRefs(next) {
   Object.assign(refs, next || {});
 }
 
-export const COMPANION_VIEW_PATH_PREFIX = '__sloppad_companion__';
+export const COMPANION_VIEW_PATH_PREFIX = '__slopshell_companion__';
 export const COMPANION_TRANSCRIPT_VIEW_PATH = `${COMPANION_VIEW_PATH_PREFIX}/transcript`;
 export const COMPANION_SUMMARY_VIEW_PATH = `${COMPANION_VIEW_PATH_PREFIX}/summary`;
 export const COMPANION_REFERENCES_VIEW_PATH = `${COMPANION_VIEW_PATH_PREFIX}/references`;
@@ -39,17 +39,17 @@ export const PROJECT_CHAT_MODEL_REASONING_EFFORTS = {
   gpt: ['low', 'medium', 'high', 'xhigh'],
   mini: ['low', 'medium', 'high', 'xhigh'],
 };
-export const TTS_SILENT_STORAGE_KEY = 'sloppad.ttsSilent';
-export const FAST_MODE_STORAGE_KEY = 'sloppad.fastMode';
-export const YOLO_MODE_STORAGE_KEY = 'sloppad.yoloMode';
-export const SOMEDAY_REVIEW_NUDGE_ENABLED_STORAGE_KEY = 'sloppad.somedayReviewNudgeEnabled';
-export const SOMEDAY_REVIEW_NUDGE_LAST_SHOWN_STORAGE_KEY = 'sloppad.somedayReviewNudgeLastShownAt';
+export const TTS_SILENT_STORAGE_KEY = 'slopshell.ttsSilent';
+export const FAST_MODE_STORAGE_KEY = 'slopshell.fastMode';
+export const YOLO_MODE_STORAGE_KEY = 'slopshell.yoloMode';
+export const SOMEDAY_REVIEW_NUDGE_ENABLED_STORAGE_KEY = 'slopshell.somedayReviewNudgeEnabled';
+export const SOMEDAY_REVIEW_NUDGE_LAST_SHOWN_STORAGE_KEY = 'slopshell.somedayReviewNudgeLastShownAt';
 export const SOMEDAY_REVIEW_NUDGE_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
-export const ACTIVE_PROJECT_STORAGE_KEY = 'sloppad.activeWorkspaceId';
-export const ACTIVE_SPHERE_STORAGE_KEY = 'sloppad.activeSphere';
-export const LAST_VIEW_STORAGE_KEY = 'sloppad.lastView';
-export const RUNTIME_RELOAD_CONTEXT_STORAGE_KEY = 'sloppad.runtimeReloadContext';
-export const TOOL_PALETTE_POSITION_STORAGE_KEY = SLOPPAD_CIRCLE_LAYOUT.storage_key;
+export const ACTIVE_PROJECT_STORAGE_KEY = 'slopshell.activeWorkspaceId';
+export const ACTIVE_SPHERE_STORAGE_KEY = 'slopshell.activeSphere';
+export const LAST_VIEW_STORAGE_KEY = 'slopshell.lastView';
+export const RUNTIME_RELOAD_CONTEXT_STORAGE_KEY = 'slopshell.runtimeReloadContext';
+export const TOOL_PALETTE_POSITION_STORAGE_KEY = SLOPSHELL_CIRCLE_LAYOUT.storage_key;
 export const SIDEBAR_IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg', '.ico', '.avif']);
 export const PANEL_MOTION_WATCH_QUERIES = [
   '(prefers-reduced-motion: reduce)',

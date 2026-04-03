@@ -747,6 +747,6 @@ export function isLikelyPrReviewArtifact(payload) {
   if (kind !== 'text_artifact' && kind !== 'text') return false;
   const title = String(payload?.title || '').trim().toLowerCase();
   if (!title) return false;
-  return /(?:^|\/)\.sloppad\/artifacts\/pr\/pr-\d+\.(?:diff|patch)$/.test(title)
+  return /(?:^|\/)\.slopshell\/artifacts\/pr\/pr-\d+\.(?:diff|patch)$/.test(title)
     || /(?:^|\/)artifacts\/pr\/pr-\d+\.(?:diff|patch)$/.test(title);
 }

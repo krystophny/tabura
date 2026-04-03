@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/krystophny/sloppad/internal/store"
+	"github.com/krystophny/slopshell/internal/store"
 )
 
 //go:embed testdata/conference_replay_corpus.json
@@ -198,10 +198,10 @@ func summarizeConferencePickup(gate companionDirectedSpeechGate) string {
 		if gate.Reason == "target_speaker_follow_up" {
 			return "Picked up because the tracked speaker continued the request."
 		}
-		return "Picked up because the latest utterance addressed Sloppad directly."
+		return "Picked up because the latest utterance addressed Slopshell directly."
 	case companionGateDecisionUncertain:
 		if gate.Reason == "request_without_assistant_name" {
-			return "Not picked up because the latest request did not address Sloppad and did not match the tracked speaker."
+			return "Not picked up because the latest request did not address Slopshell and did not match the tracked speaker."
 		}
 		return "Not picked up because there is not enough meeting transcript context yet."
 	case companionGateDecisionNotAddressed:

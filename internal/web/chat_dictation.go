@@ -9,7 +9,7 @@ import (
 	"sync"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/krystophny/sloppad/internal/store"
+	"github.com/krystophny/slopshell/internal/store"
 )
 
 const (

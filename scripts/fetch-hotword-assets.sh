@@ -3,25 +3,25 @@ set -euo pipefail
 
 PLATFORM="$(uname -s)"
 if [ "$PLATFORM" = "Darwin" ]; then
-  DEFAULT_DATA_ROOT="${HOME}/Library/Application Support/sloppad"
+  DEFAULT_DATA_ROOT="${HOME}/Library/Application Support/slopshell"
 else
-  DEFAULT_DATA_ROOT="${XDG_DATA_HOME:-$HOME/.local/share}/sloppad"
+  DEFAULT_DATA_ROOT="${XDG_DATA_HOME:-$HOME/.local/share}/slopshell"
 fi
 
-DATA_DIR="${SLOPPAD_WEB_DATA_DIR:-${SLOPPAD_DATA_DIR:-${DEFAULT_DATA_ROOT}/web-data}}"
-RUNTIME_DIR="${SLOPPAD_HOTWORD_RUNTIME_DIR:-${DATA_DIR}/hotword-runtime}"
-TRAIN_DIR="${SLOPPAD_HOTWORD_TRAIN_DIR:-${DATA_DIR}/hotword-train}"
+DATA_DIR="${SLOPSHELL_WEB_DATA_DIR:-${SLOPSHELL_DATA_DIR:-${DEFAULT_DATA_ROOT}/web-data}}"
+RUNTIME_DIR="${SLOPSHELL_HOTWORD_RUNTIME_DIR:-${DATA_DIR}/hotword-runtime}"
+TRAIN_DIR="${SLOPSHELL_HOTWORD_TRAIN_DIR:-${DATA_DIR}/hotword-train}"
 MODEL_PATH="${RUNTIME_DIR}/keyword.onnx"
 META_PATH="${TRAIN_DIR}/active-model.json"
-DOWNLOAD_URL="${SLOPPAD_HOTWORD_DOWNLOAD_URL:-https://raw.githubusercontent.com/fwartner/home-assistant-wakewords-collection/main/en/computer/computer_v2.onnx}"
-SOURCE_URL="${SLOPPAD_HOTWORD_SOURCE_URL:-https://github.com/fwartner/home-assistant-wakewords-collection}"
-README_URL="${SLOPPAD_HOTWORD_README_URL:-https://github.com/fwartner/home-assistant-wakewords-collection/tree/main/en/computer}"
-CATALOG_KEY="${SLOPPAD_HOTWORD_CATALOG_KEY:-home-assistant-community:en/computer/computer_v2.onnx}"
-DISPLAY_NAME="${SLOPPAD_HOTWORD_DISPLAY_NAME:-Computer V2}"
-PHRASE="${SLOPPAD_HOTWORD_PHRASE:-computer}"
-SOURCE_LABEL="${SLOPPAD_HOTWORD_SOURCE_LABEL:-Home Assistant Community}"
-UPSTREAM_FILE="${SLOPPAD_HOTWORD_UPSTREAM_FILE:-computer_v2.onnx}"
-REFRESH="${SLOPPAD_HOTWORD_REFRESH:-0}"
+DOWNLOAD_URL="${SLOPSHELL_HOTWORD_DOWNLOAD_URL:-https://raw.githubusercontent.com/fwartner/home-assistant-wakewords-collection/main/en/computer/computer_v2.onnx}"
+SOURCE_URL="${SLOPSHELL_HOTWORD_SOURCE_URL:-https://github.com/fwartner/home-assistant-wakewords-collection}"
+README_URL="${SLOPSHELL_HOTWORD_README_URL:-https://github.com/fwartner/home-assistant-wakewords-collection/tree/main/en/computer}"
+CATALOG_KEY="${SLOPSHELL_HOTWORD_CATALOG_KEY:-home-assistant-community:en/computer/computer_v2.onnx}"
+DISPLAY_NAME="${SLOPSHELL_HOTWORD_DISPLAY_NAME:-Computer V2}"
+PHRASE="${SLOPSHELL_HOTWORD_PHRASE:-computer}"
+SOURCE_LABEL="${SLOPSHELL_HOTWORD_SOURCE_LABEL:-Home Assistant Community}"
+UPSTREAM_FILE="${SLOPSHELL_HOTWORD_UPSTREAM_FILE:-computer_v2.onnx}"
+REFRESH="${SLOPSHELL_HOTWORD_REFRESH:-0}"
 
 log() {
   printf '[hotword-assets] %s\n' "$*"

@@ -24,8 +24,8 @@ func TestBootstrapProjectCreatesExpectedFilesWithoutAgentsMutation(t *testing.T)
 	if _, err := os.Stat(filepath.Join(projectDir, "AGENTS.md")); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("AGENTS.md should not be created, stat err = %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(projectDir, ".sloppad", "AGENTS.sloppad.md")); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("AGENTS.sloppad.md should not be created, stat err = %v", err)
+	if _, err := os.Stat(filepath.Join(projectDir, ".slopshell", "AGENTS.slopshell.md")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("AGENTS.slopshell.md should not be created, stat err = %v", err)
 	}
 
 	mcpBody, err := os.ReadFile(result.Paths.MCPConfigPath)
@@ -40,8 +40,8 @@ func TestBootstrapProjectCreatesExpectedFilesWithoutAgentsMutation(t *testing.T)
 	if err != nil {
 		t.Fatalf("read .gitignore: %v", err)
 	}
-	if !strings.Contains(string(gitignoreBody), ".sloppad/artifacts/") {
-		t.Fatalf(".gitignore missing .sloppad/artifacts/ entry")
+	if !strings.Contains(string(gitignoreBody), ".slopshell/artifacts/") {
+		t.Fatalf(".gitignore missing .slopshell/artifacts/ entry")
 	}
 }
 
@@ -71,8 +71,8 @@ func TestBootstrapProjectPreservesExistingAgentsAndDetectsGit(t *testing.T) {
 	if string(agentsBody) != initial {
 		t.Fatalf("AGENTS.md was unexpectedly modified")
 	}
-	if _, err := os.Stat(filepath.Join(projectDir, ".sloppad", "AGENTS.sloppad.md")); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("AGENTS.sloppad.md should not be created, stat err = %v", err)
+	if _, err := os.Stat(filepath.Join(projectDir, ".slopshell", "AGENTS.slopshell.md")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("AGENTS.slopshell.md should not be created, stat err = %v", err)
 	}
 }
 
@@ -95,7 +95,7 @@ func TestEnsureGitignoreAppendsEntryOnlyOnce(t *testing.T) {
 		t.Fatalf("read .gitignore: %v", err)
 	}
 	content := string(body)
-	if strings.Count(content, ".sloppad/artifacts/") != 1 {
-		t.Fatalf("expected .sloppad/artifacts/ exactly once, got content:\n%s", content)
+	if strings.Count(content, ".slopshell/artifacts/") != 1 {
+		t.Fatalf("expected .slopshell/artifacts/ exactly once, got content:\n%s", content)
 	}
 }

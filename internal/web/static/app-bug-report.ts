@@ -2,7 +2,7 @@ import { apiURL, getActiveArtifactTitle, getActiveTextEventId, getUiState, isOve
 import { refs, state } from './app-context.js';
 import { showCanvasColumn } from './app-canvas-ui.js';
 import { renderCanvas } from './canvas.js';
-import { SLOPPAD_CIRCLE_BUG_ICON } from './sloppad-circle-contract.js';
+import { SLOPSHELL_CIRCLE_BUG_ICON } from './slopshell-circle-contract.js';
 
 const showStatus = (...args) => refs.showStatus(...args);
 const fetchRuntimeMeta = (...args) => refs.fetchRuntimeMeta(...args);
@@ -79,7 +79,7 @@ function resolveBugReportInputMode(trigger, events) {
 }
 
 function bugReportTestEnv() {
-  return window.__sloppadBugReportTestEnv || {};
+  return window.__slopshellBugReportTestEnv || {};
 }
 
 function stringifyConsoleArg(value) {
@@ -197,7 +197,7 @@ function ensureBugReportUi() {
     button = nextButton;
   }
   if (button instanceof HTMLButtonElement) {
-    button.innerHTML = `<span class="sloppad-circle-icon" aria-hidden="true">${SLOPPAD_CIRCLE_BUG_ICON}</span>`;
+    button.innerHTML = `<span class="slopshell-circle-icon" aria-hidden="true">${SLOPSHELL_CIRCLE_BUG_ICON}</span>`;
   }
 
   if (document.getElementById('bug-report-sheet')) return;
@@ -539,7 +539,7 @@ function buildFallbackScreenshotDataURL(reason = '') {
   ctx.fillRect(52, 52, canvas.width - 104, 18);
   ctx.fillStyle = '#17120f';
   ctx.font = 'bold 34px monospace';
-  ctx.fillText('Sloppad Bug Report Preview', 84, 134);
+  ctx.fillText('Slopshell Bug Report Preview', 84, 134);
   ctx.font = '24px monospace';
   ctx.fillText(fallbackScreenshotReasonLabel(reason), 84, 186);
   ctx.font = '20px monospace';
@@ -741,7 +741,7 @@ async function stopBugReportVoiceNote(cancel = false) {
 }
 
 async function snapshotBugReportContext(trigger, runtime) {
-  const app = (window as any)._sloppadApp;
+  const app = (window as any)._slopshellApp;
   const dialogueDiagnostics = typeof app?.getDialogueDiagnostics === 'function'
     ? app.getDialogueDiagnostics()
     : null;

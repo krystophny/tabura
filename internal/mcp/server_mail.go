@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/krystophny/sloppad/internal/email"
-	"github.com/krystophny/sloppad/internal/providerdata"
-	"github.com/krystophny/sloppad/internal/store"
+	"github.com/krystophny/slopshell/internal/email"
+	"github.com/krystophny/slopshell/internal/providerdata"
+	"github.com/krystophny/slopshell/internal/store"
 )
 
 const mcpEmailBindingObjectType = "email"
@@ -589,9 +589,9 @@ func decodeExchangeEWSAccountConfig(account store.ExternalAccount) (email.Exchan
 func mailSyncConfigDir() string {
 	home, err := os.UserHomeDir()
 	if err != nil || strings.TrimSpace(home) == "" {
-		return ".sloppad"
+		return ".slopshell"
 	}
-	return filepath.Join(home, ".config", "sloppad")
+	return filepath.Join(home, ".config", "slopshell")
 }
 
 func emailConfigPath(configDir, explicitPath, fileName string) string {

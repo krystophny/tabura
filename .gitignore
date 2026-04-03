@@ -1,4 +1,4 @@
-.sloppad/
+.slopshell/
 node_modules/
 dist/
 build/
@@ -7,11 +7,11 @@ __pycache__/
 *.egg-info/
 .coverage
 
-.sloppad/artifacts/
+.slopshell/artifacts/
 playwright-report/
 test-results/
 tests/manual/
-/sloppad
+/slopshell
 tools/
 .env
 internal/web/static/vad/

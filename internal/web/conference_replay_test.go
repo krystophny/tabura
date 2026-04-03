@@ -47,7 +47,7 @@ func TestConferenceDecisionSummaryExplainsMissedPickupAndOverlapGuard(t *testing
 	if summary.Pickup == "" || summary.Overlap == "" {
 		t.Fatalf("summary = %#v, want non-empty pickup and overlap text", summary)
 	}
-	if summary.Pickup != "Not picked up because the latest request did not address Sloppad and did not match the tracked speaker." {
+	if summary.Pickup != "Not picked up because the latest request did not address Slopshell and did not match the tracked speaker." {
 		t.Fatalf("pickup = %q", summary.Pickup)
 	}
 	if summary.Overlap != "Wrong-speaker overlap is suppressed while another speaker owns the pending turn." {

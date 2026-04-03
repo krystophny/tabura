@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/krystophny/sloppad/internal/store"
+	"github.com/krystophny/slopshell/internal/store"
 )
 
 const (
@@ -38,7 +38,7 @@ func buildLocalAssistantFastPrompt(userText string) string {
 		return ""
 	}
 	return strings.TrimSpace(strings.Join([]string{
-		"You are Sloppad, the assistant in this workspace.",
+		"You are Slopshell, the assistant in this workspace.",
 		"Answer in plain text only. Be concise, but do not under-answer: default to 2-4 short sentences for normal questions.",
 		"If a single word or short phrase answers the request, reply with exactly that.",
 		"Do not use markdown, headings, bullets, or numbered lists unless the user explicitly asks for them.",

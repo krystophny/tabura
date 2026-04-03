@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-REPORT_ROOT="${ROOT_DIR}/.sloppad/artifacts/test-reports"
+REPORT_ROOT="${ROOT_DIR}/.slopshell/artifacts/test-reports"
 COVERAGE_DIR="${REPORT_ROOT}/coverage/unit"
 E2E_DIR="${REPORT_ROOT}/e2e"
 
@@ -15,33 +15,33 @@ for cmd in go node npx; do
   fi
 done
 
-SLOPPAD_PROFILE="${COVERAGE_DIR}/sloppad.cover.out"
-SLOPPAD_HTML="${COVERAGE_DIR}/sloppad.html"
+SLOPSHELL_PROFILE="${COVERAGE_DIR}/slopshell.cover.out"
+SLOPSHELL_HTML="${COVERAGE_DIR}/slopshell.html"
 UNIT_INDEX="${COVERAGE_DIR}/index.html"
 UNIT_SUMMARY="${COVERAGE_DIR}/summary.txt"
 UNIT_GO_TEST_LOG="${COVERAGE_DIR}/go-test.log"
 
-SLOPPAD_COVERAGE_MIN_TOTAL="${SLOPPAD_COVERAGE_MIN_TOTAL:-45.0}"
-SLOPPAD_COVERAGE_MIN_PACKAGES="${SLOPPAD_COVERAGE_MIN_PACKAGES:-}"
+SLOPSHELL_COVERAGE_MIN_TOTAL="${SLOPSHELL_COVERAGE_MIN_TOTAL:-45.0}"
+SLOPSHELL_COVERAGE_MIN_PACKAGES="${SLOPSHELL_COVERAGE_MIN_PACKAGES:-}"
 
-printf '\n[reports] Generating Sloppad Go coverage...\n'
+printf '\n[reports] Generating Slopshell Go coverage...\n'
 (
   cd "${ROOT_DIR}"
-  go test $(go list ./... | grep -v /tests/services) -covermode=atomic -coverprofile="${SLOPPAD_PROFILE}" | tee "${UNIT_GO_TEST_LOG}"
+  go test $(go list ./... | grep -v /tests/services) -covermode=atomic -coverprofile="${SLOPSHELL_PROFILE}" | tee "${UNIT_GO_TEST_LOG}"
 )
-SLOPPAD_TOTAL="$(go tool cover -func="${SLOPPAD_PROFILE}" | awk '/^total:/ {print $3}')"
-go tool cover -html="${SLOPPAD_PROFILE}" -o "${SLOPPAD_HTML}"
+SLOPSHELL_TOTAL="$(go tool cover -func="${SLOPSHELL_PROFILE}" | awk '/^total:/ {print $3}')"
+go tool cover -html="${SLOPSHELL_PROFILE}" -o "${SLOPSHELL_HTML}"
 
-SLOPPAD_TOTAL_NUM="$(printf '%s' "${SLOPPAD_TOTAL}" | tr -d '%')"
+SLOPSHELL_TOTAL_NUM="$(printf '%s' "${SLOPSHELL_TOTAL}" | tr -d '%')"
 COVERAGE_FAILURES=0
 
-if ! awk -v total="${SLOPPAD_TOTAL_NUM}" -v min="${SLOPPAD_COVERAGE_MIN_TOTAL}" 'BEGIN { exit (total+0 >= min+0 ? 0 : 1) }'; then
-  echo "[reports] coverage gate failed: total ${SLOPPAD_TOTAL} < ${SLOPPAD_COVERAGE_MIN_TOTAL}%"
+if ! awk -v total="${SLOPSHELL_TOTAL_NUM}" -v min="${SLOPSHELL_COVERAGE_MIN_TOTAL}" 'BEGIN { exit (total+0 >= min+0 ? 0 : 1) }'; then
+  echo "[reports] coverage gate failed: total ${SLOPSHELL_TOTAL} < ${SLOPSHELL_COVERAGE_MIN_TOTAL}%"
   COVERAGE_FAILURES=$((COVERAGE_FAILURES + 1))
 fi
 
-if [[ -n "${SLOPPAD_COVERAGE_MIN_PACKAGES}" ]]; then
-  IFS=',' read -r -a pkg_rules <<< "${SLOPPAD_COVERAGE_MIN_PACKAGES}"
+if [[ -n "${SLOPSHELL_COVERAGE_MIN_PACKAGES}" ]]; then
+  IFS=',' read -r -a pkg_rules <<< "${SLOPSHELL_COVERAGE_MIN_PACKAGES}"
   for rule in "${pkg_rules[@]}"; do
     rule="$(echo "${rule}" | xargs)"
     [[ -z "${rule}" ]] && continue
@@ -137,7 +137,7 @@ cat > "${UNIT_INDEX}" <<EOF_HTML
   <h1>Unit Coverage Reports</h1>
   <p>Generated at <code>$(date -u +"%Y-%m-%dT%H:%M:%SZ")</code></p>
   <ul>
-    <li>Sloppad total coverage: <strong>${SLOPPAD_TOTAL}</strong> - <a href="sloppad.html">sloppad.html</a></li>
+    <li>Slopshell total coverage: <strong>${SLOPSHELL_TOTAL}</strong> - <a href="slopshell.html">slopshell.html</a></li>
   </ul>
   <p>See <a href="summary.txt">summary.txt</a> for text summary.</p>
 </body>
@@ -148,12 +148,12 @@ cat > "${UNIT_SUMMARY}" <<EOF_SUMMARY
 Unit Coverage Summary
 Generated at: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-Sloppad total: ${SLOPPAD_TOTAL}
-Coverage min total: ${SLOPPAD_COVERAGE_MIN_TOTAL}%
-Coverage min packages: ${SLOPPAD_COVERAGE_MIN_PACKAGES}
+Slopshell total: ${SLOPSHELL_TOTAL}
+Coverage min total: ${SLOPSHELL_COVERAGE_MIN_TOTAL}%
+Coverage min packages: ${SLOPSHELL_COVERAGE_MIN_PACKAGES}
 Coverage gate failures: ${COVERAGE_FAILURES}
-Sloppad profile: ${SLOPPAD_PROFILE}
-Sloppad html: ${SLOPPAD_HTML}
+Slopshell profile: ${SLOPSHELL_PROFILE}
+Slopshell html: ${SLOPSHELL_HTML}
 Go test log: ${UNIT_GO_TEST_LOG}
 
 E2E expected: ${E2E_EXPECTED}

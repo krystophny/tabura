@@ -11,10 +11,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/krystophny/sloppad/internal/email"
-	"github.com/krystophny/sloppad/internal/providerdata"
-	"github.com/krystophny/sloppad/internal/store"
-	tabsync "github.com/krystophny/sloppad/internal/sync"
+	"github.com/krystophny/slopshell/internal/email"
+	"github.com/krystophny/slopshell/internal/providerdata"
+	"github.com/krystophny/slopshell/internal/store"
+	tabsync "github.com/krystophny/slopshell/internal/sync"
 )
 
 const (
@@ -193,9 +193,9 @@ func (a *App) updateEmailInboxSyncState(account *store.ExternalAccount, state em
 func emailSyncConfigDir() string {
 	home, err := os.UserHomeDir()
 	if err != nil || strings.TrimSpace(home) == "" {
-		return ".sloppad"
+		return ".slopshell"
 	}
-	return filepath.Join(home, ".config", "sloppad")
+	return filepath.Join(home, ".config", "slopshell")
 }
 
 func emailConfigPath(configDir, explicitPath, fileName string) string {

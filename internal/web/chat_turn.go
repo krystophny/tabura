@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/krystophny/sloppad/internal/appserver"
-	"github.com/krystophny/sloppad/internal/modelprofile"
-	"github.com/krystophny/sloppad/internal/plugins"
-	"github.com/krystophny/sloppad/internal/store"
+	"github.com/krystophny/slopshell/internal/appserver"
+	"github.com/krystophny/slopshell/internal/modelprofile"
+	"github.com/krystophny/slopshell/internal/plugins"
+	"github.com/krystophny/slopshell/internal/store"
 )
 
 func (a *App) runAssistantTurn(sessionID string, turn dequeuedTurn) {

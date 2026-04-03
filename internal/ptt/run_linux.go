@@ -17,7 +17,7 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/krystophny/sloppad/internal/stt"
+	"github.com/krystophny/slopshell/internal/stt"
 )
 
 const (

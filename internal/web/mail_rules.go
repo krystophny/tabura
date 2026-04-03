@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/krystophny/sloppad/internal/ews"
-	"github.com/krystophny/sloppad/internal/store"
+	"github.com/krystophny/slopshell/internal/ews"
+	"github.com/krystophny/slopshell/internal/store"
 )
 
 type mailRuleUpsertRequest struct {

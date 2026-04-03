@@ -6,7 +6,7 @@ import {
   stopLiveMode,
   switchToWorkspace,
   waitForCircleControls,
-} from './sloppad-circle-helpers';
+} from './slopshell-circle-helpers';
 
 type HarnessLogEntry = {
   type: string;
@@ -28,7 +28,7 @@ async function clearLog(page: Page) {
 async function waitReady(page: Page) {
   await page.goto('/tests/playwright/harness.html');
   await page.waitForFunction(() => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     if (typeof app?.getState !== 'function') return false;
     const s = app.getState();
     return s.chatWs && s.chatWs.readyState === (window as any).WebSocket.OPEN;
@@ -38,7 +38,7 @@ async function waitReady(page: Page) {
 
 async function injectChatEvent(page: Page, payload: Record<string, unknown>) {
   await page.evaluate((eventPayload) => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     const sessionId = String(app?.getState?.().chatSessionId || '');
     const sessions = (window as any).__mockWsSessions || [];
     const chatWs = sessions.find((ws: any) => typeof ws.url === 'string'
@@ -52,7 +52,7 @@ async function injectChatEvent(page: Page, payload: Record<string, unknown>) {
 
 async function injectTurnEvent(page: Page, payload: Record<string, unknown>) {
   await page.evaluate((eventPayload) => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     const sessionId = String(app?.getState?.().chatSessionId || '');
     const sessions = (window as any).__mockWsSessions || [];
     const turnWs = sessions.find((ws: any) => typeof ws.url === 'string'
@@ -66,7 +66,7 @@ async function injectTurnEvent(page: Page, payload: Record<string, unknown>) {
 
 async function setDialogueListenWindowMs(page: Page, ms: number) {
   await page.evaluate((value) => {
-    (window as any).__sloppadConversationListenMs = value;
+    (window as any).__slopshellConversationListenMs = value;
   }, ms);
 }
 
@@ -79,7 +79,7 @@ async function setDialogueMode(page: Page, enabled: boolean) {
 }
 async function triggerVoiceAssistantTTS(page: Page, turnID: string, text = 'Hello there.') {
   await page.evaluate(() => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     const s = app.getState();
     s.lastInputOrigin = 'voice';
     s.voiceAwaitingTurn = true;
@@ -93,7 +93,7 @@ test.beforeEach(async ({ page }) => {
   await waitReady(page);
 });
 
-test('Sloppad Circle drives live dialogue while the top panel stays summary-only', async ({ page }) => {
+test('Slopshell Circle drives live dialogue while the top panel stays summary-only', async ({ page }) => {
   await waitForCircleControls(page);
   await expect(page.locator('#edge-top .edge-panel-title')).toHaveText('Runtime');
   await expect(page.locator('#edge-top-models')).toHaveAttribute('aria-label', 'Workspace runtime summary');
@@ -123,7 +123,7 @@ test('Meeting entry shows active status and returns to choices on Stop', async (
 test('Live policy persists from runtime and reacts to websocket policy changes', async ({ page }) => {
   await page.goto('/tests/playwright/harness.html?live_policy=meeting');
   await page.waitForFunction(() => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     if (typeof app?.getState !== 'function') return false;
     const s = app.getState();
     return s.chatWs && s.chatWs.readyState === (window as any).WebSocket.OPEN;
@@ -132,7 +132,7 @@ test('Live policy persists from runtime and reacts to websocket policy changes',
   await waitForCircleControls(page);
 
   const initialSessionState = await page.evaluate(() => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     const state = app?.getState?.();
     return {
       activeWorkspaceId: String(state?.activeWorkspaceId || ''),
@@ -142,7 +142,7 @@ test('Live policy persists from runtime and reacts to websocket policy changes',
   });
 
   await expect.poll(async () => page.evaluate(() => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     return String(app?.getState?.().livePolicy || '');
   })).toBe('meeting');
 
@@ -155,7 +155,7 @@ test('Live policy persists from runtime and reacts to websocket policy changes',
   }).toEqual({ policy: 'dialogue' });
   await expect(page.locator('#edge-top-models .edge-live-status')).toContainText('Dialogue');
   await expect.poll(async () => page.evaluate(() => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     const state = app?.getState?.();
     return {
       activeWorkspaceId: String(state?.activeWorkspaceId || ''),
@@ -168,7 +168,7 @@ test('Live policy persists from runtime and reacts to websocket policy changes',
 
   await injectChatEvent(page, { type: 'live_policy_changed', policy: 'meeting' });
   await expect.poll(async () => page.evaluate(() => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     return String(app?.getState?.().livePolicy || '');
   })).toBe('meeting');
 });
@@ -178,7 +178,7 @@ test('Dialogue shows listening indicator immediately and after TTS playback', as
   await clearLog(page);
 
   await expect.poll(async () => page.evaluate(() => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     const s = app?.getState?.();
     return Boolean(s?.liveSessionDialogueListenActive) && String(s?.voiceLifecycle || '') === 'listening';
   })).toBe(true);
@@ -191,7 +191,7 @@ test('Dialogue shows listening indicator immediately and after TTS playback', as
   }).toBe(true);
 
   await expect.poll(async () => page.evaluate(() => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     const s = app?.getState?.();
     return Boolean(s?.liveSessionDialogueListenActive) && String(s?.voiceLifecycle || '') === 'listening';
   })).toBe(true);
@@ -208,7 +208,7 @@ test('Dialogue mode follows server turn actions for continue and finalize', asyn
   });
 
   await expect.poll(async () => page.evaluate(() => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     const s = app?.getState?.();
     return {
       listenActive: Boolean(s?.liveSessionDialogueListenActive),
@@ -269,14 +269,14 @@ test('speech onset during dialogue listen starts recording', async ({ page }) =>
   }, { timeout: 5_000 }).toBe(true);
 
   await expect.poll(async () => page.evaluate(() => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     return Boolean(app?.getState?.().chatVoiceCapture);
   })).toBe(true);
 });
 
 test('dialogue listen stays armed when only frame probabilities arrive without speech-start callbacks', async ({ page }) => {
   await page.evaluate(() => {
-    (window as any).__sloppadVadMock = {
+    (window as any).__slopshellVadMock = {
       init() { return true; },
       create(callbacks) {
         let running = false;
@@ -320,7 +320,7 @@ test('dialogue listen stays armed when only frame probabilities arrive without s
   expect(recorderStarted).toBe(false);
 
   await expect.poll(async () => page.evaluate(() => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     const s = app?.getState?.();
     return Boolean(s?.liveSessionDialogueListenActive) && String(s?.voiceLifecycle || '') === 'listening';
   })).toBe(true);
@@ -339,13 +339,13 @@ test('dialogue listen stays armed without a fixed timeout', async ({ page }) => 
   await clearLog(page);
 
   await expect.poll(async () => page.evaluate(() => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     const s = app?.getState?.();
     return Boolean(s?.liveSessionDialogueListenActive) && String(s?.voiceLifecycle || '') === 'listening';
   })).toBe(true);
 
   await expect.poll(async () => page.evaluate(() => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     const s = app?.getState?.();
     return Boolean(s?.liveSessionDialogueListenActive) && String(s?.voiceLifecycle || '') === 'listening';
   }), { timeout: 4_000 }).toBe(true);
@@ -359,7 +359,7 @@ test('tap during dialogue listen cancels listen and starts recording', async ({ 
   await clearLog(page);
 
   await expect.poll(async () => page.evaluate(() => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     const s = app?.getState?.();
     return Boolean(s?.liveSessionDialogueListenActive) && String(s?.voiceLifecycle || '') === 'listening';
   })).toBe(true);
@@ -371,7 +371,7 @@ test('tap during dialogue listen cancels listen and starts recording', async ({ 
   }).toBe(true);
 
   const captureActive = await page.evaluate(() => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     return Boolean(app?.getState?.().chatVoiceCapture);
   });
   expect(captureActive).toBe(true);
@@ -385,7 +385,7 @@ test('PTT during dialogue listen cancels listen and starts push-to-talk', async 
   await clearLog(page);
 
   await expect.poll(async () => page.evaluate(() => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     const s = app?.getState?.();
     return Boolean(s?.liveSessionDialogueListenActive) && String(s?.voiceLifecycle || '') === 'listening';
   })).toBe(true);
@@ -408,7 +408,7 @@ test('silent mode keeps dialogue listening active without speaking', async ({ pa
   await setSilentMode(page, true);
   await setDialogueMode(page, true);
   await expect.poll(async () => page.evaluate(() => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     const s = app?.getState?.();
     return Boolean(s?.liveSessionDialogueListenActive) && String(s?.voiceLifecycle || '') === 'listening';
   }), { timeout: 4_000 }).toBe(true);
@@ -416,7 +416,7 @@ test('silent mode keeps dialogue listening active without speaking', async ({ pa
 
   await triggerVoiceAssistantTTS(page, 'conv-silent-1');
   await expect.poll(async () => page.evaluate(() => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     const s = app?.getState?.();
     return Boolean(s?.liveSessionDialogueListenActive) && String(s?.voiceLifecycle || '') === 'listening';
   }), { timeout: 4_000 }).toBe(true);
@@ -453,7 +453,7 @@ test('dialogue barge-in interrupts TTS and starts recording with connected turn 
     eval_logging_enabled: true,
   });
   await expect.poll(async () => page.evaluate(() => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     return Boolean(app?.getState?.().dialogueDiagnostics?.connected);
   })).toBe(true);
   await page.evaluate(() => {
@@ -474,7 +474,7 @@ test('dialogue barge-in interrupts TTS and starts recording with connected turn 
   }, { timeout: 5_000 }).toBe(true);
 
   await expect.poll(async () => page.evaluate(() => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     return Boolean(app?.getState?.().chatVoiceCapture);
   })).toBe(true);
 });
@@ -499,7 +499,7 @@ test('dialogue barge-in interrupts TTS and starts recording without turn intelli
   }, { timeout: 5_000 }).toBe(true);
 
   await expect.poll(async () => page.evaluate(() => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     const state = app?.getState?.();
     return {
       recording: Boolean(state?.chatVoiceCapture),
@@ -514,7 +514,7 @@ test('dialogue barge-in interrupts TTS and starts recording without turn intelli
 test('dialogue listen shows hard error when VAD is unavailable', async ({ page }) => {
   // Remove the VAD mock so initVAD returns null (real bundle does not exist)
   await page.evaluate(() => {
-    (window as any).__sloppadVadMock = null;
+    (window as any).__slopshellVadMock = null;
   });
   await setDialogueListenWindowMs(page, 10_000);
   await setDialogueMode(page, true);

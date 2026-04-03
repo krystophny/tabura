@@ -42,9 +42,9 @@ cd "${ROOT_DIR}"
 
 VERSION=""
 CHECKSUMS_FILE=""
-OUTPUT_DIR=".sloppad/artifacts/package-managers"
+OUTPUT_DIR=".slopshell/artifacts/package-managers"
 OWNER="krystophny"
-REPO="sloppad"
+REPO="slopshell"
 PUBLISHER="Christopher Albert"
 
 while [ "$#" -gt 0 ]; do
@@ -98,12 +98,12 @@ fi
 VERSION_TAG="v${VERSION_BARE}"
 RELEASE_DATE="$(date -u +%Y-%m-%d)"
 
-LINUX_AMD64="sloppad_${VERSION_BARE}_linux_amd64.tar.gz"
-LINUX_ARM64="sloppad_${VERSION_BARE}_linux_arm64.tar.gz"
-DARWIN_AMD64="sloppad_${VERSION_BARE}_darwin_amd64.tar.gz"
-DARWIN_ARM64="sloppad_${VERSION_BARE}_darwin_arm64.tar.gz"
-WINDOWS_AMD64="sloppad_${VERSION_BARE}_windows_amd64.zip"
-WINDOWS_ARM64="sloppad_${VERSION_BARE}_windows_arm64.zip"
+LINUX_AMD64="slopshell_${VERSION_BARE}_linux_amd64.tar.gz"
+LINUX_ARM64="slopshell_${VERSION_BARE}_linux_arm64.tar.gz"
+DARWIN_AMD64="slopshell_${VERSION_BARE}_darwin_amd64.tar.gz"
+DARWIN_ARM64="slopshell_${VERSION_BARE}_darwin_arm64.tar.gz"
+WINDOWS_AMD64="slopshell_${VERSION_BARE}_windows_amd64.zip"
+WINDOWS_ARM64="slopshell_${VERSION_BARE}_windows_arm64.zip"
 
 SHA_LINUX_AMD64="$(lookup_checksum "${LINUX_AMD64}")"
 SHA_LINUX_ARM64="$(lookup_checksum "${LINUX_ARM64}")"
@@ -116,12 +116,12 @@ RELEASE_URL="https://github.com/${OWNER}/${REPO}/releases/download/${VERSION_TAG
 
 HOMEBREW_DIR="${OUTPUT_DIR}/homebrew/Formula"
 AUR_DIR="${OUTPUT_DIR}/aur"
-WINGET_DIR="${OUTPUT_DIR}/winget/manifests/k/krystophny/sloppad/${VERSION_BARE}"
+WINGET_DIR="${OUTPUT_DIR}/winget/manifests/k/krystophny/slopshell/${VERSION_BARE}"
 
 mkdir -p "${HOMEBREW_DIR}" "${AUR_DIR}" "${WINGET_DIR}"
 
-cat > "${HOMEBREW_DIR}/sloppad.rb" <<EOF
-class Sloppad < Formula
+cat > "${HOMEBREW_DIR}/slopshell.rb" <<EOF
+class Slopshell < Formula
   desc "Local-first voice assistant with canvas UI"
   homepage "https://github.com/${OWNER}/${REPO}"
   version "${VERSION_BARE}"
@@ -150,12 +150,12 @@ class Sloppad < Formula
   end
 
   def install
-    bin.install "sloppad"
+    bin.install "slopshell"
   end
 
   def caveats
     <<~EOS
-      Run 'sloppad server' or use the full installer:
+      Run 'slopshell server' or use the full installer:
         curl -fsSL https://github.com/${OWNER}/${REPO}/releases/latest/download/install.sh | bash
       Requires codex app-server and Python 3.10+ for Piper TTS.
     EOS
@@ -164,7 +164,7 @@ end
 EOF
 
 cat > "${AUR_DIR}/PKGBUILD" <<EOF
-pkgname=sloppad-bin
+pkgname=slopshell-bin
 pkgver=${VERSION_BARE}
 pkgrel=1
 pkgdesc="Local-first voice assistant with canvas UI"
@@ -179,34 +179,34 @@ sha256sums_x86_64=('${SHA_LINUX_AMD64}')
 sha256sums_aarch64=('${SHA_LINUX_ARM64}')
 
 package() {
-  install -Dm755 "\${srcdir}/sloppad" "\${pkgdir}/usr/bin/sloppad"
+  install -Dm755 "\${srcdir}/slopshell" "\${pkgdir}/usr/bin/slopshell"
   install -Dm644 "\${srcdir}/LICENSE" "\${pkgdir}/usr/share/licenses/\${pkgname}/LICENSE"
 }
 EOF
 
-cat > "${WINGET_DIR}/krystophny.sloppad.yaml" <<EOF
-PackageIdentifier: krystophny.sloppad
+cat > "${WINGET_DIR}/krystophny.slopshell.yaml" <<EOF
+PackageIdentifier: krystophny.slopshell
 PackageVersion: ${VERSION_BARE}
 DefaultLocale: en-US
 ManifestType: version
 ManifestVersion: 1.10.0
 EOF
 
-cat > "${WINGET_DIR}/krystophny.sloppad.locale.en-US.yaml" <<EOF
-PackageIdentifier: krystophny.sloppad
+cat > "${WINGET_DIR}/krystophny.slopshell.locale.en-US.yaml" <<EOF
+PackageIdentifier: krystophny.slopshell
 PackageVersion: ${VERSION_BARE}
 PackageLocale: en-US
 Publisher: ${PUBLISHER}
 PublisherUrl: https://github.com/${OWNER}
 PublisherSupportUrl: https://github.com/${OWNER}/${REPO}/issues
 Author: ${PUBLISHER}
-PackageName: Sloppad
+PackageName: Slopshell
 PackageUrl: https://github.com/${OWNER}/${REPO}
 License: MIT
 LicenseUrl: https://github.com/${OWNER}/${REPO}/blob/main/LICENSE
 ShortDescription: Local-first voice assistant with canvas UI
 Description: Local-first voice assistant with canvas UI, voice capture, and MCP canvas integration.
-Moniker: sloppad
+Moniker: slopshell
 Tags:
   - assistant
   - voice
@@ -215,14 +215,14 @@ ManifestType: defaultLocale
 ManifestVersion: 1.10.0
 EOF
 
-cat > "${WINGET_DIR}/krystophny.sloppad.installer.yaml" <<EOF
-PackageIdentifier: krystophny.sloppad
+cat > "${WINGET_DIR}/krystophny.slopshell.installer.yaml" <<EOF
+PackageIdentifier: krystophny.slopshell
 PackageVersion: ${VERSION_BARE}
 InstallerType: zip
 NestedInstallerType: portable
 NestedInstallerFiles:
-  - RelativeFilePath: sloppad.exe
-    PortableCommandAlias: sloppad
+  - RelativeFilePath: slopshell.exe
+    PortableCommandAlias: slopshell
 ReleaseDate: ${RELEASE_DATE}
 Installers:
   - Architecture: x64
@@ -236,6 +236,6 @@ ManifestVersion: 1.10.0
 EOF
 
 echo "Generated package-manager artifacts under ${OUTPUT_DIR}"
-echo "  - Homebrew formula: ${HOMEBREW_DIR}/sloppad.rb"
+echo "  - Homebrew formula: ${HOMEBREW_DIR}/slopshell.rb"
 echo "  - AUR PKGBUILD: ${AUR_DIR}/PKGBUILD"
 echo "  - winget manifests: ${WINGET_DIR}"

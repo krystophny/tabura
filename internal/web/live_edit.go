@@ -12,7 +12,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/krystophny/sloppad/internal/store"
+	"github.com/krystophny/slopshell/internal/store"
 )
 
 const (
@@ -235,7 +235,7 @@ func buildSilentLiveEditPrompt(path string, title string, document string, instr
 
 func buildSilentLiveEditSystemPrompt() string {
 	return strings.TrimSpace(`
-You are Sloppad's local live-edit engine.
+You are Slopshell's local live-edit engine.
 Apply a spoken edit instruction to the provided document and return JSON only.
 
 Return exactly one object:

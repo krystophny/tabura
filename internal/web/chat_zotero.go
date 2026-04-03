@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/krystophny/sloppad/internal/store"
-	"github.com/krystophny/sloppad/internal/zotero"
+	"github.com/krystophny/slopshell/internal/store"
+	"github.com/krystophny/slopshell/internal/zotero"
 )
 
 const zoteroSyncTimeout = 15 * time.Second

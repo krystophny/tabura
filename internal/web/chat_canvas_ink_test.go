@@ -23,7 +23,7 @@ func TestAppendCanvasInkPrompt_PrependsStructuredEvents(t *testing.T) {
 			Requested:        true,
 			OverlappingLines: &chatCanvasInkLineRange{Start: 4, End: 4},
 			OverlappingText:  "3: beta\n4: gamma\n5: delta",
-			SnapshotPath:     ".sloppad/artifacts/tmp/live-ink/sample.png",
+			SnapshotPath:     ".slopshell/artifacts/tmp/live-ink/sample.png",
 		},
 	})
 	if !strings.HasPrefix(prompt, "## Canvas Ink Events") {
@@ -35,7 +35,7 @@ func TestAppendCanvasInkPrompt_PrependsStructuredEvents(t *testing.T) {
 	if !strings.Contains(prompt, "question mark ink over line 4 of \"notes.md\"") {
 		t.Fatalf("prompt missing gesture target, got:\n%s", prompt)
 	}
-	if !strings.Contains(prompt, "snapshot path `.sloppad/artifacts/tmp/live-ink/sample.png`") {
+	if !strings.Contains(prompt, "snapshot path `.slopshell/artifacts/tmp/live-ink/sample.png`") {
 		t.Fatalf("prompt missing snapshot path, got:\n%s", prompt)
 	}
 	if !strings.Contains(prompt, "Conversation transcript:\nUSER:\nwhat does this mean?") {

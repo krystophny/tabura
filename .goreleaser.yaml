@@ -1,10 +1,10 @@
 version: 2
-project_name: sloppad
+project_name: slopshell
 
 builds:
-  - id: sloppad
-    main: ./cmd/sloppad
-    binary: sloppad
+  - id: slopshell
+    main: ./cmd/slopshell
+    binary: slopshell
     env:
       - CGO_ENABLED=0
     goos:
@@ -18,16 +18,16 @@ builds:
       - -s -w -X main.version={{ .Version }} -X main.commit={{ .ShortCommit }}
 
 archives:
-  - id: sloppad
+  - id: slopshell
     ids:
-      - sloppad
+      - slopshell
     formats:
       - tar.gz
     format_overrides:
       - goos: windows
         formats:
           - zip
-    name_template: "sloppad_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    name_template: "slopshell_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     files:
       - LICENSE
       - README.md
@@ -42,7 +42,7 @@ checksum:
 release:
   github:
     owner: krystophny
-    name: sloppad
+    name: slopshell
   replace_existing_artifacts: true
   extra_files:
     - glob: ./scripts/install.sh
@@ -61,12 +61,12 @@ brews:
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
     directory: Formula
-    homepage: https://github.com/krystophny/sloppad
+    homepage: https://github.com/krystophny/slopshell
     description: Local-first voice assistant with canvas UI
     license: MIT
     install: |
-      bin.install "sloppad"
+      bin.install "slopshell"
     caveats: |
-      Run `sloppad server` or use the full installer:
-        curl -fsSL https://github.com/krystophny/sloppad/releases/latest/download/install.sh | bash
+      Run `slopshell server` or use the full installer:
+        curl -fsSL https://github.com/krystophny/slopshell/releases/latest/download/install.sh | bash
       Requires codex app-server and Python 3.10+ for Piper TTS.

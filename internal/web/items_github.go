@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/krystophny/sloppad/internal/store"
+	"github.com/krystophny/slopshell/internal/store"
 )
 
 const githubIssueListTimeout = 60 * time.Second
@@ -258,7 +258,7 @@ func trackedGitHubIssueSource(item store.Item) (string, int, bool) {
 		if !ok {
 			return "", 0, false
 		}
-		return sloppadBugReportOwnerRepo, number, true
+		return slopshellBugReportOwnerRepo, number, true
 	default:
 		return "", 0, false
 	}

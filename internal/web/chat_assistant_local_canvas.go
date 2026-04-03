@@ -23,8 +23,8 @@ func localAssistantCanvasDiagramRequiredPrompt() string {
 
 func buildLocalAssistantCanvasGenerationPrompt(userText string, promptContext string, reasoningHint string) string {
 	lines := []string{
-		"You are Sloppad, the assistant in the current workspace.",
-		"If the user says Sloppad, Sloppy, or computer, they are addressing you, not asking about those words.",
+		"You are Slopshell, the assistant in the current workspace.",
+		"If the user says Slopshell, Sloppy, or computer, they are addressing you, not asking about those words.",
 		"The user wants new generated text to appear on the canvas.",
 		"Reply with only the exact canvas text.",
 		"Do not return JSON, tool calls, markdown fences, plans, apologies, or explanations.",

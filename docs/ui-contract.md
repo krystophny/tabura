@@ -1,11 +1,11 @@
 # UI Contract
 
-Sloppad now treats shared UI design as a first-class source of truth, not just an after-the-fact test artifact.
+Slopshell now treats shared UI design as a first-class source of truth, not just an after-the-fact test artifact.
 
 ## Layered Source Of Truth
 
 - Component contract:
-  `internal/web/static/sloppad-circle-contract.ts`
+  `internal/web/static/slopshell-circle-contract.ts`
 - Interaction flows:
   `tests/flows/`
 - Target mapping per platform:
@@ -24,9 +24,9 @@ Canvas document navigation is also part of the shared UI contract across web, iO
 - Horizontal wheel and trackpad gestures follow the short-swipe rule.
 - Inbox item swipe and edge-panel swipe must share the same horizontal-intent thresholds and axis-dominance semantics, even when the resulting action differs.
 
-## Sloppad Circle Contract
+## Slopshell Circle Contract
 
-The Sloppad Circle contract currently defines:
+The Slopshell Circle contract currently defines:
 
 - stable segment ids for `dialogue`, `meeting`, `silent`, `prompt`, `text_note`, `pointer`, `highlight`, and `ink`
 - icon-only rendering with accessible labels and tooltips

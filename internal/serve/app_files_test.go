@@ -43,7 +43,7 @@ func TestHandleFilesRejectsEncodedTraversal(t *testing.T) {
 
 func TestHandleFilesResolvesProjectAbsolutePathPrefix(t *testing.T) {
 	tmp := t.TempDir()
-	docDir := filepath.Join(tmp, ".sloppad", "artifacts", "pdf-smoke")
+	docDir := filepath.Join(tmp, ".slopshell", "artifacts", "pdf-smoke")
 	if err := os.MkdirAll(docDir, 0o755); err != nil {
 		t.Fatalf("mkdir docs: %v", err)
 	}

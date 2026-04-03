@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/krystophny/sloppad/internal/store"
+	"github.com/krystophny/slopshell/internal/store"
 )
 
 var (

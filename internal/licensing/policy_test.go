@@ -40,12 +40,12 @@ func TestModelDownloadPolicyDefinesTierRulesAndCurrentDownloads(t *testing.T) {
 func TestPiperSetupScriptContainsTier2NoticeAndOptOutFlow(t *testing.T) {
 	t.Parallel()
 
-	content := readRepoFile(t, "scripts", "setup-sloppad-piper-tts.sh")
+	content := readRepoFile(t, "scripts", "setup-slopshell-piper-tts.sh")
 	requireContainsAll(t, content,
 		"=== Piper TTS Tier-2 Notice ===",
 		"Runtime license: GPL",
 		"confirm_default_yes",
-		"SLOPPAD_ASSUME_YES",
+		"SLOPSHELL_ASSUME_YES",
 		"Continue with Piper TTS setup?",
 		"Skipping model download:",
 	)
@@ -54,7 +54,7 @@ func TestPiperSetupScriptContainsTier2NoticeAndOptOutFlow(t *testing.T) {
 func TestNoKnownGPLSidecarDependenciesAreLinkedIntoGoBinary(t *testing.T) {
 	t.Parallel()
 
-	cmd := exec.Command("go", "list", "-deps", "-f", "{{if .Module}}{{.Module.Path}}{{end}}", "./cmd/sloppad")
+	cmd := exec.Command("go", "list", "-deps", "-f", "{{if .Module}}{{.Module.Path}}{{end}}", "./cmd/slopshell")
 	cmd.Dir = repoRoot(t)
 	out, err := cmd.CombinedOutput()
 	if err != nil {

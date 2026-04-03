@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/krystophny/sloppad/internal/bear"
-	"github.com/krystophny/sloppad/internal/store"
+	"github.com/krystophny/slopshell/internal/bear"
+	"github.com/krystophny/slopshell/internal/store"
 
 	_ "modernc.org/sqlite"
 )
@@ -51,7 +51,7 @@ func TestClassifyAndExecuteSystemActionSyncBear(t *testing.T) {
 	dbPath := seedBearTestDatabase(t, []bearSeedNote{{
 		ID:       "note-1",
 		Title:    "Reading queue",
-		Markdown: "#Sloppad\n- [ ] Review intro\n- [x] Fix refs",
+		Markdown: "#Slopshell\n- [ ] Review intro\n- [x] Fix refs",
 		Created:  788918400,
 		Modified: 788922000,
 	}})
@@ -60,7 +60,7 @@ func TestClassifyAndExecuteSystemActionSyncBear(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateWorkspace() error: %v", err)
 	}
-	if _, err := app.store.SetContainerMapping(store.ExternalProviderBear, "tag", "Sloppad", &workspace.ID, nil); err != nil {
+	if _, err := app.store.SetContainerMapping(store.ExternalProviderBear, "tag", "Slopshell", &workspace.ID, nil); err != nil {
 		t.Fatalf("SetContainerMapping() error: %v", err)
 	}
 	startupWorkspace, err := app.ensureStartupWorkspace()
@@ -110,8 +110,8 @@ func TestClassifyAndExecuteSystemActionSyncBear(t *testing.T) {
 	if meta.Created != "2026-01-01T00:00:00Z" || meta.Modified != "2026-01-01T01:00:00Z" {
 		t.Fatalf("meta timestamps = %#v", meta)
 	}
-	if len(meta.Tags) != 1 || meta.Tags[0] != "Sloppad" {
-		t.Fatalf("meta.Tags = %#v, want [Sloppad]", meta.Tags)
+	if len(meta.Tags) != 1 || meta.Tags[0] != "Slopshell" {
+		t.Fatalf("meta.Tags = %#v, want [Slopshell]", meta.Tags)
 	}
 	linked, err := app.store.ListLinkedArtifacts(workspace.ID)
 	if err != nil {
@@ -162,7 +162,7 @@ func TestClassifyAndExecuteSystemActionPromoteBearChecklist(t *testing.T) {
 	dbPath := seedBearTestDatabase(t, []bearSeedNote{{
 		ID:       "note-1",
 		Title:    "Reading queue",
-		Markdown: "#Sloppad\n- [ ] Review intro\n- [x] Fix refs",
+		Markdown: "#Slopshell\n- [ ] Review intro\n- [x] Fix refs",
 		Created:  788918400,
 		Modified: 788922000,
 	}})
@@ -171,7 +171,7 @@ func TestClassifyAndExecuteSystemActionPromoteBearChecklist(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateWorkspace() error: %v", err)
 	}
-	if _, err := app.store.SetContainerMapping(store.ExternalProviderBear, "tag", "Sloppad", &workspace.ID, nil); err != nil {
+	if _, err := app.store.SetContainerMapping(store.ExternalProviderBear, "tag", "Slopshell", &workspace.ID, nil); err != nil {
 		t.Fatalf("SetContainerMapping() error: %v", err)
 	}
 	startupWorkspace, err := app.ensureStartupWorkspace()
@@ -199,7 +199,7 @@ func TestClassifyAndExecuteSystemActionPromoteBearChecklist(t *testing.T) {
 	mock := &canvasMCPMock{
 		artifactTitle: ideaNoteString(artifact.Title),
 		artifactKind:  "text_artifact",
-		artifactText:  "#Sloppad\n- [ ] Review intro\n- [x] Fix refs",
+		artifactText:  "#Slopshell\n- [ ] Review intro\n- [x] Fix refs",
 	}
 	server := mock.setupServer(t)
 	t.Cleanup(server.Close)

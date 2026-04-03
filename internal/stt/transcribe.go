@@ -135,7 +135,7 @@ func transcribeOnce(serverURL, mimeType string, data []byte, language, prompt st
 	if err := writer.WriteField("response_format", format); err != nil {
 		return whisperResult{}, fmt.Errorf("stt multipart field: %w", err)
 	}
-	model := strings.TrimSpace(os.Getenv("SLOPPAD_STT_MODEL_NAME"))
+	model := strings.TrimSpace(os.Getenv("SLOPSHELL_STT_MODEL_NAME"))
 	if model == "" {
 		model = "whisper-1"
 	}

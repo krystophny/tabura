@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/krystophny/sloppad/internal/store"
+	"github.com/krystophny/slopshell/internal/store"
 )
 
 type Result struct {
@@ -44,7 +44,7 @@ var ignoredEntities = map[string]struct{}{
 	"please":    {},
 	"session":   {},
 	"speaker":   {},
-	"sloppad":    {},
+	"slopshell":    {},
 	"task":      {},
 	"thanks":    {},
 	"the":       {},
@@ -351,8 +351,8 @@ func summarizeTextTopic(text string) string {
 	if clean == "" {
 		return ""
 	}
-	clean = strings.TrimPrefix(clean, "Sloppad, ")
-	clean = strings.TrimPrefix(clean, "sloppad, ")
+	clean = strings.TrimPrefix(clean, "Slopshell, ")
+	clean = strings.TrimPrefix(clean, "slopshell, ")
 	clean = strings.TrimPrefix(clean, "Assistant, ")
 	clean = strings.TrimPrefix(clean, "assistant, ")
 	clean = strings.TrimRight(clean, ".!?")

@@ -38,7 +38,7 @@ test.beforeEach(async ({ page }) => {
   page.on('pageerror', (err) => console.log(`PAGE ERROR: ${err.message}`));
   await page.goto('/tests/playwright/harness.html');
   await page.waitForFunction(() => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     if (typeof app?.getState !== 'function') return false;
     const s = app.getState();
     return s.chatWs && s.chatWs.readyState === (window as any).WebSocket.OPEN;
@@ -171,7 +171,7 @@ test('participant capture sends 16k wav segments and clears rolling buffer after
       }
       throw new Error('timed out waiting for participant segment flush');
     };
-    const vadMock = (window as any).__sloppadVadMock;
+    const vadMock = (window as any).__slopshellVadMock;
     const originalCreate = vadMock.create;
     let callbacks: any = null;
     vadMock.create = (next: any) => {
@@ -232,7 +232,7 @@ test('participant capture zeroizes RAM buffers on stop', async ({ page }) => {
       }
       throw new Error('timed out waiting for participant buffer fill');
     };
-    const vadMock = (window as any).__sloppadVadMock;
+    const vadMock = (window as any).__slopshellVadMock;
     const originalCreate = vadMock.create;
     let callbacks: any = null;
     vadMock.create = (next: any) => {
@@ -299,7 +299,7 @@ test('participant capture drops oldest session chunks when RAM cap is reached', 
       }
       throw new Error('timed out waiting for participant segment flush');
     };
-    const vadMock = (window as any).__sloppadVadMock;
+    const vadMock = (window as any).__slopshellVadMock;
     const originalCreate = vadMock.create;
     let callbacks: any = null;
     vadMock.create = (next: any) => {
@@ -361,7 +361,7 @@ test('participant capture clears RAM buffers on error without touching web stora
     const beforeDBs = typeof indexedDB.databases === 'function'
       ? (await indexedDB.databases()).map((db) => db.name || '').sort()
       : [];
-    const vadMock = (window as any).__sloppadVadMock;
+    const vadMock = (window as any).__slopshellVadMock;
     const originalCreate = vadMock.create;
     let callbacks: any = null;
     vadMock.create = (next: any) => {

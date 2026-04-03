@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/krystophny/sloppad/internal/ews"
-	"github.com/krystophny/sloppad/internal/store"
+	"github.com/krystophny/slopshell/internal/ews"
+	"github.com/krystophny/slopshell/internal/store"
 )
 
 type mailBackoffTracker struct {

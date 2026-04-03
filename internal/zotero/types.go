@@ -143,7 +143,7 @@ type ListRemoteCollectionsOptions struct {
 }
 
 func APIKeyEnvVar(label string) string {
-	return "SLOPPAD_ZOTERO_API_KEY_" + sanitizeEnvSegment(label)
+	return "SLOPSHELL_ZOTERO_API_KEY_" + sanitizeEnvSegment(label)
 }
 
 func sanitizeEnvSegment(raw string) string {

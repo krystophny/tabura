@@ -1,9 +1,9 @@
 # Retired Meeting-Partner Whitepaper
 
-> **Legal notice:** Sloppad is provided "as is" and "as available" without warranties, and to the maximum extent permitted by applicable law the authors/contributors accept no liability for damages, data loss, or misuse. You are solely responsible for backups, verification, and safe operation. See [`DISCLAIMER.md`](/DISCLAIMER.md).
+> **Legal notice:** Slopshell is provided "as is" and "as available" without warranties, and to the maximum extent permitted by applicable law the authors/contributors accept no liability for damages, data loss, or misuse. You are solely responsible for backups, verification, and safe operation. See [`DISCLAIMER.md`](/DISCLAIMER.md).
 
 This file previously described a `meeting-partner` product direction built on
-top of Sloppad's extension/plugin architecture.
+top of Slopshell's extension/plugin architecture.
 
 That is now retired as the active roadmap.
 The underlying product need may still survive inside Companion Mode, but not as
@@ -12,7 +12,7 @@ a private bundle product.
 ## Current Direction
 
 - Meeting-notes and assistant-intervention work stays in the public
-  `krystophny/sloppad` repo
+  `krystophny/slopshell` repo
 - Behavior should be implemented as normal modular core code
 - No private meeting-partner bundle/repo is required
 - Any retained interop surface should be a narrow local capability boundary,

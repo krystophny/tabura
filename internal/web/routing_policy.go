@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/krystophny/sloppad/internal/modelprofile"
+	"github.com/krystophny/slopshell/internal/modelprofile"
 )
 
 type turnRoutingDirectives struct {

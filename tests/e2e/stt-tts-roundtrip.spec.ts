@@ -58,7 +58,7 @@ test.describe('STT+TTS round-trip @local-only', () => {
 
     const headers: Record<string, string> = {};
     if (sessionToken) {
-      headers['Cookie'] = `sloppad_session=${sessionToken}`;
+      headers['Cookie'] = `slopshell_session=${sessionToken}`;
     }
 
     const sttResp = await fetch('http://127.0.0.1:8420/api/stt/transcribe', {

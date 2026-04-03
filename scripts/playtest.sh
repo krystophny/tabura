@@ -66,16 +66,16 @@ latest_workspace_epoch() {
 
 maybe_sync_live_runtime() {
   if [[ "$PLATFORM" == "Darwin" ]]; then
-    if ! launchctl list io.sloppad.web >/dev/null 2>&1; then
+    if ! launchctl list io.slopshell.web >/dev/null 2>&1; then
       return
     fi
     printf 'Syncing live runtime to current workspace...\n'
-    "$ROOT_DIR/scripts/sloppad-dev-restart.sh"
+    "$ROOT_DIR/scripts/slopshell-dev-restart.sh"
     wait_for_command \
-      'Sloppad web server did not come back on :8420 after restart' \
+      'Slopshell web server did not come back on :8420 after restart' \
       30 \
       curl -fsS --max-time 3 http://127.0.0.1:8420/api/setup
-    if launchctl list io.sloppad.llm >/dev/null 2>&1; then
+    if launchctl list io.slopshell.llm >/dev/null 2>&1; then
       wait_for_command \
         'Local intent runtime did not come back on :8081 after restart' \
         30 \
@@ -84,22 +84,22 @@ maybe_sync_live_runtime() {
     return
   else
     local started_at started_epoch latest_epoch
-    if ! systemctl --user is-active --quiet sloppad-web.service; then
+    if ! systemctl --user is-active --quiet slopshell-web.service; then
       return
     fi
-    started_at="$(systemctl --user show sloppad-web.service --property=ExecMainStartTimestamp --value)"
+    started_at="$(systemctl --user show slopshell-web.service --property=ExecMainStartTimestamp --value)"
     started_epoch="$(date -d "$started_at" +%s 2>/dev/null || printf '0')"
     latest_epoch="$(latest_workspace_epoch)"
     if (( latest_epoch <= started_epoch )); then
       return
     fi
     printf 'Syncing live runtime to current workspace...\n'
-    "$ROOT_DIR/scripts/sloppad-dev-restart.sh"
+    "$ROOT_DIR/scripts/slopshell-dev-restart.sh"
     wait_for_command \
-      'Sloppad web server did not come back on :8420 after restart' \
+      'Slopshell web server did not come back on :8420 after restart' \
       30 \
       curl -fsS --max-time 3 http://127.0.0.1:8420/api/setup
-    if systemctl --user is-active --quiet sloppad-llm.service; then
+    if systemctl --user is-active --quiet slopshell-llm.service; then
       wait_for_command \
         'Local intent runtime did not come back on :8081 after restart' \
         30 \
@@ -113,7 +113,7 @@ maybe_sync_live_runtime
 printf 'Checking live services...\n'
 
 wait_for_command \
-  'Sloppad web server not running on :8420' \
+  'Slopshell web server not running on :8420' \
   5 \
   curl -fsS --max-time 3 http://127.0.0.1:8420/api/setup
 
@@ -157,8 +157,8 @@ command -v curl >/dev/null 2>&1 || fail 'curl not installed'
 
 printf 'All services OK.\n'
 
-SPEECH_WAV="/tmp/sloppad-playtest-speech-raw.wav"
-PADDED_WAV="/tmp/sloppad-playtest-speech.wav"
+SPEECH_WAV="/tmp/slopshell-playtest-speech-raw.wav"
+PADDED_WAV="/tmp/slopshell-playtest-speech.wav"
 
 printf 'Generating voice sample via Piper TTS...\n'
 curl -sS -X POST http://127.0.0.1:8424/v1/audio/speech \

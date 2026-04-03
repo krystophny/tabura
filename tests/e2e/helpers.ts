@@ -4,8 +4,8 @@ import { resolve } from 'path';
 import WebSocket from 'ws';
 
 const DEFAULT_SERVER_URL = 'http://127.0.0.1:8420';
-const DEFAULT_MANAGED_SERVER_PASSWORD = 'sloppad-test-password';
-const configuredServerURL = String(process.env.E2E_BASE_URL || process.env.SLOPPAD_TEST_SERVER_URL || DEFAULT_SERVER_URL).trim();
+const DEFAULT_MANAGED_SERVER_PASSWORD = 'slopshell-test-password';
+const configuredServerURL = String(process.env.E2E_BASE_URL || process.env.SLOPSHELL_TEST_SERVER_URL || DEFAULT_SERVER_URL).trim();
 
 export const SERVER_URL = configuredServerURL || DEFAULT_SERVER_URL;
 export const WS_URL = (() => {
@@ -13,12 +13,12 @@ export const WS_URL = (() => {
   url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
   return url.toString().replace(/\/$/, '');
 })();
-const SESSION_COOKIE_NAME = 'sloppad_session';
-const preseededSessionToken = String(process.env.SLOPPAD_TEST_SESSION_TOKEN || '').trim();
+const SESSION_COOKIE_NAME = 'slopshell_session';
+const preseededSessionToken = String(process.env.SLOPSHELL_TEST_SESSION_TOKEN || '').trim();
 
 function usesManagedServer(): boolean {
   return process.env.E2E_MANAGED_SERVER === '1'
-    || (!process.env.E2E_BASE_URL && !process.env.SLOPPAD_TEST_SERVER_URL);
+    || (!process.env.E2E_BASE_URL && !process.env.SLOPSHELL_TEST_SERVER_URL);
 }
 
 // ---------------------------------------------------------------------------
@@ -33,7 +33,7 @@ function loadDotEnvPassword(): string {
       const trimmed = line.trim();
       if (trimmed.startsWith('#') || !trimmed.includes('=')) continue;
       const [key, ...rest] = trimmed.split('=');
-      if (key.trim() === 'SLOPPAD_TEST_PASSWORD') {
+      if (key.trim() === 'SLOPSHELL_TEST_PASSWORD') {
         const val = rest.join('=').trim();
         if (val) return val;
       }
@@ -43,7 +43,7 @@ function loadDotEnvPassword(): string {
 }
 
 function loadTestPassword(): string {
-  if (process.env.SLOPPAD_TEST_PASSWORD) return process.env.SLOPPAD_TEST_PASSWORD;
+  if (process.env.SLOPSHELL_TEST_PASSWORD) return process.env.SLOPSHELL_TEST_PASSWORD;
   const dotEnvPassword = loadDotEnvPassword();
   if (dotEnvPassword) return dotEnvPassword;
   if (usesManagedServer()) return DEFAULT_MANAGED_SERVER_PASSWORD;
@@ -65,7 +65,7 @@ export async function authenticate(): Promise<string> {
 
   if (!setup.has_password) return '';
   if (!testPassword) {
-    throw new Error('Server requires auth but SLOPPAD_TEST_PASSWORD not set (env or .env)');
+    throw new Error('Server requires auth but SLOPSHELL_TEST_PASSWORD not set (env or .env)');
   }
 
   const loginResp = await fetch(`${SERVER_URL}/api/login`, {
@@ -87,7 +87,7 @@ export async function authenticate(): Promise<string> {
 
 export function requireTestPassword(): string {
   if (!testPassword) {
-    throw new Error('Server requires auth but SLOPPAD_TEST_PASSWORD not set (env or .env)');
+    throw new Error('Server requires auth but SLOPSHELL_TEST_PASSWORD not set (env or .env)');
   }
   return testPassword;
 }
@@ -191,7 +191,7 @@ export function transcodeWavToM4A(wav: Buffer): Buffer {
   const { mkdtempSync, writeFileSync, rmSync } = require('fs') as typeof import('fs');
   const { join } = require('path') as typeof import('path');
   const { tmpdir } = require('os') as typeof import('os');
-  const dir = mkdtempSync(join(tmpdir(), 'sloppad-e2e-m4a-'));
+  const dir = mkdtempSync(join(tmpdir(), 'slopshell-e2e-m4a-'));
   const inPath = join(dir, 'input.wav');
   const outPath = join(dir, 'output.m4a');
   writeFileSync(inPath, wav);

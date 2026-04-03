@@ -447,7 +447,7 @@ export function clearHotwordRetry() {
 }
 
 function hotwordStatusPollDelayMs() {
-  const override = Number((window as any).__sloppadHotwordStatusPollMs);
+  const override = Number((window as any).__slopshellHotwordStatusPollMs);
   if (Number.isFinite(override) && override >= 0) {
     return Math.floor(override);
   }

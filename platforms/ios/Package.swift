@@ -2,47 +2,47 @@
 import PackageDescription
 
 let package = Package(
-    name: "SloppadFlowContract",
+    name: "SlopshellFlowContract",
     products: [
         .library(
-            name: "SloppadFlowContract",
-            targets: ["SloppadFlowContract"]
+            name: "SlopshellFlowContract",
+            targets: ["SlopshellFlowContract"]
         ),
         .library(
-            name: "SloppadIOSModels",
-            targets: ["SloppadIOSModels"]
+            name: "SlopshellIOSModels",
+            targets: ["SlopshellIOSModels"]
         ),
     ],
     targets: [
         .target(
-            name: "SloppadFlowContract"
+            name: "SlopshellFlowContract"
         ),
         .target(
-            name: "SloppadIOSModels",
-            path: "SloppadIOS",
+            name: "SlopshellIOSModels",
+            path: "SlopshellIOS",
             exclude: [
                 "ContentView.swift",
                 "Info.plist",
-                "SloppadAppModel.swift",
-                "SloppadAudioCapture.swift",
-                "SloppadCanvasTransport.swift",
-                "SloppadCanvasWebView.swift",
-                "SloppadChatTransport.swift",
-                "SloppadIOSApp.swift",
-                "SloppadInkCaptureView.swift",
-                "SloppadServerDiscovery.swift",
+                "SlopshellAppModel.swift",
+                "SlopshellAudioCapture.swift",
+                "SlopshellCanvasTransport.swift",
+                "SlopshellCanvasWebView.swift",
+                "SlopshellChatTransport.swift",
+                "SlopshellIOSApp.swift",
+                "SlopshellInkCaptureView.swift",
+                "SlopshellServerDiscovery.swift",
             ],
-            sources: ["SloppadModels.swift"]
+            sources: ["SlopshellModels.swift"]
         ),
         .testTarget(
-            name: "SloppadFlowContractTests",
-            dependencies: ["SloppadFlowContract"],
+            name: "SlopshellFlowContractTests",
+            dependencies: ["SlopshellFlowContract"],
             resources: [.process("Resources")]
         ),
         .testTarget(
-            name: "SloppadIOSModelsTests",
-            dependencies: ["SloppadIOSModels"],
-            path: "Tests/SloppadIOSModelsTests"
+            name: "SlopshellIOSModelsTests",
+            dependencies: ["SlopshellIOSModels"],
+            path: "Tests/SlopshellIOSModelsTests"
         ),
     ]
 )

@@ -15,8 +15,8 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/krystophny/sloppad/internal/canvas"
-	"github.com/krystophny/sloppad/internal/surface"
+	"github.com/krystophny/slopshell/internal/canvas"
+	"github.com/krystophny/slopshell/internal/surface"
 )
 
 func isPathWithinDir(path, dir string) bool {
@@ -107,7 +107,7 @@ func (s *Server) tempFileRemove(args map[string]interface{}) (map[string]interfa
 		absPath = filepath.Clean(filepath.Join(rootAbs, target))
 	}
 	if !isPathWithinDir(absPath, tmpAbs) {
-		return nil, errors.New("path must be under .sloppad/artifacts/tmp")
+		return nil, errors.New("path must be under .slopshell/artifacts/tmp")
 	}
 	err = os.Remove(absPath)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -347,7 +347,7 @@ func (s *Server) writeImportedFile(handoffID, filename string, content []byte) (
 	if strings.TrimSpace(projectDir) == "" {
 		return "", errors.New("project directory not configured")
 	}
-	importDir := filepath.Join(projectDir, ".sloppad", "artifacts", "imports")
+	importDir := filepath.Join(projectDir, ".slopshell", "artifacts", "imports")
 	if err := os.MkdirAll(importDir, 0o755); err != nil {
 		return "", err
 	}
@@ -436,15 +436,15 @@ func toolDefinitions() []map[string]interface{} {
 
 func resourceTemplates() []map[string]interface{} {
 	return []map[string]interface{}{
-		{"uriTemplate": "sloppad://session/{session_id}", "name": "Canvas Session Status", "mimeType": "application/json", "description": "Current status for a canvas session."},
-		{"uriTemplate": "sloppad://session/{session_id}/history", "name": "Canvas Session History", "mimeType": "application/json", "description": "Recent event history for a canvas session."},
+		{"uriTemplate": "slopshell://session/{session_id}", "name": "Canvas Session Status", "mimeType": "application/json", "description": "Current status for a canvas session."},
+		{"uriTemplate": "slopshell://session/{session_id}/history", "name": "Canvas Session History", "mimeType": "application/json", "description": "Recent event history for a canvas session."},
 	}
 }
 
 func resourcesList(adapter *canvas.Adapter) []map[string]interface{} {
 	out := []map[string]interface{}{}
 	for _, sid := range adapter.ListSessions() {
-		for _, uri := range []string{"sloppad://session/" + sid, "sloppad://session/" + sid + "/history"} {
+		for _, uri := range []string{"slopshell://session/" + sid, "slopshell://session/" + sid + "/history"} {
 			out = append(out, map[string]interface{}{"uri": uri, "name": uri, "mimeType": "application/json"})
 		}
 	}
@@ -452,10 +452,10 @@ func resourcesList(adapter *canvas.Adapter) []map[string]interface{} {
 }
 
 func readResource(adapter *canvas.Adapter, uri string) (map[string]interface{}, error) {
-	if !strings.HasPrefix(uri, "sloppad://session/") {
+	if !strings.HasPrefix(uri, "slopshell://session/") {
 		return nil, fmt.Errorf("unsupported uri: %s", uri)
 	}
-	path := strings.TrimPrefix(uri, "sloppad://session/")
+	path := strings.TrimPrefix(uri, "slopshell://session/")
 	if path == "" {
 		return nil, fmt.Errorf("missing session id")
 	}

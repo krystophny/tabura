@@ -67,10 +67,10 @@ func New(dataDir, projectRoot string) *Manager {
 		projectRoot:  root,
 		trainingPath: filepath.Join(root, "scripts", "train-hotword.sh"),
 		generatorPaths: map[string]string{
-			"qwen3tts":  defaultGeneratorPath(strings.TrimSpace(os.Getenv("SLOPPAD_HOTWORD_QWEN3TTS_COMMAND")), filepath.Join(root, "scripts", "hotword-generate-qwen3tts.sh")),
-			"gptsovits": defaultGeneratorPath(strings.TrimSpace(os.Getenv("SLOPPAD_HOTWORD_GPTSOVITS_COMMAND")), filepath.Join(root, "scripts", "hotword-generate-gptsovits.sh")),
+			"qwen3tts":  defaultGeneratorPath(strings.TrimSpace(os.Getenv("SLOPSHELL_HOTWORD_QWEN3TTS_COMMAND")), filepath.Join(root, "scripts", "hotword-generate-qwen3tts.sh")),
+			"gptsovits": defaultGeneratorPath(strings.TrimSpace(os.Getenv("SLOPSHELL_HOTWORD_GPTSOVITS_COMMAND")), filepath.Join(root, "scripts", "hotword-generate-gptsovits.sh")),
 			"piper":     filepath.Join(root, "scripts", "hotword-generate-piper.sh"),
-			"kokoro":    defaultGeneratorPath(strings.TrimSpace(os.Getenv("SLOPPAD_HOTWORD_KOKORO_COMMAND")), filepath.Join(root, "scripts", "hotword-generate-kokoro.sh")),
+			"kokoro":    defaultGeneratorPath(strings.TrimSpace(os.Getenv("SLOPSHELL_HOTWORD_KOKORO_COMMAND")), filepath.Join(root, "scripts", "hotword-generate-kokoro.sh")),
 		},
 		generationSubs: make(map[chan Status]struct{}),
 		trainingSubs:   make(map[chan Status]struct{}),

@@ -129,12 +129,12 @@ func TestExternalAccountStoreRejectsInvalidConfigAndIdentity(t *testing.T) {
 
 func TestExternalAccountCredentialHelpers(t *testing.T) {
 	envVar := ExternalAccountPasswordEnvVar(ExternalProviderGoogleCalendar, "Work Calendar")
-	if envVar != "SLOPPAD_GOOGLE_CALENDAR_PASSWORD_WORK_CALENDAR" {
+	if envVar != "SLOPSHELL_GOOGLE_CALENDAR_PASSWORD_WORK_CALENDAR" {
 		t.Fatalf("ExternalAccountPasswordEnvVar() = %q", envVar)
 	}
 
-	tokenPath := ExternalAccountTokenPath("/home/test/.config/sloppad", ExternalProviderGmail, "Work Gmail")
-	wantPath := filepath.Join("/home/test/.config/sloppad", "tokens", "gmail_work_gmail.json")
+	tokenPath := ExternalAccountTokenPath("/home/test/.config/slopshell", ExternalProviderGmail, "Work Gmail")
+	wantPath := filepath.Join("/home/test/.config/slopshell", "tokens", "gmail_work_gmail.json")
 	if tokenPath != wantPath {
 		t.Fatalf("ExternalAccountTokenPath() = %q, want %q", tokenPath, wantPath)
 	}

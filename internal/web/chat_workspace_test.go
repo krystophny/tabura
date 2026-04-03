@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/krystophny/sloppad/internal/store"
+	"github.com/krystophny/slopshell/internal/store"
 )
 
 func TestParseInlineWorkspaceIntent(t *testing.T) {
@@ -277,7 +277,7 @@ func TestClassifyAndExecuteSystemActionCreateWorkspaceFromGit(t *testing.T) {
 	app.intentLLMURL = ""
 
 	cloneRoot := filepath.Join(t.TempDir(), "code")
-	t.Setenv("SLOPPAD_WORKSPACE_CLONE_ROOT", cloneRoot)
+	t.Setenv("SLOPSHELL_WORKSPACE_CLONE_ROOT", cloneRoot)
 
 	sourceRepo := initGitTestRepo(t, "example-workspace")
 	project, err := app.ensureDefaultWorkspace()
@@ -321,15 +321,15 @@ func TestClassifyAndExecuteSystemActionCreateWorkspaceFromGit(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(targetDir, ".git")); err != nil {
 		t.Fatalf("clone missing .git directory: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(targetDir, ".sloppad", "codex-mcp.toml")); err != nil {
+	if _, err := os.Stat(filepath.Join(targetDir, ".slopshell", "codex-mcp.toml")); err != nil {
 		t.Fatalf("bootstrap missing codex-mcp.toml: %v", err)
 	}
 	gitignoreBody, err := os.ReadFile(filepath.Join(targetDir, ".gitignore"))
 	if err != nil {
 		t.Fatalf("read .gitignore: %v", err)
 	}
-	if !strings.Contains(string(gitignoreBody), ".sloppad/artifacts/") {
-		t.Fatalf(".gitignore = %q, want .sloppad/artifacts entry", string(gitignoreBody))
+	if !strings.Contains(string(gitignoreBody), ".slopshell/artifacts/") {
+		t.Fatalf(".gitignore = %q, want .slopshell/artifacts entry", string(gitignoreBody))
 	}
 	readmeBody, err := os.ReadFile(filepath.Join(targetDir, "README.md"))
 	if err != nil {
@@ -489,8 +489,8 @@ func TestClassifyAndExecuteSystemActionWorkspaceManagement(t *testing.T) {
 		t.Fatalf("scratch payloads = %#v", payloads)
 	}
 	scratchDir := strFromAny(payloads[0]["dir_path"])
-	if !strings.Contains(filepath.ToSlash(scratchDir), "/.sloppad/artifacts/tmp/") {
-		t.Fatalf("scratch dir = %q, want .sloppad/artifacts/tmp path", scratchDir)
+	if !strings.Contains(filepath.ToSlash(scratchDir), "/.slopshell/artifacts/tmp/") {
+		t.Fatalf("scratch dir = %q, want .slopshell/artifacts/tmp path", scratchDir)
 	}
 
 	message, payloads, handled = app.classifyAndExecuteSystemAction(context.Background(), session.ID, session, "list workspaces")
@@ -669,7 +669,7 @@ func initGitTestRepo(t *testing.T, name string) string {
 	}
 	runGit("init", root)
 	runGit("-C", root, "add", "README.md")
-	runGit("-C", root, "-c", "user.name=Sloppad Test", "-c", "user.email=test@example.com", "commit", "-m", "init")
+	runGit("-C", root, "-c", "user.name=Slopshell Test", "-c", "user.email=test@example.com", "commit", "-m", "init")
 	return root
 }
 

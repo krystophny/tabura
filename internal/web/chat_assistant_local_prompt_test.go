@@ -4,11 +4,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/krystophny/sloppad/internal/store"
+	"github.com/krystophny/slopshell/internal/store"
 )
 
 func TestBuildLeanLocalAssistantPromptIsCompact(t *testing.T) {
-	workspace := &store.Workspace{Name: "Sloppad", DirPath: "/tmp/sloppad"}
+	workspace := &store.Workspace{Name: "Slopshell", DirPath: "/tmp/slopshell"}
 	messages := []store.ChatMessage{
 		{Role: "user", ContentPlain: "first question"},
 		{Role: "assistant", ContentPlain: "first answer"},
@@ -22,7 +22,7 @@ func TestBuildLeanLocalAssistantPromptIsCompact(t *testing.T) {
 		turnOutputModeVoice,
 	)
 	for _, snippet := range []string{
-		"Workspace: Sloppad (/tmp/sloppad)",
+		"Workspace: Slopshell (/tmp/slopshell)",
 		"Canvas: notes.md [markdown]",
 		"Canvas content:\nline one\nline two",
 		"## Companion Context",
@@ -48,7 +48,7 @@ func TestBuildLeanLocalAssistantPromptIsCompact(t *testing.T) {
 }
 
 func TestBuildLeanLocalAssistantPrompt_DefaultsToPlainShortChat(t *testing.T) {
-	workspace := &store.Workspace{Name: "Sloppad", DirPath: "/tmp/sloppad"}
+	workspace := &store.Workspace{Name: "Slopshell", DirPath: "/tmp/slopshell"}
 	prompt := buildLeanLocalAssistantPrompt(
 		workspace,
 		[]store.ChatMessage{{Role: "user", ContentPlain: "explain fusion"}},
@@ -77,7 +77,7 @@ func TestBuildLeanLocalAssistantPrompt_VoiceKeepsPlainShortSpeech(t *testing.T) 
 func TestBuildLocalAssistantFastPromptAddsShortPlainGuidance(t *testing.T) {
 	prompt := buildLocalAssistantFastPrompt("Reply with the single word ORBIT.")
 	for _, snippet := range []string{
-		"You are Sloppad, the assistant in this workspace.",
+		"You are Slopshell, the assistant in this workspace.",
 		"Answer in plain text only. Be concise, but do not under-answer: default to 2-4 short sentences for normal questions.",
 		"If a single word or short phrase answers the request, reply with exactly that.",
 		"Do not use markdown, headings, bullets, or numbered lists unless the user explicitly asks for them.",
@@ -90,8 +90,8 @@ func TestBuildLocalAssistantFastPromptAddsShortPlainGuidance(t *testing.T) {
 }
 
 func TestBuildLocalAssistantFastPromptStripsLeadingAssistantName(t *testing.T) {
-	prompt := buildLocalAssistantFastPrompt("Sloppad, what's up")
-	if strings.Contains(strings.ToLower(prompt), "user request:\nsloppad, what's up") {
+	prompt := buildLocalAssistantFastPrompt("Slopshell, what's up")
+	if strings.Contains(strings.ToLower(prompt), "user request:\nslopshell, what's up") {
 		t.Fatalf("fast prompt should strip leading assistant name:\n%s", prompt)
 	}
 	if !strings.Contains(prompt, "User request:\nwhat's up") {
@@ -125,7 +125,7 @@ func TestStripLocalAssistantThinkingPreamble(t *testing.T) {
 }
 
 func TestAnnotateLocalAssistantSafetyStop(t *testing.T) {
-	if got := annotateLocalAssistantSafetyStop("Hello world from Sloppad"); got != "Hello world from Sloppad\n\n[stopped at local safety limit]" {
+	if got := annotateLocalAssistantSafetyStop("Hello world from Slopshell"); got != "Hello world from Slopshell\n\n[stopped at local safety limit]" {
 		t.Fatalf("annotateLocalAssistantSafetyStop() = %q", got)
 	}
 }

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>io.slopshell.llm</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>@@LLM_SETUP_SCRIPT@@</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>SLOPSHELL_LLM_PRESET</key>
+    <string>fast-qwen9b</string>
+    <key>SLOPSHELL_LLM_VENV_DIR</key>
+    <string>@@LLM_VENV_DIR@@</string>
+    <key>SLOPSHELL_VLLM_MLX_SOURCE_DIR</key>
+    <string>@@LLM_SOURCE_DIR@@</string>
+    <key>SLOPSHELL_MLX_MODEL_REPO</key>
+    <string>mlx-community/Qwen3.5-9B-4bit</string>
+    <key>SLOPSHELL_VLLM_MLX_ENABLE_BATCHING</key>
+    <string>1</string>
+    <key>SLOPSHELL_VLLM_MLX_USE_PAGED_CACHE</key>
+    <string>1</string>
+    <key>SLOPSHELL_VLLM_MLX_CACHE_MEMORY_PERCENT</key>
+    <string>0.20</string>
+    <key>SLOPSHELL_VLLM_MLX_REASONING_PARSER</key>
+    <string>qwen3</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/tmp/slopshell-llm.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/slopshell-llm.log</string>
+</dict>
+</plist>

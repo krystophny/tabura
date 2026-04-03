@@ -1,5 +1,5 @@
 [package]
-name = "sloppad_runtime_bench"
+name = "slopshell_runtime_bench"
 version = "0.1.0"
 edition = "2024"
 

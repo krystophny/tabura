@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/krystophny/sloppad/internal/store"
+	"github.com/krystophny/slopshell/internal/store"
 )
 
 type workspacesListResponse struct {
@@ -115,7 +115,7 @@ func TestNewAppPrefersLocalProjectWorkspaceOnStartup(t *testing.T) {
 	if err := os.MkdirAll(localProjectDir, 0o755); err != nil {
 		t.Fatalf("MkdirAll(localProjectDir) error: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(localProjectDir, "go.mod"), []byte("module github.com/krystophny/sloppad\n\ngo 1.24\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(localProjectDir, "go.mod"), []byte("module github.com/krystophny/slopshell\n\ngo 1.24\n"), 0o644); err != nil {
 		t.Fatalf("WriteFile(go.mod) error: %v", err)
 	}
 
@@ -131,8 +131,8 @@ func TestNewAppPrefersLocalProjectWorkspaceOnStartup(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ensureDefaultWorkspace() error: %v", err)
 	}
-	if project.Name != "Sloppad" {
-		t.Fatalf("default project name = %q, want %q", project.Name, "Sloppad")
+	if project.Name != "Slopshell" {
+		t.Fatalf("default project name = %q, want %q", project.Name, "Slopshell")
 	}
 	if err := app.ensureStartupProjectWithWorkspace(); err != nil {
 		t.Fatalf("ensureStartupProjectWithWorkspace() error: %v", err)

@@ -2,16 +2,16 @@
 
 `tests/flows/` is the source of truth for cross-platform UI interaction flows.
 
-Sloppad now uses a layered UI source of truth:
+Slopshell now uses a layered UI source of truth:
 
-- `internal/web/static/sloppad-circle-contract.ts` is the component contract for the Sloppad Circle across web, iOS, and Android.
+- `internal/web/static/slopshell-circle-contract.ts` is the component contract for the Slopshell Circle across web, iOS, and Android.
 - `tests/flows/` is the interaction contract shared across platforms.
 - platform implementations must preserve the same semantic ids, states, icon meanings, and corner-placement model even when rendered with different native toolkits.
 
 Each `.yaml` file defines one platform-agnostic flow:
 
 ```yaml
-name: sloppad_circle_select_ink_tool
+name: slopshell_circle_select_ink_tool
 description: Open the circle, select ink, and keep the circle open for more changes.
 tags: [circle, tool]
 preconditions:
@@ -20,14 +20,14 @@ preconditions:
   silent: false
 steps:
   - action: tap
-    target: sloppad_circle_dot
+    target: slopshell_circle_dot
     expect:
-      sloppad_circle: expanded
+      slopshell_circle: expanded
   - action: tap
-    target: sloppad_circle_segment_ink
+    target: slopshell_circle_segment_ink
     expect:
       active_tool: ink
-      sloppad_circle: expanded
+      slopshell_circle: expanded
 ```
 
 Supported schema:
@@ -53,7 +53,7 @@ from logical ids to platform-specific selectors or accessibility ids. Web-only t
 hooks must declare `platforms: [web]` so the linter does not let harness-only steps
 pretend to be portable.
 
-The Sloppad Circle UI contract currently defines:
+The Slopshell Circle UI contract currently defines:
 
 - icon-only segment rendering with accessible labels
 - persisted placement in `top_left|top_right|bottom_left|bottom_right`
@@ -71,7 +71,7 @@ Supported logical assertions:
 - `active_tool`
 - `session`
 - `silent`
-- `sloppad_circle`
+- `slopshell_circle`
 - `dot_inner_icon`
 - `body_class_contains`
 - `indicator_state`
@@ -80,7 +80,7 @@ Supported logical assertions:
 Coverage is enforced in two ways:
 
 - every tool/session/silent combination must appear in the flow expectations
-- every required Sloppad Circle target and indicator state must be covered
+- every required Slopshell Circle target and indicator state must be covered
 
 The Playwright adapter executes these flows against the browser harness in
 `tests/playwright/flow-harness.html` across this matrix:
@@ -109,7 +109,7 @@ UI run is performed there through `./scripts/test-native-flows.sh`.
 
 The generated fixture files live in the native test bundles and UI harness assets:
 
-- `platforms/ios/Tests/SloppadFlowContractTests/Resources/flow-fixtures.json`
-- `platforms/ios/SloppadIOSUITests/Resources/flow-fixtures.json`
+- `platforms/ios/Tests/SlopshellFlowContractTests/Resources/flow-fixtures.json`
+- `platforms/ios/SlopshellIOSUITests/Resources/flow-fixtures.json`
 - `platforms/android/flow-contracts/src/test/resources/flow-fixtures.json`
 - `platforms/android/app/src/androidTest/assets/flow-fixtures.json`

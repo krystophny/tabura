@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 async function waitReady(page: Page) {
   await page.goto('/tests/playwright/harness.html');
   await page.waitForFunction(() => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     if (typeof app?.getState !== 'function') return false;
     const s = app.getState();
     const wsOpen = (window as any).WebSocket.OPEN;
@@ -111,7 +111,7 @@ async function seedSphereScenario(page: Page) {
       someday: [],
       done: [],
     });
-    localStorage.removeItem('sloppad.activeSphere');
+    localStorage.removeItem('slopshell.activeSphere');
     document.getElementById('edge-top')?.classList.add('edge-pinned');
   });
   await refreshProjects(page);
@@ -350,7 +350,7 @@ test.describe('inbox triage interactions', () => {
       });
       (window as any).__setRuntimeState({ active_sphere: 'private' });
       document.getElementById('edge-top')?.classList.add('edge-pinned');
-      localStorage.removeItem('sloppad.activeSphere');
+      localStorage.removeItem('slopshell.activeSphere');
     });
 
     await openInbox(page);
@@ -383,7 +383,7 @@ test.describe('inbox triage interactions', () => {
       return page.evaluate(() => (window as any).__getRuntimeState?.().active_sphere || '');
     }).toBe('work');
     await expect.poll(async () => {
-      return page.evaluate(() => (window as any)._sloppadApp?.getState?.().activeSphere || '');
+      return page.evaluate(() => (window as any)._slopshellApp?.getState?.().activeSphere || '');
     }).toBe('work');
   });
 
@@ -420,7 +420,7 @@ test.describe('inbox triage interactions', () => {
     await expect(page.locator('#pr-file-list .pr-file-item.is-active[data-item-id="201"]')).toHaveCount(1);
     await expect(page.locator('#canvas-viewport .canvas-pane.is-active')).toHaveCount(0);
     await expect.poll(async () => {
-      return page.evaluate(() => (window as any)._sloppadApp?.getState?.().itemSidebarActiveItemID || 0);
+      return page.evaluate(() => (window as any)._slopshellApp?.getState?.().itemSidebarActiveItemID || 0);
     }).toBe(201);
   });
 

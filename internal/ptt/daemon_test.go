@@ -8,7 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/krystophny/sloppad/internal/stt"
+	"github.com/krystophny/slopshell/internal/stt"
 )
 
 func TestWrapWAV(t *testing.T) {

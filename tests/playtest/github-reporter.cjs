@@ -132,7 +132,7 @@ function uploadScreenshot(filePath, cwd) {
 }
 
 function createIssue(cwd, title, body) {
-  const bodyFile = path.join(cwd, '.sloppad', 'artifacts', 'playtests', `${nowStamp()}-${sanitizeSlug(title, 32)}.txt`);
+  const bodyFile = path.join(cwd, '.slopshell', 'artifacts', 'playtests', `${nowStamp()}-${sanitizeSlug(title, 32)}.txt`);
   ensureDir(path.dirname(bodyFile));
   fs.writeFileSync(bodyFile, `${body.trim()}\n`, 'utf8');
   const url = runGitHub(
@@ -233,7 +233,7 @@ class GitHubPlaytestReporter {
   }
 
   async onEnd() {
-    const summaryDir = path.join(this.cwd, '.sloppad', 'artifacts', 'playtests');
+    const summaryDir = path.join(this.cwd, '.slopshell', 'artifacts', 'playtests');
     ensureDir(summaryDir);
     const summaryPath = path.join(summaryDir, 'latest-summary.txt');
 
@@ -252,7 +252,7 @@ class GitHubPlaytestReporter {
     for (const failure of this.failures) {
       const artifactDir = path.join(
         this.cwd,
-        '.sloppad',
+        '.slopshell',
         'artifacts',
         'bugs',
         `${nowStamp()}-${sanitizeSlug(`${failure.projectName}-${failure.title}`, 36)}`,

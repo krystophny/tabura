@@ -42,7 +42,7 @@ func researchArtifactRoot(sessionID string) string {
 	if stem == "" {
 		return ""
 	}
-	return filepath.ToSlash(filepath.Join(".sloppad", "artifacts", "research", stem))
+	return filepath.ToSlash(filepath.Join(".slopshell", "artifacts", "research", stem))
 }
 
 func appendResearchArtifactPrompt(b *strings.Builder, outputMode, userText, researchRoot string) {
@@ -51,7 +51,7 @@ func appendResearchArtifactPrompt(b *strings.Builder, outputMode, userText, rese
 	}
 	root := strings.TrimSpace(researchRoot)
 	if root == "" {
-		root = filepath.ToSlash(filepath.Join(".sloppad", "artifacts", "research", "current"))
+		root = filepath.ToSlash(filepath.Join(".slopshell", "artifacts", "research", "current"))
 	}
 	b.WriteString("## Research Artifact Output\n")
 	b.WriteString("This is a research request. Produce multiple file-backed canvas artifacts instead of one long chat reply.\n")
@@ -80,7 +80,7 @@ func normalizeResearchFileBlocks(blocks []fileBlock, researchRoot string) []file
 		if strings.HasPrefix(path, "../") {
 			path = defaultResearchArtifactName(i)
 		}
-		if strings.HasPrefix(path, ".sloppad/") && !strings.HasPrefix(path, root+"/") {
+		if strings.HasPrefix(path, ".slopshell/") && !strings.HasPrefix(path, root+"/") {
 			path = filepath.Base(path)
 		}
 		if !strings.HasPrefix(path, root+"/") && path != root {

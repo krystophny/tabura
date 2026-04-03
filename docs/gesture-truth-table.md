@@ -1,6 +1,6 @@
 # Gesture Truth Table
 
-This document is the explicit gesture matrix for Sloppad's shipped runtime.
+This document is the explicit gesture matrix for Slopshell's shipped runtime.
 
 The table below describes visible runtime states, not hidden implementation flags:
 

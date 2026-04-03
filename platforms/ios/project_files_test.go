@@ -7,12 +7,12 @@ import (
 	"testing"
 )
 
-func TestSloppadIOSProjectIncludesExpectedFiles(t *testing.T) {
+func TestSlopshellIOSProjectIncludesExpectedFiles(t *testing.T) {
 	projectRoot, err := filepath.Abs(".")
 	if err != nil {
 		t.Fatalf("Abs: %v", err)
 	}
-	projectFile := filepath.Join(projectRoot, "SloppadIOS.xcodeproj", "project.pbxproj")
+	projectFile := filepath.Join(projectRoot, "SlopshellIOS.xcodeproj", "project.pbxproj")
 	data, err := os.ReadFile(projectFile)
 	if err != nil {
 		t.Fatalf("ReadFile(project): %v", err)
@@ -20,21 +20,21 @@ func TestSloppadIOSProjectIncludesExpectedFiles(t *testing.T) {
 	project := string(data)
 	expected := []string{
 		"Package.swift",
-		filepath.Join("Sources", "SloppadFlowContract", "FlowFixture.swift"),
-		filepath.Join("Sources", "SloppadFlowContract", "FlowRunner.swift"),
-		filepath.Join("Tests", "SloppadFlowContractTests", "SloppadFlowContractTests.swift"),
-		filepath.Join("Tests", "SloppadFlowContractTests", "Resources", "flow-fixtures.json"),
-		filepath.Join("Tests", "SloppadIOSModelsTests", "SloppadDialogueModeTests.swift"),
-		"SloppadIOSApp.swift",
+		filepath.Join("Sources", "SlopshellFlowContract", "FlowFixture.swift"),
+		filepath.Join("Sources", "SlopshellFlowContract", "FlowRunner.swift"),
+		filepath.Join("Tests", "SlopshellFlowContractTests", "SlopshellFlowContractTests.swift"),
+		filepath.Join("Tests", "SlopshellFlowContractTests", "Resources", "flow-fixtures.json"),
+		filepath.Join("Tests", "SlopshellIOSModelsTests", "SlopshellDialogueModeTests.swift"),
+		"SlopshellIOSApp.swift",
 		"ContentView.swift",
-		"SloppadAppModel.swift",
-		"SloppadModels.swift",
-		"SloppadServerDiscovery.swift",
-		"SloppadChatTransport.swift",
-		"SloppadCanvasTransport.swift",
-		"SloppadAudioCapture.swift",
-		"SloppadInkCaptureView.swift",
-		"SloppadCanvasWebView.swift",
+		"SlopshellAppModel.swift",
+		"SlopshellModels.swift",
+		"SlopshellServerDiscovery.swift",
+		"SlopshellChatTransport.swift",
+		"SlopshellCanvasTransport.swift",
+		"SlopshellAudioCapture.swift",
+		"SlopshellInkCaptureView.swift",
+		"SlopshellCanvasWebView.swift",
 		"Info.plist",
 	}
 	for _, name := range expected {
@@ -45,7 +45,7 @@ func TestSloppadIOSProjectIncludesExpectedFiles(t *testing.T) {
 			}
 			continue
 		}
-		path = filepath.Join(projectRoot, "SloppadIOS", name)
+		path = filepath.Join(projectRoot, "SlopshellIOS", name)
 		if _, err := os.Stat(path); err != nil {
 			t.Fatalf("missing expected file %q: %v", path, err)
 		}
@@ -55,12 +55,12 @@ func TestSloppadIOSProjectIncludesExpectedFiles(t *testing.T) {
 	}
 }
 
-func TestSloppadIOSInfoPlistDeclaresMobileCapabilities(t *testing.T) {
+func TestSlopshellIOSInfoPlistDeclaresMobileCapabilities(t *testing.T) {
 	projectRoot, err := filepath.Abs(".")
 	if err != nil {
 		t.Fatalf("Abs: %v", err)
 	}
-	infoPath := filepath.Join(projectRoot, "SloppadIOS", "Info.plist")
+	infoPath := filepath.Join(projectRoot, "SlopshellIOS", "Info.plist")
 	data, err := os.ReadFile(infoPath)
 	if err != nil {
 		t.Fatalf("ReadFile(Info.plist): %v", err)
@@ -70,7 +70,7 @@ func TestSloppadIOSInfoPlistDeclaresMobileCapabilities(t *testing.T) {
 		"<key>UIBackgroundModes</key>",
 		"<string>audio</string>",
 		"<key>NSBonjourServices</key>",
-		"<string>_sloppad._tcp</string>",
+		"<string>_slopshell._tcp</string>",
 		"<key>NSMicrophoneUsageDescription</key>",
 		"<key>NSLocalNetworkUsageDescription</key>",
 	}
@@ -81,7 +81,7 @@ func TestSloppadIOSInfoPlistDeclaresMobileCapabilities(t *testing.T) {
 	}
 }
 
-func TestSloppadIOSSourcesCoverBlackScreenDialogueMode(t *testing.T) {
+func TestSlopshellIOSSourcesCoverBlackScreenDialogueMode(t *testing.T) {
 	projectRoot, err := filepath.Abs(".")
 	if err != nil {
 		t.Fatalf("Abs: %v", err)
@@ -91,16 +91,16 @@ func TestSloppadIOSSourcesCoverBlackScreenDialogueMode(t *testing.T) {
 		snippets []string
 	}{
 		{
-			relative: filepath.Join("SloppadIOS", "ContentView.swift"),
+			relative: filepath.Join("SlopshellIOS", "ContentView.swift"),
 			snippets: []string{"blackScreenDialoguePanel", "Exit Dialogue", "isIdleTimerDisabled"},
 		},
 		{
-			relative: filepath.Join("SloppadIOS", "SloppadAppModel.swift"),
+			relative: filepath.Join("SlopshellIOS", "SlopshellAppModel.swift"),
 			snippets: []string{"toggleDialogueMode()", "companion/config", "live-policy", "toggle_live_dialogue"},
 		},
 		{
-			relative: filepath.Join("SloppadIOS", "SloppadModels.swift"),
-			snippets: []string{"SloppadDialogueModePresentation", "usesBlackScreen", "keepScreenAwake", "Tap to stop recording"},
+			relative: filepath.Join("SlopshellIOS", "SlopshellModels.swift"),
+			snippets: []string{"SlopshellDialogueModePresentation", "usesBlackScreen", "keepScreenAwake", "Tap to stop recording"},
 		},
 	}
 	for _, check := range checks {

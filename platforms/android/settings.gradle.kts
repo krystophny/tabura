@@ -15,5 +15,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "SloppadAndroid"
+rootProject.name = "SlopshellAndroid"
 include(":app")

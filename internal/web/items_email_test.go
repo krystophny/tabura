@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/krystophny/sloppad/internal/email"
-	"github.com/krystophny/sloppad/internal/providerdata"
-	"github.com/krystophny/sloppad/internal/store"
+	"github.com/krystophny/slopshell/internal/email"
+	"github.com/krystophny/slopshell/internal/providerdata"
+	"github.com/krystophny/slopshell/internal/store"
 )
 
 type fakeEmailSyncProvider struct {

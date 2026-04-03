@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/krystophny/sloppad/internal/store"
-	"github.com/krystophny/sloppad/internal/todoist"
+	"github.com/krystophny/slopshell/internal/store"
+	"github.com/krystophny/slopshell/internal/todoist"
 )
 
 var (

@@ -12,8 +12,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/krystophny/sloppad/internal/appserver"
-	"github.com/krystophny/sloppad/internal/store"
+	"github.com/krystophny/slopshell/internal/appserver"
+	"github.com/krystophny/slopshell/internal/store"
 )
 
 const (
@@ -493,7 +493,7 @@ func (a *App) processWorkspaceWatchItem(ctx context.Context, workspace store.Wor
 		return errors.New("workspace watch requires app-server")
 	}
 	var prompt strings.Builder
-	prompt.WriteString("You are Sloppad workspace watch mode. Process this workspace item end-to-end in the current working directory and stop when the item is handled.\n\n")
+	prompt.WriteString("You are Slopshell workspace watch mode. Process this workspace item end-to-end in the current working directory and stop when the item is handled.\n\n")
 	fmt.Fprintf(&prompt, "Workspace: %s\n", workspace.Name)
 	fmt.Fprintf(&prompt, "Directory: %s\n", workspace.DirPath)
 	fmt.Fprintf(&prompt, "Mode: %s\n", batchConfigMode(cfg))

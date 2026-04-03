@@ -285,7 +285,7 @@ func (h *Host) call(parent context.Context, ext runtimeExtension, req HookReques
 		return out, err
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("X-Sloppad-Extension-ID", ext.info.ID)
+	httpReq.Header.Set("X-Slopshell-Extension-ID", ext.info.ID)
 	if secret := strings.TrimSpace(os.Getenv(ext.secretEnv)); secret != "" {
 		httpReq.Header.Set("Authorization", "Bearer "+secret)
 	}
@@ -582,7 +582,7 @@ func requiredPermissionForHook(hook string) string {
 }
 
 func ensureEngineCompatible(engine EngineManifest, runtimeVersion string) error {
-	constraint := strings.TrimSpace(engine.Sloppad)
+	constraint := strings.TrimSpace(engine.Slopshell)
 	if constraint == "" || strings.TrimSpace(runtimeVersion) == "" {
 		return nil
 	}
@@ -591,7 +591,7 @@ func ensureEngineCompatible(engine EngineManifest, runtimeVersion string) error 
 		return err
 	}
 	if !ok {
-		return fmt.Errorf("engine.sloppad %q is not compatible with runtime %q", constraint, runtimeVersion)
+		return fmt.Errorf("engine.slopshell %q is not compatible with runtime %q", constraint, runtimeVersion)
 	}
 	return nil
 }

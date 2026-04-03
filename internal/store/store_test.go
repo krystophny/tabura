@@ -11,7 +11,7 @@ import (
 
 func newTestStore(t *testing.T) *Store {
 	t.Helper()
-	s, err := New(filepath.Join(t.TempDir(), "sloppad.db"))
+	s, err := New(filepath.Join(t.TempDir(), "slopshell.db"))
 	if err != nil {
 		t.Fatalf("store.New() error: %v", err)
 	}
@@ -157,7 +157,7 @@ func TestStoreHostAndRemoteSessionCRUD(t *testing.T) {
 }
 
 func TestStoreProjectCompanionConfigPersistsAcrossReopen(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "sloppad.db")
+	dbPath := filepath.Join(t.TempDir(), "slopshell.db")
 	s, err := New(dbPath)
 	if err != nil {
 		t.Fatalf("store.New() error: %v", err)

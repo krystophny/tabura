@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/krystophny/sloppad/internal/surface"
+	"github.com/krystophny/slopshell/internal/surface"
 )
 
 func main() {

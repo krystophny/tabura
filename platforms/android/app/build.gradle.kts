@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.sloppad.android"
+    namespace = "com.slopshell.android"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.sloppad.android"
+        applicationId = "com.slopshell.android"
         minSdk = 28
         targetSdk = 35
         versionCode = 1

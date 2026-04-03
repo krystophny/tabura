@@ -9,7 +9,7 @@ import (
 	"net"
 	"strings"
 
-	"github.com/krystophny/sloppad/internal/store"
+	"github.com/krystophny/slopshell/internal/store"
 )
 
 func (a *App) cwdForWorkspacePath(workspacePath string) string {

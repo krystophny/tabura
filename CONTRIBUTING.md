@@ -1,6 +1,6 @@
 # Contributing
 
-Sloppad is pre-stable and still young. Optimize for the best product and codebase,
+Slopshell is pre-stable and still young. Optimize for the best product and codebase,
 not for speculative compatibility.
 
 ## Rewrite Policy

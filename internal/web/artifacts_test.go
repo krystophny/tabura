@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/krystophny/sloppad/internal/store"
+	"github.com/krystophny/slopshell/internal/store"
 )
 
 func TestArtifactCRUDAPI(t *testing.T) {
@@ -139,7 +139,7 @@ func TestArtifactMaterializeAPIWritesEmailFileIntoWorkspace(t *testing.T) {
 		t.Fatalf("artifact payload = %#v", payload)
 	}
 	refPath := strFromAny(artifactPayload["ref_path"])
-	if !strings.HasPrefix(filepath.ToSlash(refPath), filepath.ToSlash(filepath.Join(workspaceDir, ".sloppad", "artifacts", "materialized"))+"/") {
+	if !strings.HasPrefix(filepath.ToSlash(refPath), filepath.ToSlash(filepath.Join(workspaceDir, ".slopshell", "artifacts", "materialized"))+"/") {
 		t.Fatalf("ref_path = %q, want materialized workspace path", refPath)
 	}
 	bytes, err := os.ReadFile(refPath)
@@ -402,7 +402,7 @@ exit 1
 		t.Fatalf("artifact kind = %q, want %q", got, store.ArtifactKindImage)
 	}
 	refPath := strFromAny(artifactPayload["ref_path"])
-	if !strings.HasPrefix(filepath.ToSlash(refPath), filepath.ToSlash(filepath.Join(workspaceDir, ".sloppad", "artifacts", "figures"))+"/") {
+	if !strings.HasPrefix(filepath.ToSlash(refPath), filepath.ToSlash(filepath.Join(workspaceDir, ".slopshell", "artifacts", "figures"))+"/") {
 		t.Fatalf("ref_path = %q, want workspace figures artifact path", refPath)
 	}
 	var meta map[string]any

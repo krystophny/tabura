@@ -22,7 +22,7 @@ async function clearLog(page: Page) {
 async function waitReady(page: Page) {
   await page.goto('/tests/playwright/harness.html');
   await page.waitForFunction(() => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     if (typeof app?.getState !== 'function') return false;
     const s = app.getState();
     return s.chatWs && s.chatWs.readyState === (window as any).WebSocket.OPEN;
@@ -55,7 +55,7 @@ async function renderTestArtifact(page: Page, text = 'Line one\nLine two\nLine t
       ct.classList.add('is-active');
     }
     // Mark state as having artifact
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     if (app?.getState) app.getState().hasArtifact = true;
   }, text);
 }
@@ -69,7 +69,7 @@ async function waitForLogEntry(page: Page, type: string, action?: string) {
 
 async function injectChatEvent(page: Page, payload: Record<string, unknown>) {
   await page.evaluate((p) => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     const activeChatWs = app?.getState?.().chatWs;
     if (activeChatWs && typeof activeChatWs.injectEvent === 'function') {
       activeChatWs.injectEvent(p);
@@ -97,7 +97,7 @@ async function injectCanvasEvent(page: Page, payload: Record<string, unknown>) {
 async function setInteractionTool(page: Page, tool: 'pointer' | 'highlight' | 'ink' | 'text_note' | 'prompt') {
   await page.evaluate((mode) => {
     (window as any).__setRuntimeState?.({ tool: mode });
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     if (app?.getState) {
       const interaction = app.getState().interaction;
       interaction.tool = mode;
@@ -339,7 +339,7 @@ test.describe('canvas - tabula rasa', () => {
       Object.defineProperty(raw, 'getCoalescedEvents', { value: () => coalesced });
       viewport.dispatchEvent(raw);
 
-      const app = (window as any)._sloppadApp;
+      const app = (window as any)._slopshellApp;
       const stroke = app?.getState?.().inkDraft?.strokes?.[0];
       const predictedCount = Number(stroke?.predicted_count || 0);
       const points = Array.isArray(stroke?.points) ? stroke.points : [];
@@ -432,7 +432,7 @@ test.describe('canvas - tabula rasa', () => {
     await renderTestArtifact(page, 'alpha\nbeta\ngamma\ndelta\nepsilon');
     await setInteractionTool(page, 'ink');
     await page.evaluate(() => {
-      const app = (window as any)._sloppadApp;
+      const app = (window as any)._slopshellApp;
       const state = app?.getState?.();
       if (!state) throw new Error('missing app state');
       state.liveSessionActive = true;
@@ -606,7 +606,7 @@ test.describe('canvas - response overlay', () => {
     await expect(page.locator('#overlay')).toBeHidden();
     await expect(page.locator('#indicator')).toBeHidden();
 
-    const hasArtifact = await page.evaluate(() => Boolean((window as any)._sloppadApp?.getState?.().hasArtifact));
+    const hasArtifact = await page.evaluate(() => Boolean((window as any)._slopshellApp?.getState?.().hasArtifact));
     expect(hasArtifact).toBe(true);
   });
 
@@ -697,7 +697,7 @@ test.describe('canvas - TTS voice output', () => {
 
   async function setVoiceOrigin(page: Page) {
     await page.evaluate(() => {
-      const app = (window as any)._sloppadApp;
+      const app = (window as any)._slopshellApp;
       if (app?.getState) app.getState().lastInputOrigin = 'voice';
       // Set a valid position so indicators are visible in viewport
       const uiMod = (window as any).__uiModule;
@@ -901,7 +901,7 @@ test.describe('canvas - TTS voice output', () => {
     await injectChatEvent(page, {
       type: 'assistant_message',
       turn_id: 'tts-de',
-      message: '[lang:de] Hallo, ich bin Sloppad und kann dir helfen.',
+      message: '[lang:de] Hallo, ich bin Slopshell und kann dir helfen.',
     });
     await page.waitForTimeout(300);
 
@@ -909,7 +909,7 @@ test.describe('canvas - TTS voice output', () => {
       type: 'message_persisted',
       role: 'assistant',
       turn_id: 'tts-de',
-      message: '[lang:de] Hallo, ich bin Sloppad und kann dir helfen.',
+      message: '[lang:de] Hallo, ich bin Slopshell und kann dir helfen.',
     });
     await page.waitForTimeout(500);
 

@@ -15,7 +15,7 @@ func TestContainerMappingCRUDAPI(t *testing.T) {
 	rrCreate := doAuthedJSONRequest(t, app.Router(), http.MethodPost, "/api/container-mappings", map[string]any{
 		"provider":       "todoist",
 		"container_type": "project",
-		"container_ref":  " Sloppad ",
+		"container_ref":  " Slopshell ",
 		"workspace_id":   workspace.ID,
 		"sphere":         "work",
 	})
@@ -28,8 +28,8 @@ func TestContainerMappingCRUDAPI(t *testing.T) {
 		t.Fatalf("create payload = %#v", createPayload)
 	}
 	mappingID := int64(mappingPayload["id"].(float64))
-	if got := mappingPayload["container_ref"]; got != "Sloppad" {
-		t.Fatalf("container_ref = %#v, want %q", got, "Sloppad")
+	if got := mappingPayload["container_ref"]; got != "Slopshell" {
+		t.Fatalf("container_ref = %#v, want %q", got, "Slopshell")
 	}
 	if got := mappingPayload["workspace_id"]; got != float64(workspace.ID) {
 		t.Fatalf("workspace_id = %#v, want %d", got, workspace.ID)
@@ -48,7 +48,7 @@ func TestContainerMappingCRUDAPI(t *testing.T) {
 	rrUpdate := doAuthedJSONRequest(t, app.Router(), http.MethodPost, "/api/container-mappings", map[string]any{
 		"provider":       "todoist",
 		"container_type": "project",
-		"container_ref":  "sloppad",
+		"container_ref":  "slopshell",
 		"sphere":         "private",
 	})
 	if rrUpdate.Code != http.StatusOK {
@@ -91,7 +91,7 @@ func TestContainerMappingAPIRejectsInvalidInput(t *testing.T) {
 	rrBadCreate := doAuthedJSONRequest(t, app.Router(), http.MethodPost, "/api/container-mappings", map[string]any{
 		"provider":       "todoist",
 		"container_type": "board",
-		"container_ref":  "Sloppad",
+		"container_ref":  "Slopshell",
 		"sphere":         "work",
 	})
 	if rrBadCreate.Code != http.StatusBadRequest {

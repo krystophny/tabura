@@ -16,7 +16,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/websocket"
-	"github.com/krystophny/sloppad/internal/serve"
+	"github.com/krystophny/slopshell/internal/serve"
 )
 
 func (a *App) handleCanvasWS(w http.ResponseWriter, r *http.Request) {
@@ -401,5 +401,5 @@ func (a *App) startLocalServe() error {
 		}
 		time.Sleep(250 * time.Millisecond)
 	}
-	return errors.New("local sloppad MCP listener did not become healthy in time")
+	return errors.New("local slopshell MCP listener did not become healthy in time")
 }

@@ -47,12 +47,12 @@ func TestFormatChatCursorPromptContext_IncludesItemViewContext(t *testing.T) {
 		ItemID:        42,
 		ItemTitle:     "Fix login bug",
 		ItemState:     "inbox",
-		WorkspaceName: "sloppad",
+		WorkspaceName: "slopshell",
 	})
 	if !strings.Contains(prompt, "User is in: inbox view") {
 		t.Fatalf("prompt missing item view, got:\n%s", prompt)
 	}
-	if !strings.Contains(prompt, `User is pointing at: item #42 "Fix login bug" (state: inbox, workspace: sloppad)`) {
+	if !strings.Contains(prompt, `User is pointing at: item #42 "Fix login bug" (state: inbox, workspace: slopshell)`) {
 		t.Fatalf("prompt missing item context, got:\n%s", prompt)
 	}
 }
@@ -60,14 +60,14 @@ func TestFormatChatCursorPromptContext_IncludesItemViewContext(t *testing.T) {
 func TestFormatChatCursorPromptContext_IncludesWorkspacePathContext(t *testing.T) {
 	prompt := formatChatCursorPromptContext(&chatCursorContext{
 		View:          "workspace_browser",
-		WorkspaceName: "sloppad",
+		WorkspaceName: "slopshell",
 		Path:          "docs",
 		IsDir:         true,
 	})
 	if !strings.Contains(prompt, "User is in: workspace_browser view") {
 		t.Fatalf("prompt missing workspace view, got:\n%s", prompt)
 	}
-	if !strings.Contains(prompt, `User is pointing at: folder "docs" (workspace: sloppad)`) {
+	if !strings.Contains(prompt, `User is pointing at: folder "docs" (workspace: slopshell)`) {
 		t.Fatalf("prompt missing workspace path context, got:\n%s", prompt)
 	}
 }

@@ -1,0 +1,30 @@
+name: slopshell_circle_toggle_silent
+description: Toggle silent independently from tool and session selection.
+tags:
+  - circle
+  - silent
+preconditions:
+  tool: prompt
+  session: dialogue
+  silent: false
+steps:
+  - action: tap
+    target: slopshell_circle_dot
+    expect:
+      slopshell_circle: expanded
+  - action: tap
+    target: slopshell_circle_segment_silent
+    expect:
+      active_tool: prompt
+      session: dialogue
+      silent: true
+      indicator_state: listening
+      slopshell_circle: expanded
+  - action: tap
+    target: slopshell_circle_segment_silent
+    expect:
+      active_tool: prompt
+      session: dialogue
+      silent: false
+      indicator_state: listening
+      slopshell_circle: expanded

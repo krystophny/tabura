@@ -1,6 +1,6 @@
 # Release v0.1.7
 
-> **Legal notice:** Sloppad is provided "as is" and "as available" without warranties, and to the maximum extent permitted by applicable law the authors/contributors accept no liability for damages, data loss, or misuse. You are solely responsible for backups, verification, and safe operation. See [`DISCLAIMER.md`](/DISCLAIMER.md).
+> **Legal notice:** Slopshell is provided "as is" and "as available" without warranties, and to the maximum extent permitted by applicable law the authors/contributors accept no liability for damages, data loss, or misuse. You are solely responsible for backups, verification, and safe operation. See [`DISCLAIMER.md`](/DISCLAIMER.md).
 
 ## Scope
 
@@ -37,5 +37,5 @@
 For publication metadata, associate this release with:
 
 - release label: `v0.1.7`
-- repository: `https://github.com/krystophny/sloppad`
+- repository: `https://github.com/krystophny/slopshell`
 - exact source revision: tag target commit hash

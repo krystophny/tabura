@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { setLiveMode, stopLiveMode } from './sloppad-circle-helpers';
+import { setLiveMode, stopLiveMode } from './slopshell-circle-helpers';
 
 type HarnessLogEntry = {
   type: string;
@@ -21,7 +21,7 @@ async function clearLog(page: Page) {
 async function waitReady(page: Page, query = '') {
   await page.goto(`/tests/playwright/harness.html${query}`);
   await page.waitForFunction(() => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     if (typeof app?.getState !== 'function') return false;
     const s = app.getState();
     return s.chatWs && s.chatWs.readyState === (window as any).WebSocket.OPEN;
@@ -31,7 +31,7 @@ async function waitReady(page: Page, query = '') {
 
 async function injectChatEvent(page: Page, payload: Record<string, unknown>) {
   await page.evaluate((eventPayload) => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     const sessionId = String(app?.getState?.().chatSessionId || '');
     const sessions = (window as any).__mockWsSessions || [];
     const chatWs = sessions.find((ws: any) => typeof ws.url === 'string'
@@ -45,7 +45,7 @@ async function injectChatEvent(page: Page, payload: Record<string, unknown>) {
 
 async function triggerVoiceAssistantTTS(page: Page, turnID: string, text = 'Hello there.') {
   await page.evaluate(() => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     const s = app.getState();
     s.lastInputOrigin = 'voice';
     s.voiceAwaitingTurn = true;
@@ -57,7 +57,7 @@ async function triggerVoiceAssistantTTS(page: Page, turnID: string, text = 'Hell
 
 async function setDialogueListenWindowMs(page: Page, ms: number) {
   await page.evaluate((value) => {
-    (window as any).__sloppadConversationListenMs = value;
+    (window as any).__slopshellConversationListenMs = value;
   }, ms);
 }
 
@@ -148,7 +148,7 @@ test('hotword runtime uses computer model defaults', async ({ page }) => {
 
 test('deployed hotword revision is reloaded without restarting the client', async ({ page }) => {
   await page.addInitScript(() => {
-    (window as any).__sloppadHotwordStatusPollMs = 50;
+    (window as any).__slopshellHotwordStatusPollMs = 50;
   });
   await waitReady(page);
   await page.evaluate(() => {
@@ -366,11 +366,11 @@ test('hotword stays active during TTS playback and can barge in', async ({ page 
     const recorderStarted = log.some((entry) => entry.type === 'recorder' && entry.action === 'start');
     const hotwordStopped = log.some((entry) => entry.type === 'hotword' && entry.action === 'stop');
     const ttsPlaying = await page.evaluate(() => {
-      const app = (window as any)._sloppadApp;
+      const app = (window as any)._slopshellApp;
       return Boolean(app?.getState?.().ttsPlaying);
     });
     const liveSessionMode = await page.evaluate(() => {
-      const app = (window as any)._sloppadApp;
+      const app = (window as any)._slopshellApp;
       return String(app?.getState?.().liveSessionMode || '');
     });
     return { recorderStarted, hotwordStopped, ttsPlaying, liveSessionMode };
@@ -415,7 +415,7 @@ test('hotword init failure degrades gracefully with no crash', async ({ page }) 
 
   await triggerVoiceAssistantTTS(page, 'hotword-degrade-1');
   await expect.poll(async () => page.evaluate(() => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     const s = app?.getState?.();
     return Boolean(s?.liveSessionDialogueListenActive) && String(s?.voiceLifecycle || '') === 'listening';
   })).toBe(true);
@@ -427,7 +427,7 @@ test('Dialogue keeps the live listen indicator armed instead of falling back to 
   await setDialogueMode(page, true);
 
   await expect.poll(async () => page.evaluate(() => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     const s = app?.getState?.();
     return Boolean(s?.liveSessionDialogueListenActive) && String(s?.voiceLifecycle || '') === 'listening';
   }), { timeout: 4_000 }).toBe(true);
@@ -438,7 +438,7 @@ test('meeting mode hotword cancels the active turn without switching modes', asy
   await setMeetingMode(page);
   await waitForHotwordStart(page);
   await page.evaluate(() => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     const state = app?.getState?.();
     if (!state) return;
     state.ttsPlaying = true;
@@ -453,8 +453,8 @@ test('meeting mode hotword cancels the active turn without switching modes', asy
     return {
       recorderStarted: log.some((entry) => entry.type === 'recorder' && entry.action === 'start'),
       hotwordStopped: log.some((entry) => entry.type === 'hotword' && entry.action === 'stop'),
-      liveSessionMode: await page.evaluate(() => String((window as any)._sloppadApp?.getState?.().liveSessionMode || '')),
-      ttsPlaying: await page.evaluate(() => Boolean((window as any)._sloppadApp?.getState?.().ttsPlaying)),
+      liveSessionMode: await page.evaluate(() => String((window as any)._slopshellApp?.getState?.().liveSessionMode || '')),
+      ttsPlaying: await page.evaluate(() => Boolean((window as any)._slopshellApp?.getState?.().ttsPlaying)),
     };
   }, { timeout: 5_000 }).toEqual({
     recorderStarted: true,
@@ -476,7 +476,7 @@ test('meeting mode hotword starts direct capture when idle', async ({ page }) =>
     const log = await getLog(page);
     return {
       recorderStarted: log.some((entry) => entry.type === 'recorder' && entry.action === 'start'),
-      liveSessionMode: await page.evaluate(() => String((window as any)._sloppadApp?.getState?.().liveSessionMode || '')),
+      liveSessionMode: await page.evaluate(() => String((window as any)._slopshellApp?.getState?.().liveSessionMode || '')),
     };
   }, { timeout: 5_000 }).toEqual({
     recorderStarted: true,

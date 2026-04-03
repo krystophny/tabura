@@ -13,11 +13,11 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/krystophny/sloppad/internal/roomstate"
-	"github.com/krystophny/sloppad/internal/store"
+	"github.com/krystophny/slopshell/internal/roomstate"
+	"github.com/krystophny/slopshell/internal/store"
 )
 
-const companionArtifactRootDir = ".sloppad/artifacts/companion"
+const companionArtifactRootDir = ".slopshell/artifacts/companion"
 
 type companionTranscriptResponse struct {
 	OK            bool                       `json:"ok"`

@@ -1,4 +1,4 @@
-package sloppad_test
+package slopshell_test
 
 import (
 	"os"
@@ -67,10 +67,10 @@ output_path.write_bytes(b"computer-model")
 	cmd := exec.Command(filepath.Join(repoRoot, "scripts", "train-hotword.sh"))
 	cmd.Dir = repoRoot
 	cmd.Env = append(os.Environ(),
-		"SLOPPAD_HOTWORD_TRAINER_DIR="+trainerDir,
-		"SLOPPAD_HOTWORD_CONFIG="+configPath,
-		"SLOPPAD_HOTWORD_OUTPUT_DIR="+outputDir,
-		"SLOPPAD_HOTWORD_SKIP_PIP_INSTALL=1",
+		"SLOPSHELL_HOTWORD_TRAINER_DIR="+trainerDir,
+		"SLOPSHELL_HOTWORD_CONFIG="+configPath,
+		"SLOPSHELL_HOTWORD_OUTPUT_DIR="+outputDir,
+		"SLOPSHELL_HOTWORD_SKIP_PIP_INSTALL=1",
 		"PYTHON=python3",
 	)
 

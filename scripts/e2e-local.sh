@@ -4,11 +4,11 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 cleanup_live_session() {
-  local session_token="${SLOPPAD_TEST_SESSION_TOKEN:-}"
+  local session_token="${SLOPSHELL_TEST_SESSION_TOKEN:-}"
   local cookie_args=()
   local runtime_json session_id
   if [ -n "$session_token" ]; then
-    cookie_args=(-H "Cookie: sloppad_session=${session_token}")
+    cookie_args=(-H "Cookie: slopshell_session=${session_token}")
   fi
   runtime_json="$(curl -fsS --max-time 5 "${cookie_args[@]}" http://127.0.0.1:8420/api/runtime/workspaces 2>/dev/null || true)"
   if [ -z "$runtime_json" ]; then
@@ -35,7 +35,7 @@ fail() { printf 'FATAL: %s\n' "$1" >&2; exit 1; }
 printf 'Checking services...\n'
 
 curl -fsS --max-time 3 http://127.0.0.1:8420/api/setup >/dev/null \
-  || fail 'Sloppad web server not running on :8420'
+  || fail 'Slopshell web server not running on :8420'
 
 curl -fsS --max-time 3 -o /dev/null -w '' \
   -X POST http://127.0.0.1:8424/v1/audio/speech \
@@ -56,20 +56,20 @@ printf 'All services OK.\n'
 # This avoids mutating the admin password just to run local browser E2E.
 # ---------------------------------------------------------------------------
 
-if [ -z "${SLOPPAD_TEST_SESSION_TOKEN:-}" ]; then
+if [ -z "${SLOPSHELL_TEST_SESSION_TOKEN:-}" ]; then
   setup_json="$(curl -fsS --max-time 3 http://127.0.0.1:8420/api/setup || true)"
   if printf '%s' "$setup_json" | grep -q '"has_password":true'; then
     resolve_db_path() {
-      if [ -n "${SLOPPAD_E2E_DB_PATH:-}" ] && [ -f "${SLOPPAD_E2E_DB_PATH}" ]; then
-        printf '%s\n' "${SLOPPAD_E2E_DB_PATH}"
+      if [ -n "${SLOPSHELL_E2E_DB_PATH:-}" ] && [ -f "${SLOPSHELL_E2E_DB_PATH}" ]; then
+        printf '%s\n' "${SLOPSHELL_E2E_DB_PATH}"
         return 0
       fi
-      if [ -f "${HOME}/Library/Application Support/sloppad/web-data/sloppad.db" ]; then
-        printf '%s\n' "${HOME}/Library/Application Support/sloppad/web-data/sloppad.db"
+      if [ -f "${HOME}/Library/Application Support/slopshell/web-data/slopshell.db" ]; then
+        printf '%s\n' "${HOME}/Library/Application Support/slopshell/web-data/slopshell.db"
         return 0
       fi
-      if [ -f "${HOME}/.local/share/sloppad-web/sloppad.db" ]; then
-        printf '%s\n' "${HOME}/.local/share/sloppad-web/sloppad.db"
+      if [ -f "${HOME}/.local/share/slopshell-web/slopshell.db" ]; then
+        printf '%s\n' "${HOME}/.local/share/slopshell-web/slopshell.db"
         return 0
       fi
       return 1
@@ -77,15 +77,15 @@ if [ -z "${SLOPPAD_TEST_SESSION_TOKEN:-}" ]; then
 
     if command -v sqlite3 >/dev/null 2>&1; then
       if DB_PATH="$(resolve_db_path)"; then
-        export SLOPPAD_TEST_SESSION_TOKEN="e2e-$(date +%s)-$$"
+        export SLOPSHELL_TEST_SESSION_TOKEN="e2e-$(date +%s)-$$"
         now_epoch="$(date +%s)"
-        sqlite3 "$DB_PATH" "INSERT OR REPLACE INTO auth_sessions (token,created_at) VALUES ('${SLOPPAD_TEST_SESSION_TOKEN}', ${now_epoch});"
-        printf 'Seeded auth session for local E2E: %s\n' "$SLOPPAD_TEST_SESSION_TOKEN"
+        sqlite3 "$DB_PATH" "INSERT OR REPLACE INTO auth_sessions (token,created_at) VALUES ('${SLOPSHELL_TEST_SESSION_TOKEN}', ${now_epoch});"
+        printf 'Seeded auth session for local E2E: %s\n' "$SLOPSHELL_TEST_SESSION_TOKEN"
       else
-        printf 'WARN: password-protected server detected but no local sloppad.db found; set SLOPPAD_TEST_PASSWORD or SLOPPAD_TEST_SESSION_TOKEN.\n' >&2
+        printf 'WARN: password-protected server detected but no local slopshell.db found; set SLOPSHELL_TEST_PASSWORD or SLOPSHELL_TEST_SESSION_TOKEN.\n' >&2
       fi
     else
-      printf 'WARN: password-protected server detected but sqlite3 is unavailable; set SLOPPAD_TEST_PASSWORD or SLOPPAD_TEST_SESSION_TOKEN.\n' >&2
+      printf 'WARN: password-protected server detected but sqlite3 is unavailable; set SLOPSHELL_TEST_PASSWORD or SLOPSHELL_TEST_SESSION_TOKEN.\n' >&2
     fi
   fi
 fi
@@ -94,8 +94,8 @@ fi
 # Generate speech WAV via Piper and pad with silence for VAD offset detection
 # ---------------------------------------------------------------------------
 
-SPEECH_WAV="/tmp/sloppad-e2e-speech-raw.wav"
-PADDED_WAV="/tmp/sloppad-e2e-speech.wav"
+SPEECH_WAV="/tmp/slopshell-e2e-speech-raw.wav"
+PADDED_WAV="/tmp/slopshell-e2e-speech.wav"
 
 printf 'Generating speech WAV via Piper TTS...\n'
 curl -sS -X POST http://127.0.0.1:8424/v1/audio/speech \

@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/krystophny/sloppad/internal/protocol"
-	"github.com/krystophny/sloppad/internal/store"
+	"github.com/krystophny/slopshell/internal/protocol"
+	"github.com/krystophny/slopshell/internal/store"
 )
 
 const workspaceCloneTimeout = 45 * time.Second
@@ -121,7 +121,7 @@ func workspaceRepoNameFromURL(raw string) string {
 }
 
 func workspaceCloneRootDir() (string, error) {
-	if configured := strings.TrimSpace(os.Getenv("SLOPPAD_WORKSPACE_CLONE_ROOT")); configured != "" {
+	if configured := strings.TrimSpace(os.Getenv("SLOPSHELL_WORKSPACE_CLONE_ROOT")); configured != "" {
 		return filepath.Abs(filepath.Clean(expandWorkspacePathReference(configured)))
 	}
 	home, err := os.UserHomeDir()

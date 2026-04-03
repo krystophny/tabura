@@ -27,7 +27,7 @@ async function waitForApiCancel(page: Page) {
 async function waitReady(page: Page) {
   await page.goto('/tests/playwright/harness.html');
   await page.waitForFunction(() => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     if (typeof app?.getState !== 'function') return false;
     const s = app.getState();
     return s.chatWs && s.chatWs.readyState === (window as any).WebSocket.OPEN;
@@ -37,7 +37,7 @@ async function waitReady(page: Page) {
 
 async function enableSilentMode(page: Page) {
   await page.evaluate(() => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     const state = app.getState();
     state.ttsSilent = true;
     document.body.classList.add('silent-mode');
@@ -50,7 +50,7 @@ async function enableSilentMode(page: Page) {
 
 async function injectChatEvent(page: Page, payload: Record<string, unknown>) {
   await page.evaluate((p) => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     const activeChatWs = app?.getState?.().chatWs;
     if (activeChatWs && typeof activeChatWs.injectEvent === 'function') {
       activeChatWs.injectEvent(p);
@@ -174,7 +174,7 @@ test.describe('silent mode mobile', () => {
     await injectCanvasEvent(page, {
       event_id: 'ac-1',
       kind: 'text_artifact',
-      title: '.sloppad/artifacts/tmp/response.md',
+      title: '.slopshell/artifacts/tmp/response.md',
       text: 'Full final response on canvas.',
     });
     await page.waitForTimeout(100);

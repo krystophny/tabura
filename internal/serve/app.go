@@ -16,10 +16,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/websocket"
-	"github.com/krystophny/sloppad/internal/appserver"
-	"github.com/krystophny/sloppad/internal/canvas"
-	"github.com/krystophny/sloppad/internal/mcp"
-	"github.com/krystophny/sloppad/internal/store"
+	"github.com/krystophny/slopshell/internal/appserver"
+	"github.com/krystophny/slopshell/internal/canvas"
+	"github.com/krystophny/slopshell/internal/mcp"
+	"github.com/krystophny/slopshell/internal/store"
 )
 
 const (
@@ -51,7 +51,7 @@ func NewApp(projectDir, dataDir string) *App {
 	}
 	a.Adapter = canvas.NewAdapter(projectDir, a.queueEvent)
 	if strings.TrimSpace(dataDir) != "" {
-		dbPath := filepath.Join(dataDir, "sloppad.db")
+		dbPath := filepath.Join(dataDir, "slopshell.db")
 		if st, err := store.New(dbPath); err == nil {
 			a.Store = st
 		} else {
@@ -63,7 +63,7 @@ func NewApp(projectDir, dataDir string) *App {
 }
 
 func mcpAppServerClient() *appserver.Client {
-	appServerURL := strings.TrimSpace(os.Getenv("SLOPPAD_APP_SERVER_URL"))
+	appServerURL := strings.TrimSpace(os.Getenv("SLOPSHELL_APP_SERVER_URL"))
 	if appServerURL == "" {
 		appServerURL = DefaultMCPAppServerURL
 	}
@@ -234,7 +234,7 @@ func (a *App) Start(host string, port int) error {
 		WriteTimeout:      60 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
-	fmt.Println("sloppad mcp listener listening on:")
+	fmt.Println("slopshell mcp listener listening on:")
 	for _, u := range ListenURLs(host, port) {
 		fmt.Printf("  %s\n", u)
 	}

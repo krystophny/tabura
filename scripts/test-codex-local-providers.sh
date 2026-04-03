@@ -2,18 +2,18 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-WORKDIR="${SLOPPAD_CODEX_TEST_WORKDIR:-$ROOT_DIR}"
+WORKDIR="${SLOPSHELL_CODEX_TEST_WORKDIR:-$ROOT_DIR}"
 PLATFORM="$(uname -s)"
-FAST_URL="${SLOPPAD_CODEX_FAST_URL:-http://127.0.0.1:8081/v1}"
-FAST_MODEL="${SLOPPAD_CODEX_FAST_MODEL:-qwen3.5-9b}"
+FAST_URL="${SLOPSHELL_CODEX_FAST_URL:-http://127.0.0.1:8081/v1}"
+FAST_MODEL="${SLOPSHELL_CODEX_FAST_MODEL:-qwen3.5-9b}"
 if [[ "$PLATFORM" == "Darwin" ]]; then
-  LOCAL_URL="${SLOPPAD_CODEX_LOCAL_URL:-http://127.0.0.1:8081/v1}"
-  LOCAL_MODEL="${SLOPPAD_CODEX_LOCAL_MODEL:-qwen3.5-9b}"
+  LOCAL_URL="${SLOPSHELL_CODEX_LOCAL_URL:-http://127.0.0.1:8081/v1}"
+  LOCAL_MODEL="${SLOPSHELL_CODEX_LOCAL_MODEL:-qwen3.5-9b}"
 else
-  LOCAL_URL="${SLOPPAD_CODEX_LOCAL_URL:-http://127.0.0.1:8080/v1}"
-  LOCAL_MODEL="${SLOPPAD_CODEX_LOCAL_MODEL:-gpt-oss-120b}"
+  LOCAL_URL="${SLOPSHELL_CODEX_LOCAL_URL:-http://127.0.0.1:8080/v1}"
+  LOCAL_MODEL="${SLOPSHELL_CODEX_LOCAL_MODEL:-gpt-oss-120b}"
 fi
-MCP_URL="${SLOPPAD_CODEX_MCP_URL:-http://127.0.0.1:9420/mcp}"
+MCP_URL="${SLOPSHELL_CODEX_MCP_URL:-http://127.0.0.1:9420/mcp}"
 
 fail() {
   printf '[codex-local-test] ERROR: %s\n' "$*" >&2
@@ -54,7 +54,7 @@ build_active_config() {
 require_cmd codex
 require_cmd curl
 
-TMPDIR="$(mktemp -d -t sloppad-codex-local-test-XXXXXX)"
+TMPDIR="$(mktemp -d -t slopshell-codex-local-test-XXXXXX)"
 CONFIG_PATH="${TMPDIR}/config.toml"
 FAST_OUT="${TMPDIR}/fast.jsonl"
 LOCAL_OUT="${TMPDIR}/local.jsonl"
@@ -70,10 +70,10 @@ trap cleanup EXIT
 printf 'model = "gpt-5.4"\n' >"$CONFIG_PATH"
 printf '\n[projects."%s"]\ntrust_level = "trusted"\n' "$WORKDIR_ESCAPED" >>"$CONFIG_PATH"
 
-SLOPPAD_CODEX_FAST_URL="$FAST_URL" \
-SLOPPAD_CODEX_FAST_MODEL="$FAST_MODEL" \
-SLOPPAD_CODEX_LOCAL_URL="$LOCAL_URL" \
-SLOPPAD_CODEX_LOCAL_MODEL="$LOCAL_MODEL" \
+SLOPSHELL_CODEX_FAST_URL="$FAST_URL" \
+SLOPSHELL_CODEX_FAST_MODEL="$FAST_MODEL" \
+SLOPSHELL_CODEX_LOCAL_URL="$LOCAL_URL" \
+SLOPSHELL_CODEX_LOCAL_MODEL="$LOCAL_MODEL" \
 CODEX_CONFIG_PATH="$CONFIG_PATH" \
 "$ROOT_DIR/scripts/setup-codex-mcp.sh" "$MCP_URL" >/dev/null
 

@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/emersion/go-imap/v2"
-	"github.com/krystophny/sloppad/internal/email/imaptest"
+	"github.com/krystophny/slopshell/internal/email/imaptest"
 )
 
 func TestIMAPClient_ListLabels(t *testing.T) {

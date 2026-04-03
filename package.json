@@ -1,5 +1,5 @@
 {
-  "name": "sloppad-e2e",
+  "name": "slopshell-e2e",
   "private": true,
   "scripts": {
     "build:frontend": "node ./scripts/build-frontend.mjs",

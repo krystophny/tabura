@@ -1,0 +1,400 @@
+// !$*UTF8*$!
+{
+	objectVersion = 60;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		B10000010000000000000001 /* SlopshellIOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000110000000000000001 /* SlopshellIOSApp.swift */; };
+		B10000010000000000000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000110000000000000002 /* ContentView.swift */; };
+		B10000010000000000000003 /* SlopshellAppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000110000000000000003 /* SlopshellAppModel.swift */; };
+		B10000010000000000000004 /* SlopshellModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000110000000000000004 /* SlopshellModels.swift */; };
+		B10000010000000000000005 /* SlopshellServerDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000110000000000000005 /* SlopshellServerDiscovery.swift */; };
+		B10000010000000000000006 /* SlopshellChatTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000110000000000000006 /* SlopshellChatTransport.swift */; };
+		B10000010000000000000007 /* SlopshellCanvasTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000110000000000000007 /* SlopshellCanvasTransport.swift */; };
+		B10000010000000000000008 /* SlopshellAudioCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000110000000000000008 /* SlopshellAudioCapture.swift */; };
+		B10000010000000000000009 /* SlopshellInkCaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000110000000000000009 /* SlopshellInkCaptureView.swift */; };
+		B1000001000000000000000A /* SlopshellCanvasWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000011000000000000000A /* SlopshellCanvasWebView.swift */; };
+		B20000010000000000000001 /* SlopshellFlowUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000110000000000000001 /* SlopshellFlowUITests.swift */; };
+		B20000010000000000000002 /* flow-fixtures.json in Resources */ = {isa = PBXBuildFile; fileRef = B20000110000000000000002 /* flow-fixtures.json */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		B20000810000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B10000510000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B10000410000000000000001;
+			remoteInfo = SlopshellIOS;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		B10000110000000000000001 /* SlopshellIOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlopshellIOSApp.swift; sourceTree = "<group>"; };
+		B10000110000000000000002 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		B10000110000000000000003 /* SlopshellAppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlopshellAppModel.swift; sourceTree = "<group>"; };
+		B10000110000000000000004 /* SlopshellModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlopshellModels.swift; sourceTree = "<group>"; };
+		B10000110000000000000005 /* SlopshellServerDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlopshellServerDiscovery.swift; sourceTree = "<group>"; };
+		B10000110000000000000006 /* SlopshellChatTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlopshellChatTransport.swift; sourceTree = "<group>"; };
+		B10000110000000000000007 /* SlopshellCanvasTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlopshellCanvasTransport.swift; sourceTree = "<group>"; };
+		B10000110000000000000008 /* SlopshellAudioCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlopshellAudioCapture.swift; sourceTree = "<group>"; };
+		B10000110000000000000009 /* SlopshellInkCaptureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlopshellInkCaptureView.swift; sourceTree = "<group>"; };
+		B1000011000000000000000A /* SlopshellCanvasWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlopshellCanvasWebView.swift; sourceTree = "<group>"; };
+		B1000011000000000000000B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B1000011000000000000000C /* SlopshellIOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; path = SlopshellIOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B20000110000000000000001 /* SlopshellFlowUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlopshellFlowUITests.swift; sourceTree = "<group>"; };
+		B20000110000000000000002 /* flow-fixtures.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = flow-fixtures.json; sourceTree = "<group>"; };
+		B20000110000000000000003 /* SlopshellIOSUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; path = SlopshellIOSUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		B10000210000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B20000210000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		B10000310000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				B10000310000000000000002 /* SlopshellIOS */,
+				B20000310000000000000001 /* SlopshellIOSUITests */,
+				B10000310000000000000003 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		B10000310000000000000002 /* SlopshellIOS */ = {
+			isa = PBXGroup;
+			path = SlopshellIOS;
+			sourceTree = "<group>";
+			children = (
+				B10000110000000000000001 /* SlopshellIOSApp.swift */,
+				B10000110000000000000002 /* ContentView.swift */,
+				B10000110000000000000003 /* SlopshellAppModel.swift */,
+				B10000110000000000000004 /* SlopshellModels.swift */,
+				B10000110000000000000005 /* SlopshellServerDiscovery.swift */,
+				B10000110000000000000006 /* SlopshellChatTransport.swift */,
+				B10000110000000000000007 /* SlopshellCanvasTransport.swift */,
+				B10000110000000000000008 /* SlopshellAudioCapture.swift */,
+				B10000110000000000000009 /* SlopshellInkCaptureView.swift */,
+				B1000011000000000000000A /* SlopshellCanvasWebView.swift */,
+				B1000011000000000000000B /* Info.plist */,
+			);
+		};
+		B10000310000000000000003 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				B1000011000000000000000C /* SlopshellIOS.app */,
+				B20000110000000000000003 /* SlopshellIOSUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		B20000310000000000000001 /* SlopshellIOSUITests */ = {
+			isa = PBXGroup;
+			path = SlopshellIOSUITests;
+			sourceTree = "<group>";
+			children = (
+				B20000110000000000000001 /* SlopshellFlowUITests.swift */,
+				B20000310000000000000002 /* Resources */,
+			);
+		};
+		B20000310000000000000002 /* Resources */ = {
+			isa = PBXGroup;
+			path = Resources;
+			sourceTree = "<group>";
+			children = (
+				B20000110000000000000002 /* flow-fixtures.json */,
+			);
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		B10000410000000000000001 /* SlopshellIOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B10000710000000000000002 /* Build configuration list for PBXNativeTarget "SlopshellIOS" */;
+			buildPhases = (
+				B10000210000000000000002 /* Sources */,
+				B10000210000000000000001 /* Frameworks */,
+				B10000210000000000000003 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SlopshellIOS;
+			productName = SlopshellIOS;
+			productReference = B1000011000000000000000C /* SlopshellIOS.app */;
+			productType = "com.apple.product-type.application";
+		};
+		B20000410000000000000001 /* SlopshellIOSUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B20000710000000000000001 /* Build configuration list for PBXNativeTarget "SlopshellIOSUITests" */;
+			buildPhases = (
+				B20000210000000000000002 /* Sources */,
+				B20000210000000000000001 /* Frameworks */,
+				B20000210000000000000003 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				B20000910000000000000001 /* PBXTargetDependency */,
+			);
+			name = SlopshellIOSUITests;
+			productName = SlopshellIOSUITests;
+			productReference = B20000110000000000000003 /* SlopshellIOSUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		B10000510000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					B10000410000000000000001 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+					B20000410000000000000001 = {
+						CreatedOnToolsVersion = 16.0;
+						TestTargetID = B10000410000000000000001;
+					};
+				};
+			};
+			buildConfigurationList = B10000710000000000000001 /* Build configuration list for PBXProject "SlopshellIOS" */;
+			compatibilityVersion = "Xcode 15.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = B10000310000000000000001;
+			productRefGroup = B10000310000000000000003 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				B10000410000000000000001 /* SlopshellIOS */,
+				B20000410000000000000001 /* SlopshellIOSUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		B10000210000000000000003 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B20000210000000000000003 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B20000010000000000000002 /* flow-fixtures.json in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		B10000210000000000000002 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B10000010000000000000001 /* SlopshellIOSApp.swift in Sources */,
+				B10000010000000000000002 /* ContentView.swift in Sources */,
+				B10000010000000000000003 /* SlopshellAppModel.swift in Sources */,
+				B10000010000000000000004 /* SlopshellModels.swift in Sources */,
+				B10000010000000000000005 /* SlopshellServerDiscovery.swift in Sources */,
+				B10000010000000000000006 /* SlopshellChatTransport.swift in Sources */,
+				B10000010000000000000007 /* SlopshellCanvasTransport.swift in Sources */,
+				B10000010000000000000008 /* SlopshellAudioCapture.swift in Sources */,
+				B10000010000000000000009 /* SlopshellInkCaptureView.swift in Sources */,
+				B1000001000000000000000A /* SlopshellCanvasWebView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B20000210000000000000002 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B20000010000000000000001 /* SlopshellFlowUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		B20000910000000000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B10000410000000000000001 /* SlopshellIOS */;
+			targetProxy = B20000810000000000000001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		B10000610000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				SDKROOT = iphoneos;
+			};
+			name = Debug;
+		};
+		B10000610000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				SDKROOT = iphoneos;
+			};
+			name = Release;
+		};
+		B10000610000000000000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = SlopshellIOS/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = at.slopshell.ios;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		B10000610000000000000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = SlopshellIOS/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = at.slopshell.ios;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		B20000610000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = at.slopshell.iosuitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = SlopshellIOS;
+			};
+			name = Debug;
+		};
+		B20000610000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = at.slopshell.iosuitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = SlopshellIOS;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		B10000710000000000000001 /* Build configuration list for PBXProject "SlopshellIOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B10000610000000000000001 /* Debug */,
+				B10000610000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B10000710000000000000002 /* Build configuration list for PBXNativeTarget "SlopshellIOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B10000610000000000000003 /* Debug */,
+				B10000610000000000000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B20000710000000000000001 /* Build configuration list for PBXNativeTarget "SlopshellIOSUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B20000610000000000000001 /* Debug */,
+				B20000610000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = B10000510000000000000001 /* Project object */;
+}

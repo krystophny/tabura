@@ -24,7 +24,7 @@ export default defineConfig({
   },
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
-    baseURL: process.env.E2E_BASE_URL || process.env.SLOPPAD_TEST_SERVER_URL || 'http://127.0.0.1:8420',
+    baseURL: process.env.E2E_BASE_URL || process.env.SLOPSHELL_TEST_SERVER_URL || 'http://127.0.0.1:8420',
     headless: true,
   },
   projects: [

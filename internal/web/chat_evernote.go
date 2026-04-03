@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/krystophny/sloppad/internal/evernote"
-	"github.com/krystophny/sloppad/internal/store"
+	"github.com/krystophny/slopshell/internal/evernote"
+	"github.com/krystophny/slopshell/internal/store"
 )
 
 const evernoteSyncPageSize = 100

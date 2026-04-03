@@ -25,15 +25,15 @@ func BootstrapProject(projectDir string) (Result, error) {
 	if err := os.MkdirAll(abs, 0o755); err != nil {
 		return Result{}, err
 	}
-	sloppadDir := filepath.Join(abs, ".sloppad")
-	if err := os.MkdirAll(sloppadDir, 0o755); err != nil {
+	slopshellDir := filepath.Join(abs, ".slopshell")
+	if err := os.MkdirAll(slopshellDir, 0o755); err != nil {
 		return Result{}, err
 	}
 	paths := Paths{
 		ProjectDir:    abs,
-		MCPConfigPath: filepath.Join(sloppadDir, "codex-mcp.toml"),
+		MCPConfigPath: filepath.Join(slopshellDir, "codex-mcp.toml"),
 	}
-	_ = os.WriteFile(paths.MCPConfigPath, []byte(fmt.Sprintf("[mcp_servers.sloppad]\ncommand = \"sloppad\"\nargs = [\"mcp-server\", \"--project-dir\", \"%s\"]\n", strings.ReplaceAll(abs, "\\", "\\\\"))), 0o644)
+	_ = os.WriteFile(paths.MCPConfigPath, []byte(fmt.Sprintf("[mcp_servers.slopshell]\ncommand = \"slopshell\"\nargs = [\"mcp-server\", \"--project-dir\", \"%s\"]\n", strings.ReplaceAll(abs, "\\", "\\\\"))), 0o644)
 	_ = ensureGitignore(abs)
 	gitInit := false
 	if _, err := os.Stat(filepath.Join(abs, ".git")); err == nil {
@@ -48,8 +48,8 @@ func ensureGitignore(projectDir string) error {
 	if b, err := os.ReadFile(gitignore); err == nil {
 		data = string(b)
 	}
-	want := ".sloppad/artifacts/\n"
-	if strings.Contains(data, ".sloppad/artifacts/") {
+	want := ".slopshell/artifacts/\n"
+	if strings.Contains(data, ".slopshell/artifacts/") {
 		return nil
 	}
 	if data != "" && !strings.HasSuffix(data, "\n") {

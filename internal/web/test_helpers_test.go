@@ -12,14 +12,14 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/krystophny/sloppad/internal/store"
+	"github.com/krystophny/slopshell/internal/store"
 )
 
 const testAuthToken = "token-test"
 
 func newAuthedTestApp(t *testing.T) *App {
 	t.Helper()
-	t.Setenv("SLOPPAD_BACKGROUND_SYNC", "off")
+	t.Setenv("SLOPSHELL_BACKGROUND_SYNC", "off")
 	app, err := New(t.TempDir(), "", "", "", "", "", "", false)
 	if err != nil {
 		t.Fatalf("new app: %v", err)

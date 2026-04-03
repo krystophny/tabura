@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/krystophny/sloppad/internal/store"
+	"github.com/krystophny/slopshell/internal/store"
 )
 
 var (
@@ -526,7 +526,7 @@ func (a *App) createWorkspaceFromDialogIntent(workspacePath string, action *Syst
 		if name == "" {
 			name = scratchWorkspaceName(time.Now())
 		}
-		baseDir := filepath.Join(a.workspaceActionBaseDir(workspacePath), ".sloppad", "artifacts", "tmp")
+		baseDir := filepath.Join(a.workspaceActionBaseDir(workspacePath), ".slopshell", "artifacts", "tmp")
 		dirName := slugifyWorkspaceName(name)
 		if dirName == "" {
 			dirName = scratchWorkspaceName(time.Now())

@@ -151,7 +151,7 @@ function clampNumber(value, min, max) {
 }
 
 function resolveMock() {
-  const candidate = window.__sloppadHotwordMock;
+  const candidate = window.__slopshellHotwordMock;
   if (!candidate || typeof candidate !== 'object') return null;
   if (typeof candidate.init !== 'function') return null;
   if (typeof candidate.start !== 'function') return null;

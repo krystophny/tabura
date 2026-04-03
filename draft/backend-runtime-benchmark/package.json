@@ -1,5 +1,5 @@
 {
-  "name": "sloppad-backend-runtime-benchmark",
+  "name": "slopshell-backend-runtime-benchmark",
   "private": true,
   "version": "0.0.0",
   "description": "Draft benchmark comparing Go, Python, TypeScript/Node, and Rust for backend-like CPU workload.",

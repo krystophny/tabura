@@ -23,9 +23,9 @@ func extractBinaryFromArchive(archiveData []byte, assetName, targetOS string) ([
 
 func binaryNameForOS(targetOS string) string {
 	if targetOS == "windows" {
-		return "sloppad.exe"
+		return "slopshell.exe"
 	}
-	return "sloppad"
+	return "slopshell"
 }
 
 func extractFromTarGz(archiveData []byte, wantName string) ([]byte, error) {
@@ -94,7 +94,7 @@ func currentExecutableMode(path string) (os.FileMode, error) {
 }
 
 func replaceExecutable(path string, binaryData []byte, mode os.FileMode, targetOS string) error {
-	tmpFile, err := os.CreateTemp(filepath.Dir(path), "sloppad-update-*")
+	tmpFile, err := os.CreateTemp(filepath.Dir(path), "slopshell-update-*")
 	if err != nil {
 		return fmt.Errorf("create temp executable: %w", err)
 	}

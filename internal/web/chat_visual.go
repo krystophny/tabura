@@ -3,7 +3,7 @@ package web
 import (
 	"strings"
 
-	"github.com/krystophny/sloppad/internal/appserver"
+	"github.com/krystophny/slopshell/internal/appserver"
 )
 
 const maxChatVisualDataURLBytes = 2 << 20

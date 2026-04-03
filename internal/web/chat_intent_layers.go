@@ -114,7 +114,7 @@ func buildIntentLLMSystemPrompt() string {
 }
 
 func buildIntentLLMSystemPromptForPolicy(policy LivePolicy) string {
-	prompt := `You are Sloppad's local router. Output JSON only.
+	prompt := `You are Slopshell's local router. Output JSON only.
 System commands: ` + strings.Join(intentPromptSystemCommands, ", ") + `.
 Canonical artifact actions: ` + strings.Join(artifactTaxonomy.CanonicalActionOrder, ", ") + `.
 Return exactly one of:
@@ -151,9 +151,9 @@ For dispatch_execute issue filing include target="github_issue" and mode="split"
 Prefer case-insensitive filename search (for example -iname) and use single quotes inside JSON command strings.`
 	if policy.RequiresExplicitAddress() {
 		prompt += `
-Meeting mode: include an "addressed" boolean on every JSON response indicating whether the utterance is directed at Sloppad.
+Meeting mode: include an "addressed" boolean on every JSON response indicating whether the utterance is directed at Slopshell.
 If the user explicitly mentions "computer", set "addressed":true.
-For meeting discussion not directed at Sloppad, use {"addressed":false,"kind":"dialogue"}.
+For meeting discussion not directed at Slopshell, use {"addressed":false,"kind":"dialogue"}.
 For addressed commands/plans, keep the same response shape and add "addressed":true at the top level.`
 	}
 	return strings.TrimSpace(prompt)

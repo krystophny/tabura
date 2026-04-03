@@ -14,7 +14,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/krystophny/sloppad/internal/store"
+	"github.com/krystophny/slopshell/internal/store"
 )
 
 const printableArtifactFileSizeLimit = 256 * 1024
@@ -30,7 +30,7 @@ var itemPrintTemplate = template.Must(template.New("item-print").Parse(`<!DOCTYP
 <body class="print-page">
   <main class="print-shell">
     <header class="print-cover">
-      <div class="print-kicker">Sloppad Item Packet</div>
+      <div class="print-kicker">Slopshell Item Packet</div>
       <h1>{{.Title}}</h1>
       <p class="print-subtitle">{{.Subtitle}}</p>
     </header>

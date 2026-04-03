@@ -1,0 +1,16 @@
+[Unit]
+Description=Slopshell Piper TTS (fast, EN+DE)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=@@REPO_ROOT@@
+Environment=HOME=%h
+Environment=PIPER_MODEL_DIR=%h/.local/share/slopshell-piper-tts/models
+ExecStart=%h/.local/share/slopshell-piper-tts/venv/bin/uvicorn piper_tts_server:app --app-dir @@REPO_ROOT@@/scripts --host 127.0.0.1 --port 8424
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=10
+
+[Install]
+WantedBy=default.target

@@ -1,1 +1,1 @@
-rootProject.name = "sloppad-android-flow-contracts"
+rootProject.name = "slopshell-android-flow-contracts"

@@ -1,13 +1,13 @@
 # Live Runtime Whitepaper
 
-> **Legal notice:** Sloppad is provided "as is" and "as available" without warranties, and to the maximum extent permitted by applicable law the authors/contributors accept no liability for damages, data loss, or misuse. You are solely responsible for backups, verification, and safe operation. See [`DISCLAIMER.md`](/DISCLAIMER.md).
+> **Legal notice:** Slopshell is provided "as is" and "as available" without warranties, and to the maximum extent permitted by applicable law the authors/contributors accept no liability for damages, data loss, or misuse. You are solely responsible for backups, verification, and safe operation. See [`DISCLAIMER.md`](/DISCLAIMER.md).
 
 ## Summary
 
-Sloppad exposes one live runtime with exactly two user-facing types:
+Slopshell exposes one live runtime with exactly two user-facing types:
 **Dialogue** and **Meeting**.
 
-- **Dialogue** is direct back-and-forth with Sloppad, including the post-TTS
+- **Dialogue** is direct back-and-forth with Slopshell, including the post-TTS
   follow-up listen window.
 - **Meeting** is ambient capture for in-room or online meetings, including
   transcript, summary, references, and follow-up item generation.
@@ -19,7 +19,7 @@ Sloppad exposes one live runtime with exactly two user-facing types:
 - **Two visible modes only**: the UI exposes `Dialogue` and `Meeting`, not
   overlapping assistant sub-products.
 - **Botless**: no assistant attendee joins Zoom/Meet/Teams.
-- **Local-first**: Sloppad owns capture, buffering, state, and UI locally.
+- **Local-first**: Slopshell owns capture, buffering, state, and UI locally.
 - **Whisper-backed**: default STT path remains the `voxtype` Whisper sidecar.
 - **Manual control**: users explicitly enter and leave live mode.
 
@@ -48,7 +48,7 @@ surface.
 
 - no private repo is required
 - no extension/plugin product architecture is required
-- new product behavior belongs in the public `krystophny/sloppad` repo
+- new product behavior belongs in the public `krystophny/slopshell` repo
 - live voice behavior is governed by one shared live-session runtime
 - product modularity should come from normal `internal/` package boundaries
 
@@ -62,7 +62,7 @@ The planned direction is informed by current commercial and open systems:
 - OpenAI Realtime / LiveKit / Pipecat: low-latency turn handling, interruption, and streaming state
 - Tolan: voice-first assistant presence with a clear persona and simple visual state
 
-Sloppad should borrow the best parts of those systems without copying their
+Slopshell should borrow the best parts of those systems without copying their
 cloud-recorder assumptions. The target is one public, Whisper-backed live
 runtime for direct dialogue, meetings, online calls, and ambient workday help.
 

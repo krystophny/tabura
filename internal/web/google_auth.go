@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/krystophny/sloppad/internal/googleauth"
+	"github.com/krystophny/slopshell/internal/googleauth"
 )
 
 func (a *App) handleGoogleAuthStart(w http.ResponseWriter, r *http.Request) {

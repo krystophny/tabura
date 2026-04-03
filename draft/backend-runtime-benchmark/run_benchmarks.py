@@ -133,7 +133,7 @@ def bench_rust():
         ["cargo", "build", "--release", "--manifest-path", "rust_bench/Cargo.toml"],
         cwd=ROOT,
     )
-    bin_path = ROOT / "rust_bench" / "target" / "release" / "sloppad_runtime_bench"
+    bin_path = ROOT / "rust_bench" / "target" / "release" / "slopshell_runtime_bench"
     _, out = run_command([str(bin_path)], cwd=ROOT)
     return {"runtime": "rust", "compile_seconds": compile_s, "benchmark": json.loads(out)}
 
@@ -265,7 +265,7 @@ def make_report(payload):
     lines.append("## Porting Decision Notes")
     lines.append("")
     lines.append("- Favor runtime choices that improve p95 latency and throughput without unacceptable build-time and maintenance cost.")
-    lines.append("- Keep in mind this is microbenchmark data; validate with end-to-end Sloppad workloads before a full migration.")
+    lines.append("- Keep in mind this is microbenchmark data; validate with end-to-end Slopshell workloads before a full migration.")
     lines.append("")
 
     ranking = sorted(rows, key=lambda r: float(r["benchmark"]["throughput_ops_per_sec"]), reverse=True)

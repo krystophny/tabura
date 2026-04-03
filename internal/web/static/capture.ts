@@ -15,8 +15,8 @@
     return;
   }
 
-  const testEnv = window.__sloppadCaptureTestEnv || {};
-  const microphonePermissionCacheKey = 'sloppad.capture.microphone_permission';
+  const testEnv = window.__slopshellCaptureTestEnv || {};
+  const microphonePermissionCacheKey = 'slopshell.capture.microphone_permission';
   const maxVoiceRetries = 3;
 
   const state = {
@@ -638,7 +638,7 @@
   updateSaveState();
   applyCaptureAvailability();
   setCaptureState('idle');
-  window.__sloppadCapture = {
+  window.__slopshellCapture = {
     deriveItemTitle,
     voiceMemoErrorMessage,
     resetCapture,

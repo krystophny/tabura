@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/krystophny/sloppad/internal/email"
-	"github.com/krystophny/sloppad/internal/store"
+	"github.com/krystophny/slopshell/internal/email"
+	"github.com/krystophny/slopshell/internal/store"
 )
 
 const artifactKindEmailDraft store.ArtifactKind = "email_draft"
@@ -822,7 +822,7 @@ func decodeMailDraftMeta(raw *string) (mailDraftArtifactMeta, error) {
 
 func newMailDraftPath(root string) (string, string) {
 	name := fmt.Sprintf("draft-%d.md", time.Now().UnixNano())
-	rel := filepath.ToSlash(filepath.Join(".sloppad", "artifacts", "mail", name))
+	rel := filepath.ToSlash(filepath.Join(".slopshell", "artifacts", "mail", name))
 	return rel, filepath.Join(root, rel)
 }
 

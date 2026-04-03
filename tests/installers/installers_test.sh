@@ -24,7 +24,7 @@ SH
 
 run_llama_helper_checks() {
     local tmpdir fakebin explicit_bin
-    tmpdir="$(mktemp -d -t sloppad-llama-helper-test-XXXXXX)"
+    tmpdir="$(mktemp -d -t slopshell-llama-helper-test-XXXXXX)"
     trap "rm -rf '$tmpdir'" RETURN
 
     fakebin="${tmpdir}/fakebin"
@@ -55,7 +55,7 @@ SH
         LLAMA_SERVER_BIN="${explicit_bin}" \
         bash -c '
             source "'"${ROOT_DIR}"'/scripts/lib/llama.sh"
-            sloppad_find_llama_server
+            slopshell_find_llama_server
         '
     )"
     if [ "${resolved}" != "${explicit_bin}" ]; then
@@ -66,7 +66,7 @@ SH
 
 run_install_sh_dry_run() {
     local tmpdir out_file fakebin home_dir
-    tmpdir="$(mktemp -d -t sloppad-installer-test-XXXXXX)"
+    tmpdir="$(mktemp -d -t slopshell-installer-test-XXXXXX)"
     trap "rm -rf '$tmpdir'" RETURN
 
     out_file="${tmpdir}/install.log"
@@ -102,9 +102,9 @@ SH
 
     PATH="${fakebin}:/usr/bin:/bin" \
     HOME="$home_dir" \
-    SLOPPAD_ASSUME_YES=1 \
-    SLOPPAD_INSTALL_SKIP_BROWSER=1 \
-    SLOPPAD_INSTALL_SKIP_STT=1 \
+    SLOPSHELL_ASSUME_YES=1 \
+    SLOPSHELL_INSTALL_SKIP_BROWSER=1 \
+    SLOPSHELL_INSTALL_SKIP_STT=1 \
     "${ROOT_DIR}/scripts/install.sh" --dry-run --version v0.0.0-test >"$out_file" 2>&1
 
     assert_contains "$out_file" "Install complete"
@@ -121,7 +121,7 @@ SH
 
     PATH="${fakebin}:/usr/bin:/bin" \
     HOME="$home_dir" \
-    SLOPPAD_ASSUME_YES=1 \
+    SLOPSHELL_ASSUME_YES=1 \
     "${ROOT_DIR}/scripts/install.sh" --dry-run --uninstall >>"$out_file" 2>&1
 
     assert_contains "$out_file" "uninstall complete"
@@ -135,8 +135,8 @@ run_install_ps1_static_checks() {
     assert_contains "$ps1" "Speech-to-text requires voxtype (Linux/macOS only)"
     assert_contains "$ps1" "schtasks /Create"
     assert_contains "$ps1" "piper-tts"
-    assert_contains "$ps1" "sloppad-llm"
-    assert_contains "$ps1" "sloppad-codex-llm"
+    assert_contains "$ps1" "slopshell-llm"
+    assert_contains "$ps1" "slopshell-codex-llm"
     assert_contains "$ps1" "Setup-LocalLlm"
     assert_contains "$ps1" "gpt-oss-120b-default"
     assert_contains "$ps1" "Print-WindowsSTTNotice"
@@ -144,23 +144,23 @@ run_install_ps1_static_checks() {
 
 run_local_llm_profile_static_checks() {
     assert_contains "${ROOT_DIR}/scripts/setup-local-llm.sh" 'VLLM_MLX_MODEL_REPO="$(default_if_empty "$VLLM_MLX_MODEL_REPO" "mlx-community/Qwen3.5-9B-4bit")"'
-    assert_contains "${ROOT_DIR}/scripts/setup-local-llm.sh" 'SLOPPAD_VLLM_MLX_SOURCE_DIR'
+    assert_contains "${ROOT_DIR}/scripts/setup-local-llm.sh" 'SLOPSHELL_VLLM_MLX_SOURCE_DIR'
     assert_contains "${ROOT_DIR}/scripts/setup-local-llm.sh" 'git+ssh://git@github.com/computor-org/vllm-mlx.git'
     assert_contains "${ROOT_DIR}/scripts/setup-local-llm.sh" 'pip uninstall -y vllm-mlx'
     assert_contains "${ROOT_DIR}/scripts/setup-local-llm.sh" 'pip install --upgrade --force-reinstall --no-cache-dir --no-deps "$pip_target"'
     assert_contains "${ROOT_DIR}/scripts/setup-local-llm.sh" '--served-model-name "$ALIAS"'
     assert_contains "${ROOT_DIR}/scripts/setup-local-llm.sh" 'args+=(--continuous-batching)'
-    assert_contains "${ROOT_DIR}/scripts/install-sloppad-user-units.sh" 'sync_macos_vllm_source_checkout'
+    assert_contains "${ROOT_DIR}/scripts/install-slopshell-user-units.sh" 'sync_macos_vllm_source_checkout'
     assert_contains "${ROOT_DIR}/scripts/install.sh" 'sync_vllm_mlx_source_checkout'
-    assert_contains "${ROOT_DIR}/deploy/launchd/io.sloppad.llm.plist" "SLOPPAD_MLX_MODEL_REPO"
-    assert_contains "${ROOT_DIR}/deploy/launchd/io.sloppad.llm.plist" "mlx-community/Qwen3.5-9B-4bit"
-    assert_contains "${ROOT_DIR}/deploy/launchd/io.sloppad.llm.plist" "SLOPPAD_VLLM_MLX_SOURCE_DIR"
-    assert_contains "${ROOT_DIR}/deploy/launchd/io.sloppad.web.plist" "<string>qwen3.5-9b</string>"
+    assert_contains "${ROOT_DIR}/deploy/launchd/io.slopshell.llm.plist" "SLOPSHELL_MLX_MODEL_REPO"
+    assert_contains "${ROOT_DIR}/deploy/launchd/io.slopshell.llm.plist" "mlx-community/Qwen3.5-9B-4bit"
+    assert_contains "${ROOT_DIR}/deploy/launchd/io.slopshell.llm.plist" "SLOPSHELL_VLLM_MLX_SOURCE_DIR"
+    assert_contains "${ROOT_DIR}/deploy/launchd/io.slopshell.web.plist" "<string>qwen3.5-9b</string>"
 }
 
 run_setup_codex_mcp_checks() {
     local tmpdir config_path
-    tmpdir="$(mktemp -d -t sloppad-codex-config-test-XXXXXX)"
+    tmpdir="$(mktemp -d -t slopshell-codex-config-test-XXXXXX)"
     trap "rm -rf '$tmpdir'" RETURN
 
     config_path="${tmpdir}/config.toml"
@@ -169,7 +169,7 @@ run_setup_codex_mcp_checks() {
     CODEX_CONFIG_PATH="$config_path" \
     "${ROOT_DIR}/scripts/setup-codex-mcp.sh" "http://127.0.0.1:9420/mcp" >/dev/null
 
-    assert_contains "$config_path" "[mcp_servers.sloppad]"
+    assert_contains "$config_path" "[mcp_servers.slopshell]"
     assert_contains "$config_path" "url = \"http://127.0.0.1:9420/mcp\""
     assert_contains "$config_path" "[model_providers.local]"
     if [ "$(uname -s)" = "Darwin" ]; then
@@ -203,9 +203,9 @@ run_hotword_bootstrap_checks() {
     assert_contains "$script" 'keyword.onnx'
     assert_contains "$script" 'Computer V2'
     assert_contains "${ROOT_DIR}/scripts/install.sh" 'install_hotword_assets'
-    assert_contains "${ROOT_DIR}/scripts/install-sloppad-user-units.sh" 'install_hotword_assets'
-    assert_contains "${ROOT_DIR}/scripts/install.sh" 'load_launchd_service "${agent_dir}/io.sloppad.codex-app-server.plist"'
-    assert_contains "${ROOT_DIR}/scripts/install-sloppad-user-units.sh" 'local agents=(codex-app-server piper-tts web)'
+    assert_contains "${ROOT_DIR}/scripts/install-slopshell-user-units.sh" 'install_hotword_assets'
+    assert_contains "${ROOT_DIR}/scripts/install.sh" 'load_launchd_service "${agent_dir}/io.slopshell.codex-app-server.plist"'
+    assert_contains "${ROOT_DIR}/scripts/install-slopshell-user-units.sh" 'local agents=(codex-app-server piper-tts web)'
 }
 
 main() {

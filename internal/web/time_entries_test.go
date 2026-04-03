@@ -7,13 +7,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/krystophny/sloppad/internal/store"
+	"github.com/krystophny/slopshell/internal/store"
 )
 
 func TestTimeEntriesTrackProjectWorkspaceAndSphereSwitches(t *testing.T) {
 	app := newAuthedTestApp(t)
 
-	project, err := app.store.CreateEnrichedWorkspace("Sloppad", "sloppad", filepath.Join(t.TempDir(), "project"), "managed", "", "", false)
+	project, err := app.store.CreateEnrichedWorkspace("Slopshell", "slopshell", filepath.Join(t.TempDir(), "project"), "managed", "", "", false)
 	if err != nil {
 		t.Fatalf("CreateProject() error: %v", err)
 	}
@@ -71,7 +71,7 @@ func TestTimeEntriesTrackProjectWorkspaceAndSphereSwitches(t *testing.T) {
 func TestTimeEntrySummaryCSVAndManualStampAPI(t *testing.T) {
 	app := newAuthedTestApp(t)
 
-	project, err := app.store.CreateEnrichedWorkspace("Sloppad", "sloppad", filepath.Join(t.TempDir(), "project"), "managed", "", "", false)
+	project, err := app.store.CreateEnrichedWorkspace("Slopshell", "slopshell", filepath.Join(t.TempDir(), "project"), "managed", "", "", false)
 	if err != nil {
 		t.Fatalf("CreateEnrichedWorkspace() error: %v", err)
 	}

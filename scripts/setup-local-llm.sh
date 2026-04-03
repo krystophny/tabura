@@ -22,22 +22,22 @@ default_if_empty() {
 }
 
 build_vllm_mlx_install_spec() {
-  if [ -n "${SLOPPAD_VLLM_MLX_SOURCE_DIR:-}" ]; then
-    local source_dir="${SLOPPAD_VLLM_MLX_SOURCE_DIR}"
+  if [ -n "${SLOPSHELL_VLLM_MLX_SOURCE_DIR:-}" ]; then
+    local source_dir="${SLOPSHELL_VLLM_MLX_SOURCE_DIR}"
     local source_head=""
     if [ ! -d "$source_dir" ] || ! source_head="$(git -C "$source_dir" rev-parse HEAD 2>/dev/null)"; then
-      echo "SLOPPAD_VLLM_MLX_SOURCE_DIR is not a valid git checkout: ${source_dir}" >&2
+      echo "SLOPSHELL_VLLM_MLX_SOURCE_DIR is not a valid git checkout: ${source_dir}" >&2
       exit 1
     fi
     printf '%s@%s' "$source_dir" "$source_head"
     return
   fi
-  if [ -n "${SLOPPAD_VLLM_MLX_INSTALL_SPEC:-}" ]; then
-    printf '%s' "$SLOPPAD_VLLM_MLX_INSTALL_SPEC"
+  if [ -n "${SLOPSHELL_VLLM_MLX_INSTALL_SPEC:-}" ]; then
+    printf '%s' "$SLOPSHELL_VLLM_MLX_INSTALL_SPEC"
     return
   fi
-  local git_url="${SLOPPAD_VLLM_MLX_GIT_URL:-git+ssh://git@github.com/computor-org/vllm-mlx.git}"
-  local git_ref="${SLOPPAD_VLLM_MLX_GIT_REF:-19d41cd093fcb0f5cb474d049147f3e119818214}"
+  local git_url="${SLOPSHELL_VLLM_MLX_GIT_URL:-git+ssh://git@github.com/computor-org/vllm-mlx.git}"
+  local git_ref="${SLOPSHELL_VLLM_MLX_GIT_REF:-19d41cd093fcb0f5cb474d049147f3e119818214}"
   if [ -n "$git_ref" ]; then
     printf '%s@%s' "$git_url" "$git_ref"
     return
@@ -46,8 +46,8 @@ build_vllm_mlx_install_spec() {
 }
 
 build_vllm_mlx_pip_target() {
-  if [ -n "${SLOPPAD_VLLM_MLX_SOURCE_DIR:-}" ]; then
-    printf '%s' "${SLOPPAD_VLLM_MLX_SOURCE_DIR}"
+  if [ -n "${SLOPSHELL_VLLM_MLX_SOURCE_DIR:-}" ]; then
+    printf '%s' "${SLOPSHELL_VLLM_MLX_SOURCE_DIR}"
     return
   fi
   printf '%s' "$1"
@@ -57,8 +57,8 @@ ensure_vllm_mlx_install() {
   local install_spec="$1"
   local pip_target="$2"
   local python_bin="$3"
-  local marker_path="${VENV_DIR}/.sloppad-vllm-mlx-install-spec"
-  if [ -x "${VENV_DIR}/bin/python" ] && ! sloppad_python_meets_min_version "${VENV_DIR}/bin/python" 3 10; then
+  local marker_path="${VENV_DIR}/.slopshell-vllm-mlx-install-spec"
+  if [ -x "${VENV_DIR}/bin/python" ] && ! slopshell_python_meets_min_version "${VENV_DIR}/bin/python" 3 10; then
     rm -rf "$VENV_DIR"
   fi
   if [ ! -x "${VENV_DIR}/bin/python" ]; then
@@ -73,31 +73,31 @@ ensure_vllm_mlx_install() {
   fi
 }
 
-PROFILE_PRESET="${SLOPPAD_LLM_PRESET:-}"
-MODEL_DIR="${SLOPPAD_LLM_MODEL_DIR:-$HOME/.local/share/sloppad-llm/models}"
-MODEL_FILE="${SLOPPAD_LLM_MODEL_FILE:-}"
-MODEL_URL="${SLOPPAD_LLM_MODEL_URL:-}"
-MODEL_PRESET="${SLOPPAD_LLM_MODEL_PRESET:-}"
-HOST="${SLOPPAD_LLM_HOST:-}"
-PORT="${SLOPPAD_LLM_PORT:-}"
-THREADS="${SLOPPAD_LLM_THREADS:-}"
-CTX_SIZE="${SLOPPAD_LLM_CTX:-}"
-NGL="${SLOPPAD_LLM_NGL:-}"
-PARALLEL="${SLOPPAD_LLM_PARALLEL:-}"
-ALIAS="${SLOPPAD_LLM_ALIAS:-}"
-REASONING_BUDGET="${SLOPPAD_LLM_REASONING_BUDGET:-}"
-VENV_DIR="${SLOPPAD_LLM_VENV_DIR:-}"
-VLLM_MLX_MODEL_REPO="${SLOPPAD_MLX_MODEL_REPO:-}"
-VLLM_MLX_ENABLE_BATCHING="${SLOPPAD_VLLM_MLX_ENABLE_BATCHING:-}"
-VLLM_MLX_USE_PAGED_CACHE="${SLOPPAD_VLLM_MLX_USE_PAGED_CACHE:-}"
-VLLM_MLX_CACHE_MEMORY_PERCENT="${SLOPPAD_VLLM_MLX_CACHE_MEMORY_PERCENT:-}"
-VLLM_MLX_REASONING_PARSER="${SLOPPAD_VLLM_MLX_REASONING_PARSER:-}"
-VLLM_MLX_CHUNKED_PREFILL_TOKENS="${SLOPPAD_VLLM_MLX_CHUNKED_PREFILL_TOKENS:-${SLOPPAD_VLLM_MLX_PREFILL_STEP_SIZE:-}}"
-VLLM_MLX_MAX_TOKENS="${SLOPPAD_VLLM_MLX_MAX_TOKENS:-}"
+PROFILE_PRESET="${SLOPSHELL_LLM_PRESET:-}"
+MODEL_DIR="${SLOPSHELL_LLM_MODEL_DIR:-$HOME/.local/share/slopshell-llm/models}"
+MODEL_FILE="${SLOPSHELL_LLM_MODEL_FILE:-}"
+MODEL_URL="${SLOPSHELL_LLM_MODEL_URL:-}"
+MODEL_PRESET="${SLOPSHELL_LLM_MODEL_PRESET:-}"
+HOST="${SLOPSHELL_LLM_HOST:-}"
+PORT="${SLOPSHELL_LLM_PORT:-}"
+THREADS="${SLOPSHELL_LLM_THREADS:-}"
+CTX_SIZE="${SLOPSHELL_LLM_CTX:-}"
+NGL="${SLOPSHELL_LLM_NGL:-}"
+PARALLEL="${SLOPSHELL_LLM_PARALLEL:-}"
+ALIAS="${SLOPSHELL_LLM_ALIAS:-}"
+REASONING_BUDGET="${SLOPSHELL_LLM_REASONING_BUDGET:-}"
+VENV_DIR="${SLOPSHELL_LLM_VENV_DIR:-}"
+VLLM_MLX_MODEL_REPO="${SLOPSHELL_MLX_MODEL_REPO:-}"
+VLLM_MLX_ENABLE_BATCHING="${SLOPSHELL_VLLM_MLX_ENABLE_BATCHING:-}"
+VLLM_MLX_USE_PAGED_CACHE="${SLOPSHELL_VLLM_MLX_USE_PAGED_CACHE:-}"
+VLLM_MLX_CACHE_MEMORY_PERCENT="${SLOPSHELL_VLLM_MLX_CACHE_MEMORY_PERCENT:-}"
+VLLM_MLX_REASONING_PARSER="${SLOPSHELL_VLLM_MLX_REASONING_PARSER:-}"
+VLLM_MLX_CHUNKED_PREFILL_TOKENS="${SLOPSHELL_VLLM_MLX_CHUNKED_PREFILL_TOKENS:-${SLOPSHELL_VLLM_MLX_PREFILL_STEP_SIZE:-}}"
+VLLM_MLX_MAX_TOKENS="${SLOPSHELL_VLLM_MLX_MAX_TOKENS:-}"
 
 if [ "$PLATFORM" = "Darwin" ]; then
-  PYTHON_BIN="$(sloppad_find_python3 3 10 || true)"
-  VENV_DIR="$(default_if_empty "$VENV_DIR" "$HOME/Library/Application Support/sloppad/llm/venv")"
+  PYTHON_BIN="$(slopshell_find_python3 3 10 || true)"
+  VENV_DIR="$(default_if_empty "$VENV_DIR" "$HOME/Library/Application Support/slopshell/llm/venv")"
   case "$PROFILE_PRESET" in
     "" | "fast-qwen9b" | "codex-gpt-oss-120b")
       VLLM_MLX_MODEL_REPO="$(default_if_empty "$VLLM_MLX_MODEL_REPO" "mlx-community/Qwen3.5-9B-4bit")"
@@ -112,7 +112,7 @@ if [ "$PLATFORM" = "Darwin" ]; then
       VLLM_MLX_MAX_TOKENS="$(default_if_empty "$VLLM_MLX_MAX_TOKENS" "32768")"
       ;;
     *)
-      echo "Unknown SLOPPAD_LLM_PRESET on macOS: ${PROFILE_PRESET}" >&2
+      echo "Unknown SLOPSHELL_LLM_PRESET on macOS: ${PROFILE_PRESET}" >&2
       exit 1
       ;;
   esac
@@ -178,20 +178,20 @@ case "$PROFILE_PRESET" in
     REASONING_BUDGET="$(default_if_empty "$REASONING_BUDGET" "-1")"
     ;;
   *)
-    echo "Unknown SLOPPAD_LLM_PRESET: ${PROFILE_PRESET}" >&2
+    echo "Unknown SLOPSHELL_LLM_PRESET: ${PROFILE_PRESET}" >&2
     exit 1
     ;;
 esac
 
-SERVER_BIN="$(sloppad_find_llama_server)" || {
+SERVER_BIN="$(slopshell_find_llama_server)" || {
   echo "llama.cpp server binary not found or unusable." >&2
-  if [ -n "${SLOPPAD_LLAMA_LAST_ERROR:-}" ]; then
-    echo "Last error: ${SLOPPAD_LLAMA_LAST_ERROR}" >&2
+  if [ -n "${SLOPSHELL_LLAMA_LAST_ERROR:-}" ]; then
+    echo "Last error: ${SLOPSHELL_LLAMA_LAST_ERROR}" >&2
   fi
   echo "Install: brew install llama.cpp, or run devstral-infra/scripts/setup_llamacpp.sh" >&2
   exit 1
 }
-sloppad_llama_prepend_library_dirs "$SERVER_BIN"
+slopshell_llama_prepend_library_dirs "$SERVER_BIN"
 
 if curl -fsS --max-time 2 "http://${HOST}:${PORT}/health" >/dev/null 2>&1; then
   echo "llama-server already running at http://${HOST}:${PORT}; exiting"
@@ -225,11 +225,11 @@ if [ -n "$MODEL_PRESET" ]; then
   args=("--${MODEL_PRESET}" "${args[@]}")
 else
   [ -n "$MODEL_FILE" ] || {
-    echo "SLOPPAD_LLM_MODEL_FILE is required when SLOPPAD_LLM_MODEL_PRESET is unset" >&2
+    echo "SLOPSHELL_LLM_MODEL_FILE is required when SLOPSHELL_LLM_MODEL_PRESET is unset" >&2
     exit 1
   }
   [ -n "$MODEL_URL" ] || {
-    echo "SLOPPAD_LLM_MODEL_URL is required when SLOPPAD_LLM_MODEL_PRESET is unset" >&2
+    echo "SLOPSHELL_LLM_MODEL_URL is required when SLOPSHELL_LLM_MODEL_PRESET is unset" >&2
     exit 1
   }
   mkdir -p "$MODEL_DIR"

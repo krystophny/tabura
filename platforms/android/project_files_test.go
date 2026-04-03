@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestSloppadAndroidProjectIncludesExpectedFiles(t *testing.T) {
+func TestSlopshellAndroidProjectIncludesExpectedFiles(t *testing.T) {
 	projectRoot, err := filepath.Abs(".")
 	if err != nil {
 		t.Fatalf("Abs: %v", err)
@@ -18,24 +18,24 @@ func TestSloppadAndroidProjectIncludesExpectedFiles(t *testing.T) {
 		"gradle.properties",
 		filepath.Join("app", "build.gradle.kts"),
 		filepath.Join("app", "src", "main", "AndroidManifest.xml"),
-		filepath.Join("app", "src", "main", "kotlin", "com", "sloppad", "android", "MainActivity.kt"),
-		filepath.Join("app", "src", "main", "kotlin", "com", "sloppad", "android", "SloppadAppModel.kt"),
-		filepath.Join("app", "src", "main", "kotlin", "com", "sloppad", "android", "SloppadAudioCaptureService.kt"),
-		filepath.Join("app", "src", "main", "kotlin", "com", "sloppad", "android", "SloppadBooxDevice.kt"),
-		filepath.Join("app", "src", "main", "kotlin", "com", "sloppad", "android", "SloppadBooxInkSurfaceView.kt"),
-		filepath.Join("app", "src", "main", "kotlin", "com", "sloppad", "android", "SloppadCanvasTransport.kt"),
-		filepath.Join("app", "src", "main", "kotlin", "com", "sloppad", "android", "SloppadCanvasWebView.kt"),
-		filepath.Join("app", "src", "main", "kotlin", "com", "sloppad", "android", "SloppadChatTransport.kt"),
-		filepath.Join("app", "src", "main", "kotlin", "com", "sloppad", "android", "SloppadInkSurfaceView.kt"),
-		filepath.Join("app", "src", "main", "kotlin", "com", "sloppad", "android", "SloppadModels.kt"),
-		filepath.Join("app", "src", "main", "kotlin", "com", "sloppad", "android", "SloppadServerDiscovery.kt"),
+		filepath.Join("app", "src", "main", "kotlin", "com", "slopshell", "android", "MainActivity.kt"),
+		filepath.Join("app", "src", "main", "kotlin", "com", "slopshell", "android", "SlopshellAppModel.kt"),
+		filepath.Join("app", "src", "main", "kotlin", "com", "slopshell", "android", "SlopshellAudioCaptureService.kt"),
+		filepath.Join("app", "src", "main", "kotlin", "com", "slopshell", "android", "SlopshellBooxDevice.kt"),
+		filepath.Join("app", "src", "main", "kotlin", "com", "slopshell", "android", "SlopshellBooxInkSurfaceView.kt"),
+		filepath.Join("app", "src", "main", "kotlin", "com", "slopshell", "android", "SlopshellCanvasTransport.kt"),
+		filepath.Join("app", "src", "main", "kotlin", "com", "slopshell", "android", "SlopshellCanvasWebView.kt"),
+		filepath.Join("app", "src", "main", "kotlin", "com", "slopshell", "android", "SlopshellChatTransport.kt"),
+		filepath.Join("app", "src", "main", "kotlin", "com", "slopshell", "android", "SlopshellInkSurfaceView.kt"),
+		filepath.Join("app", "src", "main", "kotlin", "com", "slopshell", "android", "SlopshellModels.kt"),
+		filepath.Join("app", "src", "main", "kotlin", "com", "slopshell", "android", "SlopshellServerDiscovery.kt"),
 		filepath.Join("flow-contracts", "build.gradle.kts"),
 		filepath.Join("flow-contracts", "settings.gradle.kts"),
-		filepath.Join("flow-contracts", "src", "test", "kotlin", "com", "sloppad", "android", "flow", "FlowFixture.kt"),
-		filepath.Join("flow-contracts", "src", "test", "kotlin", "com", "sloppad", "android", "flow", "FlowRunner.kt"),
-		filepath.Join("flow-contracts", "src", "test", "kotlin", "com", "sloppad", "android", "flow", "FlowContractTest.kt"),
+		filepath.Join("flow-contracts", "src", "test", "kotlin", "com", "slopshell", "android", "flow", "FlowFixture.kt"),
+		filepath.Join("flow-contracts", "src", "test", "kotlin", "com", "slopshell", "android", "flow", "FlowRunner.kt"),
+		filepath.Join("flow-contracts", "src", "test", "kotlin", "com", "slopshell", "android", "flow", "FlowContractTest.kt"),
 		filepath.Join("flow-contracts", "src", "test", "resources", "flow-fixtures.json"),
-		filepath.Join("app", "src", "test", "kotlin", "com", "sloppad", "android", "SloppadDialogueModeTest.kt"),
+		filepath.Join("app", "src", "test", "kotlin", "com", "slopshell", "android", "SlopshellDialogueModeTest.kt"),
 		filepath.Join("app", "src", "main", "res", "values", "strings.xml"),
 		filepath.Join("app", "src", "main", "res", "values", "themes.xml"),
 	}
@@ -47,7 +47,7 @@ func TestSloppadAndroidProjectIncludesExpectedFiles(t *testing.T) {
 	}
 }
 
-func TestSloppadAndroidManifestDeclaresMobileCapabilities(t *testing.T) {
+func TestSlopshellAndroidManifestDeclaresMobileCapabilities(t *testing.T) {
 	projectRoot, err := filepath.Abs(".")
 	if err != nil {
 		t.Fatalf("Abs: %v", err)
@@ -63,7 +63,7 @@ func TestSloppadAndroidManifestDeclaresMobileCapabilities(t *testing.T) {
 		"android.permission.RECORD_AUDIO",
 		"android.permission.WAKE_LOCK",
 		"android:usesCleartextTraffic=\"true\"",
-		"android:name=\".SloppadAudioCaptureService\"",
+		"android:name=\".SlopshellAudioCaptureService\"",
 		"android:foregroundServiceType=\"microphone\"",
 	}
 	for _, snippet := range required {
@@ -73,7 +73,7 @@ func TestSloppadAndroidManifestDeclaresMobileCapabilities(t *testing.T) {
 	}
 }
 
-func TestSloppadAndroidBuildIncludesRealtimeInkStack(t *testing.T) {
+func TestSlopshellAndroidBuildIncludesRealtimeInkStack(t *testing.T) {
 	projectRoot, err := filepath.Abs(".")
 	if err != nil {
 		t.Fatalf("Abs: %v", err)
@@ -102,7 +102,7 @@ func TestSloppadAndroidBuildIncludesRealtimeInkStack(t *testing.T) {
 	}
 }
 
-func TestSloppadAndroidBuildIncludesBooxRepository(t *testing.T) {
+func TestSlopshellAndroidBuildIncludesBooxRepository(t *testing.T) {
 	projectRoot, err := filepath.Abs(".")
 	if err != nil {
 		t.Fatalf("Abs: %v", err)
@@ -117,7 +117,7 @@ func TestSloppadAndroidBuildIncludesBooxRepository(t *testing.T) {
 	}
 }
 
-func TestSloppadAndroidSourcesCoverThinClientResponsibilities(t *testing.T) {
+func TestSlopshellAndroidSourcesCoverThinClientResponsibilities(t *testing.T) {
 	projectRoot, err := filepath.Abs(".")
 	if err != nil {
 		t.Fatalf("Abs: %v", err)
@@ -127,39 +127,39 @@ func TestSloppadAndroidSourcesCoverThinClientResponsibilities(t *testing.T) {
 		snippets []string
 	}{
 		{
-			relative: filepath.Join("app", "src", "main", "kotlin", "com", "sloppad", "android", "MainActivity.kt"),
+			relative: filepath.Join("app", "src", "main", "kotlin", "com", "slopshell", "android", "MainActivity.kt"),
 			snippets: []string{"BlackScreenDialogueSurface", "FLAG_KEEP_SCREEN_ON", "Start Dialogue", "Exit Dialogue"},
 		},
 		{
-			relative: filepath.Join("app", "src", "main", "kotlin", "com", "sloppad", "android", "SloppadServerDiscovery.kt"),
-			snippets: []string{"NsdManager", "_sloppad._tcp."},
+			relative: filepath.Join("app", "src", "main", "kotlin", "com", "slopshell", "android", "SlopshellServerDiscovery.kt"),
+			snippets: []string{"NsdManager", "_slopshell._tcp."},
 		},
 		{
-			relative: filepath.Join("app", "src", "main", "kotlin", "com", "sloppad", "android", "SloppadChatTransport.kt"),
+			relative: filepath.Join("app", "src", "main", "kotlin", "com", "slopshell", "android", "SlopshellChatTransport.kt"),
 			snippets: []string{"WebSocket", "chat/$sessionId"},
 		},
 		{
-			relative: filepath.Join("app", "src", "main", "kotlin", "com", "sloppad", "android", "SloppadCanvasTransport.kt"),
+			relative: filepath.Join("app", "src", "main", "kotlin", "com", "slopshell", "android", "SlopshellCanvasTransport.kt"),
 			snippets: []string{"canvas/$sessionId", "snapshot"},
 		},
 		{
-			relative: filepath.Join("app", "src", "main", "kotlin", "com", "sloppad", "android", "SloppadAudioCaptureService.kt"),
+			relative: filepath.Join("app", "src", "main", "kotlin", "com", "slopshell", "android", "SlopshellAudioCaptureService.kt"),
 			snippets: []string{"AudioRecord", "startForeground", "VOICE_RECOGNITION"},
 		},
 		{
-			relative: filepath.Join("app", "src", "main", "kotlin", "com", "sloppad", "android", "SloppadInkSurfaceView.kt"),
-			snippets: []string{"InProgressStrokesView", "MotionEventPredictor", "SloppadInkStroke"},
+			relative: filepath.Join("app", "src", "main", "kotlin", "com", "slopshell", "android", "SlopshellInkSurfaceView.kt"),
+			snippets: []string{"InProgressStrokesView", "MotionEventPredictor", "SlopshellInkStroke"},
 		},
 		{
-			relative: filepath.Join("app", "src", "main", "kotlin", "com", "sloppad", "android", "SloppadModels.kt"),
-			snippets: []string{"ink_stroke", "audio_pcm", "SloppadDialogueModePresentation", "Tap to stop recording"},
+			relative: filepath.Join("app", "src", "main", "kotlin", "com", "slopshell", "android", "SlopshellModels.kt"),
+			snippets: []string{"ink_stroke", "audio_pcm", "SlopshellDialogueModePresentation", "Tap to stop recording"},
 		},
 		{
-			relative: filepath.Join("app", "src", "main", "kotlin", "com", "sloppad", "android", "SloppadCanvasWebView.kt"),
+			relative: filepath.Join("app", "src", "main", "kotlin", "com", "slopshell", "android", "SlopshellCanvasWebView.kt"),
 			snippets: []string{"WebView", "loadDataWithBaseURL", "body.eink-display", "scroll-behavior: auto !important"},
 		},
 		{
-			relative: filepath.Join("app", "src", "main", "kotlin", "com", "sloppad", "android", "SloppadBooxDevice.kt"),
+			relative: filepath.Join("app", "src", "main", "kotlin", "com", "slopshell", "android", "SlopshellBooxDevice.kt"),
 			snippets: []string{
 				"Build.MANUFACTURER.lowercase() == \"onyx\"",
 				"setViewDefaultUpdateMode",
@@ -168,7 +168,7 @@ func TestSloppadAndroidSourcesCoverThinClientResponsibilities(t *testing.T) {
 			},
 		},
 		{
-			relative: filepath.Join("app", "src", "main", "kotlin", "com", "sloppad", "android", "SloppadBooxInkSurfaceView.kt"),
+			relative: filepath.Join("app", "src", "main", "kotlin", "com", "slopshell", "android", "SlopshellBooxInkSurfaceView.kt"),
 			snippets: []string{
 				"TouchHelper.create",
 				"setRawInputReaderEnable(true)",
@@ -176,7 +176,7 @@ func TestSloppadAndroidSourcesCoverThinClientResponsibilities(t *testing.T) {
 				"setRawDrawingEnabled(true)",
 				"closeRawDrawing",
 				"onRawDrawingTouchPointListReceived",
-				"SloppadInkStroke",
+				"SlopshellInkStroke",
 			},
 		},
 	}

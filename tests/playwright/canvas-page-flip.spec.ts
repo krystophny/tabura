@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 async function waitReady(page: Page) {
   await page.goto('/tests/playwright/harness.html');
   await page.waitForFunction(() => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     if (typeof app?.getState !== 'function') return false;
     const s = app.getState();
     const wsOpen = (window as any).WebSocket.OPEN;
@@ -13,7 +13,7 @@ async function waitReady(page: Page) {
 
 async function injectCanvasEvent(page: Page, payload: Record<string, unknown>) {
   await page.evaluate((eventPayload) => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     const canvasWs = app?.getState?.().canvasWs;
     if (!canvasWs || typeof canvasWs.injectEvent !== 'function') {
       throw new Error('canvas websocket unavailable');
@@ -24,7 +24,7 @@ async function injectCanvasEvent(page: Page, payload: Record<string, unknown>) {
 
 async function injectChatEvent(page: Page, payload: Record<string, unknown>) {
   await page.evaluate((eventPayload) => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     const sessionId = String(app?.getState?.().chatSessionId || '');
     const sessions = (window as any).__mockWsSessions || [];
     const chatWs = sessions.find((ws: any) => typeof ws.url === 'string'
@@ -147,7 +147,7 @@ test.describe('canvas page flipping', () => {
     await injectCanvasEvent(page, {
       kind: 'text_artifact',
       event_id: 'evt-pr-pages',
-      title: '.sloppad/artifacts/pr/pr-19.diff',
+      title: '.slopshell/artifacts/pr/pr-19.diff',
       text: twoFileDiff(),
     });
 
@@ -198,7 +198,7 @@ test.describe('canvas page flipping', () => {
     await injectCanvasEvent(page, {
       kind: 'text_artifact',
       event_id: 'evt-pr-artifact-action',
-      title: '.sloppad/artifacts/pr/pr-23.diff',
+      title: '.slopshell/artifacts/pr/pr-23.diff',
       text: twoFileDiff(),
     });
 

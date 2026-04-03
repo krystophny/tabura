@@ -6,7 +6,7 @@ import {
   setLiveMode,
   switchToWorkspace,
   waitForCircleControls,
-} from './sloppad-circle-helpers';
+} from './slopshell-circle-helpers';
 
 type HarnessLogEntry = { type: string; action?: string; text?: string; [key: string]: unknown };
 
@@ -20,7 +20,7 @@ async function clearLog(page: Page) {
 
 async function waitWsReady(page: Page) {
   await page.waitForFunction(() => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     if (typeof app?.getState !== 'function') return false;
     const s = app.getState();
     return s.chatWs && s.chatWs.readyState === (window as any).WebSocket.OPEN;
@@ -89,7 +89,7 @@ async function injectCanvasModuleRef(page: Page) {
 
 async function injectChatEvent(page: Page, payload: Record<string, unknown>) {
   await page.evaluate((p) => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     const activeChatWs = app?.getState?.().chatWs;
     if (activeChatWs && typeof activeChatWs.injectEvent === 'function') {
       activeChatWs.injectEvent(p);
@@ -113,7 +113,7 @@ async function injectCanvasEvent(page: Page, payload: Record<string, unknown>) {
 async function setInteractionTool(page: Page, tool: 'pointer' | 'highlight' | 'ink' | 'text_note' | 'prompt') {
   await page.evaluate((mode) => {
     (window as any).__setRuntimeState?.({ tool: mode });
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     if (app?.getState) {
       const interaction = app.getState().interaction;
       interaction.tool = mode;
@@ -138,7 +138,7 @@ async function waitForLogEntry(page: Page, type: string, action?: string) {
 
 async function setVoiceOrigin(page: Page) {
   await page.evaluate(() => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     if (app?.getState) app.getState().lastInputOrigin = 'voice';
     const uiMod = (window as any).__uiModule;
     if (uiMod?.getUiState) {
@@ -160,7 +160,7 @@ async function renderTestArtifact(page: Page, text = 'Line one\nLine two\nLine t
     });
     const ct = document.getElementById('canvas-text');
     if (ct) { ct.style.display = ''; ct.classList.add('is-active'); }
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     if (app?.getState) app.getState().hasArtifact = true;
   }, text);
 }
@@ -214,7 +214,7 @@ async function renderPdfArtifactMock(page: Page) {
     surface.appendChild(pagesHost);
     pane.appendChild(surface);
 
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     const state = app?.getState?.();
     if (state) {
       state.currentCanvasArtifact = {
@@ -225,7 +225,7 @@ async function renderPdfArtifactMock(page: Page) {
       };
       state.hasArtifact = true;
     }
-    document.dispatchEvent(new CustomEvent('sloppad:canvas-rendered', {
+    document.dispatchEvent(new CustomEvent('slopshell:canvas-rendered', {
       detail: {
         kind: 'pdf_artifact',
         title: 'test.pdf',
@@ -301,18 +301,18 @@ test.describe('runtime refresh', () => {
     });
 
     await expect.poll(async () => {
-      return page.evaluate(() => (window as any)._sloppadApp?.getState?.().activeWorkspaceId || '');
+      return page.evaluate(() => (window as any)._slopshellApp?.getState?.().activeWorkspaceId || '');
     }, { timeout: 5_000 }).toBe('test');
 
     await page.evaluate(() => {
       (window as any).__setRuntimeState({ boot_id: 'boot-2' });
     });
 
-    await page.waitForURL(/__sloppad_reload=/, { timeout: 5_000 });
+    await page.waitForURL(/__slopshell_reload=/, { timeout: 5_000 });
     await waitWsReady(page);
 
     await expect.poll(async () => {
-      return page.evaluate(() => (window as any)._sloppadApp?.getState?.().activeWorkspaceId || '');
+      return page.evaluate(() => (window as any)._slopshellApp?.getState?.().activeWorkspaceId || '');
     }, { timeout: 5_000 }).toBe('test');
     await expect(page.locator('#status-label')).toHaveText('Bug fix applied.');
 
@@ -359,7 +359,7 @@ test.describe('tabula rasa button', () => {
     expect(topClasses).not.toContain('edge-active');
 
     // hasArtifact should be false
-    const hasArtifact = await page.evaluate(() => (window as any)._sloppadApp?.getState?.().hasArtifact);
+    const hasArtifact = await page.evaluate(() => (window as any)._slopshellApp?.getState?.().hasArtifact);
     expect(hasArtifact).toBe(false);
   });
 
@@ -375,7 +375,7 @@ test.describe('tabula rasa button', () => {
       });
       const ci = document.getElementById('canvas-image');
       if (ci) { ci.style.display = ''; ci.classList.add('is-active'); }
-      (window as any)._sloppadApp.getState().hasArtifact = true;
+      (window as any)._slopshellApp.getState().hasArtifact = true;
     });
     await expect(page.locator('#canvas-image')).toBeVisible();
 
@@ -388,17 +388,17 @@ test.describe('tabula rasa button', () => {
   });
 });
 
-test.describe('Sloppad Circle', () => {
+test.describe('Slopshell Circle', () => {
   test.beforeEach(async ({ page }) => {
     await waitReady(page);
   });
 
   test('renders session and tool controls outside the top panel', async ({ page }) => {
-    await expect(page.locator('#sloppad-circle-dot')).toBeVisible();
+    await expect(page.locator('#slopshell-circle-dot')).toBeVisible();
     await waitForCircleControls(page);
 
     const snapshot = await page.evaluate(() => {
-      const circleButtons = Array.from(document.querySelectorAll('#sloppad-circle-menu .sloppad-circle-segment')).map((button) => ({
+      const circleButtons = Array.from(document.querySelectorAll('#slopshell-circle-menu .slopshell-circle-segment')).map((button) => ({
         segment: button.getAttribute('data-segment'),
         kind: button.getAttribute('data-kind'),
         icon: button.getAttribute('data-icon'),
@@ -448,8 +448,8 @@ test.describe('Sloppad Circle', () => {
   test('top panel exposes bug reporting and corner placement without using circle text labels', async ({ page }) => {
     await page.locator('#edge-top-tap').click();
     await expect(page.locator('#bug-report-button')).toBeVisible();
-    await expect(page.locator('#sloppad-circle-corner-controls button')).toHaveCount(4);
-    await expect(page.locator('#sloppad-circle-corner-controls button[aria-pressed="true"]')).toHaveCount(1);
+    await expect(page.locator('#slopshell-circle-corner-controls button')).toHaveCount(4);
+    await expect(page.locator('#slopshell-circle-corner-controls button[aria-pressed="true"]')).toHaveCount(1);
     await expect(page.locator('#bug-report-button svg')).toHaveCount(1);
   });
 
@@ -460,9 +460,9 @@ test.describe('Sloppad Circle', () => {
 
     await expect(circleSegment(page, 'text_note')).toHaveAttribute('aria-pressed', 'true');
     await expect(circleSegment(page, 'pointer')).toHaveAttribute('aria-pressed', 'false');
-    await expect(page.locator('#sloppad-circle-dot')).toHaveAttribute('data-tool', 'text_note');
+    await expect(page.locator('#slopshell-circle-dot')).toHaveAttribute('data-tool', 'text_note');
 
-    const tool = await page.evaluate(() => (window as any)._sloppadApp?.getState?.().interaction.tool);
+    const tool = await page.evaluate(() => (window as any)._slopshellApp?.getState?.().interaction.tool);
     expect(tool).toBe('text_note');
   });
 
@@ -471,16 +471,16 @@ test.describe('Sloppad Circle', () => {
     await page.keyboard.press('i');
     await waitForLogEntry(page, 'api_fetch', 'runtime_preferences');
     await expect(circleSegment(page, 'ink')).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.locator('#sloppad-circle-dot')).toHaveAttribute('data-tool', 'ink');
+    await expect(page.locator('#slopshell-circle-dot')).toHaveAttribute('data-tool', 'ink');
   });
 
   test('circle collapses again when focus returns to the canvas', async ({ page }) => {
     await openCircle(page);
-    await expect(page.locator('#sloppad-circle')).toHaveAttribute('data-state', 'expanded');
+    await expect(page.locator('#slopshell-circle')).toHaveAttribute('data-state', 'expanded');
 
     await page.mouse.click(420, 320);
 
-    await expect(page.locator('#sloppad-circle')).toHaveAttribute('data-state', 'collapsed');
+    await expect(page.locator('#slopshell-circle')).toHaveAttribute('data-state', 'collapsed');
   });
 
   test('artifact kind picks the default tool for the common case', async ({ page }) => {
@@ -492,7 +492,7 @@ test.describe('Sloppad Circle', () => {
       meta: { artifact_kind: 'transcript' },
     });
     await expect(circleSegment(page, 'highlight')).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.locator('#sloppad-circle-dot')).toHaveAttribute('data-tool', 'highlight');
+    await expect(page.locator('#slopshell-circle-dot')).toHaveAttribute('data-tool', 'highlight');
 
     await injectCanvasEvent(page, {
       kind: 'text_artifact',
@@ -502,7 +502,7 @@ test.describe('Sloppad Circle', () => {
       meta: { artifact_kind: 'email_thread' },
     });
     await expect(circleSegment(page, 'text_note')).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.locator('#sloppad-circle-dot')).toHaveAttribute('data-tool', 'text_note');
+    await expect(page.locator('#slopshell-circle-dot')).toHaveAttribute('data-tool', 'text_note');
 
     await injectCanvasEvent(page, {
       kind: 'text_artifact',
@@ -512,7 +512,7 @@ test.describe('Sloppad Circle', () => {
       meta: { artifact_kind: 'markdown' },
     });
     const interaction = await page.evaluate(() => {
-      const state = (window as any)._sloppadApp?.getState?.();
+      const state = (window as any)._slopshellApp?.getState?.();
       return {
         tool: state?.interaction?.tool,
         surface: state?.interaction?.surface,
@@ -540,7 +540,7 @@ test.describe('Sloppad Circle', () => {
     ]);
 
     await expect(circleSegment(page, 'ink')).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.locator('#sloppad-circle-dot')).toHaveAttribute('data-tool', 'ink');
+    await expect(page.locator('#slopshell-circle-dot')).toHaveAttribute('data-tool', 'ink');
     await expect(page.locator('#ink-controls')).toBeVisible();
     const runtimeUpdates = (await getLog(page)).filter((entry) => entry.type === 'api_fetch' && entry.action === 'runtime_preferences');
     expect(runtimeUpdates).toHaveLength(0);
@@ -576,7 +576,7 @@ test.describe('Sloppad Circle', () => {
 
     await expect(page.locator('#canvas-text .canvas-user-highlight.is-persistent')).toHaveCount(1);
     const interaction = await page.evaluate(() => {
-      const state = (window as any)._sloppadApp?.getState?.();
+      const state = (window as any)._slopshellApp?.getState?.();
       return {
         conversation: state?.interaction?.conversation,
         hasLegacyArtifactEditFlag: Object.prototype.hasOwnProperty.call(state || {}, 'artifactEditMode'),
@@ -833,9 +833,9 @@ test.describe('Sloppad Circle', () => {
     await page.locator('#pr-file-list .pr-file-item').first().click();
 
     await expect(page.locator('#canvas-text')).toContainText('Need a response before tomorrow morning.');
-    await expect(page.locator('#sloppad-circle-dot')).toHaveAttribute('data-tool', 'text_note');
+    await expect(page.locator('#slopshell-circle-dot')).toHaveAttribute('data-tool', 'text_note');
     await expect.poll(async () => {
-      return page.evaluate(() => (window as any)._sloppadApp?.getState?.().interaction.surface);
+      return page.evaluate(() => (window as any)._slopshellApp?.getState?.().interaction.surface);
     }).toBe('annotate');
   });
 
@@ -992,9 +992,9 @@ test.describe('Sloppad Circle', () => {
     await expect(page.locator('#canvas-text')).toContainText('Need a response before tomorrow morning.');
     await expect(page.locator('#canvas-text')).toContainText('I can confirm the review packet is ready.');
     await expect(page.locator('#canvas-text')).not.toContainText('- Kind:');
-    await expect(page.locator('#sloppad-circle-dot')).toHaveAttribute('data-tool', 'text_note');
+    await expect(page.locator('#slopshell-circle-dot')).toHaveAttribute('data-tool', 'text_note');
     await expect.poll(async () => {
-      return page.evaluate(() => (window as any)._sloppadApp?.getState?.().interaction.surface);
+      return page.evaluate(() => (window as any)._slopshellApp?.getState?.().interaction.surface);
     }).toBe('annotate');
   });
 
@@ -1009,17 +1009,17 @@ test.describe('Sloppad Circle', () => {
 
     await expect(page.locator('#surface-toggle')).toBeVisible();
     await expect(page.locator('#surface-toggle')).toHaveAttribute('aria-label', 'Switch to annotate');
-    await expect(page.locator('#sloppad-circle-dot')).toHaveAttribute('data-tool', 'pointer');
+    await expect(page.locator('#slopshell-circle-dot')).toHaveAttribute('data-tool', 'pointer');
     await expect.poll(async () => {
-      return page.evaluate(() => (window as any)._sloppadApp?.getState?.().interaction.surface);
+      return page.evaluate(() => (window as any)._slopshellApp?.getState?.().interaction.surface);
     }).toBe('editor');
 
     await page.locator('#surface-toggle').click();
 
     await expect(page.locator('#surface-toggle')).toHaveAttribute('aria-label', 'Switch to editor');
-    await expect(page.locator('#sloppad-circle-dot')).toHaveAttribute('data-tool', 'pointer');
+    await expect(page.locator('#slopshell-circle-dot')).toHaveAttribute('data-tool', 'pointer');
     await expect.poll(async () => {
-      return page.evaluate(() => (window as any)._sloppadApp?.getState?.().interaction.surface);
+      return page.evaluate(() => (window as any)._slopshellApp?.getState?.().interaction.surface);
     }).toBe('annotate');
   });
 
@@ -1032,7 +1032,7 @@ test.describe('Sloppad Circle', () => {
       }
     });
     await expect.poll(async () => page.evaluate(() => {
-      const app = (window as any)._sloppadApp;
+      const app = (window as any)._slopshellApp;
       const state = app?.getState?.();
       const wsOpen = (window as any).WebSocket.OPEN;
       if (String(state?.activeWorkspaceId || '') !== 'test') return '';
@@ -1051,7 +1051,7 @@ test.describe('Sloppad Circle', () => {
 
     await expect(page.locator('#edge-top-models .edge-live-status')).toContainText('Dialogue');
     await expect.poll(async () => page.evaluate(() => {
-      const state = (window as any)._sloppadApp?.getState?.();
+      const state = (window as any)._slopshellApp?.getState?.();
       return {
         tool: state?.interaction?.tool,
         conversation: state?.interaction?.conversation,
@@ -1179,7 +1179,7 @@ test.describe('approval_request event', () => {
 
   test('renders approval card and sends approval response', async ({ page }) => {
     await page.evaluate(() => {
-      const app = (window as any)._sloppadApp;
+      const app = (window as any)._slopshellApp;
       const ws = app?.getState?.().chatWs;
       (window as any).__approvalMessages = [];
       if (!ws) return;
@@ -1413,7 +1413,7 @@ test.describe('Live Dialogue multi-turn', () => {
 
   async function triggerVoiceAssistantTTS(page: Page, turnID: string, text = 'Hello there.') {
     await page.evaluate(() => {
-      const app = (window as any)._sloppadApp;
+      const app = (window as any)._slopshellApp;
       const s = app.getState();
       s.lastInputOrigin = 'voice';
       s.voiceAwaitingTurn = true;
@@ -1427,7 +1427,7 @@ test.describe('Live Dialogue multi-turn', () => {
     await waitReady(page);
     await injectCanvasModuleRef(page);
     await page.evaluate(() => {
-      (window as any).__sloppadConversationListenMs = 1200;
+      (window as any).__slopshellConversationListenMs = 1200;
     });
   });
 
@@ -1440,7 +1440,7 @@ test.describe('Live Dialogue multi-turn', () => {
     // The dialogue loop now surfaces listen readiness through lifecycle state
     // while the companion view can suppress the floating indicator.
     await expect.poll(async () => page.evaluate(() => {
-      const app = (window as any)._sloppadApp;
+      const app = (window as any)._slopshellApp;
       const state = app?.getState?.();
       return Boolean(state?.liveSessionDialogueListenActive)
         && String(state?.voiceLifecycle || '') === 'listening';
@@ -1533,7 +1533,7 @@ test.describe('project state persistence', () => {
     await page.waitForTimeout(200);
 
     const silentState = await page.evaluate(() => {
-      return (window as any)._sloppadApp?.getState?.().ttsSilent;
+      return (window as any)._slopshellApp?.getState?.().ttsSilent;
     });
     expect(silentState).toBe(true);
 
@@ -1552,7 +1552,7 @@ test.describe('project state persistence', () => {
       }
     });
     await expect.poll(async () => page.evaluate(() => {
-      const app = (window as any)._sloppadApp;
+      const app = (window as any)._slopshellApp;
       const state = app?.getState?.();
       const wsOpen = (window as any).WebSocket.OPEN;
       if (String(state?.activeWorkspaceId || '') !== 'test') return '';
@@ -1611,7 +1611,7 @@ test.describe('system_action model and project switching', () => {
     }, { timeout: 5_000 }).toBe(true);
 
     await expect.poll(async () => {
-      return page.evaluate(() => (window as any)._sloppadApp?.getState?.().activeWorkspaceId || '');
+      return page.evaluate(() => (window as any)._slopshellApp?.getState?.().activeWorkspaceId || '');
     }, { timeout: 5_000 }).toBe('notes');
   });
 });
@@ -1662,7 +1662,7 @@ test.describe('mic stream management', () => {
 
     // Acquire stream to cache it
     await page.evaluate(async () => {
-      await (window as any)._sloppadApp.acquireMicStream();
+      await (window as any)._slopshellApp.acquireMicStream();
     });
     await clearLog(page);
 
@@ -1672,7 +1672,7 @@ test.describe('mic stream management', () => {
 
     // Re-acquire should call getUserMedia again
     await page.evaluate(async () => {
-      await (window as any)._sloppadApp.acquireMicStream();
+      await (window as any)._slopshellApp.acquireMicStream();
     });
 
     const log = await getLog(page);
@@ -1685,7 +1685,7 @@ test.describe('mic stream management', () => {
 
     // Acquire stream to cache it
     await page.evaluate(async () => {
-      await (window as any)._sloppadApp.acquireMicStream();
+      await (window as any)._slopshellApp.acquireMicStream();
     });
     await clearLog(page);
 
@@ -1695,7 +1695,7 @@ test.describe('mic stream management', () => {
 
     // Re-acquire should call getUserMedia again
     await page.evaluate(async () => {
-      await (window as any)._sloppadApp.acquireMicStream();
+      await (window as any)._slopshellApp.acquireMicStream();
     });
 
     const log = await getLog(page);
@@ -1733,7 +1733,7 @@ test.describe('escape key behavior', () => {
     await page.waitForTimeout(100);
 
     await expect(page.locator('.canvas-pane.is-active')).toHaveCount(0);
-    const hasArtifact = await page.evaluate(() => (window as any)._sloppadApp?.getState?.().hasArtifact);
+    const hasArtifact = await page.evaluate(() => (window as any)._slopshellApp?.getState?.().hasArtifact);
     expect(hasArtifact).toBe(false);
   });
 
@@ -1852,7 +1852,7 @@ test.describe('mobile viewport', () => {
   test('streaming assistant deltas start TTS before final output and preserve spacing', async ({ page }) => {
     await clearLog(page);
     await page.evaluate(() => {
-      const app = (window as any)._sloppadApp;
+      const app = (window as any)._slopshellApp;
       const s = app.getState();
       s.lastInputOrigin = 'voice';
       s.voiceAwaitingTurn = true;
@@ -1894,7 +1894,7 @@ test.describe('mobile viewport', () => {
     await clearLog(page);
     await page.evaluate(async () => {
       const mod = await import('../../internal/web/static/app-tts.js');
-      const app = (window as any)._sloppadApp;
+      const app = (window as any)._slopshellApp;
       const s = app.getState();
       s.lastInputOrigin = 'voice';
       s.voiceAwaitingTurn = true;
@@ -1966,7 +1966,7 @@ test.describe('mobile viewport', () => {
 
     // Submit text message first
     await page.evaluate(() => {
-      const app = (window as any)._sloppadApp;
+      const app = (window as any)._slopshellApp;
       app.getState().lastInputOrigin = 'text';
     });
     await page.keyboard.type('test');
@@ -1988,21 +1988,21 @@ test.describe('mobile viewport', () => {
 
   test('workspace tap stops active TTS playback instead of starting a new voice capture', async ({ page }) => {
     await page.evaluate(() => {
-      const app = (window as any)._sloppadApp;
+      const app = (window as any)._slopshellApp;
       const s = app.getState();
       s.ttsPlaying = true;
     });
     await clearLog(page);
 
     await expect.poll(async () => page.evaluate(() => {
-      return Boolean((window as any)._sloppadApp?.getState?.().ttsPlaying);
+      return Boolean((window as any)._slopshellApp?.getState?.().ttsPlaying);
     })).toBe(true);
 
     await clearLog(page);
     await dispatchTouchTap(page, 187, 333);
 
     await expect.poll(async () => page.evaluate(() => {
-      return Boolean((window as any)._sloppadApp?.getState?.().ttsPlaying);
+      return Boolean((window as any)._slopshellApp?.getState?.().ttsPlaying);
     })).toBe(false);
 
     const log = await getLog(page);
@@ -2015,7 +2015,7 @@ test.describe('mobile viewport', () => {
     await renderTestArtifact(page, 'Persistent canvas artifact');
     await expect.poll(async () => page.evaluate(() => Boolean((window as any).__isHotwordActive?.()))).toBe(true);
     await page.evaluate(() => {
-      const app = (window as any)._sloppadApp;
+      const app = (window as any)._slopshellApp;
       const state = app?.getState?.();
       if (!state) return;
       state.ttsPlaying = true;
@@ -2025,7 +2025,7 @@ test.describe('mobile viewport', () => {
     await dispatchTouchTap(page, 187, 333);
 
     await expect.poll(async () => page.evaluate(() => {
-      const app = (window as any)._sloppadApp;
+      const app = (window as any)._slopshellApp;
       const state = app?.getState?.();
       const canvasText = document.getElementById('canvas-text');
       return {
@@ -2050,20 +2050,20 @@ test.describe('mobile viewport', () => {
 
   test('edge tap does not stop active TTS playback', async ({ page }) => {
     await page.evaluate(() => {
-      const app = (window as any)._sloppadApp;
+      const app = (window as any)._slopshellApp;
       const s = app.getState();
       s.ttsPlaying = true;
     });
     await clearLog(page);
 
     await expect.poll(async () => page.evaluate(() => {
-      return Boolean((window as any)._sloppadApp?.getState?.().ttsPlaying);
+      return Boolean((window as any)._slopshellApp?.getState?.().ttsPlaying);
     })).toBe(true);
 
     await dispatchTouchTap(page, 3, 333);
 
     await expect.poll(async () => page.evaluate(() => {
-      const app = (window as any)._sloppadApp;
+      const app = (window as any)._slopshellApp;
       return {
         speaking: Boolean(app?.getState?.().ttsPlaying),
         leftOpen: Boolean(document.getElementById('pr-file-pane')?.classList.contains('is-open')),
@@ -2161,7 +2161,7 @@ test.describe('voice-to-message flow', () => {
     await waitForLogEntry(page, 'stt', 'stop');
     await page.waitForTimeout(200);
 
-    const origin = await page.evaluate(() => (window as any)._sloppadApp?.getState?.().lastInputOrigin);
+    const origin = await page.evaluate(() => (window as any)._slopshellApp?.getState?.().lastInputOrigin);
     expect(origin).toBe('voice');
   });
 
@@ -2170,7 +2170,7 @@ test.describe('voice-to-message flow', () => {
     await page.keyboard.press('Enter');
     await page.waitForTimeout(200);
 
-    const origin = await page.evaluate(() => (window as any)._sloppadApp?.getState?.().lastInputOrigin);
+    const origin = await page.evaluate(() => (window as any)._slopshellApp?.getState?.().lastInputOrigin);
     expect(origin).toBe('text');
   });
 });

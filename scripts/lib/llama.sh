@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 
-sloppad_llama_library_var() {
+slopshell_llama_library_var() {
     case "$(uname -s)" in
         Darwin) printf '%s' "DYLD_LIBRARY_PATH" ;;
         *) printf '%s' "LD_LIBRARY_PATH" ;;
     esac
 }
 
-sloppad_llama_prepend_library_dirs() {
+slopshell_llama_prepend_library_dirs() {
     local candidate="$1"
     local candidate_dir candidate_real prefix lib_var current
     local -a dirs=()
@@ -28,7 +28,7 @@ sloppad_llama_prepend_library_dirs() {
         fi
     fi
 
-    lib_var="$(sloppad_llama_library_var)"
+    lib_var="$(slopshell_llama_library_var)"
     current="${!lib_var-}"
 
     local dir new_path=""
@@ -57,28 +57,28 @@ sloppad_llama_prepend_library_dirs() {
     fi
 }
 
-SLOPPAD_LLAMA_LAST_ERROR=""
+SLOPSHELL_LLAMA_LAST_ERROR=""
 
-sloppad_llama_server_usable() {
+slopshell_llama_server_usable() {
     local candidate="$1"
     local output
 
-    SLOPPAD_LLAMA_LAST_ERROR=""
+    SLOPSHELL_LLAMA_LAST_ERROR=""
     if [ ! -x "$candidate" ]; then
-        SLOPPAD_LLAMA_LAST_ERROR="candidate is not executable: $candidate"
+        SLOPSHELL_LLAMA_LAST_ERROR="candidate is not executable: $candidate"
         return 1
     fi
 
-    sloppad_llama_prepend_library_dirs "$candidate"
+    slopshell_llama_prepend_library_dirs "$candidate"
     if output="$("$candidate" --version 2>&1)"; then
         return 0
     fi
 
-    SLOPPAD_LLAMA_LAST_ERROR="$(printf '%s' "$output" | head -n 1)"
+    SLOPSHELL_LLAMA_LAST_ERROR="$(printf '%s' "$output" | head -n 1)"
     return 1
 }
 
-sloppad_llama_server_candidates() {
+slopshell_llama_server_candidates() {
     local explicit resolved prefix
     local -a candidates=()
     local seen=""
@@ -121,19 +121,19 @@ sloppad_llama_server_candidates() {
     done
 }
 
-sloppad_find_llama_server() {
+slopshell_find_llama_server() {
     local candidate
     local last_error=""
 
     while IFS= read -r candidate; do
         [ -n "$candidate" ] || continue
-        if sloppad_llama_server_usable "$candidate"; then
+        if slopshell_llama_server_usable "$candidate"; then
             printf '%s' "$candidate"
             return 0
         fi
-        last_error="$SLOPPAD_LLAMA_LAST_ERROR"
-    done < <(sloppad_llama_server_candidates)
+        last_error="$SLOPSHELL_LLAMA_LAST_ERROR"
+    done < <(slopshell_llama_server_candidates)
 
-    SLOPPAD_LLAMA_LAST_ERROR="$last_error"
+    SLOPSHELL_LLAMA_LAST_ERROR="$last_error"
     return 1
 }

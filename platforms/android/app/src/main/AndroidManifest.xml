@@ -19,7 +19,7 @@
         android:icon="@android:drawable/sym_def_app_icon"
         android:label="@string/app_name"
         android:supportsRtl="true"
-        android:theme="@style/Theme.SloppadAndroid"
+        android:theme="@style/Theme.SlopshellAndroid"
         tools:replace="android:allowBackup"
         android:usesCleartextTraffic="true">
         <activity
@@ -34,7 +34,7 @@
         </activity>
 
         <service
-            android:name=".SloppadAudioCaptureService"
+            android:name=".SlopshellAudioCaptureService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="microphone" />

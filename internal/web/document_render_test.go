@@ -17,10 +17,10 @@ func TestOpenFileCanvasBuildsMarkdownDocumentAsPDF(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(docPath), 0o755); err != nil {
 		t.Fatalf("mkdir docs dir: %v", err)
 	}
-	if err := os.MkdirAll(filepath.Join(project.RootPath, ".sloppad"), 0o755); err != nil {
-		t.Fatalf("mkdir .sloppad: %v", err)
+	if err := os.MkdirAll(filepath.Join(project.RootPath, ".slopshell"), 0o755); err != nil {
+		t.Fatalf("mkdir .slopshell: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(project.RootPath, ".sloppad", "document.json"), []byte(`{"builder":"pandoc","main_file":"docs/brief.md"}`), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(project.RootPath, ".slopshell", "document.json"), []byte(`{"builder":"pandoc","main_file":"docs/brief.md"}`), 0o644); err != nil {
 		t.Fatalf("write document config: %v", err)
 	}
 	if err := os.WriteFile(docPath, []byte("# Brief\n"), 0o644); err != nil {
@@ -76,7 +76,7 @@ printf '%%PDF-1.4\n' > "$out"
 		t.Fatal("expected payload")
 	}
 	renderedPath := strings.TrimSpace(strFromAny(payload["rendered_path"]))
-	if !strings.HasPrefix(renderedPath, ".sloppad/artifacts/documents/") {
+	if !strings.HasPrefix(renderedPath, ".slopshell/artifacts/documents/") {
 		t.Fatalf("rendered_path = %q", renderedPath)
 	}
 	renderedAbs := filepath.Join(project.RootPath, filepath.FromSlash(renderedPath))
@@ -114,10 +114,10 @@ func TestRenderDocumentArtifactUsesWorkspaceConfigMainFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ensure default project: %v", err)
 	}
-	if err := os.MkdirAll(filepath.Join(project.RootPath, ".sloppad"), 0o755); err != nil {
-		t.Fatalf("mkdir .sloppad: %v", err)
+	if err := os.MkdirAll(filepath.Join(project.RootPath, ".slopshell"), 0o755); err != nil {
+		t.Fatalf("mkdir .slopshell: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(project.RootPath, ".sloppad", "document.json"), []byte(`{"main_file":"paper.tex","builder":"latex"}`), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(project.RootPath, ".slopshell", "document.json"), []byte(`{"main_file":"paper.tex","builder":"latex"}`), 0o644); err != nil {
 		t.Fatalf("write document config: %v", err)
 	}
 	if err := os.WriteFile(filepath.Join(project.RootPath, "paper.tex"), []byte("\\documentclass{article}\n\\begin{document}\nHi\n\\end{document}\n"), 0o644); err != nil {
@@ -141,7 +141,7 @@ printf 'aux\n' > "${base}.aux"
 	if err != nil {
 		t.Fatalf("renderDocumentArtifact() error = %v", err)
 	}
-	if !strings.HasPrefix(renderedPath, ".sloppad/artifacts/documents/") {
+	if !strings.HasPrefix(renderedPath, ".slopshell/artifacts/documents/") {
 		t.Fatalf("renderedPath = %q", renderedPath)
 	}
 	renderedAbs := filepath.Join(project.RootPath, filepath.FromSlash(renderedPath))

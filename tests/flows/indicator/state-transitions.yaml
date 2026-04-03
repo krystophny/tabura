@@ -42,11 +42,11 @@ steps:
       silent: false
       indicator_state: paused
   - action: tap
-    target: sloppad_circle_dot
+    target: slopshell_circle_dot
     expect:
-      sloppad_circle: expanded
+      slopshell_circle: expanded
   - action: tap
-    target: sloppad_circle_segment_dialogue
+    target: slopshell_circle_segment_dialogue
     expect:
       active_tool: pointer
       session: dialogue

@@ -33,7 +33,7 @@ test.describe('login UI flow', () => {
     await expect(page.locator('body')).not.toContainText(/invalid json/i);
     await expect.poll(async () => {
       const cookies = await page.context().cookies();
-      return cookies.some((cookie) => cookie.name === 'sloppad_session');
+      return cookies.some((cookie) => cookie.name === 'slopshell_session');
     }).toBe(true);
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);

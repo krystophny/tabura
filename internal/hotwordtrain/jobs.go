@@ -52,11 +52,11 @@ func (m *Manager) runGeneration(ctx context.Context, models []string, sampleCoun
 			"--model-id", model,
 		)
 		cmd.Env = append(os.Environ(),
-			"SLOPPAD_HOTWORD_RECORDINGS_DIR="+m.recordingsDir(),
-			"SLOPPAD_HOTWORD_OUTPUT_DIR="+outputDir,
-			"SLOPPAD_HOTWORD_FEEDBACK_DIR="+m.feedbackDir(),
-			"SLOPPAD_HOTWORD_SAMPLE_COUNT="+strconv.Itoa(sampleCount),
-			"SLOPPAD_HOTWORD_MODEL_ID="+model,
+			"SLOPSHELL_HOTWORD_RECORDINGS_DIR="+m.recordingsDir(),
+			"SLOPSHELL_HOTWORD_OUTPUT_DIR="+outputDir,
+			"SLOPSHELL_HOTWORD_FEEDBACK_DIR="+m.feedbackDir(),
+			"SLOPSHELL_HOTWORD_SAMPLE_COUNT="+strconv.Itoa(sampleCount),
+			"SLOPSHELL_HOTWORD_MODEL_ID="+model,
 		)
 		err := runLoggedCommand(ctx, cmd, func(line string) {
 			lastLine = line
@@ -351,10 +351,10 @@ func (m *Manager) runTrainingCommand(ctx context.Context, outputDir, configPath 
 	scriptPath := m.trainingScriptPath()
 	cmd := exec.CommandContext(ctx, scriptPath, extraArgs...)
 	cmd.Env = append(os.Environ(),
-		"SLOPPAD_HOTWORD_OUTPUT_DIR="+outputDir,
-		"SLOPPAD_HOTWORD_RECORDINGS_DIR="+m.recordingsDir(),
-		"SLOPPAD_HOTWORD_FEEDBACK_DIR="+m.feedbackDir(),
-		"SLOPPAD_HOTWORD_CONFIG="+configPath,
+		"SLOPSHELL_HOTWORD_OUTPUT_DIR="+outputDir,
+		"SLOPSHELL_HOTWORD_RECORDINGS_DIR="+m.recordingsDir(),
+		"SLOPSHELL_HOTWORD_FEEDBACK_DIR="+m.feedbackDir(),
+		"SLOPSHELL_HOTWORD_CONFIG="+configPath,
 	)
 	lastLine := ""
 	err := runLoggedCommand(ctx, cmd, func(line string) {

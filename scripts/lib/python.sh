@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-sloppad_python_meets_min_version() {
+slopshell_python_meets_min_version() {
     local candidate="$1"
     local min_major="$2"
     local min_minor="$3"
@@ -16,15 +16,15 @@ raise SystemExit(0 if sys.version_info >= (min_major, min_minor) else 1)
 PY
 }
 
-sloppad_find_python3() {
+slopshell_find_python3() {
     local min_major="${1:-3}"
     local min_minor="${2:-10}"
     local candidate resolved prefix
     local -a candidates=()
     local seen=""
 
-    if [ -n "${SLOPPAD_PYTHON3_BIN:-}" ]; then
-        candidates+=("${SLOPPAD_PYTHON3_BIN}")
+    if [ -n "${SLOPSHELL_PYTHON3_BIN:-}" ]; then
+        candidates+=("${SLOPSHELL_PYTHON3_BIN}")
     fi
 
     if resolved="$(command -v python3 2>/dev/null)"; then
@@ -53,7 +53,7 @@ sloppad_find_python3() {
             *":$candidate:"*) continue ;;
         esac
         seen="${seen:+${seen}:}${candidate}"
-        if sloppad_python_meets_min_version "$candidate" "$min_major" "$min_minor"; then
+        if slopshell_python_meets_min_version "$candidate" "$min_major" "$min_minor"; then
             printf '%s' "$candidate"
             return 0
         fi

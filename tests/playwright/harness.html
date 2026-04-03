@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sloppad Harness</title>
+  <title>Slopshell Harness</title>
   <link rel="stylesheet" href="../../internal/web/static/style.css">
   <style>
     body { margin: 0; padding: 0; }
@@ -58,19 +58,19 @@
         <div class="overlay-content"></div>
       </div>
 
-      <div id="sloppad-circle" class="sloppad-circle" aria-label="Sloppad Circle">
-        <div id="sloppad-circle-menu" class="sloppad-circle-menu" aria-label="Sloppad Circle menu">
-          <button id="sloppad-circle-segment-dialogue" class="sloppad-circle-segment" type="button" data-kind="session" data-segment="dialogue"></button>
-          <button id="sloppad-circle-segment-meeting" class="sloppad-circle-segment" type="button" data-kind="session" data-segment="meeting"></button>
-          <button id="sloppad-circle-segment-silent" class="sloppad-circle-segment" type="button" data-kind="toggle" data-segment="silent"></button>
-          <button id="sloppad-circle-segment-fast" class="sloppad-circle-segment" type="button" data-kind="toggle" data-segment="fast"></button>
-          <button id="sloppad-circle-segment-prompt" class="sloppad-circle-segment" type="button" data-kind="tool" data-segment="prompt"></button>
-          <button id="sloppad-circle-segment-text-note" class="sloppad-circle-segment" type="button" data-kind="tool" data-segment="text_note"></button>
-          <button id="sloppad-circle-segment-pointer" class="sloppad-circle-segment" type="button" data-kind="tool" data-segment="pointer"></button>
-          <button id="sloppad-circle-segment-highlight" class="sloppad-circle-segment" type="button" data-kind="tool" data-segment="highlight"></button>
-          <button id="sloppad-circle-segment-ink" class="sloppad-circle-segment" type="button" data-kind="tool" data-segment="ink"></button>
+      <div id="slopshell-circle" class="slopshell-circle" aria-label="Slopshell Circle">
+        <div id="slopshell-circle-menu" class="slopshell-circle-menu" aria-label="Slopshell Circle menu">
+          <button id="slopshell-circle-segment-dialogue" class="slopshell-circle-segment" type="button" data-kind="session" data-segment="dialogue"></button>
+          <button id="slopshell-circle-segment-meeting" class="slopshell-circle-segment" type="button" data-kind="session" data-segment="meeting"></button>
+          <button id="slopshell-circle-segment-silent" class="slopshell-circle-segment" type="button" data-kind="toggle" data-segment="silent"></button>
+          <button id="slopshell-circle-segment-fast" class="slopshell-circle-segment" type="button" data-kind="toggle" data-segment="fast"></button>
+          <button id="slopshell-circle-segment-prompt" class="slopshell-circle-segment" type="button" data-kind="tool" data-segment="prompt"></button>
+          <button id="slopshell-circle-segment-text-note" class="slopshell-circle-segment" type="button" data-kind="tool" data-segment="text_note"></button>
+          <button id="slopshell-circle-segment-pointer" class="slopshell-circle-segment" type="button" data-kind="tool" data-segment="pointer"></button>
+          <button id="slopshell-circle-segment-highlight" class="slopshell-circle-segment" type="button" data-kind="tool" data-segment="highlight"></button>
+          <button id="slopshell-circle-segment-ink" class="slopshell-circle-segment" type="button" data-kind="tool" data-segment="ink"></button>
         </div>
-        <button id="sloppad-circle-dot" type="button" class="sloppad-circle-dot" aria-label="Toggle Sloppad Circle"></button>
+        <button id="slopshell-circle-dot" type="button" class="slopshell-circle-dot" aria-label="Toggle Slopshell Circle"></button>
       </div>
       <button id="surface-toggle" type="button" class="surface-toggle" aria-label="Switch interaction surface" style="display:none"></button>
 
@@ -83,7 +83,7 @@
           <div class="edge-panel-head">
             <span class="edge-panel-title">Runtime</span>
             <div id="edge-top-actions" class="edge-panel-actions">
-              <div id="sloppad-circle-corner-controls" class="sloppad-circle-corner-controls" role="group" aria-label="Sloppad Circle corner"></div>
+              <div id="slopshell-circle-corner-controls" class="slopshell-circle-corner-controls" role="group" aria-label="Slopshell Circle corner"></div>
               <button id="bug-report-button" type="button" class="edge-btn edge-icon-btn" aria-label="Report bug" title="Report bug"></button>
               <button id="btn-edge-rasa" type="button" class="edge-btn">Tabula Rasa</button>
             </div>
@@ -272,10 +272,10 @@
       return `# Document Section Draft\n\n${title ? `Working title: ${title}\n\n` : ''}${paragraphs.join('\n\n') || 'Start speaking to build the section.'}`;
     }
     const TEST_BUG_REPORT_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO5W8xkAAAAASUVORK5CYII=';
-    window.__sloppadBugReportTestEnv = { screenshotDataURL: TEST_BUG_REPORT_PNG };
+    window.__slopshellBugReportTestEnv = { screenshotDataURL: TEST_BUG_REPORT_PNG };
     window.__bugReportRequests = [];
     window.__setBugReportScreenshotDataURL = (value) => {
-      window.__sloppadBugReportTestEnv = { screenshotDataURL: String(value || TEST_BUG_REPORT_PNG) };
+      window.__slopshellBugReportTestEnv = { screenshotDataURL: String(value || TEST_BUG_REPORT_PNG) };
     };
     window.__setRuntimeState = (patch) => {
       const next = patch && typeof patch === 'object' ? patch : {};
@@ -341,7 +341,7 @@
       ttsPlaybackDelayMs = Number.isFinite(n) && n >= 0 ? Math.floor(n) : 10;
     };
     window.__setTTSPlaybackDelayMs(10);
-    window.__sloppadHotwordMock = {
+    window.__slopshellHotwordMock = {
       active: false,
       onDetect: null,
       threshold: 0.3,
@@ -372,11 +372,11 @@
       },
     };
     window.__triggerHotwordDetection = () => {
-      if (window.__sloppadHotwordMock) {
-        window.__sloppadHotwordMock.trigger();
+      if (window.__slopshellHotwordMock) {
+        window.__slopshellHotwordMock.trigger();
       }
     };
-    window.__isHotwordActive = () => Boolean(window.__sloppadHotwordMock?.active);
+    window.__isHotwordActive = () => Boolean(window.__slopshellHotwordMock?.active);
 
     // Mock Silero VAD: interprets __vadDbFrames with adaptive noise floor.
     // Speech detection uses relative thresholding (2 dB above calibrated floor).
@@ -385,7 +385,7 @@
     const VAD_MOCK_SPEECH_OFFSET_DB = 2;
     const VAD_MOCK_SPEECH_START_FRAMES = 3;
     const VAD_MOCK_REDEMPTION_FRAMES = 8;
-    window.__sloppadVadMock = {
+    window.__slopshellVadMock = {
       init() { return true; },
       create(callbacks) {
         let running = false;
@@ -625,7 +625,7 @@
       } else if (!normalized.some((project) => project.id === activeWorkspaceId)) {
         activeWorkspaceId = normalized[0]?.id || '';
       }
-      void window._sloppadApp?.fetchProjects?.();
+      void window._slopshellApp?.fetchProjects?.();
     };
     const defaultItemSidebarActors = () => ([
       { id: 1, name: 'Alice', kind: 'human', email: 'alice@example.com' },
@@ -873,7 +873,7 @@
       item_id: 0,
       artifact_id: 0,
       scan_artifact: { id: 990, kind: 'image', title: 'Scanned annotations' },
-      summary_path: '.sloppad/artifacts/scans/test-upload.md',
+      summary_path: '.slopshell/artifacts/scans/test-upload.md',
       annotations: [
         { content: 'check null case', anchor_text: 'Line two', line: 2, confidence: 0.9 },
       ],
@@ -885,7 +885,7 @@
       artifact_id: 0,
       scan_artifact_id: 990,
       review_artifact: { id: 991, kind: 'annotation', title: 'Reviewed annotations' },
-      summary_path: '.sloppad/artifacts/scans/test-confirm.md',
+      summary_path: '.slopshell/artifacts/scans/test-confirm.md',
       annotations: [
         { content: 'check null case', anchor_text: 'Line two', line: 2, confidence: 0.9 },
       ],
@@ -1118,7 +1118,7 @@
         subject,
         body: String(draft?.body || ''),
         title: mailDraftTitle(subject),
-        ref_path: String(draft?.ref_path || `.sloppad/artifacts/mail/draft-${artifactID}.md`).trim(),
+        ref_path: String(draft?.ref_path || `.slopshell/artifacts/mail/draft-${artifactID}.md`).trim(),
       };
       normalized.meta = {
         account_id: normalized.account_id,
@@ -1368,7 +1368,7 @@
         ...harnessProjectRunStates,
         ...next,
       };
-      void window._sloppadApp?.fetchProjects?.();
+      void window._slopshellApp?.fetchProjects?.();
     };
     window.__setProjectActivity = (states) => {
       const next = states && typeof states === 'object' ? states : {};
@@ -1383,7 +1383,7 @@
           chat_mode: String(patch.chat_mode || harnessProjects[index].chat_mode || 'chat'),
         };
       }
-      void window._sloppadApp?.fetchProjects?.();
+      void window._slopshellApp?.fetchProjects?.();
     };
     const cloneProject = (id) => {
       const project = harnessProjects.find((item) => item.id === id) || harnessProjects[0];
@@ -1591,7 +1591,7 @@
         } catch (_) {
           body = {};
         }
-        const bugReportMode = String(window.__sloppadBugReportTestEnv?.issueMode || '').trim().toLowerCase();
+        const bugReportMode = String(window.__slopshellBugReportTestEnv?.issueMode || '').trim().toLowerCase();
         window.__bugReportRequests.push(body);
         window.__harnessLog.push({
           type: 'api_fetch',
@@ -1608,7 +1608,7 @@
             sphere: 'private',
             artifact_id: 0,
             source: 'github',
-            source_ref: 'krystophny/sloppad#77',
+            source_ref: 'krystophny/slopshell#77',
             artifact_title: 'Bug report: Harness repro',
             artifact_kind: 'github_issue',
             actor_name: '',
@@ -1618,9 +1618,9 @@
         }
         const payload = {
           ok: true,
-          bundle_path: '.sloppad/artifacts/bugs/20260308-150405-abcd1234/bundle.json',
-          screenshot_path: '.sloppad/artifacts/bugs/20260308-150405-abcd1234/screenshot.png',
-          annotated_path: body.annotated_data_url ? '.sloppad/artifacts/bugs/20260308-150405-abcd1234/annotated.png' : '',
+          bundle_path: '.slopshell/artifacts/bugs/20260308-150405-abcd1234/bundle.json',
+          screenshot_path: '.slopshell/artifacts/bugs/20260308-150405-abcd1234/screenshot.png',
+          annotated_path: body.annotated_data_url ? '.slopshell/artifacts/bugs/20260308-150405-abcd1234/annotated.png' : '',
           issue_title: 'Bug report: Harness repro',
         };
         if (bugReportMode === 'local') {
@@ -1628,7 +1628,7 @@
           return new Response(JSON.stringify(payload), { status: 200 });
         }
         payload.issue_number = 77;
-        payload.issue_url = 'https://github.com/krystophny/sloppad/issues/77';
+        payload.issue_url = 'https://github.com/krystophny/slopshell/issues/77';
         payload.item_id = 501;
         return new Response(JSON.stringify(payload), { status: 200 });
       }
@@ -2411,11 +2411,11 @@
         return new Response(JSON.stringify({
           ok: true,
           workspace_id: String(body.workspace_id || activeWorkspaceId),
-          ink_svg_path: '.sloppad/artifacts/ink/test-ink.svg',
-          ink_png_path: '.sloppad/artifacts/ink/test-ink.png',
-          summary_path: '.sloppad/artifacts/ink/test-ink.md',
-          revision_manifest_path: '.sloppad/revisions/readme-md/manifest.json',
-          revision_history_path: '.sloppad/revisions/readme-md/history.md',
+          ink_svg_path: '.slopshell/artifacts/ink/test-ink.svg',
+          ink_png_path: '.slopshell/artifacts/ink/test-ink.png',
+          summary_path: '.slopshell/artifacts/ink/test-ink.md',
+          revision_manifest_path: '.slopshell/revisions/readme-md/manifest.json',
+          revision_history_path: '.slopshell/revisions/readme-md/history.md',
         }), { status: 200 });
       }
       if (u.includes('/api/scan/upload') && opts?.method === 'POST') {
@@ -2559,7 +2559,7 @@
         dictationState.transcript = [dictationState.transcript, chunk].filter(Boolean).join('\n\n').trim();
         dictationState.draft_text = dictationDraftForState(dictationState);
         if (!dictationState.scratch_path) {
-          dictationState.scratch_path = '.sloppad/artifacts/tmp/dictation-harness.md';
+          dictationState.scratch_path = '.slopshell/artifacts/tmp/dictation-harness.md';
         }
         window.__harnessLog.push({
           type: 'api_fetch',
@@ -2575,7 +2575,7 @@
         try { body = JSON.parse(String(opts?.body || '{}')); } catch (_) { body = {}; }
         dictationState.draft_text = String(body.draft_text || '').trim();
         if (!dictationState.scratch_path) {
-          dictationState.scratch_path = '.sloppad/artifacts/tmp/dictation-harness.md';
+          dictationState.scratch_path = '.slopshell/artifacts/tmp/dictation-harness.md';
         }
         window.__harnessLog.push({
           type: 'api_fetch',
@@ -2612,14 +2612,14 @@
         const prMatch = command.match(/^\/?pr\s+(\d+)$/i);
         if (prMatch) {
           const prNumber = Number(prMatch[1]);
-          const app = window._sloppadApp;
+          const app = window._slopshellApp;
           window.setTimeout(() => {
             const canvasWs = app?.getState?.().canvasWs;
             if (canvasWs && typeof canvasWs.injectEvent === 'function') {
               canvasWs.injectEvent({
                 kind: 'text_artifact',
                 event_id: `evt-pr-command-${prNumber}`,
-                title: `.sloppad/artifacts/pr/pr-${prNumber}.diff`,
+                title: `.slopshell/artifacts/pr/pr-${prNumber}.diff`,
                 text: mockPrDiff(prNumber),
               });
             }

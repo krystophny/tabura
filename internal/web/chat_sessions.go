@@ -4,7 +4,7 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/krystophny/sloppad/internal/store"
+	"github.com/krystophny/slopshell/internal/store"
 )
 
 func (a *App) workspaceForChatSession(session store.ChatSession) (store.Workspace, error) {

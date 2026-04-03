@@ -9,7 +9,7 @@ const isArtifactEditorActive = (...args) => refs.isArtifactEditorActive(...args)
 const renderInkControls = (...args) => refs.renderInkControls(...args);
 const updateRuntimePreferences = (...args) => refs.updateRuntimePreferences(...args);
 const syncInteractionBodyState = (...args) => refs.syncInteractionBodyState(...args);
-const renderSloppadCircle = (...args) => refs.renderSloppadCircle(...args);
+const renderSlopshellCircle = (...args) => refs.renderSlopshellCircle(...args);
 
 export function normalizeInteractionTool(modeRaw) {
   const mode = String(modeRaw || '').trim().toLowerCase();
@@ -25,7 +25,7 @@ export function normalizeInteractionSurface(modeRaw) {
 }
 
 export function initToolPalette() {
-  renderSloppadCircle();
+  renderSlopshellCircle();
 }
 
 export function interactionConversationMode({
@@ -73,7 +73,7 @@ function shouldAnnotateTextArtifactByDefault() {
   if (descriptor.surfaceDefault === 'annotate') return true;
   if (interactionToolDefaultForCurrentArtifact('canvas-text') !== 'pointer') return true;
   const title = String(descriptor.title || '').trim().toLowerCase();
-  return title.startsWith('.sloppad/artifacts/pr/') && title.endsWith('.diff');
+  return title.startsWith('.slopshell/artifacts/pr/') && title.endsWith('.diff');
 }
 
 export function interactionSurfaceDefaultForPane(paneId) {
@@ -168,7 +168,7 @@ export function setInteractionToolLocal(tool) {
 
 export function renderToolPalette() {
   initToolPalette();
-  renderSloppadCircle();
+  renderSlopshellCircle();
 }
 
 export function maybeApplySelectionHighlight() {

@@ -17,29 +17,29 @@ var expectedPlists = []struct {
 	tokens []string
 }{
 	{
-		file:   "io.sloppad.codex-app-server.plist",
-		label:  "io.sloppad.codex-app-server",
+		file:   "io.slopshell.codex-app-server.plist",
+		label:  "io.slopshell.codex-app-server",
 		tokens: []string{"@@CODEX_PATH@@"},
 	},
 	{
-		file:   "io.sloppad.piper-tts.plist",
-		label:  "io.sloppad.piper-tts",
+		file:   "io.slopshell.piper-tts.plist",
+		label:  "io.slopshell.piper-tts",
 		tokens: []string{"@@VENV_DIR@@", "@@SCRIPT_DIR@@", "@@PIPER_MODEL_DIR@@"},
 	},
 	{
-		file:   "io.sloppad.llm.plist",
-		label:  "io.sloppad.llm",
+		file:   "io.slopshell.llm.plist",
+		label:  "io.slopshell.llm",
 		tokens: []string{"@@LLM_SETUP_SCRIPT@@", "@@LLM_VENV_DIR@@", "@@LLM_SOURCE_DIR@@"},
 	},
 	{
-		file:   "io.sloppad.stt.plist",
-		label:  "io.sloppad.stt",
+		file:   "io.slopshell.stt.plist",
+		label:  "io.slopshell.stt",
 		tokens: []string{"@@STT_SETUP_SCRIPT@@", "@@VOXTYPE_BIN@@"},
 	},
 	{
-		file:   "io.sloppad.web.plist",
-		label:  "io.sloppad.web",
-		tokens: []string{"@@BIN_PATH@@", "@@PROJECT_DIR@@", "@@WEB_DATA_DIR@@", "@@SLOPPAD_INTENT_LLM_URL@@"},
+		file:   "io.slopshell.web.plist",
+		label:  "io.slopshell.web",
+		tokens: []string{"@@BIN_PATH@@", "@@PROJECT_DIR@@", "@@WEB_DATA_DIR@@", "@@SLOPSHELL_INTENT_LLM_URL@@"},
 	},
 }
 
@@ -142,7 +142,7 @@ func TestLaunchdTemplatesHaveRequiredKeys(t *testing.T) {
 func TestLaunchdTemplateTokenSubstitution(t *testing.T) {
 	dir := filepath.Join(repoRoot, "deploy", "launchd")
 	tokenValues := map[string]string{
-		"@@BIN_PATH@@":              "/usr/local/bin/sloppad",
+		"@@BIN_PATH@@":              "/usr/local/bin/slopshell",
 		"@@CODEX_PATH@@":            "/usr/local/bin/codex",
 		"@@PROJECT_DIR@@":           "/tmp/project",
 		"@@WEB_DATA_DIR@@":          "/tmp/web-data",
@@ -156,8 +156,8 @@ func TestLaunchdTemplateTokenSubstitution(t *testing.T) {
 		"@@LLAMA_SERVER_BIN@@":      "/tmp/llama-server",
 		"@@STT_SETUP_SCRIPT@@":      "/tmp/setup-stt.sh",
 		"@@VOXTYPE_BIN@@":           "/tmp/voxtype",
-		"@@SLOPPAD_WEB_HOST@@":       "127.0.0.1",
-		"@@SLOPPAD_INTENT_LLM_URL@@": "http://127.0.0.1:8081",
+		"@@SLOPSHELL_WEB_HOST@@":       "127.0.0.1",
+		"@@SLOPSHELL_INTENT_LLM_URL@@": "http://127.0.0.1:8081",
 	}
 
 	for _, tc := range expectedPlists {
@@ -182,7 +182,7 @@ func TestLaunchdTemplateTokenSubstitution(t *testing.T) {
 
 func TestUserUnitsScriptCoversAllLaunchdTokens(t *testing.T) {
 	dir := filepath.Join(repoRoot, "deploy", "launchd")
-	script, err := os.ReadFile(filepath.Join(repoRoot, "scripts", "install-sloppad-user-units.sh"))
+	script, err := os.ReadFile(filepath.Join(repoRoot, "scripts", "install-slopshell-user-units.sh"))
 	if err != nil {
 		t.Fatalf("read user-units script: %v", err)
 	}
@@ -210,7 +210,7 @@ func TestUserUnitsScriptCoversAllLaunchdTokens(t *testing.T) {
 
 	for tok := range seen {
 		if !strings.Contains(scriptContent, tok) {
-			t.Errorf("launchd token %s not handled in install-sloppad-user-units.sh", tok)
+			t.Errorf("launchd token %s not handled in install-slopshell-user-units.sh", tok)
 		}
 	}
 }
@@ -236,7 +236,7 @@ func TestSystemdAndLaunchdServiceParity(t *testing.T) {
 		if !strings.HasSuffix(name, ".plist") {
 			continue
 		}
-		svc := strings.TrimPrefix(name, "io.sloppad.")
+		svc := strings.TrimPrefix(name, "io.slopshell.")
 		svc = strings.TrimSuffix(svc, ".plist")
 		launchdServices[svc] = true
 	}
@@ -245,7 +245,7 @@ func TestSystemdAndLaunchdServiceParity(t *testing.T) {
 		if !found {
 			t.Errorf("missing launchd template for service %q", svc)
 		}
-		systemdFile := filepath.Join(systemdDir, "sloppad-"+svc+".service")
+		systemdFile := filepath.Join(systemdDir, "slopshell-"+svc+".service")
 		if _, err := os.Stat(systemdFile); os.IsNotExist(err) {
 			t.Errorf("launchd template for %q exists but systemd unit %s is missing", svc, systemdFile)
 		}

@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	tabcalendar "github.com/krystophny/sloppad/internal/calendar"
-	"github.com/krystophny/sloppad/internal/providerdata"
-	"github.com/krystophny/sloppad/internal/store"
+	tabcalendar "github.com/krystophny/slopshell/internal/calendar"
+	"github.com/krystophny/slopshell/internal/providerdata"
+	"github.com/krystophny/slopshell/internal/store"
 )
 
 func (s *Server) calendarList(args map[string]interface{}) (map[string]interface{}, error) {

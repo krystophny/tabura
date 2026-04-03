@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/krystophny/sloppad/internal/store"
+	"github.com/krystophny/slopshell/internal/store"
 )
 
 func latestUserMessage(messages []store.ChatMessage) string {

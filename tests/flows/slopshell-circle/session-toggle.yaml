@@ -1,0 +1,38 @@
+name: slopshell_circle_toggle_sessions
+description: Toggle dialogue and meeting through the circle while keeping only one active session.
+tags:
+  - circle
+  - session
+preconditions:
+  tool: pointer
+  session: none
+  silent: false
+steps:
+  - action: tap
+    target: slopshell_circle_dot
+    expect:
+      slopshell_circle: expanded
+  - action: tap
+    target: slopshell_circle_segment_dialogue
+    expect:
+      active_tool: pointer
+      session: dialogue
+      silent: false
+      indicator_state: listening
+      slopshell_circle: expanded
+  - action: tap
+    target: slopshell_circle_segment_meeting
+    expect:
+      active_tool: pointer
+      session: meeting
+      silent: false
+      indicator_state: paused
+      slopshell_circle: expanded
+  - action: tap
+    target: slopshell_circle_segment_meeting
+    expect:
+      active_tool: pointer
+      session: none
+      silent: false
+      indicator_state: idle
+      slopshell_circle: expanded

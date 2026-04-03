@@ -59,13 +59,13 @@ test.describe('live playtest smoke', () => {
     await expect(page.locator('#edge-top')).not.toHaveClass(/edge-active/);
   });
 
-  test('sloppad circle stays readable and drives all desktop click states', async ({ page }, testInfo) => {
+  test('slopshell circle stays readable and drives all desktop click states', async ({ page }, testInfo) => {
     annotatePlaytest(testInfo, {
-      tested: 'Live Sloppad Circle geometry plus desktop click routing for live mode, toggles, and tools.',
+      tested: 'Live Slopshell Circle geometry plus desktop click routing for live mode, toggles, and tools.',
       expected: 'The expanded circle should stay legible without overlapping segments, and every segment should update the live runtime state.',
       steps: [
-        './scripts/playtest.sh --grep "sloppad circle stays readable and drives all desktop click states"',
-        'Open the live app, expand the Sloppad Circle, verify non-overlapping geometry, then click live-mode, toggle, and tool segments.',
+        './scripts/playtest.sh --grep "slopshell circle stays readable and drives all desktop click states"',
+        'Open the live app, expand the Slopshell Circle, verify non-overlapping geometry, then click live-mode, toggle, and tool segments.',
       ],
     });
 
@@ -89,7 +89,7 @@ test.describe('live playtest smoke', () => {
     await setInteractionTool(page, 'highlight');
     await setInteractionTool(page, 'ink');
     await setInteractionTool(page, 'pointer');
-    await expect(page.locator('#sloppad-circle-dot')).toHaveAttribute('data-tool', 'pointer');
+    await expect(page.locator('#slopshell-circle-dot')).toHaveAttribute('data-tool', 'pointer');
 
     await page.reload({ waitUntil: 'networkidle' });
     await openLiveApp(page, sessionToken);
@@ -98,7 +98,7 @@ test.describe('live playtest smoke', () => {
 
     await expect(circleSegment(page, 'silent')).toHaveAttribute('aria-pressed', 'true');
     await expect(circleSegment(page, 'fast')).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.locator('#sloppad-circle-dot')).toHaveAttribute('data-tool', 'pointer');
+    await expect(page.locator('#slopshell-circle-dot')).toHaveAttribute('data-tool', 'pointer');
   });
 
   test('browser roundtrips piper-backed tts audio through http and websocket stt', async ({ page }, testInfo) => {
@@ -166,7 +166,7 @@ test.describe('mobile capture route', () => {
 
   test('mobile tap states reach the circle segments without overlap', async ({ page }, testInfo) => {
     annotatePlaytest(testInfo, {
-      tested: 'Mobile tap routing for Sloppad Circle live-mode, toggle, and tool segments on the live runtime.',
+      tested: 'Mobile tap routing for Slopshell Circle live-mode, toggle, and tool segments on the live runtime.',
       expected: 'The expanded mobile circle should stay readable without overlap and respond to touch interactions on the live runtime.',
       steps: [
         './scripts/playtest.sh --grep "mobile tap states reach the circle segments without overlap"',

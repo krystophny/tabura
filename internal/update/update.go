@@ -15,7 +15,7 @@ import (
 const (
 	defaultAPIBaseURL = "https://api.github.com"
 	defaultRepoOwner  = "krystophny"
-	defaultRepoName   = "sloppad"
+	defaultRepoName   = "slopshell"
 )
 
 type Options struct {
@@ -316,7 +316,7 @@ func fetchLatestRelease(cfg runConfig) (githubRelease, error) {
 
 func selectReleaseAsset(assets []githubAsset, version, goos, goarch string) (githubAsset, error) {
 	trimmedVersion := strings.TrimPrefix(normalizeVersion(version), "v")
-	baseName := fmt.Sprintf("sloppad_%s_%s_%s", trimmedVersion, goos, goarch)
+	baseName := fmt.Sprintf("slopshell_%s_%s_%s", trimmedVersion, goos, goarch)
 	extensions := []string{".tar.gz", ".tgz"}
 	if goos == "windows" {
 		extensions = []string{".zip"}
@@ -331,7 +331,7 @@ func selectReleaseAsset(assets []githubAsset, version, goos, goarch string) (git
 	}
 	for _, asset := range assets {
 		name := strings.ToLower(asset.Name)
-		if !strings.HasPrefix(name, "sloppad_") {
+		if !strings.HasPrefix(name, "slopshell_") {
 			continue
 		}
 		if !assetNameHasToken(name, goos) || !assetNameHasToken(name, goarch) {
@@ -423,7 +423,7 @@ func doRequest(client *http.Client, url string) (*http.Response, error) {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("User-Agent", "sloppad-self-update")
+	req.Header.Set("User-Agent", "slopshell-self-update")
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request %s: %w", url, err)

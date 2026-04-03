@@ -1,8 +1,8 @@
 # Integrated Handoff Protocol Spec
 
-> **Legal notice:** Sloppad is provided "as is" and "as available" without warranties, and to the maximum extent permitted by applicable law the authors/contributors accept no liability for damages, data loss, or misuse. You are solely responsible for backups, verification, and safe operation. See [`DISCLAIMER.md`](/DISCLAIMER.md).
+> **Legal notice:** Slopshell is provided "as is" and "as available" without warranties, and to the maximum extent permitted by applicable law the authors/contributors accept no liability for damages, data loss, or misuse. You are solely responsible for backups, verification, and safe operation. See [`DISCLAIMER.md`](/DISCLAIMER.md).
 
-This directory carries the handoff protocol specification and conformance assets as part of the Sloppad publication set.
+This directory carries the handoff protocol specification and conformance assets as part of the Slopshell publication set.
 
 Primary goals:
 - keep the object-scoped UI paradigm as the top-level product framing

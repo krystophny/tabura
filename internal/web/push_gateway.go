@@ -24,7 +24,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/krystophny/sloppad/internal/store"
+	"github.com/krystophny/slopshell/internal/store"
 )
 
 const (
@@ -82,18 +82,18 @@ type apnsGateway struct {
 }
 
 func newAPNSGatewayFromEnv() (*apnsGateway, error) {
-	keyID := strings.TrimSpace(os.Getenv("SLOPPAD_PUSH_APNS_KEY_ID"))
-	teamID := strings.TrimSpace(os.Getenv("SLOPPAD_PUSH_APNS_TEAM_ID"))
-	topic := strings.TrimSpace(os.Getenv("SLOPPAD_PUSH_APNS_BUNDLE_ID"))
+	keyID := strings.TrimSpace(os.Getenv("SLOPSHELL_PUSH_APNS_KEY_ID"))
+	teamID := strings.TrimSpace(os.Getenv("SLOPSHELL_PUSH_APNS_TEAM_ID"))
+	topic := strings.TrimSpace(os.Getenv("SLOPSHELL_PUSH_APNS_BUNDLE_ID"))
 	if keyID == "" && teamID == "" && topic == "" {
 		return nil, nil
 	}
 	if keyID == "" || teamID == "" || topic == "" {
-		return nil, errors.New("SLOPPAD_PUSH_APNS_KEY_ID, SLOPPAD_PUSH_APNS_TEAM_ID, and SLOPPAD_PUSH_APNS_BUNDLE_ID are required")
+		return nil, errors.New("SLOPSHELL_PUSH_APNS_KEY_ID, SLOPSHELL_PUSH_APNS_TEAM_ID, and SLOPSHELL_PUSH_APNS_BUNDLE_ID are required")
 	}
-	keyPEM := strings.TrimSpace(os.Getenv("SLOPPAD_PUSH_APNS_PRIVATE_KEY"))
+	keyPEM := strings.TrimSpace(os.Getenv("SLOPSHELL_PUSH_APNS_PRIVATE_KEY"))
 	if keyPEM == "" {
-		path := strings.TrimSpace(os.Getenv("SLOPPAD_PUSH_APNS_PRIVATE_KEY_PATH"))
+		path := strings.TrimSpace(os.Getenv("SLOPSHELL_PUSH_APNS_PRIVATE_KEY_PATH"))
 		if path == "" {
 			path = defaultSecretPath("apns-auth-key.p8")
 		}
@@ -107,9 +107,9 @@ func newAPNSGatewayFromEnv() (*apnsGateway, error) {
 	if err != nil {
 		return nil, err
 	}
-	baseURL := strings.TrimSpace(os.Getenv("SLOPPAD_PUSH_APNS_BASE_URL"))
+	baseURL := strings.TrimSpace(os.Getenv("SLOPSHELL_PUSH_APNS_BASE_URL"))
 	if baseURL == "" {
-		if parseEnvBoolDefault("SLOPPAD_PUSH_APNS_PRODUCTION", false) {
+		if parseEnvBoolDefault("SLOPSHELL_PUSH_APNS_PRODUCTION", false) {
 			baseURL = defaultAPNSProductionURL
 		} else {
 			baseURL = defaultAPNSBaseURL
@@ -144,7 +144,7 @@ func (g *apnsGateway) Send(ctx context.Context, reg store.PushRegistration, noti
 		},
 	}
 	if len(notification.Data) > 0 {
-		payload["sloppad"] = notification.Data
+		payload["slopshell"] = notification.Data
 	}
 	body, err := json.Marshal(payload)
 	if err != nil {
@@ -215,9 +215,9 @@ type fcmGateway struct {
 }
 
 func newFCMGatewayFromEnv() (*fcmGateway, error) {
-	serviceAccount := strings.TrimSpace(os.Getenv("SLOPPAD_PUSH_FCM_SERVICE_ACCOUNT_JSON"))
+	serviceAccount := strings.TrimSpace(os.Getenv("SLOPSHELL_PUSH_FCM_SERVICE_ACCOUNT_JSON"))
 	if serviceAccount == "" {
-		path := strings.TrimSpace(os.Getenv("SLOPPAD_PUSH_FCM_SERVICE_ACCOUNT_PATH"))
+		path := strings.TrimSpace(os.Getenv("SLOPSHELL_PUSH_FCM_SERVICE_ACCOUNT_PATH"))
 		if path == "" {
 			path = defaultSecretPath("fcm-service-account.json")
 		}
@@ -239,12 +239,12 @@ func newFCMGatewayFromEnv() (*fcmGateway, error) {
 	if err != nil {
 		return nil, err
 	}
-	projectID := firstNonEmptyCalendarValue(strings.TrimSpace(os.Getenv("SLOPPAD_PUSH_FCM_PROJECT_ID")), strings.TrimSpace(creds.ProjectID))
+	projectID := firstNonEmptyCalendarValue(strings.TrimSpace(os.Getenv("SLOPSHELL_PUSH_FCM_PROJECT_ID")), strings.TrimSpace(creds.ProjectID))
 	if projectID == "" {
 		return nil, errors.New("FCM project_id is required")
 	}
-	tokenURL := firstNonEmptyCalendarValue(strings.TrimSpace(os.Getenv("SLOPPAD_PUSH_FCM_TOKEN_URL")), strings.TrimSpace(creds.TokenURI), defaultFCMTokenURL)
-	endpointURL := strings.TrimSpace(os.Getenv("SLOPPAD_PUSH_FCM_BASE_URL"))
+	tokenURL := firstNonEmptyCalendarValue(strings.TrimSpace(os.Getenv("SLOPSHELL_PUSH_FCM_TOKEN_URL")), strings.TrimSpace(creds.TokenURI), defaultFCMTokenURL)
+	endpointURL := strings.TrimSpace(os.Getenv("SLOPSHELL_PUSH_FCM_BASE_URL"))
 	if endpointURL == "" {
 		endpointURL = fmt.Sprintf(defaultFCMEndpointPattern, projectID)
 	}

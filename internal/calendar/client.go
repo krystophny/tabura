@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/krystophny/sloppad/internal/googleauth"
-	"github.com/krystophny/sloppad/internal/providerdata"
+	"github.com/krystophny/slopshell/internal/googleauth"
+	"github.com/krystophny/slopshell/internal/providerdata"
 	gcal "google.golang.org/api/calendar/v3"
 	"google.golang.org/api/option"
 )

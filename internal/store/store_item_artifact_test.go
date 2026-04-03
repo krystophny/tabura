@@ -7,7 +7,7 @@ import (
 )
 
 func TestStoreMigratesLegacyPrimaryArtifactIntoItemArtifactLinks(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "sloppad.db")
+	dbPath := filepath.Join(t.TempDir(), "slopshell.db")
 	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		t.Fatalf("sql.Open() error: %v", err)

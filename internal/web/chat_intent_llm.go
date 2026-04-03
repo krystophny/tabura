@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/krystophny/sloppad/internal/llmcache"
-	"github.com/krystophny/sloppad/internal/store"
+	"github.com/krystophny/slopshell/internal/llmcache"
+	"github.com/krystophny/slopshell/internal/store"
 )
 
 var intentLLMSystemPrompt = buildIntentLLMSystemPrompt()

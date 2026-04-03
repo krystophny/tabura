@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/krystophny/sloppad/internal/store"
+	"github.com/krystophny/slopshell/internal/store"
 )
 
 var titledItemInboxCommandPattern = regexp.MustCompile(`(?i)^(?:move|bring|put)\s+(?:the\s+)?(?:item|mail|message)\s+(?:at\s+line\s+\d+\s+of\s+)?["“]?(.+?)["”]?\s+back\s+to\s+(?:the\s+)?inbox(?:\s*[.!?])?$`)

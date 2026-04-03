@@ -1,6 +1,6 @@
 # Approval and Execution Policy
 
-Sloppad has one execution-policy model. `plan`, `review`, and `yolo` are not separate product universes; they only change how risky work is gated.
+Slopshell has one execution-policy model. `plan`, `review`, and `yolo` are not separate product universes; they only change how risky work is gated.
 
 ## Policy Table
 

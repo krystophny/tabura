@@ -15,7 +15,7 @@ func TestLegacyIntentClassifierArtifactsAreRemovedFromTrackedFiles(t *testing.T)
 		"grep",
 		"-n",
 		"-E",
-		"intent-classifier|sloppad-intent\\.service|8425",
+		"intent-classifier|slopshell-intent\\.service|8425",
 		"--",
 		".",
 		":(exclude)internal/licensing/intent_runtime_test.go",
@@ -47,7 +47,7 @@ func TestLegacyIntentClassifierArtifactsAreRemovedFromTrackedFiles(t *testing.T)
 			continue
 		case strings.HasPrefix(cleanPath, "services/intent-classifier/"):
 			t.Fatalf("legacy intent classifier path is still tracked: %s", cleanPath)
-		case cleanPath == "deploy/systemd/user/sloppad-intent.service":
+		case cleanPath == "deploy/systemd/user/slopshell-intent.service":
 			t.Fatalf("legacy intent service unit is still tracked: %s", cleanPath)
 		}
 	}

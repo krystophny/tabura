@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/krystophny/sloppad/internal/store"
-	tabsync "github.com/krystophny/sloppad/internal/sync"
+	"github.com/krystophny/slopshell/internal/store"
+	tabsync "github.com/krystophny/slopshell/internal/sync"
 )
 
 const (

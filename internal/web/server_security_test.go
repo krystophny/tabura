@@ -14,7 +14,7 @@ import (
 	"testing"
 
 	"github.com/gorilla/websocket"
-	"github.com/krystophny/sloppad/internal/stt"
+	"github.com/krystophny/slopshell/internal/stt"
 )
 
 func TestWebRouterDoesNotExposeMCPRoute(t *testing.T) {
@@ -62,14 +62,14 @@ func TestServeIndexUsesForwardedPrefixBaseHref(t *testing.T) {
 	app := newAuthedTestApp(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	req.Header.Set("X-Forwarded-Prefix", "/sloppad")
+	req.Header.Set("X-Forwarded-Prefix", "/slopshell")
 	rr := httptest.NewRecorder()
 	app.Router().ServeHTTP(rr, req)
 
 	if rr.Code != http.StatusOK {
 		t.Fatalf("GET / status = %d, want 200", rr.Code)
 	}
-	if body := rr.Body.String(); !strings.Contains(body, `<base href="/sloppad/">`) {
+	if body := rr.Body.String(); !strings.Contains(body, `<base href="/slopshell/">`) {
 		t.Fatalf("GET / body missing forwarded-prefix base href, body=%q", body)
 	}
 	csp := rr.Header().Get("Content-Security-Policy")

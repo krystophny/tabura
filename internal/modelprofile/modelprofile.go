@@ -189,7 +189,7 @@ func MainThreadReasoningParams(alias string) map[string]interface{} {
 }
 
 // ModelSystemHints returns model-specific system prompt additions.
-// Sloppad keeps Codex/GPT/Spark prompts clean and relies on model-native behavior.
+// Slopshell keeps Codex/GPT/Spark prompts clean and relies on model-native behavior.
 func ModelSystemHints(alias string) string {
 	_ = alias
 	return ""

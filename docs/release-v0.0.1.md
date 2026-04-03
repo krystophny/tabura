@@ -1,12 +1,12 @@
 # Release v0.0.1
 
-> **Legal notice:** Sloppad is provided "as is" and "as available" without warranties, and to the maximum extent permitted by applicable law the authors/contributors accept no liability for damages, data loss, or misuse. You are solely responsible for backups, verification, and safe operation. See [`DISCLAIMER.md`](/DISCLAIMER.md).
+> **Legal notice:** Slopshell is provided "as is" and "as available" without warranties, and to the maximum extent permitted by applicable law the authors/contributors accept no liability for damages, data loss, or misuse. You are solely responsible for backups, verification, and safe operation. See [`DISCLAIMER.md`](/DISCLAIMER.md).
 
 > Historical note: This file documents a past release. For the current runtime stack, use README.md and docs/architecture.md.
 
 ## Version Scope
 
-`v0.0.1` defines the first public baseline of Sloppad documentation and release metadata.
+`v0.0.1` defines the first public baseline of Slopshell documentation and release metadata.
 
 ## Included in v0.0.1
 
@@ -34,4 +34,4 @@
 For archival publication records, pair this version with:
 - release label: `v0.0.1`
 - source revision: exact git commit hash in release metadata
-- repository URL: `https://github.com/krystophny/sloppad`
+- repository URL: `https://github.com/krystophny/slopshell`

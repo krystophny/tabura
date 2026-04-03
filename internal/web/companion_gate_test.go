@@ -3,7 +3,7 @@ package web
 import (
 	"testing"
 
-	"github.com/krystophny/sloppad/internal/store"
+	"github.com/krystophny/slopshell/internal/store"
 )
 
 func TestEvaluateCompanionDirectedSpeechGate(t *testing.T) {

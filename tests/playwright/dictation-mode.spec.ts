@@ -29,7 +29,7 @@ test('dictation mode accumulates draft on canvas and dispatches only on explicit
   expect(log.some((entry) => entry.type === 'message_sent')).toBe(false);
 
   await page.evaluate(async () => {
-    await (window as any)._sloppadApp.appendDictationTranscript('Thanks for the update. I can send the revision tomorrow.');
+    await (window as any)._slopshellApp.appendDictationTranscript('Thanks for the update. I can send the revision tomorrow.');
   });
 
   await expect(page.locator('#canvas-text')).toContainText('Email Draft');

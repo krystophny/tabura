@@ -4,23 +4,23 @@ set -euo pipefail
 MCP_URL="${1:-http://127.0.0.1:9420/mcp}"
 CONFIG_PATH="${CODEX_CONFIG_PATH:-$HOME/.codex/config.toml}"
 PLATFORM="$(uname -s)"
-FAST_URL="${SLOPPAD_CODEX_FAST_URL:-http://127.0.0.1:8081/v1}"
-FAST_MODEL="${SLOPPAD_CODEX_FAST_MODEL:-qwen3.5-9b}"
+FAST_URL="${SLOPSHELL_CODEX_FAST_URL:-http://127.0.0.1:8081/v1}"
+FAST_MODEL="${SLOPSHELL_CODEX_FAST_MODEL:-qwen3.5-9b}"
 if [[ "$PLATFORM" == "Darwin" ]]; then
-  LOCAL_URL="${SLOPPAD_CODEX_LOCAL_URL:-http://127.0.0.1:8081/v1}"
-  LOCAL_MODEL="${SLOPPAD_CODEX_LOCAL_MODEL:-qwen3.5-9b}"
+  LOCAL_URL="${SLOPSHELL_CODEX_LOCAL_URL:-http://127.0.0.1:8081/v1}"
+  LOCAL_MODEL="${SLOPSHELL_CODEX_LOCAL_MODEL:-qwen3.5-9b}"
   LOCAL_PROVIDER_NAME="Local vLLM-MLX"
   FAST_PROVIDER_NAME="Fast vLLM-MLX"
 else
-  LOCAL_URL="${SLOPPAD_CODEX_LOCAL_URL:-http://127.0.0.1:8080/v1}"
-  LOCAL_MODEL="${SLOPPAD_CODEX_LOCAL_MODEL:-gpt-oss-120b}"
+  LOCAL_URL="${SLOPSHELL_CODEX_LOCAL_URL:-http://127.0.0.1:8080/v1}"
+  LOCAL_MODEL="${SLOPSHELL_CODEX_LOCAL_MODEL:-gpt-oss-120b}"
   LOCAL_PROVIDER_NAME="Local llama.cpp"
   FAST_PROVIDER_NAME="Fast llama.cpp"
 fi
-MCP_MARKER_BEGIN="# BEGIN SLOPPAD MCP"
-MCP_MARKER_END="# END SLOPPAD MCP"
-MODELS_MARKER_BEGIN="# BEGIN SLOPPAD LOCAL MODELS"
-MODELS_MARKER_END="# END SLOPPAD LOCAL MODELS"
+MCP_MARKER_BEGIN="# BEGIN SLOPSHELL MCP"
+MCP_MARKER_END="# END SLOPSHELL MCP"
+MODELS_MARKER_BEGIN="# BEGIN SLOPSHELL LOCAL MODELS"
+MODELS_MARKER_END="# END SLOPSHELL LOCAL MODELS"
 
 mkdir -p "$(dirname "$CONFIG_PATH")"
 if [[ -f "$CONFIG_PATH" ]]; then
@@ -60,7 +60,7 @@ fi
     echo
   fi
   echo "$MCP_MARKER_BEGIN"
-  echo "[mcp_servers.sloppad]"
+  echo "[mcp_servers.slopshell]"
   printf 'url = "%s"\n' "$MCP_URL"
   echo "$MCP_MARKER_END"
   echo
@@ -90,5 +90,5 @@ fi
 
 mv "$TMP_OUT" "$CONFIG_PATH"
 echo "updated $CONFIG_PATH"
-echo "server key: mcp_servers.sloppad"
+echo "server key: mcp_servers.slopshell"
 echo "profile keys: local, fast"

@@ -491,7 +491,7 @@ func TestTranscribeWithOptionsSingleLanguageAndPrompt(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(sttResponse{Text: "hallo welt"})
 	}))
 	defer srv.Close()
-	t.Setenv("SLOPPAD_STT_MODEL_NAME", "whisper-x")
+	t.Setenv("SLOPSHELL_STT_MODEL_NAME", "whisper-x")
 
 	text, err := TranscribeWithOptions(srv.URL, "audio/webm", []byte("fake-audio-data"), nil, TranscribeOptions{
 		AllowedLanguages: []string{"de"},

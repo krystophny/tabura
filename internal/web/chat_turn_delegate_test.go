@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/gorilla/websocket"
-	"github.com/krystophny/sloppad/internal/modelprofile"
+	"github.com/krystophny/slopshell/internal/modelprofile"
 )
 
 type mockDelegateAppServerState struct {

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { setLiveMode } from './sloppad-circle-helpers';
+import { setLiveMode } from './slopshell-circle-helpers';
 
 async function clearLog(page: Page) {
   await page.evaluate(() => {
@@ -14,7 +14,7 @@ async function getLog(page: Page) {
 async function waitReady(page: Page) {
   await page.goto('/tests/playwright/harness.html');
   await page.waitForFunction(() => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     if (typeof app?.getState !== 'function') return false;
     const s = app.getState();
     const wsOpen = (window as any).WebSocket.OPEN;
@@ -24,7 +24,7 @@ async function waitReady(page: Page) {
 
 async function injectChatEvent(page: Page, payload: Record<string, unknown>) {
   await page.evaluate((eventPayload) => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     const activeChatWs = app?.getState?.().chatWs;
     if (activeChatWs && typeof activeChatWs.injectEvent === 'function') {
       activeChatWs.injectEvent(eventPayload);
@@ -54,7 +54,7 @@ async function setHarnessMeetingState(
   } = {},
 ) {
   await page.evaluate(async (nextState) => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     const appState = app?.getState?.();
     if (appState) {
       appState.projects = [
@@ -141,7 +141,7 @@ async function switchToProject(page: Page, workspaceID: string) {
     button.click();
   }, workspaceID);
   await expect.poll(async () => page.evaluate(() => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     const state = app?.getState?.();
     if (!state) return null;
     return {
@@ -162,7 +162,7 @@ async function clearCanvas(page: Page) {
     }
   });
   await expect.poll(async () => page.evaluate(() => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     return Boolean(app?.getState?.().hasArtifact);
   })).toBe(false);
 }
@@ -207,9 +207,9 @@ test('meeting mode does not keep the idle cursor indicator pinned on screen', as
   await page.evaluate(async () => {
     const ui = await import('../../internal/web/static/ui.js');
     const canvasUi = await import('../../internal/web/static/app-canvas-ui.js');
-    const appState = (window as any)._sloppadApp?.getState?.();
+    const appState = (window as any)._slopshellApp?.getState?.();
     if (!appState || typeof canvasUi.updateAssistantActivityIndicator !== 'function') {
-      throw new Error('sloppad modules not ready');
+      throw new Error('slopshell modules not ready');
     }
     appState.liveSessionActive = true;
     appState.liveSessionMode = 'meeting';
@@ -285,7 +285,7 @@ test('meeting idle surface tracks runtime state and hides behind open artifacts'
   await setHarnessMeetingState(page, { enabled: true, idleSurface: 'robot', runtimeState: 'idle' });
   await clearCanvas(page);
   await page.evaluate(() => {
-    (window as any)._sloppadApp?.syncCompanionIdleSurface?.();
+    (window as any)._slopshellApp?.syncCompanionIdleSurface?.();
   });
 
   await waitForMeetingSurface(page, 'idle', 'robot');
@@ -339,7 +339,7 @@ test('top panel omits legacy meeting surface controls', async ({ page }) => {
   await setHarnessMeetingState(page, { enabled: true, idleSurface: 'robot', runtimeState: 'idle' });
   await clearCanvas(page);
   await page.evaluate(() => {
-    (window as any)._sloppadApp?.syncCompanionIdleSurface?.();
+    (window as any)._slopshellApp?.syncCompanionIdleSurface?.();
   });
   await expect(page.locator('#edge-top-models .edge-companion-surface-btn')).toHaveCount(0);
   await expect(page.locator('#edge-top-models .edge-runtime-more-btn')).toHaveCount(0);

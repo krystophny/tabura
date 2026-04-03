@@ -116,7 +116,7 @@ func TestStoreMigratesDomainTablesOnFreshDatabase(t *testing.T) {
 }
 
 func TestStoreMigratesDomainTablesOnExistingDatabase(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "sloppad.db")
+	dbPath := filepath.Join(t.TempDir(), "slopshell.db")
 	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		t.Fatalf("sql.Open() error: %v", err)
@@ -170,7 +170,7 @@ CREATE TABLE chat_messages (
 }
 
 func TestStoreMigratesExistingItemsTableToAllowSomeday(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "sloppad.db")
+	dbPath := filepath.Join(t.TempDir(), "slopshell.db")
 	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		t.Fatalf("sql.Open() error: %v", err)
@@ -222,7 +222,7 @@ INSERT INTO items (title, state) VALUES ('legacy waiting', 'waiting');
 }
 
 func TestStoreMigratesProjectRemovalWithoutLegacyForeignKeys(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "sloppad.db")
+	dbPath := filepath.Join(t.TempDir(), "slopshell.db")
 	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		t.Fatalf("sql.Open() error: %v", err)
@@ -319,7 +319,7 @@ CREATE TABLE external_container_mappings (
 }
 
 func TestStoreRepairsBrokenProjectLegacyForeignKeys(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "sloppad.db")
+	dbPath := filepath.Join(t.TempDir(), "slopshell.db")
 	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		t.Fatalf("sql.Open() error: %v", err)

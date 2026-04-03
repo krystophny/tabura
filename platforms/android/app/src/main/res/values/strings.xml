@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Sloppad Android</string>
-    <string name="audio_notification_channel">Sloppad microphone</string>
-    <string name="audio_notification_title">Sloppad is listening</string>
-    <string name="audio_notification_text">Background audio capture is streaming PCM to Sloppad.</string>
+    <string name="app_name">Slopshell Android</string>
+    <string name="audio_notification_channel">Slopshell microphone</string>
+    <string name="audio_notification_title">Slopshell is listening</string>
+    <string name="audio_notification_text">Background audio capture is streaming PCM to Slopshell.</string>
 </resources>

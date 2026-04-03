@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/krystophny/sloppad/internal/store"
+	"github.com/krystophny/slopshell/internal/store"
 )
 
 const briefingArtifactKind = store.ArtifactKind("briefing")
@@ -89,7 +89,7 @@ func (a *App) executeBriefingAction(session store.ChatSession, action *SystemAct
 	}
 	content := renderBriefingMarkdown(snapshot)
 
-	relativePath := filepath.ToSlash(filepath.Join(".sloppad", "artifacts", "briefing", req.Date.In(time.Local).Format("2006-01-02")+".md"))
+	relativePath := filepath.ToSlash(filepath.Join(".slopshell", "artifacts", "briefing", req.Date.In(time.Local).Format("2006-01-02")+".md"))
 	absPath, canvasTitle, err := resolveCanvasFilePath(cwd, relativePath)
 	if err != nil {
 		return "", nil, err

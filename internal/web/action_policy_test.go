@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/krystophny/sloppad/internal/store"
+	"github.com/krystophny/slopshell/internal/store"
 )
 
 func requireConfirmationRequired(t *testing.T, message string, payloads []map[string]interface{}, wantKind string) {

@@ -1,0 +1,14 @@
+[Unit]
+Description=Watch Slopshell source for dev reload
+After=slopshell-codex-app-server.service slopshell-web.service
+Wants=slopshell-codex-app-server.service slopshell-web.service
+
+[Service]
+Type=simple
+WorkingDirectory=@@REPO_ROOT@@
+ExecStart=@@REPO_ROOT@@/scripts/slopshell-dev-watch.sh
+Restart=always
+RestartSec=1
+
+[Install]
+WantedBy=default.target

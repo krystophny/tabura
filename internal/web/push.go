@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/krystophny/sloppad/internal/store"
+	"github.com/krystophny/slopshell/internal/store"
 )
 
 const (
@@ -62,9 +62,9 @@ func (p *pushService) notifyTurnCompletion(ctx context.Context, sessionID string
 	if len(registrations) == 0 {
 		return nil
 	}
-	title := "Sloppad reply"
+	title := "Slopshell reply"
 	if clean := strings.TrimSpace(workspaceName); clean != "" {
-		title = "Sloppad reply for " + clean
+		title = "Slopshell reply for " + clean
 	}
 	return p.send(ctx, registrations, pushNotification{
 		Title: title,
@@ -173,7 +173,7 @@ func uniquePushRegistrations(registrations []store.PushRegistration) []store.Pus
 func summarizePushBody(text string) string {
 	compact := strings.Join(strings.Fields(strings.TrimSpace(stripCanvasFileMarkers(text))), " ")
 	if compact == "" {
-		return "Open Sloppad to view the update."
+		return "Open Slopshell to view the update."
 	}
 	runes := []rune(compact)
 	if len(runes) <= pushBodyLimit {

@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/krystophny/sloppad/internal/email"
-	"github.com/krystophny/sloppad/internal/providerdata"
-	"github.com/krystophny/sloppad/internal/store"
+	"github.com/krystophny/slopshell/internal/email"
+	"github.com/krystophny/slopshell/internal/providerdata"
+	"github.com/krystophny/slopshell/internal/store"
 )
 
 type fakeMailDraftProvider struct {
@@ -111,7 +111,7 @@ func TestMailDraftCreateUpdateSendAPI(t *testing.T) {
 	if got := string(artifact.Kind); got != string(artifactKindEmailDraft) {
 		t.Fatalf("artifact kind = %q, want %q", got, artifactKindEmailDraft)
 	}
-	if refPath := stringFromPointer(artifact.RefPath); !strings.HasPrefix(filepath.ToSlash(refPath), ".sloppad/artifacts/mail/") {
+	if refPath := stringFromPointer(artifact.RefPath); !strings.HasPrefix(filepath.ToSlash(refPath), ".slopshell/artifacts/mail/") {
 		t.Fatalf("artifact ref_path = %q, want draft artifact path", refPath)
 	}
 

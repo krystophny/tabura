@@ -1,5 +1,5 @@
 cff-version: 1.2.0
-title: sloppad
+title: slopshell
 message: If you use this software, please cite it using this metadata.
 type: software
 authors:
@@ -8,10 +8,10 @@ authors:
 license: MIT
 version: v0.2.1
 date-released: 2026-03-14
-repository-code: https://github.com/krystophny/sloppad
-url: https://github.com/krystophny/sloppad
+repository-code: https://github.com/krystophny/slopshell
+url: https://github.com/krystophny/slopshell
 abstract: >-
-  Sloppad is a local-first MCP canvas and review runtime that defines an
+  Slopshell is a local-first MCP canvas and review runtime that defines an
   object-scoped intent interface with local invocation, mode-aware intent
   capture, explicit Accept/Edit/Reject controls, and commit-based review
   workflows, with integrated handoff protocol specs and schemas in-repo.

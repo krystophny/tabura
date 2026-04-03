@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/krystophny/sloppad/internal/providerdata"
-	"github.com/krystophny/sloppad/internal/store"
+	"github.com/krystophny/slopshell/internal/providerdata"
+	"github.com/krystophny/slopshell/internal/store"
 )
 
 func TestParseInlineBriefingIntent(t *testing.T) {
@@ -190,7 +190,7 @@ func TestClassifyAndExecuteSystemActionShowBriefingRendersArtifact(t *testing.T)
 		t.Fatalf("canvas_artifact_show calls = %d, want 1", showCalls)
 	}
 	path := strFromAny(payloads[0]["path"])
-	if path != ".sloppad/artifacts/briefing/2026-03-09.md" {
+	if path != ".slopshell/artifacts/briefing/2026-03-09.md" {
 		t.Fatalf("payload path = %q", path)
 	}
 	rendered, err := os.ReadFile(filepath.Join(workWorkspace.DirPath, path))

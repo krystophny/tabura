@@ -12,7 +12,7 @@ async function clearLog(page: Page) {
 
 async function waitWsReady(page: Page) {
   await page.waitForFunction(() => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     if (typeof app?.getState !== 'function') return false;
     const s = app.getState();
     return s.chatWs && s.chatWs.readyState === (window as any).WebSocket.OPEN;
@@ -50,7 +50,7 @@ async function isRuntimeWatcherScheduled(page: Page): Promise<boolean> {
 
 async function isAssistantWatcherScheduled(page: Page): Promise<boolean> {
   return page.evaluate(() => {
-    const app = (window as any)._sloppadApp;
+    const app = (window as any)._slopshellApp;
     return Boolean(app?.getState?.().assistantActivityTimer);
   });
 }

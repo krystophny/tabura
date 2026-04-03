@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/krystophny/sloppad/internal/providerdata"
+	"github.com/krystophny/slopshell/internal/providerdata"
 )
 
 var (

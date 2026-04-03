@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/krystophny/sloppad/internal/stt"
+	"github.com/krystophny/slopshell/internal/stt"
 )
 
 const sttReplacementsStateKey = "stt_replacements"
