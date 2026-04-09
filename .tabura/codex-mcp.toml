@@ -1,3 +1,0 @@
-[mcp_servers.tabura]
-command = "tabura"
-args = ["mcp-server", "--project-dir", "/home/ert/code/assi/tabura"]

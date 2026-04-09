@@ -1,4 +1,0 @@
-tabula serve listening on:
-  http://127.0.0.1:9420
-  MCP endpoint: http://127.0.0.1:9420/mcp
-  project dir:  /home/ert/code/tabula
