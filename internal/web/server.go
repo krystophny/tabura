@@ -153,7 +153,7 @@ type App struct {
 	startedAt      string
 }
 
-const DefaultModel = modelprofile.ModelSpark
+const DefaultModel = modelprofile.ModelLocal
 
 func New(dataDir, localProjectDir, localMCPURL, appServerURL, model, ttsURL, sparkReasoningEffort string, devRuntime bool) (*App, error) {
 	s, err := store.New(filepath.Join(dataDir, "slopshell.db"))

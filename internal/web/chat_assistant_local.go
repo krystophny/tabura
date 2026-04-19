@@ -13,7 +13,7 @@ const (
 	assistantModeAuto                = "auto"
 	assistantModeLocal               = "local"
 	assistantModeCodex               = "codex"
-	DefaultAssistantMode             = assistantModeAuto
+	DefaultAssistantMode             = assistantModeLocal
 	defaultAssistantLLMTimeout       = 2 * time.Minute
 	assistantLLMFastMaxTokens        = 512
 	assistantLLMDirectMaxTokens      = 1024
@@ -35,8 +35,10 @@ func normalizeAssistantMode(raw string) string {
 		return assistantModeLocal
 	case assistantModeCodex:
 		return assistantModeCodex
-	default:
+	case assistantModeAuto:
 		return assistantModeAuto
+	default:
+		return DefaultAssistantMode
 	}
 }
 
