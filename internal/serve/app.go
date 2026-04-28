@@ -34,13 +34,19 @@ type App struct {
 	Server     *mcp.Server
 	Store      *store.Store
 
-	mu           sync.Mutex
-	pending      []canvas.Event
-	wsClients    map[*websocket.Conn]struct{}
-	wsUpgrader   websocket.Upgrader
-	httpServer   *http.Server
-	shutdownDone chan struct{}
+	mu             sync.Mutex
+	pending        []canvas.Event
+	wsClients      map[*websocket.Conn]struct{}
+	wsUpgrader     websocket.Upgrader
+	httpServer     *http.Server
+	unixSocketPath string
+	shutdownDone   chan struct{}
 }
+
+// syscallUmask wraps syscall.Umask so the StartUnix path can be unit-tested
+// without OS-specific build tags. syscall.Umask is identical on Linux and
+// Darwin (the only platforms slopshell ships to).
+var syscallUmask = func(mask int) int { return syscallUmaskImpl(mask) }
 
 func NewApp(projectDir, dataDir string) *App {
 	a := &App{
@@ -247,6 +253,56 @@ func (a *App) Start(host string, port int) error {
 	return err
 }
 
+// StartUnix listens on a Unix domain socket at `socketPath`, with 0600
+// permissions enforced before the listener accepts connections. This is the
+// preferred transport for slopshell-embedded MCPs on shared hosts — only the
+// file's owning user (and root) can connect(). There is no network listener
+// at all.
+func (a *App) StartUnix(socketPath string) error {
+	if socketPath == "" {
+		return errors.New("StartUnix requires a non-empty socket path")
+	}
+	cleaned := filepath.Clean(socketPath)
+	a.unixSocketPath = cleaned
+	if err := os.MkdirAll(filepath.Dir(cleaned), 0700); err != nil {
+		return fmt.Errorf("create socket parent dir: %w", err)
+	}
+	if st, err := os.Lstat(cleaned); err == nil {
+		if st.Mode()&os.ModeSocket == 0 {
+			return fmt.Errorf("refusing to remove non-socket file at %s", cleaned)
+		}
+		if err := os.Remove(cleaned); err != nil {
+			return fmt.Errorf("remove stale socket: %w", err)
+		}
+	}
+	oldMask := syscallUmask(0177)
+	listener, err := net.Listen("unix", cleaned)
+	syscallUmask(oldMask)
+	if err != nil {
+		return fmt.Errorf("listen on unix socket: %w", err)
+	}
+	if err := os.Chmod(cleaned, 0600); err != nil {
+		_ = listener.Close()
+		return fmt.Errorf("chmod socket: %w", err)
+	}
+	a.httpServer = &http.Server{
+		Handler:           a.Router(),
+		ReadHeaderTimeout: 15 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      60 * time.Second,
+		IdleTimeout:       60 * time.Second,
+	}
+	fmt.Println("slopshell mcp listener listening on:")
+	fmt.Printf("  http+unix://%s\n", cleaned)
+	fmt.Printf("  MCP endpoint: http+unix://%s/mcp (mode 0600)\n", cleaned)
+	fmt.Printf("  project dir:  %s\n", a.ProjectDir)
+	err = a.httpServer.Serve(listener)
+	if err == http.ErrServerClosed {
+		return nil
+	}
+	return err
+}
+
 func (a *App) Stop(ctx context.Context) error {
 	var shutdownErr error
 	if a.httpServer != nil {
@@ -255,6 +311,9 @@ func (a *App) Stop(ctx context.Context) error {
 	if a.Store != nil {
 		shutdownErr = errors.Join(shutdownErr, a.Store.Close())
 		a.Store = nil
+	}
+	if a.unixSocketPath != "" {
+		_ = os.Remove(a.unixSocketPath)
 	}
 	return shutdownErr
 }

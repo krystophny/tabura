@@ -115,11 +115,11 @@ func (a *App) executeBriefingAction(session store.ChatSession, action *SystemAct
 	if canvasSessionID == "" {
 		return "", nil, fmt.Errorf("canvas session is not available")
 	}
-	port, ok := a.tunnels.getPort(canvasSessionID)
+	ep, ok := a.tunnels.getEndpoint(canvasSessionID)
 	if !ok {
 		return "", nil, fmt.Errorf("no active MCP tunnel for project %q", targetProject.Name)
 	}
-	if _, err := a.mcpToolsCall(port, "canvas_artifact_show", map[string]interface{}{
+	if _, err := a.mcpToolsCall(ep, "canvas_artifact_show", map[string]interface{}{
 		"session_id":       canvasSessionID,
 		"kind":             "text",
 		"title":            canvasTitle,

@@ -2,6 +2,7 @@ package web
 
 import (
 	"fmt"
+	"log"
 	"slices"
 	"strings"
 )
@@ -22,10 +23,10 @@ type localAssistantExecutableTool struct {
 	InternalName string
 	DefaultArgs  map[string]any
 	Definition   map[string]any
-	// MCPURL optionally pins this tool to a specific MCP endpoint instead
-	// of the workspace default. Used for supplementary MCP servers (e.g. a
-	// dedicated web-search MCP) that live outside the workspace MCP.
-	MCPURL string
+	// WebTool indicates this tool comes from the helpy stdio MCP (web search,
+	// web fetch). Routed through the shared helpy subprocess instead of the
+	// workspace sloptools unix-socket endpoint.
+	WebTool bool
 }
 
 type localAssistantToolCatalog struct {
@@ -45,36 +46,34 @@ func (a *App) buildLocalAssistantToolCatalog(state localAssistantTurnState, fami
 	for _, tool := range localAssistantCoreTools(state, family) {
 		out.add(tool)
 	}
-	// Web tools are always available when a web MCP is configured, so the
-	// model can decide to search/fetch on any turn (same pattern as Claude
+	// Web tools are always available when the helpy stdio MCP is reachable, so
+	// the model can decide to search/fetch on any turn (same pattern as Claude
 	// Code, Codex CLI, and OpenCode: expose the tools, let the model pick).
-	if webMCPURL := a.webMCPURLForCatalog(); webMCPURL != "" {
-		mcpTools, err := mcpToolsListURL(webMCPURL)
+	if a.helpyEnabled() {
+		webTools, err := a.listHelpyTools()
 		if err != nil {
 			return localAssistantToolCatalog{}, err
 		}
-		for _, tool := range localAssistantWebMCPTools(mcpTools, webMCPURL) {
+		for _, tool := range localAssistantWebMCPTools(webTools) {
 			out.add(tool)
 		}
 	}
-	if family == localAssistantToolFamilyNone || strings.TrimSpace(state.mcpURL) == "" {
+	if family == localAssistantToolFamilyNone || !state.mcpEndpoint.ok() {
 		return out, nil
 	}
-	mcpTools, err := mcpToolsListURL(state.mcpURL)
+	mcpTools, err := mcpToolsListEndpoint(state.mcpEndpoint)
 	if err != nil {
-		return localAssistantToolCatalog{}, err
+		// The local sloptools MCP may not be running yet (e.g. unit test, or
+		// the embedded daemon hasn't bound its socket). Surface the failure
+		// to logs but proceed with the core tool surface so the assistant
+		// can still respond.
+		log.Printf("local mcp tools/list failed (%v); proceeding without workspace MCP tools", err)
+		return out, nil
 	}
 	for _, tool := range localAssistantMCPToolsForFamily(state, mcpTools, family) {
 		out.add(tool)
 	}
 	return out, nil
-}
-
-func (a *App) webMCPURLForCatalog() string {
-	if a == nil {
-		return ""
-	}
-	return strings.TrimSpace(a.webMCPURL)
 }
 
 // localAssistantIsWebTool decides whether an MCP tool advertised by the web
@@ -97,7 +96,7 @@ func localAssistantIsWebTool(name string) bool {
 	return false
 }
 
-func localAssistantWebMCPTools(tools []mcpListedTool, mcpURL string) []localAssistantExecutableTool {
+func localAssistantWebMCPTools(tools []mcpListedTool) []localAssistantExecutableTool {
 	out := make([]localAssistantExecutableTool, 0, len(tools))
 	for _, tool := range tools {
 		if !localAssistantIsWebTool(tool.Name) {
@@ -107,7 +106,7 @@ func localAssistantWebMCPTools(tools []mcpListedTool, mcpURL string) []localAssi
 			ModelName:    localAssistantMCPModelName(tool.Name),
 			Kind:         localAssistantToolKindMCP,
 			InternalName: tool.Name,
-			MCPURL:       mcpURL,
+			WebTool:      true,
 			Definition: map[string]any{
 				"type": "function",
 				"function": map[string]any{

@@ -3,17 +3,12 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
-	"net"
-	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
-	"time"
 
 	"golang.org/x/term"
 
@@ -21,7 +16,6 @@ import (
 	"github.com/sloppy-org/slopshell/internal/mcp"
 	"github.com/sloppy-org/slopshell/internal/protocol"
 	"github.com/sloppy-org/slopshell/internal/ptt"
-	"github.com/sloppy-org/slopshell/internal/serve"
 	"github.com/sloppy-org/slopshell/internal/store"
 	updater "github.com/sloppy-org/slopshell/internal/update"
 	"github.com/sloppy-org/slopshell/internal/web"
@@ -101,15 +95,12 @@ func cmdSchema() int {
 type serverConfig struct {
 	dataDir              string
 	projectDir           string
-	localMCPURL          string
+	mcpSocket            string
 	webHost              string
 	webPort              int
 	webHTTPSPort         int
 	webCertFile          string
 	webKeyFile           string
-	mcpHost              string
-	mcpPort              int
-	unsafePublicMCP      bool
 	appServerURL         string
 	model                string
 	sparkReasoningEffort string
@@ -174,15 +165,12 @@ func parseServerConfig(args []string) (*serverConfig, int) {
 	}
 	projectDir := fs.String("project-dir", ".", "project dir")
 	fs.StringVar(&cfg.dataDir, "data-dir", cfg.dataDir, "data dir")
-	fs.StringVar(&cfg.localMCPURL, "local-mcp-url", strings.TrimSpace(os.Getenv("SLOPSHELL_LOCAL_MCP_URL")), "existing local MCP endpoint URL to use instead of starting the bundled MCP listener")
+	fs.StringVar(&cfg.mcpSocket, "mcp-socket", strings.TrimSpace(os.Getenv("SLOPSHELL_MCP_SOCKET")), "path to the embedded sloptools MCP unix socket (mode 0600); empty = default $XDG_RUNTIME_DIR/sloppy/mcp.sock")
 	fs.StringVar(&cfg.webHost, "web-host", "127.0.0.1", "web listener host")
 	fs.IntVar(&cfg.webPort, "web-port", web.DefaultPort, "web listener port")
 	fs.IntVar(&cfg.webHTTPSPort, "web-https-port", 8443, "HTTPS web listener port (requires --web-cert-file and --web-key-file)")
 	fs.StringVar(&cfg.webCertFile, "web-cert-file", "", "TLS certificate path for HTTPS web listener")
 	fs.StringVar(&cfg.webKeyFile, "web-key-file", "", "TLS private key path for HTTPS web listener")
-	fs.StringVar(&cfg.mcpHost, "mcp-host", "127.0.0.1", "mcp listener host")
-	fs.IntVar(&cfg.mcpPort, "mcp-port", serve.DefaultPort, "mcp listener port")
-	fs.BoolVar(&cfg.unsafePublicMCP, "unsafe-public-mcp", false, "allow non-loopback MCP bind (unsafe)")
 	fs.StringVar(&cfg.appServerURL, "app-server-url", web.DefaultAppServerURL, "Codex app-server websocket URL")
 	fs.StringVar(&cfg.model, "model", "", "LLM model for chat (default: env SLOPSHELL_APP_SERVER_MODEL or "+web.DefaultModel+")")
 	fs.StringVar(&cfg.sparkReasoningEffort, "spark-reasoning-effort", "", "Spark thinking budget, e.g. low|medium|high (default: env SLOPSHELL_APP_SERVER_SPARK_REASONING_EFFORT or low)")
@@ -192,10 +180,6 @@ func parseServerConfig(args []string) (*serverConfig, int) {
 		return nil, 2
 	}
 	cfg.projectDir = *projectDir
-	if !cfg.unsafePublicMCP && !isLoopbackOnlyHost(cfg.mcpHost) {
-		fmt.Fprintln(os.Stderr, "refusing non-loopback MCP bind; use --unsafe-public-mcp to override")
-		return nil, 2
-	}
 	hasCert := strings.TrimSpace(cfg.webCertFile) != ""
 	hasKey := strings.TrimSpace(cfg.webKeyFile) != ""
 	if hasCert != hasKey {
@@ -211,25 +195,10 @@ func runServer(cfg *serverConfig) int {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
-	var (
-		mcpApp   *serve.App
-		mcpErrCh chan error
-		mcpURL   string
-	)
-	if strings.TrimSpace(cfg.localMCPURL) != "" {
-		mcpURL = strings.TrimSpace(cfg.localMCPURL)
-	} else {
-		mcpApp, mcpErrCh, mcpURL = startMCPListener(cfg, res.Paths.ProjectDir)
-		if err := waitForMCPReady(cfg.mcpHost, cfg.mcpPort, 10*time.Second, mcpErrCh); err != nil {
-			_ = mcpApp.Stop(context.Background())
-			fmt.Fprintf(os.Stderr, "failed to start local MCP listener: %v\n", err)
-			return 1
-		}
-	}
 	app, err := web.New(
 		cfg.dataDir,
 		res.Paths.ProjectDir,
-		mcpURL,
+		cfg.mcpSocket,
 		cfg.appServerURL,
 		cfg.model,
 		cfg.ttsURL,
@@ -237,9 +206,6 @@ func runServer(cfg *serverConfig) int {
 		cfg.devRuntime,
 	)
 	if err != nil {
-		if mcpApp != nil {
-			_ = mcpApp.Stop(context.Background())
-		}
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
@@ -253,87 +219,10 @@ func runServer(cfg *serverConfig) int {
 	}
 	startErr := app.Start(cfg.webHost, cfg.webPort)
 	if startErr != nil {
-		if mcpApp != nil {
-			_ = mcpApp.Stop(context.Background())
-		}
 		fmt.Fprintln(os.Stderr, startErr)
 		return 1
 	}
-	if mcpErrCh == nil {
-		return 0
-	}
-	select {
-	case mcpErr := <-mcpErrCh:
-		if mcpErr != nil {
-			fmt.Fprintf(os.Stderr, "mcp listener failed: %v\n", mcpErr)
-			return 1
-		}
-	default:
-	}
 	return 0
-}
-
-func startMCPListener(cfg *serverConfig, projectDir string) (*serve.App, chan error, string) {
-	mcpApp := serve.NewApp(projectDir, cfg.dataDir)
-	mcpErrCh := make(chan error, 1)
-	go func() {
-		mcpErrCh <- mcpApp.Start(cfg.mcpHost, cfg.mcpPort)
-	}()
-	mcpURL := (&url.URL{
-		Scheme: "http",
-		Host:   net.JoinHostPort(cfg.mcpHost, fmt.Sprintf("%d", cfg.mcpPort)),
-		Path:   "/mcp",
-	}).String()
-	return mcpApp, mcpErrCh, mcpURL
-}
-
-func isLoopbackOnlyHost(host string) bool {
-	trimmed := strings.TrimSpace(strings.ToLower(host))
-	trimmed = strings.Trim(trimmed, "[]")
-	if trimmed == "localhost" {
-		return true
-	}
-	switch trimmed {
-	case "127.0.0.1", "::1":
-		return true
-	case "", "0.0.0.0", "::":
-		return false
-	}
-	ip := net.ParseIP(trimmed)
-	return ip != nil && ip.IsLoopback()
-}
-
-func waitForMCPReady(host string, port int, timeout time.Duration, mcpErrCh <-chan error) error {
-	deadline := time.Now().Add(timeout)
-	url := fmt.Sprintf("http://%s/health", net.JoinHostPort(host, fmt.Sprintf("%d", port)))
-	client := &http.Client{Timeout: 750 * time.Millisecond}
-	for time.Now().Before(deadline) {
-		select {
-		case err := <-mcpErrCh:
-			if err == nil {
-				return errors.New("mcp listener exited before becoming healthy")
-			}
-			return fmt.Errorf("mcp listener failed to start: %w", err)
-		default:
-		}
-		resp, err := client.Get(url)
-		if err == nil {
-			_ = resp.Body.Close()
-			if resp.StatusCode == http.StatusOK {
-				return nil
-			}
-		}
-		time.Sleep(200 * time.Millisecond)
-	}
-	select {
-	case err := <-mcpErrCh:
-		if err == nil {
-			return errors.New("mcp listener exited before becoming healthy")
-		}
-		return fmt.Errorf("mcp listener failed to start: %w", err)
-	default:
-	}
-	return errors.New("mcp health check timeout")
 }
 
 func cmdSetPassword(args []string) int {

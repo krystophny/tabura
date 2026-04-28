@@ -65,8 +65,12 @@ var staticFiles embed.FS
 type App struct {
 	dataDir                       string
 	localProjectDir               string
-	localMCPURL                   string
-	webMCPURL                     string
+	localMCPSocket                string
+	localMCPEndpoint              mcpEndpoint
+	helpyBin                      string
+	helpyArgs                     []string
+	helpyMu                       sync.Mutex
+	helpy                         *helpyStdioClient
 	appServerURL                  string
 	appServerModel                string
 	appServerSparkReasoningEffort string
@@ -159,7 +163,7 @@ type App struct {
 
 const DefaultModel = modelprofile.ModelLocal
 
-func New(dataDir, localProjectDir, localMCPURL, appServerURL, model, ttsURL, sparkReasoningEffort string, devRuntime bool) (*App, error) {
+func New(dataDir, localProjectDir, localMCPSocket, appServerURL, model, ttsURL, sparkReasoningEffort string, devRuntime bool) (*App, error) {
 	s, err := store.New(filepath.Join(dataDir, "slopshell.db"))
 	if err != nil {
 		return nil, err
@@ -206,9 +210,27 @@ func New(dataDir, localProjectDir, localMCPURL, appServerURL, model, ttsURL, spa
 	if strings.EqualFold(resolvedAssistantLLMModel, "off") {
 		resolvedAssistantLLMModel = ""
 	}
-	resolvedWebMCPURL := strings.TrimSpace(os.Getenv("SLOPSHELL_WEB_MCP_URL"))
-	if strings.EqualFold(resolvedWebMCPURL, "off") {
-		resolvedWebMCPURL = ""
+	helpyBin := strings.TrimSpace(os.Getenv("SLOPSHELL_HELPY_BIN"))
+	helpyArgs := []string{"mcp-stdio"}
+	if strings.EqualFold(helpyBin, "off") {
+		helpyBin = ""
+	} else if helpyBin == "" {
+		helpyBin = "helpy"
+	}
+	if extra := strings.TrimSpace(os.Getenv("SLOPSHELL_HELPY_ARGS")); extra != "" {
+		helpyArgs = strings.Fields(extra)
+	}
+	resolvedLocalMCPSocket := strings.TrimSpace(localMCPSocket)
+	if resolvedLocalMCPSocket == "" {
+		resolvedLocalMCPSocket = strings.TrimSpace(os.Getenv("SLOPSHELL_MCP_SOCKET"))
+	}
+	if resolvedLocalMCPSocket == "" {
+		resolvedLocalMCPSocket = defaultLocalMCPSocket()
+	}
+	resolvedLocalMCPEndpoint, mcpErr := parseEndpoint(resolvedLocalMCPSocket)
+	if mcpErr != nil {
+		_ = s.Close()
+		return nil, mcpErr
 	}
 	resolvedIntentLLMURL := strings.TrimSpace(os.Getenv("SLOPSHELL_INTENT_LLM_URL"))
 	if strings.EqualFold(resolvedIntentLLMURL, "off") {
@@ -311,8 +333,10 @@ func New(dataDir, localProjectDir, localMCPURL, appServerURL, model, ttsURL, spa
 	app := &App{
 		dataDir:                       dataDir,
 		localProjectDir:               localProjectDir,
-		localMCPURL:                   localMCPURL,
-		webMCPURL:                     resolvedWebMCPURL,
+		localMCPSocket:                resolvedLocalMCPEndpoint.socket,
+		localMCPEndpoint:              resolvedLocalMCPEndpoint,
+		helpyBin:                      helpyBin,
+		helpyArgs:                     helpyArgs,
 		appServerURL:                  appServerURL,
 		appServerModel:                resolvedModel,
 		appServerSparkReasoningEffort: resolvedSparkReasoningEffort,
@@ -639,7 +663,7 @@ func (a *App) handleRuntime(w http.ResponseWriter, r *http.Request) {
 		"started_at":                  a.startedAt,
 		"version":                     "0.2.1",
 		"dev_mode":                    a.devRuntime,
-		"local_mcp_url":               a.localMCPURL,
+		"local_mcp_socket":            a.localMCPSocket,
 		"app_server_url":              a.appServerURL,
 		"app_server_model":            a.appServerModel,
 		"app_server_reasoning_effort": sparkReasoningEffort,
@@ -896,12 +920,10 @@ func (a *App) start(host string, port int, certFile, keyFile string) error {
 		fmt.Printf("  %s\n", u)
 	}
 	if a.localProjectDir != "" {
-		mcpURL := a.localMCPURL
-		if mcpURL == "" {
-			mcpURL = fmt.Sprintf("http://127.0.0.1:%d/mcp", DaemonPort)
-		}
 		fmt.Printf("  local project: %s\n", a.localProjectDir)
-		fmt.Printf("  local MCP:     %s\n", mcpURL)
+		if a.localMCPSocket != "" {
+			fmt.Printf("  local MCP:     unix:%s (mode 0600)\n", a.localMCPSocket)
+		}
 	}
 	var err error
 	if certFile != "" && keyFile != "" {

@@ -117,11 +117,16 @@ func TestLocalAssistantTurnHandlesCanvasWriteTextTool(t *testing.T) {
 	app := newAuthedTestApp(t)
 	app.assistantMode = assistantModeLocal
 	app.assistantLLMURL = llm.URL
-	app.localMCPURL = mcp.URL
 
 	project, err := app.ensureDefaultWorkspace()
 	if err != nil {
 		t.Fatalf("ensureDefaultWorkspace: %v", err)
+	}
+	// Production wires workspace.MCPURL to a unix-socket URL; for in-process
+	// httptest we override it with the test server URL. parseEndpoint accepts
+	// http(s):// for tests (see mcp_transport.go).
+	if err := app.store.UpdateWorkspaceRuntime(workspaceIDStr(project.ID), mcp.URL, LocalSessionID); err != nil {
+		t.Fatalf("UpdateWorkspaceRuntime: %v", err)
 	}
 	session, err := app.store.GetOrCreateChatSession(project.WorkspacePath)
 	if err != nil {

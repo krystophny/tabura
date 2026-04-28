@@ -10,7 +10,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
@@ -52,12 +51,12 @@ func (a *App) handleCanvasSnapshot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sid := chi.URLParam(r, "session_id")
-	port, ok := a.tunnels.getPort(sid)
+	ep, ok := a.tunnels.getEndpoint(sid)
 	if !ok {
 		http.Error(w, "no active tunnel for session", http.StatusNotFound)
 		return
 	}
-	status, err := a.mcpToolsCall(port, "canvas_status", map[string]interface{}{"session_id": sid})
+	status, err := a.mcpToolsCall(ep, "canvas_status", map[string]interface{}{"session_id": sid})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadGateway)
 		return
@@ -66,8 +65,11 @@ func (a *App) handleCanvasSnapshot(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]interface{}{"status": status, "event": event})
 }
 
-func (a *App) mcpToolsCall(port int, name string, arguments map[string]interface{}) (map[string]interface{}, error) {
-	return mcpToolsCallURL(fmt.Sprintf("http://127.0.0.1:%d/mcp", port), name, arguments)
+// mcpToolsCall is the App-level helper used throughout the chat handlers. It
+// targets a specific session's MCP listener (sloptools embedded over a unix
+// socket).
+func (a *App) mcpToolsCall(ep mcpEndpoint, name string, arguments map[string]interface{}) (map[string]interface{}, error) {
+	return mcpToolsCallEndpoint(ep, name, arguments)
 }
 
 type mcpListedTool struct {
@@ -76,17 +78,20 @@ type mcpListedTool struct {
 	InputSchema map[string]any
 }
 
-func mcpToolsListURL(mcpURL string) ([]mcpListedTool, error) {
+func mcpToolsListEndpoint(ep mcpEndpoint) ([]mcpListedTool, error) {
+	if !ep.ok() {
+		return nil, errors.New("MCP list: endpoint not configured")
+	}
 	payload := map[string]interface{}{"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": map[string]interface{}{}}
 	b, _ := json.Marshal(payload)
 	ctx, cancel := context.WithTimeout(context.Background(), mcpToolsCallTimeout)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, mcpURL, bytes.NewReader(b))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, ep.HTTPURL("/mcp"), bytes.NewReader(b))
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := cachedHTTPClientForEndpoint(ep, mcpToolsCallTimeout).Do(req)
 	if err != nil {
 		var netErr net.Error
 		if errors.Is(err, context.DeadlineExceeded) || (errors.As(err, &netErr) && netErr.Timeout()) {
@@ -127,17 +132,20 @@ func mcpToolsListURL(mcpURL string) ([]mcpListedTool, error) {
 	return tools, nil
 }
 
-func mcpToolsCallURL(mcpURL, name string, arguments map[string]interface{}) (map[string]interface{}, error) {
+func mcpToolsCallEndpoint(ep mcpEndpoint, name string, arguments map[string]interface{}) (map[string]interface{}, error) {
+	if !ep.ok() {
+		return nil, errors.New("MCP call: endpoint not configured")
+	}
 	payload := map[string]interface{}{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": map[string]interface{}{"name": name, "arguments": arguments}}
 	b, _ := json.Marshal(payload)
 	ctx, cancel := context.WithTimeout(context.Background(), mcpToolsCallTimeout)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, mcpURL, bytes.NewReader(b))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, ep.HTTPURL("/mcp"), bytes.NewReader(b))
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := cachedHTTPClientForEndpoint(ep, mcpToolsCallTimeout).Do(req)
 	if err != nil {
 		var netErr net.Error
 		if errors.Is(err, context.DeadlineExceeded) || (errors.As(err, &netErr) && netErr.Timeout()) {
@@ -274,17 +282,13 @@ func (a *App) handleFilesProxy(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid path", http.StatusForbidden)
 		return
 	}
-	port, ok := a.tunnels.getPort(sid)
+	ep, ok := a.tunnels.getEndpoint(sid)
 	if !ok {
 		http.Error(w, "no active tunnel for session", http.StatusNotFound)
 		return
 	}
-	upstreamURL := (&url.URL{
-		Scheme: "http",
-		Host:   fmt.Sprintf("127.0.0.1:%d", port),
-		Path:   "/files/" + filePath,
-	}).String()
-	resp, err := http.Get(upstreamURL)
+	upstreamURL := ep.HTTPURL("/files/" + filePath)
+	resp, err := cachedHTTPClientForEndpoint(ep, 30*time.Second).Get(upstreamURL)
 	if err != nil {
 		http.Error(w, "file fetch failed", http.StatusBadGateway)
 		return
@@ -301,25 +305,10 @@ func (a *App) handleFilesProxy(w http.ResponseWriter, r *http.Request) {
 	_, _ = io.Copy(w, resp.Body)
 }
 
-func extractPort(raw string) (int, error) {
-	u, err := url.Parse(raw)
-	if err != nil {
-		return 0, err
+func (a *App) startCanvasRelay(sessionID string, ep mcpEndpoint) {
+	if !ep.ok() {
+		return
 	}
-	p := u.Port()
-	if p == "" {
-		if u.Scheme == "https" {
-			return 443, nil
-		}
-		if u.Scheme == "http" {
-			return 80, nil
-		}
-		return 0, errors.New("cannot infer port")
-	}
-	return strconv.Atoi(p)
-}
-
-func (a *App) startCanvasRelay(sessionID string, port int) {
 	ctx := a.tunnels.replaceRelayCancel(sessionID)
 
 	go func() {
@@ -328,8 +317,7 @@ func (a *App) startCanvasRelay(sessionID string, port int) {
 			a.tunnels.deleteRemoteCanvas(sessionID)
 		}()
 
-		wsURL := fmt.Sprintf("ws://127.0.0.1:%d/ws/canvas", port)
-		conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+		conn, _, err := ep.WSDialer().Dial(ep.WSURL("/ws/canvas"), nil)
 		if err != nil {
 			errMsg := []byte(`{"type":"relay_error","message":"canvas backend unavailable"}`)
 			for _, ws := range a.hub.canvasClients(sessionID) {
@@ -361,45 +349,39 @@ func (a *App) startCanvasRelay(sessionID string, port int) {
 }
 
 func (a *App) startLocalServe() error {
-	if a.tunnels.hasPort(LocalSessionID) {
+	if a.tunnels.hasEndpoint(LocalSessionID) {
 		return nil
 	}
 	if a.localProjectDir == "" {
 		return nil
 	}
-	if a.localMCPURL != "" {
-		port, err := extractPort(a.localMCPURL)
-		if err != nil {
-			return err
-		}
-		a.tunnels.setPort(LocalSessionID, port)
-		a.startCanvasRelay(LocalSessionID, port)
+	// httpURL endpoints are reserved for in-process tests — they refer to an
+	// already-running httptest server, not a socket we should bind.
+	if a.localMCPEndpoint.httpURL != "" {
+		a.tunnels.setEndpoint(LocalSessionID, a.localMCPEndpoint)
+		a.startCanvasRelay(LocalSessionID, a.localMCPEndpoint)
 		return nil
 	}
-
-	app := serve.NewApp(a.localProjectDir, "")
-	ctx, cancel := context.WithCancel(context.Background())
-	a.tunnels.setLocalServe(app, cancel)
-	go func() {
-		_ = app.Start("127.0.0.1", DaemonPort)
-	}()
-	deadline := time.Now().Add(10 * time.Second)
-	for time.Now().Before(deadline) {
-		select {
-		case <-ctx.Done():
-			return errors.New("local serve canceled")
-		default:
-		}
-		resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/health", DaemonPort))
-		if err == nil {
-			_ = resp.Body.Close()
-			if resp.StatusCode == 200 {
-				a.tunnels.setPort(LocalSessionID, DaemonPort)
-				a.startCanvasRelay(LocalSessionID, DaemonPort)
-				return nil
-			}
-		}
-		time.Sleep(250 * time.Millisecond)
+	socket := strings.TrimSpace(a.localMCPSocket)
+	if socket == "" {
+		socket = defaultLocalMCPSocket()
 	}
-	return errors.New("local slopshell MCP listener did not become healthy in time")
+	if socket == "" {
+		return errors.New("no MCP socket path: set SLOPSHELL_MCP_SOCKET or pass --mcp-socket")
+	}
+	app := serve.NewApp(a.localProjectDir, a.dataDir)
+	_, cancel := context.WithCancel(context.Background())
+	a.tunnels.setLocalServe(app, cancel)
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- app.StartUnix(socket)
+	}()
+	ep := mcpEndpoint{socket: socket}
+	if err := waitForUnixMCPReady(ep, 10*time.Second, errCh); err != nil {
+		cancel()
+		return err
+	}
+	a.tunnels.setEndpoint(LocalSessionID, ep)
+	a.startCanvasRelay(LocalSessionID, ep)
+	return nil
 }

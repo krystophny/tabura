@@ -372,7 +372,7 @@ func TestExecuteLocalAssistantBoundMCPToolUsesCanvasTunnelForCanvasTools(t *test
 	state := localAssistantTurnState{
 		canvasID:     "canvas-session",
 		workspaceDir: t.TempDir(),
-		mcpURL:       generalMCP.URL,
+		mcpEndpoint:  mcpEndpoint{httpURL: generalMCP.URL},
 	}
 	catalog := localAssistantToolCatalog{
 		Family:      localAssistantToolFamilyCanvas,
