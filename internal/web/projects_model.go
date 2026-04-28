@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -176,19 +175,6 @@ func (a *App) markWorkspaceOutput(workspacePath string) {
 	a.workspaceAttention.markSeen(project.WorkspacePath, now)
 }
 
-func chooseLoopbackPort() (int, error) {
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		return 0, err
-	}
-	defer ln.Close()
-	addr, ok := ln.Addr().(*net.TCPAddr)
-	if !ok || addr.Port <= 0 {
-		return 0, errors.New("unable to allocate tcp port")
-	}
-	return addr.Port, nil
-}
-
 func (a *App) startWorkspaceServe(sessionID, projectDir string) error {
 	sessionID = strings.TrimSpace(sessionID)
 	projectDir = strings.TrimSpace(projectDir)
@@ -198,59 +184,47 @@ func (a *App) startWorkspaceServe(sessionID, projectDir string) error {
 	if projectDir == "" {
 		return errors.New("project path is required")
 	}
-	if a.tunnels.hasPort(sessionID) {
+	if a.tunnels.hasEndpoint(sessionID) {
 		return nil
 	}
 
-	port, err := chooseLoopbackPort()
-	if err != nil {
+	socket := workspaceSocketPath(sessionID)
+	projectApp := serve.NewApp(projectDir, "")
+	_, cancel := context.WithCancel(context.Background())
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- projectApp.StartUnix(socket)
+	}()
+	ep := mcpEndpoint{socket: socket}
+	if err := waitForUnixMCPReady(ep, workspaceServeStartTimeout, errCh); err != nil {
+		cancel()
+		stopCtx, stopCancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer stopCancel()
+		_ = projectApp.Stop(stopCtx)
 		return err
 	}
-	projectApp := serve.NewApp(projectDir, "")
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		_ = projectApp.Start("127.0.0.1", port)
-	}()
-	deadline := time.Now().Add(workspaceServeStartTimeout)
-	for time.Now().Before(deadline) {
-		select {
-		case <-ctx.Done():
-			cancel()
-			return errors.New("project serve canceled")
-		default:
-		}
-		resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/health", port))
-		if err == nil {
-			_ = resp.Body.Close()
-			if resp.StatusCode == http.StatusOK {
-				a.tunnels.setProjectServe(sessionID, projectApp, cancel)
-				a.tunnels.setPort(sessionID, port)
-				a.startCanvasRelay(sessionID, port)
-				return nil
-			}
-		}
-		time.Sleep(250 * time.Millisecond)
-	}
-	cancel()
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer stopCancel()
-	_ = projectApp.Stop(stopCtx)
-	return errors.New("project slopshell MCP listener did not become healthy in time")
+	a.tunnels.setProjectServe(sessionID, projectApp, cancel)
+	a.tunnels.setEndpoint(sessionID, ep)
+	a.startCanvasRelay(sessionID, ep)
+	return nil
 }
 
 func (a *App) ensureProjectCanvasReady(project store.Workspace) error {
 	sessionID := a.canvasSessionIDForWorkspace(project)
-	if a.tunnels.hasPort(sessionID) {
+	if a.tunnels.hasEndpoint(sessionID) {
 		return nil
 	}
 
 	if mcpURL := strings.TrimSpace(project.MCPURL); mcpURL != "" {
-		port, err := extractPort(mcpURL)
+		ep, err := parseEndpoint(mcpURL)
 		if err != nil {
 			return err
 		}
-		a.tunnels.setPort(sessionID, port)
-		a.startCanvasRelay(sessionID, port)
+		if !ep.ok() {
+			return fmt.Errorf("workspace mcp endpoint is empty: %q", mcpURL)
+		}
+		a.tunnels.setEndpoint(sessionID, ep)
+		a.startCanvasRelay(sessionID, ep)
 		return nil
 	}
 
@@ -258,7 +232,7 @@ func (a *App) ensureProjectCanvasReady(project store.Workspace) error {
 		if err := a.startLocalServe(); err != nil {
 			return err
 		}
-		if a.tunnels.hasPort(sessionID) {
+		if a.tunnels.hasEndpoint(sessionID) {
 			return nil
 		}
 	}

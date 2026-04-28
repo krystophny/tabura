@@ -498,7 +498,7 @@ func (a *App) executeSystemAction(sessionID string, session store.ChatSession, a
 		if canvasSessionID == "" {
 			return "", nil, errors.New("canvas session is not available")
 		}
-		port, ok := a.tunnels.getPort(canvasSessionID)
+		ep, ok := a.tunnels.getEndpoint(canvasSessionID)
 		if !ok {
 			return "", nil, fmt.Errorf("no active MCP tunnel for project %q", targetProject.Name)
 		}
@@ -507,7 +507,7 @@ func (a *App) executeSystemAction(sessionID string, session store.ChatSession, a
 			if err != nil {
 				return "", nil, err
 			}
-			if _, err := a.mcpToolsCall(port, "canvas_artifact_show", map[string]interface{}{
+			if _, err := a.mcpToolsCall(ep, "canvas_artifact_show", map[string]interface{}{
 				"session_id": canvasSessionID,
 				"kind":       "pdf",
 				"title":      canvasTitle,
@@ -527,7 +527,7 @@ func (a *App) executeSystemAction(sessionID string, session store.ChatSession, a
 			if err != nil {
 				return "", nil, err
 			}
-			if _, err := a.mcpToolsCall(port, "canvas_artifact_show", map[string]interface{}{
+			if _, err := a.mcpToolsCall(ep, "canvas_artifact_show", map[string]interface{}{
 				"session_id": canvasSessionID,
 				"kind":       "pdf",
 				"title":      canvasTitle,
@@ -543,7 +543,7 @@ func (a *App) executeSystemAction(sessionID string, session store.ChatSession, a
 			}, nil
 		}
 		if isPDFFilePath(absPath) {
-			if _, err := a.mcpToolsCall(port, "canvas_artifact_show", map[string]interface{}{
+			if _, err := a.mcpToolsCall(ep, "canvas_artifact_show", map[string]interface{}{
 				"session_id": canvasSessionID,
 				"kind":       "pdf",
 				"title":      canvasTitle,
@@ -564,7 +564,7 @@ func (a *App) executeSystemAction(sessionID string, session store.ChatSession, a
 		if err != nil {
 			return "", nil, err
 		}
-		if _, err := a.mcpToolsCall(port, "canvas_artifact_show", map[string]interface{}{
+		if _, err := a.mcpToolsCall(ep, "canvas_artifact_show", map[string]interface{}{
 			"session_id":       canvasSessionID,
 			"kind":             "text",
 			"title":            canvasTitle,

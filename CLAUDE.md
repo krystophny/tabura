@@ -27,12 +27,14 @@ Do not scan source or docs unless the runtime command fails or the request is ab
 ## Runtime Model
 
 Current runtime shape:
-- `slopshell server` is the web/UI runtime and can reuse an existing loopback MCP via `--local-mcp-url`.
-- `sloptools server` is the canonical local MCP daemon on `127.0.0.1:9420`, including canvas relay.
-- `slopshell mcp-server` remains available for stdio MCP use.
+- `slopshell server` is the web/UI runtime. It embeds the sloptools MCP and binds it to a Unix domain socket (mode 0600, parent dir 0700) — there is no loopback TCP MCP listener.
+- The MCP socket path defaults to `$XDG_RUNTIME_DIR/sloppy/mcp.sock` on Linux and `$HOME/Library/Caches/sloppy/mcp.sock` on macOS. Override with `--mcp-socket` or `SLOPSHELL_MCP_SOCKET`.
+- The helpy MCP for web search/fetch is spawned as a stdio subprocess (`helpy mcp-stdio`). No socket is exposed; disable with `SLOPSHELL_HELPY_BIN=off`.
+- `slopshell mcp-server` remains available for legacy stdio MCP use.
+
+Privacy: this host (Linux + faepmac1) is multi-user. Plaintext loopback MCP listeners would let any local UID read mail, calendar, and canvas, so they are forbidden. All embedded MCPs use stdio or 0600 unix sockets.
 
 Supported loopback sidecars and helpers:
-- `sloptools.service` for the local MCP + canvas relay (`http://127.0.0.1:9420/mcp`)
 - `slopshell-codex-app-server.service` for Codex app-server (`ws://127.0.0.1:8787`)
 - `slopshell-piper-tts.service` for Piper TTS (`http://127.0.0.1:8424/v1/audio/speech`)
 - `slopshell-stt.service` for voxtype daemon with STT service and push-to-talk (`/v1/audio/transcriptions` on `127.0.0.1:8427`)
@@ -63,10 +65,11 @@ What bootstrap must not do:
 
 ## Security Boundary
 
-- Web UI/API listener stays on port `8420` by default.
-- `sloptools` MCP listener stays on port `9420` and binds loopback by default.
+- Web UI/API listener stays on port `8420` by default (password-authenticated).
+- The embedded sloptools MCP binds a Unix domain socket (mode 0600 in a 0700 parent dir) — no TCP listener.
+- Helpy MCP runs as a stdio subprocess; no socket is exposed.
 - Web routes must not expose `/mcp`.
-- Non-loopback MCP bind is blocked unless `sloptools server --unsafe-public-mcp` is explicitly set.
+- TCP MCP bind is no longer supported; the `--mcp-host` / `--mcp-port` flags are gone.
 
 ## Canvas + Chat Contract
 
@@ -112,30 +115,30 @@ Important selectors:
 ## Local Services
 
 Core runtime user units:
-- `sloptools.service`
 - `slopshell-web.service`
 - `slopshell-codex-app-server.service`
 - `slopshell-piper-tts.service`
 - `slopshell-stt.service` (voxtype daemon with STT API and push-to-talk)
 - `slopshell-llm.service`
 
+Note: the sloptools MCP is embedded inside `slopshell-web.service` (unix socket); there is no separate `sloptools.service`.
+
 Quick status:
 
 ```bash
-systemctl --user status sloptools.service slopshell-web.service slopshell-codex-app-server.service slopshell-piper-tts.service slopshell-stt.service slopshell-llm.service --no-pager -n 40
+systemctl --user status slopshell-web.service slopshell-codex-app-server.service slopshell-piper-tts.service slopshell-stt.service slopshell-llm.service --no-pager -n 40
 ```
 
 Restart core stack:
 
 ```bash
-systemctl --user restart sloptools.service slopshell-codex-app-server.service slopshell-piper-tts.service slopshell-stt.service slopshell-llm.service slopshell-web.service
+systemctl --user restart slopshell-codex-app-server.service slopshell-piper-tts.service slopshell-stt.service slopshell-llm.service slopshell-web.service
 ```
 
 ## Endpoints
 
 - Web: `http://127.0.0.1:8420`
-- MCP: `http://127.0.0.1:9420/mcp`
-- MCP canvas WS: `ws://127.0.0.1:9420/ws/canvas`
+- MCP: `unix:$XDG_RUNTIME_DIR/sloppy/mcp.sock` (mode 0600); `/mcp`, `/ws/canvas`, `/files/...` routes served over the socket via http+unix.
 - App-server: `ws://127.0.0.1:8787`
 - TTS base URL: `http://127.0.0.1:8424` (`/v1/audio/speech`)
 - Intent LLM base URL: `http://127.0.0.1:8081` (Slopshell calls `/v1/chat/completions`)
@@ -169,11 +172,11 @@ Environment toggles:
 - `SLOPSHELL_INTENT_LLM_PROFILE` selects the active local routing profile (default `qwen3.5-9b`)
 - `SLOPSHELL_INTENT_LLM_PROFILE_OPTIONS` exposes selectable local routing profiles (default `qwen3.5-9b,qwen3.5-4b`)
 - `SLOPSHELL_STT_URL=off` disables STT sidecar usage
-- `SLOPSHELL_WEB_MCP_URL` points at a supplementary MCP endpoint that
-  exposes `web_search` / `web_fetch` (for example a local helpy server at
-  `http://127.0.0.1:8090/mcp`). When set, search-intent turns stay on the
-  local assistant and call those tools instead of routing to Codex/Spark.
-  Leave unset (or `off`) to keep the prior Codex fallback behavior.
+- `SLOPSHELL_HELPY_BIN` selects the helpy binary path (default `helpy`); set
+  to `off` to disable spawning the helpy stdio MCP for `web_search` /
+  `web_fetch`. `SLOPSHELL_HELPY_ARGS` overrides the args (default `mcp-stdio`).
+- `SLOPSHELL_MCP_SOCKET` overrides the embedded sloptools unix socket path
+  (default `$XDG_RUNTIME_DIR/sloppy/mcp.sock`).
 
 ## Local Dev Start
 
@@ -189,8 +192,7 @@ nohup go run ./cmd/slopshell server \
   --data-dir "$DATA_DIR" \
   --web-host 127.0.0.1 \
   --web-port 8420 \
-  --mcp-host 127.0.0.1 \
-  --mcp-port 9420 >"$LOG_FILE" 2>&1 &
+  --mcp-socket "$TMP_ROOT/mcp.sock" >"$LOG_FILE" 2>&1 &
 PID=$!
 curl -fsS http://127.0.0.1:8420/api/setup
 ```

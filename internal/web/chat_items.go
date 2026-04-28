@@ -434,11 +434,11 @@ func (a *App) resolveConversationCanvasArtifact(project store.Workspace) *conver
 	if canvasSessionID == "" {
 		return nil
 	}
-	port, ok := a.tunnels.getPort(canvasSessionID)
+	ep, ok := a.tunnels.getEndpoint(canvasSessionID)
 	if !ok {
 		return nil
 	}
-	status, err := a.mcpToolsCall(port, "canvas_status", map[string]interface{}{"session_id": canvasSessionID})
+	status, err := a.mcpToolsCall(ep, "canvas_status", map[string]interface{}{"session_id": canvasSessionID})
 	if err != nil {
 		return nil
 	}

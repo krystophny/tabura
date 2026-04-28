@@ -5,21 +5,20 @@ import (
 )
 
 func TestLocalAssistantWebMCPToolsFiltersAndTagsURL(t *testing.T) {
-	mcpURL := "http://127.0.0.1:8090/mcp"
 	tools := []mcpListedTool{
 		{Name: "web_search", Description: "SearXNG web search.", InputSchema: map[string]any{"type": "object"}},
 		{Name: "web_fetch", Description: "Fetch a URL.", InputSchema: map[string]any{"type": "object"}},
 		{Name: "calendar_events", Description: "List events."},
 		{Name: "mail_account_list", Description: "List mail accounts."},
 	}
-	got := localAssistantWebMCPTools(tools, mcpURL)
+	got := localAssistantWebMCPTools(tools)
 	if len(got) != 2 {
 		t.Fatalf("len = %d, want 2 web tools, got: %+v", len(got), got)
 	}
 	names := map[string]bool{}
 	for _, tool := range got {
-		if tool.MCPURL != mcpURL {
-			t.Errorf("tool %q MCPURL = %q, want %q", tool.InternalName, tool.MCPURL, mcpURL)
+		if !tool.WebTool {
+			t.Errorf("tool %q WebTool = false, want true", tool.InternalName)
 		}
 		if tool.Kind != localAssistantToolKindMCP {
 			t.Errorf("tool %q Kind = %q, want mcp", tool.InternalName, tool.Kind)

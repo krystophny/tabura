@@ -497,11 +497,11 @@ func (a *App) renderIdeaNoteOnCanvas(workspacePath, title string, meta ideaNoteM
 	if canvasSessionID == "" {
 		return errors.New("canvas session is not available")
 	}
-	port, ok := a.tunnels.getPort(canvasSessionID)
+	ep, ok := a.tunnels.getEndpoint(canvasSessionID)
 	if !ok {
 		return errors.New("canvas tunnel is not available")
 	}
-	_, err := a.mcpToolsCall(port, "canvas_artifact_show", map[string]interface{}{
+	_, err := a.mcpToolsCall(ep, "canvas_artifact_show", map[string]interface{}{
 		"session_id":       canvasSessionID,
 		"kind":             "text",
 		"title":            strings.TrimSpace(title),

@@ -224,7 +224,7 @@ func (a *App) executeFileBlocks(workspacePath, canvasSessionID string, blocks []
 
 func (a *App) writeCanvasFileBlock(workspacePath, canvasSessionID string, block fileBlock) bool {
 	cwd := a.cwdForWorkspacePath(workspacePath)
-	port, ok := a.tunnels.getPort(canvasSessionID)
+	ep, ok := a.tunnels.getEndpoint(canvasSessionID)
 	if !ok {
 		return false
 	}
@@ -238,7 +238,7 @@ func (a *App) writeCanvasFileBlock(workspacePath, canvasSessionID string, block 
 	if err := os.WriteFile(absPath, []byte(block.Content), 0644); err != nil {
 		return false
 	}
-	if _, err := a.mcpToolsCall(port, "canvas_artifact_show", map[string]interface{}{
+	if _, err := a.mcpToolsCall(ep, "canvas_artifact_show", map[string]interface{}{
 		"session_id":       canvasSessionID,
 		"kind":             "text",
 		"title":            title,
@@ -280,7 +280,7 @@ const (
 // artifact that can be refreshed from source changes.
 type canvasRefreshTarget struct {
 	sessionID       string
-	port            int
+	endpoint        mcpEndpoint
 	title           string
 	kind            string
 	sourcePath      string
@@ -301,11 +301,11 @@ func (a *App) resolveCanvasRefreshTarget(workspacePath string) *canvasRefreshTar
 		return nil
 	}
 	sid := a.canvasSessionIDForWorkspace(project)
-	port, ok := a.tunnels.getPort(sid)
+	ep, ok := a.tunnels.getEndpoint(sid)
 	if !ok {
 		return nil
 	}
-	status, err := a.mcpToolsCall(port, "canvas_status", map[string]interface{}{"session_id": sid})
+	status, err := a.mcpToolsCall(ep, "canvas_status", map[string]interface{}{"session_id": sid})
 	if err != nil {
 		return nil
 	}
@@ -328,7 +328,7 @@ func (a *App) resolveCanvasRefreshTarget(workspacePath string) *canvasRefreshTar
 		}
 		return &canvasRefreshTarget{
 			sessionID:  sid,
-			port:       port,
+			endpoint:   ep,
 			title:      title,
 			kind:       canvasRefreshKindText,
 			sourcePath: filePath,
@@ -343,7 +343,7 @@ func (a *App) resolveCanvasRefreshTarget(workspacePath string) *canvasRefreshTar
 		renderedAbsPath := resolveArtifactFilePath(cwd, renderedPath)
 		return &canvasRefreshTarget{
 			sessionID:       sid,
-			port:            port,
+			endpoint:        ep,
 			title:           title,
 			kind:            canvasRefreshKindDocumentPDF,
 			sourcePath:      sourcePath,
@@ -378,7 +378,7 @@ func (a *App) pushCanvasFileIfChanged(workspacePath string, t *canvasRefreshTarg
 		return false
 	}
 	diskContent := string(diskBytes)
-	status, err := a.mcpToolsCall(t.port, "canvas_status", map[string]interface{}{"session_id": t.sessionID})
+	status, err := a.mcpToolsCall(t.endpoint, "canvas_status", map[string]interface{}{"session_id": t.sessionID})
 	if err != nil {
 		return false
 	}
@@ -390,7 +390,7 @@ func (a *App) pushCanvasFileIfChanged(workspacePath string, t *canvasRefreshTarg
 	if strings.TrimSpace(diskContent) == strings.TrimSpace(currentText) {
 		return false
 	}
-	_, _ = a.mcpToolsCall(t.port, "canvas_artifact_show", map[string]interface{}{
+	_, _ = a.mcpToolsCall(t.endpoint, "canvas_artifact_show", map[string]interface{}{
 		"session_id":       t.sessionID,
 		"kind":             "text",
 		"title":            t.title,
@@ -427,7 +427,7 @@ func (a *App) pushCanvasDocumentIfChanged(workspacePath string, t *canvasRefresh
 	if err != nil {
 		return false
 	}
-	if _, err := a.mcpToolsCall(t.port, "canvas_artifact_show", map[string]interface{}{
+	if _, err := a.mcpToolsCall(t.endpoint, "canvas_artifact_show", map[string]interface{}{
 		"session_id": t.sessionID,
 		"kind":       "pdf",
 		"title":      t.title,
@@ -493,7 +493,7 @@ func (a *App) watchCanvasFile(ctx context.Context, workspacePath string) {
 					continue
 				}
 				lastContent = content
-				_, _ = a.mcpToolsCall(t.port, "canvas_artifact_show", map[string]interface{}{
+				_, _ = a.mcpToolsCall(t.endpoint, "canvas_artifact_show", map[string]interface{}{
 					"session_id":       t.sessionID,
 					"kind":             "text",
 					"title":            t.title,

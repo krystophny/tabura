@@ -89,11 +89,11 @@ func (a *App) resolveCanvasContext(workspacePath string) *canvasContext {
 		return nil
 	}
 	sid := a.canvasSessionIDForWorkspace(project)
-	port, ok := a.tunnels.getPort(sid)
+	ep, ok := a.tunnels.getEndpoint(sid)
 	if !ok {
 		return nil
 	}
-	status, err := a.mcpToolsCall(port, "canvas_status", map[string]interface{}{"session_id": sid})
+	status, err := a.mcpToolsCall(ep, "canvas_status", map[string]interface{}{"session_id": sid})
 	if err != nil {
 		return nil
 	}
@@ -112,7 +112,7 @@ func (a *App) resolveCanvasContext(workspacePath string) *canvasContext {
 		text = ""
 	}
 	if text == "" && artifactID > 0 {
-		if artifact, err := a.mcpToolsCall(port, "artifact_get", map[string]interface{}{"artifact_id": artifactID}); err == nil {
+		if artifact, err := a.mcpToolsCall(ep, "artifact_get", map[string]interface{}{"artifact_id": artifactID}); err == nil {
 			text = strings.TrimSpace(fmt.Sprint(artifact["content_text"]))
 			if text == "<nil>" {
 				text = ""

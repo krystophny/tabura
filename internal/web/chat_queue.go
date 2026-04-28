@@ -377,11 +377,11 @@ func (a *App) clearCanvasForWorkspace(workspacePath string) {
 	if canvasSessionID == "" {
 		return
 	}
-	port, ok := a.tunnels.getPort(canvasSessionID)
+	ep, ok := a.tunnels.getEndpoint(canvasSessionID)
 	if !ok {
 		return
 	}
-	_, _ = a.mcpToolsCall(port, "canvas_clear", map[string]interface{}{
+	_, _ = a.mcpToolsCall(ep, "canvas_clear", map[string]interface{}{
 		"session_id": canvasSessionID,
 		"reason":     "context reset",
 	})

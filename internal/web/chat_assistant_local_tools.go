@@ -67,7 +67,7 @@ type localAssistantTurnState struct {
 	workspace    store.Workspace
 	workspaceDir string
 	currentDir   string
-	mcpURL       string
+	mcpEndpoint  mcpEndpoint
 }
 
 func parseLocalAssistantDecision(message localIntentLLMMessage) (localAssistantDecision, error) {
@@ -474,9 +474,12 @@ func (a *App) newLocalAssistantTurnState(req *assistantTurnRequest) (localAssist
 	if workspaceDir == "" {
 		return localAssistantTurnState{}, errors.New("workspace path is required")
 	}
-	mcpURL := strings.TrimSpace(workspace.MCPURL)
-	if mcpURL == "" {
-		mcpURL = strings.TrimSpace(a.localMCPURL)
+	endpoint, err := parseEndpoint(strings.TrimSpace(workspace.MCPURL))
+	if err != nil {
+		return localAssistantTurnState{}, err
+	}
+	if !endpoint.ok() {
+		endpoint = mcpEndpoint{socket: a.localMCPSocket}
 	}
 	return localAssistantTurnState{
 		sessionID:    req.sessionID,
@@ -486,7 +489,7 @@ func (a *App) newLocalAssistantTurnState(req *assistantTurnRequest) (localAssist
 		workspace:    workspace,
 		workspaceDir: workspaceDir,
 		currentDir:   workspaceDir,
-		mcpURL:       mcpURL,
+		mcpEndpoint:  endpoint,
 	}, nil
 }
 
@@ -712,24 +715,31 @@ func (a *App) executeLocalAssistantBoundMCPTool(ctx context.Context, state *loca
 		Kind:       string(tool.Kind),
 		Arguments:  args,
 	}
-	mcpURL := state.mcpURL
-	if override := strings.TrimSpace(tool.MCPURL); override != "" {
-		mcpURL = override
-	}
-	if strings.HasPrefix(tool.InternalName, "canvas_") && strings.TrimSpace(state.canvasID) != "" {
-		if port, ok := a.tunnels.getPort(state.canvasID); ok && port > 0 {
-			mcpURL = fmt.Sprintf("http://127.0.0.1:%d/mcp", port)
-		}
-	}
-	if mcpURL == "" {
-		result.IsError = true
-		result.Error = "MCP URL is not configured"
-		return result, nil
-	}
 	if err := ctx.Err(); err != nil {
 		return localAssistantToolResult{}, err
 	}
-	structuredContent, err := mcpToolsCallURL(mcpURL, tool.InternalName, args)
+	if tool.WebTool {
+		structuredContent, err := a.callHelpyTool(ctx, tool.InternalName, args)
+		if err != nil {
+			result.IsError = true
+			result.Error = err.Error()
+			return result, nil
+		}
+		result.StructuredContent = structuredContent
+		return result, nil
+	}
+	endpoint := state.mcpEndpoint
+	if strings.HasPrefix(tool.InternalName, "canvas_") && strings.TrimSpace(state.canvasID) != "" {
+		if ep, ok := a.tunnels.getEndpoint(state.canvasID); ok && ep.ok() {
+			endpoint = ep
+		}
+	}
+	if !endpoint.ok() {
+		result.IsError = true
+		result.Error = "MCP endpoint is not configured"
+		return result, nil
+	}
+	structuredContent, err := mcpToolsCallEndpoint(endpoint, tool.InternalName, args)
 	if err != nil {
 		result.IsError = true
 		result.Error = err.Error()

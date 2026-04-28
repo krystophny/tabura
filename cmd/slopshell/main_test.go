@@ -5,12 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
-	"net/http"
 	"os"
 	"strings"
 	"testing"
-	"time"
 
 	updater "github.com/sloppy-org/slopshell/internal/update"
 )
@@ -25,20 +22,20 @@ func TestParseServerConfigDefaultsToLoopbackWebHost(t *testing.T) {
 	}
 }
 
-func TestParseServerConfigRejectsPublicMCPWithoutUnsafeFlag(t *testing.T) {
+func TestParseServerConfigRejectsRemovedMCPHostFlag(t *testing.T) {
 	_, status := parseServerConfig([]string{"--mcp-host", "0.0.0.0"})
 	if status != 2 {
-		t.Fatalf("parseServerConfig(public mcp) status = %d, want 2", status)
+		t.Fatalf("parseServerConfig(removed --mcp-host) status = %d, want 2", status)
 	}
 }
 
-func TestParseServerConfigAllowsExternalLocalMCPWithoutBundledListenerFlags(t *testing.T) {
-	cfg, status := parseServerConfig([]string{"--local-mcp-url", "http://127.0.0.1:9420/mcp"})
+func TestParseServerConfigAcceptsMCPSocketPath(t *testing.T) {
+	cfg, status := parseServerConfig([]string{"--mcp-socket", "/run/user/1000/sloppy/mcp.sock"})
 	if status != 0 {
-		t.Fatalf("parseServerConfig(local mcp url) status = %d, want 0", status)
+		t.Fatalf("parseServerConfig(mcp-socket) status = %d, want 0", status)
 	}
-	if cfg.localMCPURL != "http://127.0.0.1:9420/mcp" {
-		t.Fatalf("localMCPURL = %q, want http://127.0.0.1:9420/mcp", cfg.localMCPURL)
+	if cfg.mcpSocket != "/run/user/1000/sloppy/mcp.sock" {
+		t.Fatalf("mcpSocket = %q, want /run/user/1000/sloppy/mcp.sock", cfg.mcpSocket)
 	}
 }
 
@@ -121,43 +118,6 @@ func TestCmdSchemaOutputsProtocolJSON(t *testing.T) {
 	}
 }
 
-func TestWaitForMCPReadySuccess(t *testing.T) {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"status":"ok"}`))
-	})
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("listen: %v", err)
-	}
-	t.Cleanup(func() { _ = ln.Close() })
-	srv := &http.Server{Handler: mux}
-	go func() {
-		_ = srv.Serve(ln)
-	}()
-	t.Cleanup(func() {
-		_ = srv.Close()
-	})
-
-	port := ln.Addr().(*net.TCPAddr).Port
-	errCh := make(chan error, 1)
-	if err := waitForMCPReady("127.0.0.1", port, 2*time.Second, errCh); err != nil {
-		t.Fatalf("waitForMCPReady() error: %v", err)
-	}
-}
-
-func TestWaitForMCPReadyReturnsListenerError(t *testing.T) {
-	errCh := make(chan error, 1)
-	errCh <- errors.New("boom")
-	err := waitForMCPReady("127.0.0.1", 65533, 10*time.Millisecond, errCh)
-	if err == nil {
-		t.Fatalf("expected waitForMCPReady to fail")
-	}
-	if !strings.Contains(err.Error(), "boom") {
-		t.Fatalf("waitForMCPReady error = %q, want boom context", err.Error())
-	}
-}
 
 func TestCmdUpdateFailureReturnsStatusOne(t *testing.T) {
 	prev := runUpdate
