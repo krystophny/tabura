@@ -35,30 +35,18 @@ func TestBindUsesSloptoolsSourceBindingsOverMCP(t *testing.T) {
 		WinnerPath: "brain/commitments/winner.md",
 		Paths:      []string{"brain/commitments/winner.md", "brain/commitments/mail.md"},
 		Outcome:    "Reply to reviewer",
-		SourceBindings: []map[string]any{
+		SourceBindings: []SourceBinding{
 			{
-				"provider":          "github",
-				"ref":               "sloppy-org/slopshell#725",
-				"location":          map[string]any{"path": "internal/aggregateitem/mcp.go", "anchor": "L1"},
-				"url":               "https://github.com/sloppy-org/slopshell/issues/725",
-				"writeable":         true,
-				"authoritative_for": []string{"title", "status"},
-				"summary":           "review feedback",
+				Provider:         "github",
+				Ref:              "sloppy-org/slopshell#725",
+				Location:         BindingLocation{Path: "internal/aggregateitem/mcp.go", Anchor: "L1"},
+				URL:              "https://github.com/sloppy-org/slopshell/issues/725",
+				Writeable:        true,
+				AuthoritativeFor: []string{"title", "status"},
+				Summary:          "review feedback",
 			},
-			{
-				"provider":          "todoist",
-				"ref":               "task-1",
-				"location":          map[string]any{"path": "brain/commitments/winner.md"},
-				"writeable":         false,
-				"authoritative_for": []string{"status"},
-			},
-			{
-				"provider":          "mail",
-				"ref":               "AAMk-msg",
-				"location":          map[string]any{"path": "mail/inbox/AAMk-msg"},
-				"writeable":         true,
-				"authoritative_for": []string{"title", "status"},
-			},
+			binding("todoist", "task-1", false),
+			binding("mail", "AAMk-msg", true),
 		},
 	})
 	if err != nil {
@@ -141,7 +129,7 @@ func TestBindRequiresProviderAndRef(t *testing.T) {
 	_, err = client.Bind(context.Background(), BindRequest{
 		Sphere:         "work",
 		WinnerPath:     "brain/commitments/winner.md",
-		SourceBindings: []map[string]any{{"provider": "github"}},
+		SourceBindings: []SourceBinding{{Provider: "github"}},
 	})
 	if err == nil {
 		t.Fatal("Bind() error = nil, want missing ref error")
@@ -156,15 +144,105 @@ func TestBindRequiresExtendedSourceBindingSchema(t *testing.T) {
 	_, err = client.Bind(context.Background(), BindRequest{
 		Sphere:     "work",
 		WinnerPath: "brain/commitments/winner.md",
-		SourceBindings: []map[string]any{{
-			"provider":  "github",
-			"ref":       "sloppy-org/slopshell#725",
-			"location":  map[string]any{"path": "brain/commitments/winner.md"},
-			"writeable": false,
+		SourceBindings: []SourceBinding{{
+			Provider:  "github",
+			Ref:       "sloppy-org/slopshell#725",
+			Location:  BindingLocation{Path: "brain/commitments/winner.md"},
+			Writeable: false,
 		}},
 	})
 	if err == nil {
 		t.Fatal("Bind() error = nil, want missing authoritative_for error")
+	}
+}
+
+func TestScanDecodesSloptoolsAggregateResult(t *testing.T) {
+	var got map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
+			t.Fatalf("decode request: %v", err)
+		}
+		writeMCPResult(t, w, map[string]any{"dedup": map[string]any{
+			"aggregates": []map[string]any{{
+				"id":           "gtd-aggregate-1",
+				"paths":        []string{"brain/commitments/a.md"},
+				"title":        "Send alpha budget",
+				"outcome":      "Budget sent",
+				"review_state": "open",
+				"bindings": []map[string]any{{
+					"provider":          "gitlab",
+					"ref":               "plasma/slopshell#11",
+					"location":          map[string]any{"path": "brain/commitments/a.md"},
+					"writeable":         true,
+					"authoritative_for": []string{"title", "status"},
+				}},
+				"binding_ids": []string{"gitlab:plasma/slopshell#11"},
+			}},
+			"changed": false,
+		}})
+	}))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, server.Client())
+	if err != nil {
+		t.Fatalf("NewClient() error: %v", err)
+	}
+	result, err := client.Scan(context.Background(), ScanRequest{Sphere: "work"})
+	if err != nil {
+		t.Fatalf("Scan() error: %v", err)
+	}
+
+	params := objectAt(t, got, "params")
+	if params["name"] != toolGTDDedupScan {
+		t.Fatalf("tool name = %q, want %q", params["name"], toolGTDDedupScan)
+	}
+	if result.Aggregates[0].SourceBindings[0].Provider != "gitlab" {
+		t.Fatalf("aggregate bindings = %#v", result.Aggregates[0].SourceBindings)
+	}
+	projection := result.Aggregates[0].Projection()
+	if !reflect.DeepEqual(projection.SourceKinds, []string{SourceKindGitLab}) || !projection.Writeable {
+		t.Fatalf("projection = %#v", projection)
+	}
+}
+
+func TestParseCommitmentDecodesLocalOverlayForProjection(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		writeMCPResult(t, w, map[string]any{"commitment": map[string]any{
+			"title":  "Reply to reviewer",
+			"status": "open",
+			"source_bindings": []map[string]any{{
+				"provider":          "markdown",
+				"ref":               "brain/commitments/reviewer.md",
+				"location":          map[string]any{"path": "brain/commitments/reviewer.md"},
+				"writeable":         false,
+				"authoritative_for": []string{"title", "status"},
+			}},
+			"local_overlay": map[string]any{
+				"status":     "closed",
+				"closed_via": "slopshell",
+			},
+		}})
+	}))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, server.Client())
+	if err != nil {
+		t.Fatalf("NewClient() error: %v", err)
+	}
+	commitment, err := client.ParseCommitment(context.Background(), ParseCommitmentRequest{
+		Sphere: "work",
+		Path:   "brain/commitments/reviewer.md",
+	})
+	if err != nil {
+		t.Fatalf("ParseCommitment() error: %v", err)
+	}
+
+	projection := commitment.Projection("brain/commitments/reviewer.md")
+	if projection.Status != "closed" || projection.ClosedVia != "slopshell" {
+		t.Fatalf("projection overlay = %#v", projection)
+	}
+	if !reflect.DeepEqual(projection.SourceKinds, []string{SourceKindMarkdown}) {
+		t.Fatalf("projection SourceKinds = %#v", projection.SourceKinds)
 	}
 }
 

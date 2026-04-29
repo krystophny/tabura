@@ -15,6 +15,8 @@ import (
 
 const (
 	toolGTDBind      = "brain.gtd.bind"
+	toolGTDDedupScan = "brain.gtd.dedup_scan"
+	toolBrainParse   = "brain.note.parse"
 	toolGTDSetStatus = "brain.gtd.set_status"
 )
 
@@ -29,7 +31,22 @@ type BindRequest struct {
 	WinnerPath     string
 	Paths          []string
 	Outcome        string
-	SourceBindings []map[string]any
+	SourceBindings []SourceBinding
+}
+
+type ScanRequest struct {
+	ConfigPath             string
+	DedupConfig            string
+	Sphere                 string
+	DeterministicThreshold float64
+	LLMThreshold           float64
+	CandidateThreshold     float64
+}
+
+type ParseCommitmentRequest struct {
+	ConfigPath string
+	Sphere     string
+	Path       string
 }
 
 type SetStatusRequest struct {
@@ -74,6 +91,30 @@ func (c *Client) Bind(ctx context.Context, req BindRequest) (map[string]any, err
 	return c.call(ctx, toolGTDBind, args)
 }
 
+func (c *Client) Scan(ctx context.Context, req ScanRequest) (ScanResult, error) {
+	args, err := req.arguments()
+	if err != nil {
+		return ScanResult{}, err
+	}
+	result, err := c.call(ctx, toolGTDDedupScan, args)
+	if err != nil {
+		return ScanResult{}, err
+	}
+	return decodeStructuredField[ScanResult](result, "dedup")
+}
+
+func (c *Client) ParseCommitment(ctx context.Context, req ParseCommitmentRequest) (Commitment, error) {
+	args, err := req.arguments()
+	if err != nil {
+		return Commitment{}, err
+	}
+	result, err := c.call(ctx, toolBrainParse, args)
+	if err != nil {
+		return Commitment{}, err
+	}
+	return decodeStructuredField[Commitment](result, "commitment")
+}
+
 func (c *Client) SetStatus(ctx context.Context, req SetStatusRequest) (map[string]any, error) {
 	args, err := req.arguments()
 	if err != nil {
@@ -97,6 +138,31 @@ func (r BindRequest) arguments() (map[string]any, error) {
 		args["source_bindings"] = bindings
 	}
 	if err := requireArgs(args, "sphere", "winner_path"); err != nil {
+		return nil, err
+	}
+	return args, nil
+}
+
+func (r ScanRequest) arguments() (map[string]any, error) {
+	args := map[string]any{}
+	addString(args, "config_path", r.ConfigPath)
+	addString(args, "dedup_config", r.DedupConfig)
+	addString(args, "sphere", r.Sphere)
+	addPositiveFloat(args, "deterministic_threshold", r.DeterministicThreshold)
+	addPositiveFloat(args, "llm_threshold", r.LLMThreshold)
+	addPositiveFloat(args, "candidate_threshold", r.CandidateThreshold)
+	if err := requireArgs(args, "sphere"); err != nil {
+		return nil, err
+	}
+	return args, nil
+}
+
+func (r ParseCommitmentRequest) arguments() (map[string]any, error) {
+	args := map[string]any{}
+	addString(args, "config_path", r.ConfigPath)
+	addString(args, "sphere", r.Sphere)
+	addString(args, "path", r.Path)
+	if err := requireArgs(args, "sphere", "path"); err != nil {
 		return nil, err
 	}
 	return args, nil
@@ -159,10 +225,13 @@ func (c *Client) call(ctx context.Context, name string, arguments map[string]any
 	return decodeMCPResponse(resp.Body, name)
 }
 
-func sourceBindingsArg(bindings []map[string]any) ([]map[string]any, error) {
+func sourceBindingsArg(bindings []SourceBinding) ([]map[string]any, error) {
 	out := make([]map[string]any, 0, len(bindings))
 	for index, binding := range bindings {
-		clean := cleanBinding(binding)
+		clean, err := sourceBindingMap(binding)
+		if err != nil {
+			return nil, err
+		}
 		if strings.TrimSpace(stringArg(clean, "provider")) == "" {
 			return nil, fmt.Errorf("source_bindings[%d].provider is required", index)
 		}
@@ -181,6 +250,18 @@ func sourceBindingsArg(bindings []map[string]any) ([]map[string]any, error) {
 		out = append(out, clean)
 	}
 	return out, nil
+}
+
+func sourceBindingMap(binding SourceBinding) (map[string]any, error) {
+	data, err := json.Marshal(binding)
+	if err != nil {
+		return nil, err
+	}
+	var raw map[string]any
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, err
+	}
+	return cleanBinding(raw), nil
 }
 
 func cleanBinding(binding map[string]any) map[string]any {
@@ -228,6 +309,22 @@ func decodeMCPResponse(body io.Reader, tool string) (map[string]any, error) {
 		return nil, errors.New("MCP call failed: missing structuredContent")
 	}
 	return structured, nil
+}
+
+func decodeStructuredField[T any](structured map[string]any, key string) (T, error) {
+	var out T
+	raw, ok := structured[key]
+	if !ok {
+		return out, fmt.Errorf("MCP call failed: missing %s", key)
+	}
+	data, err := json.Marshal(raw)
+	if err != nil {
+		return out, err
+	}
+	if err := json.Unmarshal(data, &out); err != nil {
+		return out, err
+	}
+	return out, nil
 }
 
 func resultErrorText(result map[string]any) string {
@@ -304,6 +401,12 @@ func addString(args map[string]any, key, value string) {
 func addStringSlice(args map[string]any, key string, values []string) {
 	if clean := cleanStrings(values); len(clean) > 0 {
 		args[key] = clean
+	}
+}
+
+func addPositiveFloat(args map[string]any, key string, value float64) {
+	if value > 0 {
+		args[key] = value
 	}
 }
 
