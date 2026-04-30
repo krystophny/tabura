@@ -73,9 +73,9 @@ func TestHandleMCPPostNotificationReturnsAccepted(t *testing.T) {
 	}
 }
 
-func TestHandleHealthIncludesStatusAndProjectDir(t *testing.T) {
-	projectDir := t.TempDir()
-	app := NewApp(projectDir, "")
+func TestHandleHealthIncludesStatusAndWorkspaceDir(t *testing.T) {
+	workspaceDir := t.TempDir()
+	app := NewApp(workspaceDir, "")
 	req := httptest.NewRequest(http.MethodGet, "/health", nil)
 	rr := httptest.NewRecorder()
 
@@ -91,8 +91,8 @@ func TestHandleHealthIncludesStatusAndProjectDir(t *testing.T) {
 	if payload["status"] != "ok" {
 		t.Fatalf("status field = %v, want ok", payload["status"])
 	}
-	if payload["project_dir"] != projectDir {
-		t.Fatalf("project_dir = %v, want %q", payload["project_dir"], projectDir)
+	if payload["workspace_dir"] != workspaceDir {
+		t.Fatalf("workspace_dir = %v, want %q", payload["workspace_dir"], workspaceDir)
 	}
 }
 

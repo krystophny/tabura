@@ -111,7 +111,7 @@ var MCPTools = []Tool{
 		Properties: map[string]ToolProperty{
 			"cwd": {
 				Type:        "string",
-				Description: "Project root to create the temp file under. Defaults to active project root.",
+				Description: "Workspace root to create the temp file under. Defaults to the active workspace root.",
 			},
 			"prefix": {
 				Type:        "string",
@@ -138,7 +138,7 @@ var MCPTools = []Tool{
 			},
 			"cwd": {
 				Type:        "string",
-				Description: "Project root for resolving relative paths. Defaults to active project root.",
+				Description: "Workspace root for resolving relative paths. Defaults to the active workspace root.",
 			},
 		},
 	},

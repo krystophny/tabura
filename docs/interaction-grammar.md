@@ -16,6 +16,8 @@ Slopshell has exactly five primary product nouns:
 
 Workspace and project must not be conflated. A **Workspace** is a filesystem-backed execution context. A GTD **project** is represented as `Item(kind=project)`: a composite outcome that needs child actions. It is still an Item, not a sixth primary noun. Session and message are transport or storage details, not user-facing ontology.
 
+Project is not a product concept. It is the GTD outcome item, not a workspace and not a separate top-level noun.
+
 ### Item kinds
 
 Items have two canonical kinds:
@@ -24,6 +26,8 @@ Items have two canonical kinds:
 - `project` — a GTD project/composite outcome that needs more than one action.
 
 Project items may have child item links. Initial child roles are `next_action`, `support`, and `blocked_by`. A project item is healthy when it has at least one child in next, waiting, deferred, or someday state; it is stalled when it has no such child.
+
+Project items may also own supporting artifacts through `item_artifacts` links. The primary artifact, if present, is the canonical canvas artifact; related and output artifacts remain attached as supporting material.
 
 External systems may also have "projects" or similar containers: Todoist projects, GitHub Projects, GitLab milestones, mail folders. In Slopshell these are **source containers**. They may provide labels, filters, or default routing, but they are not Workspaces and are not GTD project items unless explicitly linked or promoted.
 

@@ -223,10 +223,10 @@ func (a *App) handleHealth(w http.ResponseWriter, _ *http.Request) {
 	wsCount := len(a.wsClients)
 	a.mu.Unlock()
 	writeJSON(w, map[string]interface{}{
-		"status":      "ok",
-		"project_dir": a.ProjectDir,
-		"sessions":    a.Adapter.ListSessions(),
-		"ws_clients":  wsCount,
+		"status":        "ok",
+		"workspace_dir": a.ProjectDir,
+		"sessions":      a.Adapter.ListSessions(),
+		"ws_clients":    wsCount,
 	})
 }
 
@@ -245,7 +245,7 @@ func (a *App) Start(host string, port int) error {
 		fmt.Printf("  %s\n", u)
 	}
 	fmt.Printf("  MCP endpoint: http://%s/mcp\n", net.JoinHostPort(host, fmt.Sprintf("%d", port)))
-	fmt.Printf("  project dir:  %s\n", a.ProjectDir)
+	fmt.Printf("  workspace dir: %s\n", a.ProjectDir)
 	err := a.httpServer.ListenAndServe()
 	if err == http.ErrServerClosed {
 		return nil
@@ -295,7 +295,7 @@ func (a *App) StartUnix(socketPath string) error {
 	fmt.Println("slopshell mcp listener listening on:")
 	fmt.Printf("  http+unix://%s\n", cleaned)
 	fmt.Printf("  MCP endpoint: http+unix://%s/mcp (mode 0600)\n", cleaned)
-	fmt.Printf("  project dir:  %s\n", a.ProjectDir)
+	fmt.Printf("  workspace dir: %s\n", a.ProjectDir)
 	err = a.httpServer.Serve(listener)
 	if err == http.ErrServerClosed {
 		return nil

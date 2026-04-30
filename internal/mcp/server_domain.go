@@ -593,7 +593,7 @@ func (s *Server) readArtifactContent(artifact store.Artifact) (string, string) {
 	}
 	projectDir := strings.TrimSpace(s.adapter.ProjectDir())
 	if projectDir == "" {
-		return "", "project dir unavailable"
+		return "", "workspace dir unavailable"
 	}
 	target := strings.TrimSpace(*artifact.RefPath)
 	var absPath string
@@ -603,7 +603,7 @@ func (s *Server) readArtifactContent(artifact store.Artifact) (string, string) {
 		absPath = filepath.Clean(filepath.Join(projectDir, target))
 	}
 	if !isPathWithinDir(absPath, projectDir) {
-		return "", "artifact ref_path is outside the project root"
+		return "", "artifact ref_path is outside the workspace root"
 	}
 	data, err := os.ReadFile(absPath)
 	if err != nil {

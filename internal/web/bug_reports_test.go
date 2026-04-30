@@ -550,7 +550,7 @@ func TestHandleBugReportCreateFallsBackToSlopshellRepoWithoutWorkspace(t *testin
 	if !strings.HasPrefix(bundlePath, ".slopshell/artifacts/bugs/") {
 		t.Fatalf("bundle_path = %q, want .slopshell/artifacts/bugs/... path", bundlePath)
 	}
-	// Bug report was filed against the default workspace (no local project dir configured)
+	// Bug report was filed against the default workspace (no local workspace dir configured)
 	if _, err := app.store.GetItemBySource("github", "sloppy-org/slopshell#118"); err != nil {
 		t.Fatalf("GetItemBySource() error: %v", err)
 	}

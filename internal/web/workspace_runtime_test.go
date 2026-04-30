@@ -158,7 +158,7 @@ func TestNewAppPrefersLocalProjectWorkspaceOnStartup(t *testing.T) {
 		t.Fatalf("ActiveWorkspace() error: %v", err)
 	}
 	if workspace.IsDaily {
-		t.Fatal("active workspace is_daily = true, want false for local project startup")
+		t.Fatal("active workspace is_daily = true, want false for local workspace startup")
 	}
 	if workspace.DirPath != localProjectDir {
 		t.Fatalf("active workspace dir_path = %q, want %q", workspace.DirPath, localProjectDir)
@@ -1324,7 +1324,7 @@ func TestTemporaryProjectCreationCopiesSourceSettingsAndPersist(t *testing.T) {
 		t.Fatalf("created chat model = %q, want gpt", createPayload.Workspace.ChatModel)
 	}
 	if createPayload.Workspace.RootPath == source.RootPath {
-		t.Fatalf("temporary project root should differ from source root")
+		t.Fatalf("temporary workspace root should differ from source root")
 	}
 	if !strings.Contains(filepath.ToSlash(createPayload.Workspace.RootPath), "/projects/temporary/meeting/") {
 		t.Fatalf("temporary root = %q, want temporary meeting path", createPayload.Workspace.RootPath)
@@ -1533,7 +1533,7 @@ func TestTemporaryProjectDiscardRemovesProjectDataAndFallsBackToDefaultProject(t
 		t.Fatalf("GetParticipantSession(discarded) error = %v, want sql.ErrNoRows", err)
 	}
 	if _, err := os.Stat(createPayload.Workspace.RootPath); !os.IsNotExist(err) {
-		t.Fatalf("temporary project root still exists: %v", err)
+		t.Fatalf("temporary workspace root still exists: %v", err)
 	}
 	survivingItem, err := app.store.GetItem(item.ID)
 	if err != nil {

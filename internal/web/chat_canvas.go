@@ -141,7 +141,7 @@ func resolveCanvasFilePath(cwd, requested string) (absolutePath, canvasTitle str
 	}
 	rel = filepath.Clean(rel)
 	if rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		return "", "", fmt.Errorf("path escapes project root: %s", requested)
+		return "", "", fmt.Errorf("path escapes workspace root: %s", requested)
 	}
 	return abs, filepath.ToSlash(rel), nil
 }
