@@ -10,18 +10,29 @@ Slopshell has exactly five primary product nouns:
 
 - **Workspace** — a real directory the user works in. Always filesystem-grounded. Composed via symlinks and environment variables, not virtual abstractions. Thin record: path, name, active flag, chat config. One workspace = one chat session (compatible with Codex CLI model). Archivable as a self-contained unit.
 - **Artifact** — curated content shown on canvas. Not every file is an artifact; artifacts are created lazily when interacted with, synced from external systems, or explicitly captured. Has kind, file path or URL, and metadata. Non-file artifacts (email, issue) can be materialized as real files in a workspace.
-- **Item** — an open loop requiring attention. Tracked in the inbox. Has state (inbox/waiting/someday/done), an optional artifact, an optional actor, and a workspace where it is tracked. Items do not always have artifacts; bare tasks like "call Bob" are items without artifacts.
+- **Item** — an open loop requiring attention. Tracked in the inbox and review queues. Has state, kind, optional artifacts, an optional actor, optional labels, and an optional workspace where execution happens. Items do not always have artifacts; bare tasks like "call Bob" are items without artifacts.
 - **Actor** — a human or agent responsible for progress.
 - **Label** — a hierarchical organizing label. Attached to items, artifacts, and workspaces. The only cross-cutting grouping mechanism. Workspace labels cascade: querying a label includes items and artifacts in workspaces carrying that label. Querying a parent label includes everything under it.
 
-Project is not a product concept. Session and message are transport or storage details, not user-facing ontology.
+Workspace and project must not be conflated. A **Workspace** is a filesystem-backed execution context. A GTD **project** is represented as `Item(kind=project)`: a composite outcome that needs child actions. It is still an Item, not a sixth primary noun. Session and message are transport or storage details, not user-facing ontology.
+
+### Item kinds
+
+Items have two canonical kinds:
+
+- `action` — one executable next action or open loop.
+- `project` — a GTD project/composite outcome that needs more than one action.
+
+Project items may have child item links. Initial child roles are `next_action`, `support`, and `blocked_by`. A project item is healthy when it has at least one child in next, waiting, deferred, or someday state; it is stalled when it has no such child.
+
+External systems may also have "projects" or similar containers: Todoist projects, GitHub Projects, GitLab milestones, mail folders. In Slopshell these are **source containers**. They may provide labels, filters, or default routing, but they are not Workspaces and are not GTD project items unless explicitly linked or promoted.
 
 ### Key invariants
 
 1. The canvas shows artifacts, always. Bare items (no artifact) show in the sidebar only.
 2. An item may have zero or more artifacts with roles (source, related, output). One artifact is designated primary and shown on canvas. Bare tasks (no artifact) show in sidebar only.
 3. A workspace is a directory. No virtual workspaces. Composition via filesystem tools. The default fallback is today's persistent Daily Workspace.
-4. Labels are the only cross-cutting grouping mechanism. Project is not a product concept.
+4. Labels are the only cross-cutting grouping mechanism. A project item is a composite Item, not a grouping mechanism and not a Workspace.
 5. Work and private are top-level labels, not a separate "sphere" field. They follow the same rules as all other labels.
 6. Intent classification is workspace-independent. Execution is workspace-aware.
 
@@ -61,6 +72,7 @@ Triage flow:
    - Reply and mark done (no workspace needed, labels sufficient)
    - Assign to workspace (explicit: "track this in ~/write/DEMO-2025")
    - Add more labels
+   - Link to or create a project item/outcome
    - Materialize artifact into workspace (explicit archival)
    - Delegate to actor
 
@@ -97,6 +109,7 @@ How real entities map to the five nouns:
 | Email (Exchange work) | No workspace by default. Assigned manually during triage. | Email body+metadata. Materializable as .eml. | Inbox item. | work + auto from folder mappings |
 | Email (personal Gmail) | No workspace by default. | Email body+metadata. Materializable as .eml. | Inbox item. | private + auto from folder mappings |
 | Tasks (Todoist) | Assigned manually or left floating | Often bare (no artifact) | The item IS the task | Auto from Todoist workspace mappings |
+| GTD project/outcome | Optional execution workspace | Optional project note and supporting artifacts | `Item(kind=project)` with child action items | topic/person/area labels |
 | Calendar (Google) | Assigned manually | Meeting agenda/notes. Transcript after meeting. | Meeting event. Transitions to Meeting live session. | Auto from calendar mappings |
 | GitHub issues/PRs | Tracked in code workspace | Issue/PR content as artifact | Item in code workspace | work/slopshell, topic labels |
 
