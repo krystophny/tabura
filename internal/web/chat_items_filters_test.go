@@ -21,6 +21,12 @@ func TestParseInlineItemIntentFilterCommands(t *testing.T) {
 	}{
 		{text: "show inbox", wantAction: "show_filtered_items", wantClear: true},
 		{text: "show all inbox", wantAction: "show_filtered_items", wantClear: true, wantAll: true},
+		{text: "show next actions", wantAction: "show_filtered_items", wantClear: true},
+		{text: "show waiting", wantAction: "show_filtered_items", wantClear: true},
+		{text: "show deferred", wantAction: "show_filtered_items", wantClear: true},
+		{text: "show review queue", wantAction: "show_filtered_items", wantClear: true},
+		{text: "daily review", wantAction: "show_filtered_items", wantClear: true},
+		{text: "weekly review", wantAction: "show_filtered_items", wantClear: true},
 		{text: "zeige posteingang", wantAction: "show_filtered_items", wantClear: true},
 		{text: "show todoist tasks", wantAction: "show_filtered_items", wantSource: store.ExternalProviderTodoist},
 		{text: "show all todoist tasks", wantAction: "show_filtered_items", wantSource: store.ExternalProviderTodoist, wantAll: true},
@@ -55,6 +61,43 @@ func TestParseInlineItemIntentFilterCommands(t *testing.T) {
 				t.Fatalf("all_spheres = %v, want %v", got, tc.wantAll)
 			}
 		})
+	}
+}
+
+func TestClassifyAndExecuteSystemActionOpensReviewEntryPoint(t *testing.T) {
+	app := newAuthedTestApp(t)
+	app.intentLLMURL = ""
+
+	project, err := app.ensureDefaultWorkspace()
+	if err != nil {
+		t.Fatalf("ensure default project: %v", err)
+	}
+	if _, err := app.store.CreateItem("Review stalled outcome", store.ItemOptions{
+		Kind:  store.ItemKindProject,
+		State: store.ItemStateNext,
+	}); err != nil {
+		t.Fatalf("CreateItem(stalled project) error: %v", err)
+	}
+	session, err := app.store.GetOrCreateChatSession(project.WorkspacePath)
+	if err != nil {
+		t.Fatalf("chat session: %v", err)
+	}
+
+	message, payloads, handled := app.classifyAndExecuteSystemAction(context.Background(), session.ID, session, "daily review")
+	if !handled {
+		t.Fatal("expected daily review command to be handled")
+	}
+	if message != "Opened review with 1 item(s)." {
+		t.Fatalf("message = %q", message)
+	}
+	if len(payloads) != 1 {
+		t.Fatalf("payloads = %#v", payloads)
+	}
+	if got := strFromAny(payloads[0]["view"]); got != store.ItemStateReview {
+		t.Fatalf("payload view = %q, want %q", got, store.ItemStateReview)
+	}
+	if !boolFromAny(payloads[0]["clear_filters"]) {
+		t.Fatalf("payload clear_filters = %#v, want true", payloads[0])
 	}
 }
 
