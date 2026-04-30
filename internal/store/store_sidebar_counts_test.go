@@ -286,12 +286,23 @@ func TestSidebarSectionFilterDrillsDownToProjectItemsOnly(t *testing.T) {
 		t.Fatalf("CreateItem(action) error: %v", err)
 	}
 
-	all, err := s.ListNextItemsFiltered(ItemListFilter{})
+	defaultView, err := s.ListNextItemsFiltered(ItemListFilter{})
 	if err != nil {
 		t.Fatalf("ListNextItemsFiltered() error: %v", err)
 	}
+	if len(defaultView) != 1 {
+		t.Fatalf("default len(all) = %d, want 1 (project items must not appear as next actions)", len(defaultView))
+	}
+	if defaultView[0].Kind != ItemKindAction {
+		t.Fatalf("default item.Kind = %q, want %q", defaultView[0].Kind, ItemKindAction)
+	}
+
+	all, err := s.ListNextItemsFiltered(ItemListFilter{IncludeProjectItems: true})
+	if err != nil {
+		t.Fatalf("ListNextItemsFiltered(IncludeProjectItems=true) error: %v", err)
+	}
 	if len(all) != 2 {
-		t.Fatalf("baseline len(all) = %d, want 2", len(all))
+		t.Fatalf("include-projects len(all) = %d, want 2", len(all))
 	}
 
 	scoped, err := s.ListNextItemsFiltered(ItemListFilter{Section: ItemSidebarSectionProject})

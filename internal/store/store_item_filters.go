@@ -50,6 +50,21 @@ func normalizeItemListFilter(filter ItemListFilter) (ItemListFilter, error) {
 	if normalized.WorkspaceID != nil && normalized.WorkspaceUnassigned {
 		return ItemListFilter{}, errors.New("workspace_id cannot be combined with workspace_id=null")
 	}
+	if filter.ProjectItemID != nil {
+		if *filter.ProjectItemID <= 0 {
+			return ItemListFilter{}, errors.New("project_item_id must be a positive integer")
+		}
+		value := *filter.ProjectItemID
+		normalized.ProjectItemID = &value
+	}
+	if filter.ActorID != nil {
+		if *filter.ActorID <= 0 {
+			return ItemListFilter{}, errors.New("actor_id must be a positive integer")
+		}
+		value := *filter.ActorID
+		normalized.ActorID = &value
+	}
+	normalized.IncludeProjectItems = filter.IncludeProjectItems
 	normalized.Label = normalizeOptionalContextQuery(filter.Label)
 	if filter.LabelID != nil {
 		if *filter.LabelID <= 0 {
@@ -152,6 +167,18 @@ func appendItemFilterClauses(parts []string, args []any, filter ItemListFilter, 
 	}
 	if filter.WorkspaceUnassigned {
 		parts = append(parts, column("workspace_id")+" IS NULL")
+	}
+	if filter.ActorID != nil {
+		parts = append(parts, column("actor_id")+" = ?")
+		args = append(args, *filter.ActorID)
+	}
+	if filter.ProjectItemID != nil {
+		parts = append(parts, `EXISTS (
+SELECT 1 FROM item_children link
+WHERE link.parent_item_id = ?
+  AND link.child_item_id = `+outerColumn("id")+`
+)`)
+		args = append(args, *filter.ProjectItemID)
 	}
 	parts, args = appendItemSectionFilterClauses(parts, args, filter, column, outerColumn)
 	if filter.labelResolved {

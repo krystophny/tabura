@@ -107,6 +107,9 @@ type ItemListFilter struct {
 	LabelID              *int64 `json:"label_id,omitempty"`
 	Label                string `json:"label,omitempty"`
 	Section              string `json:"section,omitempty"`
+	ProjectItemID        *int64 `json:"project_item_id,omitempty"`
+	IncludeProjectItems  bool   `json:"include_project_items,omitempty"`
+	ActorID              *int64 `json:"actor_id,omitempty"`
 	resolvedLabelGroups  [][]int64
 	labelResolved        bool
 	recentMeetingsCutoff string

@@ -181,8 +181,26 @@ func (s *Store) ListWaitingItemsFiltered(filter ItemListFilter) ([]ItemSummary, 
 	return s.listItemSummariesByState(ItemStateWaiting, filter)
 }
 
+// ListNextItemsFiltered returns items in the next state that are currently
+// actionable. Project items (kind=project) are excluded by default so they do
+// not masquerade as executable next actions; callers that want the project
+// drill-down opt in via Section=ItemSidebarSectionProject, and callers that
+// genuinely need both kinds opt in via IncludeProjectItems.
 func (s *Store) ListNextItemsFiltered(filter ItemListFilter) ([]ItemSummary, error) {
-	return s.listItemSummariesByState(ItemStateNext, filter)
+	normalizedFilter, err := s.prepareItemListFilter(filter)
+	if err != nil {
+		return nil, err
+	}
+	parts := []string{"i.state = ?"}
+	args := []any{ItemStateNext}
+	if !normalizedFilter.IncludeProjectItems && normalizedFilter.Section != ItemSidebarSectionProject {
+		parts = append(parts, "i.kind = ?")
+		args = append(args, ItemKindAction)
+	}
+	parts, args = appendItemFilterClauses(parts, args, normalizedFilter, "i.")
+	query := itemSummarySelect + ` WHERE ` + stringsJoin(parts, ` AND `) + `
+ ORDER BY i.updated_at DESC, i.id ASC`
+	return s.listItemSummaries(query, args...)
 }
 
 func (s *Store) ListDeferredItemsFiltered(filter ItemListFilter) ([]ItemSummary, error) {

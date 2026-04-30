@@ -123,6 +123,30 @@ func parseItemListFilterQuery(r *http.Request) (store.ItemListFilter, error) {
 		}
 		filter.Label = rawLabel
 	}
+	if rawProject := strings.TrimSpace(r.URL.Query().Get("project_item_id")); rawProject != "" {
+		projectID, err := strconv.ParseInt(rawProject, 10, 64)
+		if err != nil || projectID <= 0 {
+			return store.ItemListFilter{}, errors.New("project_item_id must be a positive integer")
+		}
+		filter.ProjectItemID = &projectID
+	}
+	if rawActor := strings.TrimSpace(r.URL.Query().Get("actor_id")); rawActor != "" {
+		actorID, err := strconv.ParseInt(rawActor, 10, 64)
+		if err != nil || actorID <= 0 {
+			return store.ItemListFilter{}, errors.New("actor_id must be a positive integer")
+		}
+		filter.ActorID = &actorID
+	}
+	if rawInclude := strings.TrimSpace(r.URL.Query().Get("include_project_items")); rawInclude != "" {
+		switch strings.ToLower(rawInclude) {
+		case "1", "true", "yes":
+			filter.IncludeProjectItems = true
+		case "0", "false", "no":
+			filter.IncludeProjectItems = false
+		default:
+			return store.ItemListFilter{}, errors.New("include_project_items must be true or false")
+		}
+	}
 	return filter, nil
 }
 
@@ -232,7 +256,38 @@ func (a *App) handleItemNext(w http.ResponseWriter, r *http.Request) {
 		writeItemStoreError(w, err)
 		return
 	}
-	a.writeItemSummaryList(w, items)
+	overdue := overdueItemIDs(items, time.Now().UTC())
+	writeAPIData(w, http.StatusOK, map[string]any{
+		"items":   items,
+		"overdue": overdue,
+	})
+}
+
+// overdueItemIDs reports which next-action items are past their hard deadline.
+// We treat a non-empty follow_up_at strictly in the past as overdue: surfacing
+// it does not change the GTD state, only flags it for prioritisation.
+func overdueItemIDs(items []store.ItemSummary, now time.Time) []int64 {
+	out := []int64{}
+	for _, item := range items {
+		if item.FollowUpAt == nil {
+			continue
+		}
+		raw := strings.TrimSpace(*item.FollowUpAt)
+		if raw == "" {
+			continue
+		}
+		ts, err := time.Parse(time.RFC3339Nano, raw)
+		if err != nil {
+			ts, err = time.Parse(time.RFC3339, raw)
+		}
+		if err != nil {
+			continue
+		}
+		if ts.Before(now) {
+			out = append(out, item.ID)
+		}
+	}
+	return out
 }
 
 func (a *App) handleItemDeferred(w http.ResponseWriter, r *http.Request) {
