@@ -589,6 +589,8 @@ func scanWorkspace(
 		&out.Name,
 		&out.DirPath,
 		&out.Sphere,
+		&out.SourceWorkspaceID,
+		&out.SourcePath,
 		&isActive,
 		&isDaily,
 		&dailyDate,
@@ -605,6 +607,8 @@ func scanWorkspace(
 	}
 	out.Name = normalizeWorkspaceName(out.Name)
 	out.DirPath = normalizeWorkspacePath(out.DirPath)
+	out.SourceWorkspaceID = strings.TrimSpace(out.SourceWorkspaceID)
+	out.SourcePath = strings.TrimSpace(out.SourcePath)
 	out.Sphere = normalizeSphere(out.Sphere)
 	out.MCPURL = strings.TrimSpace(out.MCPURL)
 	out.CanvasSessionID = strings.TrimSpace(out.CanvasSessionID)

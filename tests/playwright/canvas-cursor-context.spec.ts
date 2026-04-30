@@ -479,9 +479,28 @@ test('markdown image paths are rewritten through the canvas file proxy', async (
 test('folder markdown links start an agent in the linked workspace rooted at the vault target', async ({ page }) => {
   await seedBrainWorkspace(page);
   await clearLog(page);
-  await page.evaluate(async () => {
-    const mod = await import(`../../internal/web/static/app-workspace-runtime.js?ts=${Date.now()}`);
-    await mod.startAgentHereAtPath('/tmp/vault/project/path', 'brain');
+  await page.evaluate(() => {
+    const app = (window as any)._slopshellApp;
+    if (app?.getState) app.getState().activeWorkspaceId = 'brain';
+    (window as any).__mockMarkdownLinkResolution = {
+      ok: true,
+      kind: 'folder',
+      resolved_path: 'project/path',
+      vault_relative_path: 'project/path',
+      source_path: 'topics/active.md',
+    };
+    const mod = (window as any).__canvasModule;
+    mod.renderCanvas({
+      event_id: 'folder-markdown-link',
+      kind: 'text_artifact',
+      title: 'topics/active.md',
+      path: 'topics/active.md',
+      text: '[Project folder](../../project/path/)',
+    });
+  });
+
+  await page.locator('#canvas-text a', { hasText: 'Project folder' }).evaluate((node) => {
+    if (node instanceof HTMLAnchorElement) node.click();
   });
 
   await expect.poll(async () => {
@@ -506,12 +525,56 @@ test('folder markdown links start an agent in the linked workspace rooted at the
   await expect.poll(async () => {
     const log = await getLog(page);
     return log.some(
+      (entry) => entry.type === 'api_fetch'
+        && entry.action === 'project_create'
+        && String(entry.payload?.source_path || '') === 'topics/active.md',
+    );
+  }, { timeout: 5_000 }).toBe(true);
+
+  await expect.poll(async () => {
+    const log = await getLog(page);
+    return log.some(
       (entry) => entry.type === 'message_sent'
         && String(entry.text || '') === 'Start agent here.',
     );
   }, { timeout: 5_000 }).toBe(true);
 
   await expect.poll(async () => page.evaluate(() => String((window as any)._slopshellApp?.getState?.().activeWorkspaceId || '')), { timeout: 5_000 }).not.toBe('brain');
+});
+
+test('linked workspace welcome action returns to the source note in one step', async ({ page }) => {
+  await seedBrainWorkspace(page);
+  await page.evaluate(() => {
+    const mod = (window as any)._slopshellApp;
+    if (mod?.getState) mod.getState().activeWorkspaceId = 'linked-1';
+  });
+  await page.evaluate(async () => {
+    const mod = await import(`../../internal/web/static/app-chat-ui.js?ts=${Date.now()}`);
+    mod.renderWelcomeSurface({
+      workspace_id: 'linked-1',
+      title: 'Linked source',
+      sections: [{
+        id: 'origin',
+        title: 'Origin',
+        cards: [{
+          id: 'return-to-source-note',
+          title: 'Return to source note',
+          subtitle: 'topics/active.md',
+          description: 'Go back to the brain note that opened this workspace.',
+          action: {
+            type: 'switch_workspace_and_open_file',
+            workspace_id: 'brain',
+            path: 'topics/active.md',
+          },
+        }],
+      }],
+    });
+  });
+
+  await page.locator('#canvas-text .welcome-card', { hasText: 'Return to source note' }).click();
+
+  await expect.poll(async () => page.evaluate(() => String((window as any)._slopshellApp?.getState?.().activeWorkspaceId || '')), { timeout: 5_000 }).toBe('brain');
+  await expect.poll(async () => page.evaluate(() => String((window as any)._slopshellApp?.getState?.().workspaceOpenFilePath || '')), { timeout: 5_000 }).toBe('topics/active.md');
 });
 
 test('start agent here welcome action opens the linked source folder and sends a starter turn', async ({ page }) => {
@@ -561,6 +624,93 @@ test('start agent here welcome action opens the linked source folder and sends a
   await expect.poll(async () => page.evaluate(() => String((window as any)._slopshellApp?.getState?.().activeWorkspaceId || '')), { timeout: 5_000 }).not.toBe('brain');
 });
 
+test('start agent here welcome action preserves the active linked workspace origin', async ({ page }) => {
+  await page.evaluate(() => {
+    const projects = [
+      {
+        id: 'brain',
+        name: 'Brain',
+        kind: 'linked',
+        sphere: 'work',
+        workspace_path: '/tmp/vault/brain',
+        root_path: '/tmp/vault/brain',
+        chat_session_id: 'chat-brain',
+        canvas_session_id: 'brain',
+        chat_mode: 'chat',
+        chat_model: 'local',
+        chat_model_reasoning_effort: 'none',
+        unread: false,
+        review_pending: false,
+        run_state: { active_turns: 0, queued_turns: 0, is_working: false, status: 'idle' },
+      },
+      {
+        id: 'linked-1',
+        name: 'Project path',
+        kind: 'linked',
+        sphere: 'work',
+        workspace_path: '/tmp/vault/project/path',
+        root_path: '/tmp/vault/project/path',
+        source_workspace_id: 'brain',
+        source_path: 'topics/active.md',
+        chat_session_id: 'chat-linked',
+        canvas_session_id: 'linked-1',
+        chat_mode: 'chat',
+        chat_model: 'local',
+        chat_model_reasoning_effort: 'none',
+        unread: false,
+        review_pending: false,
+        run_state: { active_turns: 0, queued_turns: 0, is_working: false, status: 'idle' },
+      },
+    ];
+    (window as any).__setProjects(projects, 'linked-1');
+    const state = (window as any)._slopshellApp?.getState?.();
+    if (state) {
+      state.projects = projects;
+      state.activeWorkspaceId = 'linked-1';
+      state.chatSessionId = 'chat-linked';
+      state.sessionId = 'linked-1';
+    }
+  });
+  await expect.poll(async () => page.evaluate(() => String((window as any)._slopshellApp?.getState?.().activeWorkspaceId || '')), { timeout: 5_000 }).toBe('linked-1');
+  await clearLog(page);
+
+  await page.evaluate(async () => {
+    const mod = await import(`../../internal/web/static/app-chat-ui.js?ts=${Date.now()}`);
+    mod.renderWelcomeSurface({
+      workspace_id: 'linked-1',
+      title: 'Linked source',
+      sections: [{
+        id: 'agent',
+        title: 'Agent',
+        cards: [{
+          id: 'start-agent-here',
+          title: 'Start agent here',
+          subtitle: 'project/path',
+          description: 'Use nearest instructions',
+          action: {
+            type: 'start_agent_here',
+            path: '/tmp/vault/project/path',
+          },
+        }],
+      }],
+    });
+  });
+
+  await page.locator('#canvas-text .welcome-card', { hasText: 'Start agent here' }).click();
+
+  await expect.poll(async () => {
+    const log = await getLog(page);
+    return log.some(
+      (entry) => entry.type === 'message_sent'
+        && String(entry.text || '') === 'Start agent here.',
+    );
+  }, { timeout: 5_000 }).toBe(true);
+
+  const log = await getLog(page);
+  expect(log.some((entry) => entry.type === 'api_fetch' && entry.action === 'project_create')).toBe(false);
+  await expect.poll(async () => page.evaluate(() => String((window as any)._slopshellApp?.getState?.().activeWorkspaceId || '')), { timeout: 5_000 }).toBe('linked-1');
+});
+
 test('file markdown links open the parent folder as source context', async ({ page }) => {
   await seedBrainWorkspace(page);
   await clearLog(page);
@@ -569,13 +719,18 @@ test('file markdown links open the parent folder as source context', async ({ pa
     if (app?.getState) {
       app.getState().activeWorkspaceId = 'brain';
     }
-  });
-  await page.evaluate(() => {
+    (window as any).__mockWorkspaceFiles = {
+      'active|': [
+        { name: 'AGENTS.md', path: 'AGENTS.md', is_dir: false },
+        { name: 'notes.md', path: 'notes.md', is_dir: false },
+      ],
+    };
     (window as any).__mockMarkdownLinkResolution = {
       ok: true,
       kind: 'text',
       resolved_path: 'project/path/file.md',
       vault_relative_path: 'project/path/file.md',
+      source_path: 'topics/active.md',
       file_url: '/api/workspaces/brain/markdown-link/file?path=project%2Fpath%2Ffile.md',
     };
     const mod = (window as any).__canvasModule;
@@ -614,10 +769,69 @@ test('file markdown links open the parent folder as source context', async ({ pa
   await expect.poll(async () => {
     const log = await getLog(page);
     return log.some(
-      (entry) => entry.type === 'message_sent'
-        && String(entry.text || '') === 'Start agent here.',
+      (entry) => entry.type === 'api_fetch'
+        && entry.action === 'project_create'
+        && String(entry.payload?.source_path || '') === 'topics/active.md',
     );
   }, { timeout: 5_000 }).toBe(true);
+
+  await expect.poll(async () => {
+    const log = await getLog(page);
+    return log.some(
+      (entry) => entry.type === 'message_sent'
+      && String(entry.text || '') === 'Start agent here.',
+    );
+  }, { timeout: 5_000 }).toBe(true);
+
+  await expect.poll(async () => page.evaluate(() => String((window as any)._slopshellApp?.getState?.().activeWorkspaceId || '')), { timeout: 5_000 }).not.toBe('brain');
+
+  await page.locator('#edge-left-tap').click();
+  await page.getByRole('button', { name: 'Files' }).click();
+  await expect(page.locator('#pr-file-list')).toContainText('AGENTS.md');
+  await expect(page.locator('#pr-file-list')).toContainText('notes.md');
+
+  await page.evaluate(async () => {
+    const mod = await import(`../../internal/web/static/app-chat-transport.js?ts=${Date.now()}`);
+    await mod.switchProject('brain');
+  });
+  await expect.poll(async () => page.evaluate(() => String((window as any)._slopshellApp?.getState?.().activeWorkspaceId || '')), { timeout: 5_000 }).toBe('brain');
+});
+
+test('in-brain markdown note links stay in the current workspace and render the linked note', async ({ page }) => {
+  await seedBrainWorkspace(page);
+  await clearLog(page);
+  await page.evaluate(() => {
+    const app = (window as any)._slopshellApp;
+    if (app?.getState) {
+      app.getState().activeWorkspaceId = 'brain';
+    }
+    (window as any).__mockMarkdownLinkFileText = '# Related note\n\nBrain note body';
+    (window as any).__mockMarkdownLinkResolution = {
+      ok: true,
+      kind: 'text',
+      resolved_path: 'brain/topics/related.md',
+      vault_relative_path: 'brain/topics/related.md',
+      source_path: 'topics/active.md',
+      file_url: '/api/workspaces/brain/markdown-link/file?path=brain%2Ftopics%2Frelated.md',
+    };
+    const mod = (window as any).__canvasModule;
+    mod.renderCanvas({
+      event_id: 'in-brain-markdown-link',
+      kind: 'text_artifact',
+      title: 'topics/active.md',
+      path: 'topics/active.md',
+      text: '[Related](related.md)',
+    });
+  });
+
+  await page.locator('#canvas-text a', { hasText: 'Related' }).evaluate((node) => {
+    if (node instanceof HTMLAnchorElement) node.click();
+  });
+
+  await expect(page.locator('#canvas-text')).toContainText('Brain note body');
+  await expect.poll(async () => page.evaluate(() => String((window as any)._slopshellApp?.getState?.().activeWorkspaceId || '')), { timeout: 5_000 }).toBe('brain');
+  const log = await getLog(page);
+  expect(log.some((entry) => entry.type === 'api_fetch' && entry.action === 'project_create')).toBe(false);
 });
 
 test('blocked markdown note links surface resolver reasons on canvas', async ({ page }) => {

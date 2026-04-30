@@ -21,6 +21,7 @@ type runtimeWorkspaceCreateRequest struct {
 	Path              string `json:"path"`
 	MCPURL            string `json:"mcp_url"`
 	SourceWorkspaceID string `json:"source_workspace_id"`
+	SourcePath        string `json:"source_path"`
 	Activate          *bool  `json:"activate"`
 }
 
@@ -29,6 +30,8 @@ type workspaceAPIModel struct {
 	Name                     string            `json:"name"`
 	Kind                     string            `json:"kind"`
 	RootPath                 string            `json:"root_path"`
+	SourceWorkspaceID        string            `json:"source_workspace_id,omitempty"`
+	SourcePath               string            `json:"source_path,omitempty"`
 	Sphere                   string            `json:"sphere,omitempty"`
 	WorkspacePath            string            `json:"workspace_path"`
 	MCPURL                   string            `json:"mcp_url,omitempty"`

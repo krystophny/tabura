@@ -42,6 +42,7 @@ async function openLinkedWorkspaceAtPath(
   failurePrefix: string,
   readyText: string,
   sourceWorkspaceID = '',
+  sourceNotePath = '',
 ): Promise<string> {
   const path = String(workspacePath || '').trim();
   if (!path) return '';
@@ -54,6 +55,7 @@ async function openLinkedWorkspaceAtPath(
       path,
       activate: true,
       ...(sourceID ? { source_workspace_id: sourceID } : {}),
+      ...(String(sourceNotePath || '').trim() ? { source_path: String(sourceNotePath || '').trim() } : {}),
     });
     const project = responsePayload?.workspace || {};
     const workspaceID = String(project?.id || '').trim();
@@ -76,6 +78,7 @@ export async function createLinkedWorkspaceAtPath(
   deps: WorkspaceActionDeps,
   workspacePath: string,
   sourceWorkspaceID = '',
+  sourceNotePath = '',
 ): Promise<void> {
   await openLinkedWorkspaceAtPath(
     deps,
@@ -84,6 +87,7 @@ export async function createLinkedWorkspaceAtPath(
     'Linked workspace open failed',
     'linked workspace ready',
     sourceWorkspaceID,
+    sourceNotePath,
   );
 }
 
@@ -91,6 +95,7 @@ export async function startAgentHereAtPath(
   deps: WorkspaceActionDeps,
   workspacePath: string,
   sourceWorkspaceID = '',
+  sourceNotePath = '',
 ): Promise<void> {
   const workspaceID = await openLinkedWorkspaceAtPath(
     deps,
@@ -99,6 +104,7 @@ export async function startAgentHereAtPath(
     'Start agent here failed',
     'agent ready',
     sourceWorkspaceID,
+    sourceNotePath,
   );
   if (!workspaceID || typeof deps.submitMessage !== 'function') return;
   await deps.submitMessage('Start agent here.', { kind: 'start_agent_here' });

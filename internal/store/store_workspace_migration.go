@@ -19,6 +19,8 @@ func (s *Store) migrateWorkspaceConfigSupport() error {
 		{name: "chat_model", sql: `ALTER TABLE workspaces ADD COLUMN chat_model TEXT NOT NULL DEFAULT ''`},
 		{name: "chat_model_reasoning_effort", sql: `ALTER TABLE workspaces ADD COLUMN chat_model_reasoning_effort TEXT NOT NULL DEFAULT ''`},
 		{name: "companion_config_json", sql: `ALTER TABLE workspaces ADD COLUMN companion_config_json TEXT NOT NULL DEFAULT '{}'`},
+		{name: "source_workspace_id", sql: `ALTER TABLE workspaces ADD COLUMN source_workspace_id TEXT NOT NULL DEFAULT ''`},
+		{name: "source_path", sql: `ALTER TABLE workspaces ADD COLUMN source_path TEXT NOT NULL DEFAULT ''`},
 	}
 	for _, def := range defs {
 		if tableColumns["workspaces"][def.name] {

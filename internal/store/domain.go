@@ -134,6 +134,8 @@ type Workspace struct {
 	ID                       int64   `json:"id"`
 	Name                     string  `json:"name"`
 	DirPath                  string  `json:"dir_path"`
+	SourceWorkspaceID        string  `json:"source_workspace_id,omitempty"`
+	SourcePath               string  `json:"source_path,omitempty"`
 	Sphere                   string  `json:"sphere"`
 	IsActive                 bool    `json:"is_active"`
 	IsDaily                  bool    `json:"is_daily"`

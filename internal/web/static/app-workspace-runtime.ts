@@ -747,12 +747,12 @@ function workspaceActionDeps() {
   };
 }
 
-export async function createLinkedWorkspaceAtPath(workspacePath, sourceWorkspaceID = '') {
-  await createLinkedWorkspaceAtPathImpl(workspaceActionDeps(), workspacePath, sourceWorkspaceID);
+export async function createLinkedWorkspaceAtPath(workspacePath, sourceWorkspaceID = '', sourceNotePath = '') {
+  await createLinkedWorkspaceAtPathImpl(workspaceActionDeps(), workspacePath, sourceWorkspaceID, sourceNotePath);
 }
 
-export async function startAgentHereAtPath(workspacePath, sourceWorkspaceID = '') {
-  await startAgentHereAtPathImpl(workspaceActionDeps(), workspacePath, sourceWorkspaceID);
+export async function startAgentHereAtPath(workspacePath, sourceWorkspaceID = '', sourceNotePath = '') {
+  await startAgentHereAtPathImpl(workspaceActionDeps(), workspacePath, sourceWorkspaceID, sourceNotePath);
 }
 
 export async function persistTemporaryProject(workspaceID) {

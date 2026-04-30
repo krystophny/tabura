@@ -43,6 +43,10 @@ function sourceContextPathForResolution(path, kind) {
   return '';
 }
 
+function isBrainRelativeVaultPath(path) {
+  return /^brain(?:[\\/]|$)/i.test(String(path || '').trim().replace(/[\\/]+/g, '/'));
+}
+
 function resolveLinkedWorkspacePath(vaultRelativePath) {
   const project = currentWorkspaceProject();
   const rootPath = String(project?.root_path || project?.workspace_path || '').trim();
@@ -101,9 +105,10 @@ async function openResolvedMarkdownLink(resolution, renderCanvas) {
   const path = String(link.vault_relative_path || link.resolved_path || '').trim();
   const title = path || 'Linked note';
   const sourcePath = sourceContextPathForResolution(path, kind);
-  if (sourcePath && isBrainWorkspaceProject(currentWorkspaceProject())) {
+  const sourceNotePath = String(link.source_path || '').trim();
+  if (sourcePath && isBrainWorkspaceProject(currentWorkspaceProject()) && !isBrainRelativeVaultPath(path)) {
     const linkedWorkspacePath = resolveLinkedWorkspacePath(sourcePath);
-    await startAgentHereAtPath(linkedWorkspacePath, currentWorkspaceID());
+    await startAgentHereAtPath(linkedWorkspacePath, currentWorkspaceID(), sourceNotePath);
     return;
   }
   const fileURL = String(link.file_url || '').trim();
