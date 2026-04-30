@@ -168,6 +168,8 @@ WHERE mart.id = `+column("artifact_id")+`
 	return parts, args
 }
 
+type itemFilterColumnFunc func(string) string
+
 func appendItemFilterClauses(parts []string, args []any, filter ItemListFilter, alias string) ([]string, []any) {
 	column := func(name string) string {
 		return alias + name
@@ -178,6 +180,14 @@ func appendItemFilterClauses(parts []string, args []any, filter ItemListFilter, 
 		}
 		return alias + name
 	}
+	parts, args = appendItemScopeFilterClauses(parts, args, filter, column, outerColumn)
+	parts, args = appendItemDateFilterClauses(parts, args, filter, column)
+	parts, args = appendItemOwnerFilterClauses(parts, args, filter, column, outerColumn)
+	parts, args = appendItemSectionFilterClauses(parts, args, filter, column, outerColumn)
+	return appendItemLabelFilterClauses(parts, args, filter, outerColumn)
+}
+
+func appendItemScopeFilterClauses(parts []string, args []any, filter ItemListFilter, column, outerColumn itemFilterColumnFunc) ([]string, []any) {
 	if filter.Sphere != "" {
 		parts = append(parts, scopedContextFilter("context_items", "item_id", outerColumn("id")))
 		args = append(args, filter.Sphere)
@@ -195,38 +205,29 @@ WHERE eb.item_id = `+outerColumn("id")+`
 )`)
 		args = append(args, filter.SourceContainer)
 	}
-	if filter.DueBefore != "" {
-		parts = append(parts,
-			column("due_at")+" IS NOT NULL",
-			"trim("+column("due_at")+") <> ''",
-			"datetime("+column("due_at")+") <= datetime(?)",
-		)
-		args = append(args, filter.DueBefore)
+	return parts, args
+}
+
+func appendItemDateFilterClauses(parts []string, args []any, filter ItemListFilter, column itemFilterColumnFunc) ([]string, []any) {
+	parts, args = appendItemDateWindow(parts, args, column("due_at"), "<=", filter.DueBefore)
+	parts, args = appendItemDateWindow(parts, args, column("due_at"), ">=", filter.DueAfter)
+	parts, args = appendItemDateWindow(parts, args, column("follow_up_at"), "<=", filter.FollowUpBefore)
+	return appendItemDateWindow(parts, args, column("follow_up_at"), ">=", filter.FollowUpAfter)
+}
+
+func appendItemDateWindow(parts []string, args []any, column, operator, value string) ([]string, []any) {
+	if value == "" {
+		return parts, args
 	}
-	if filter.DueAfter != "" {
-		parts = append(parts,
-			column("due_at")+" IS NOT NULL",
-			"trim("+column("due_at")+") <> ''",
-			"datetime("+column("due_at")+") >= datetime(?)",
-		)
-		args = append(args, filter.DueAfter)
-	}
-	if filter.FollowUpBefore != "" {
-		parts = append(parts,
-			column("follow_up_at")+" IS NOT NULL",
-			"trim("+column("follow_up_at")+") <> ''",
-			"datetime("+column("follow_up_at")+") <= datetime(?)",
-		)
-		args = append(args, filter.FollowUpBefore)
-	}
-	if filter.FollowUpAfter != "" {
-		parts = append(parts,
-			column("follow_up_at")+" IS NOT NULL",
-			"trim("+column("follow_up_at")+") <> ''",
-			"datetime("+column("follow_up_at")+") >= datetime(?)",
-		)
-		args = append(args, filter.FollowUpAfter)
-	}
+	parts = append(parts,
+		column+" IS NOT NULL",
+		"trim("+column+") <> ''",
+		"datetime("+column+") "+operator+" datetime(?)",
+	)
+	return parts, append(args, value)
+}
+
+func appendItemOwnerFilterClauses(parts []string, args []any, filter ItemListFilter, column, outerColumn itemFilterColumnFunc) ([]string, []any) {
 	if filter.WorkspaceID != nil {
 		parts = append(parts, column("workspace_id")+" = ?")
 		args = append(args, *filter.WorkspaceID)
@@ -246,7 +247,10 @@ WHERE link.parent_item_id = ?
 )`)
 		args = append(args, *filter.ProjectItemID)
 	}
-	parts, args = appendItemSectionFilterClauses(parts, args, filter, column, outerColumn)
+	return parts, args
+}
+
+func appendItemLabelFilterClauses(parts []string, args []any, filter ItemListFilter, outerColumn itemFilterColumnFunc) ([]string, []any) {
 	if filter.labelResolved {
 		if len(filter.resolvedLabelGroups) == 0 {
 			parts = append(parts, "0=1")
