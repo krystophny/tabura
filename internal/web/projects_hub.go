@@ -155,6 +155,31 @@ func discoverProjectWelcomeCards(rootPath string) ([]workspaceWelcomeCard, []wor
 	return docCandidates, recentCards
 }
 
+func linkedWorkspaceOriginWelcomeSection(project store.Workspace) *workspaceWelcomeSection {
+	sourceWorkspaceID := strings.TrimSpace(project.SourceWorkspaceID)
+	sourcePath := strings.TrimSpace(project.SourcePath)
+	if sourceWorkspaceID == "" || sourcePath == "" {
+		return nil
+	}
+	return &workspaceWelcomeSection{
+		ID:    "origin",
+		Title: "Origin",
+		Cards: []workspaceWelcomeCard{
+			{
+				ID:          "return-to-source-note",
+				Title:       "Return to source note",
+				Subtitle:    sourcePath,
+				Description: "Go back to the brain note that opened this workspace.",
+				Action: workspaceWelcomeAction{
+					Type:        "switch_workspace_and_open_file",
+					WorkspaceID: sourceWorkspaceID,
+					Path:        sourcePath,
+				},
+			},
+		},
+	}
+}
+
 func (a *App) buildProjectWelcomeSections(project store.Workspace) []workspaceWelcomeSection {
 	docCards, recentCards := discoverProjectWelcomeCards(project.RootPath)
 	sections := make([]workspaceWelcomeSection, 0, 3)
@@ -175,6 +200,9 @@ func (a *App) buildProjectWelcomeSections(project store.Workspace) []workspaceWe
 				},
 			},
 		})
+	}
+	if origin := linkedWorkspaceOriginWelcomeSection(project); origin != nil {
+		sections = append(sections, *origin)
 	}
 	if len(recentCards) > 0 {
 		sections = append(sections, workspaceWelcomeSection{

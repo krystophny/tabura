@@ -569,6 +569,16 @@ export async function handleWelcomeAction(action) {
     await switchProject(workspaceID);
     return;
   }
+  if (type === 'switch_workspace_and_open_file') {
+    const workspaceID = String(action?.workspace_id || '').trim();
+    const filePath = String(action?.path || '').trim();
+    if (!workspaceID || !filePath) return;
+    await switchProject(workspaceID);
+    if (String(state.activeWorkspaceId || '').trim() === workspaceID) {
+      await openWorkspaceSidebarFile(filePath);
+    }
+    return;
+  }
   if (type === 'open_file') {
     const filePath = String(action?.path || '').trim();
     if (filePath) {

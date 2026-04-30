@@ -47,6 +47,8 @@ func (a *App) buildWorkspaceAPIModel(project store.Workspace) (workspaceAPIModel
 		Name:                     project.Name,
 		Kind:                     project.Kind,
 		RootPath:                 project.RootPath,
+		SourceWorkspaceID:        strings.TrimSpace(project.SourceWorkspaceID),
+		SourcePath:               strings.TrimSpace(project.SourcePath),
 		Sphere:                   sphere,
 		WorkspacePath:            project.WorkspacePath,
 		MCPURL:                   strings.TrimSpace(project.MCPURL),

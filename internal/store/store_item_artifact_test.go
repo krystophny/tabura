@@ -25,6 +25,8 @@ CREATE TABLE workspaces (
   chat_model TEXT NOT NULL DEFAULT '',
   chat_model_reasoning_effort TEXT NOT NULL DEFAULT '',
   companion_config_json TEXT NOT NULL DEFAULT '{}',
+  source_workspace_id TEXT NOT NULL DEFAULT '',
+  source_path TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );

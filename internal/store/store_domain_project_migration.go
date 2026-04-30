@@ -50,16 +50,18 @@ func (s *Store) migrateProjectRemovalSupport() error {
   chat_model TEXT NOT NULL DEFAULT '',
   chat_model_reasoning_effort TEXT NOT NULL DEFAULT '',
   companion_config_json TEXT NOT NULL DEFAULT '{}',
+  source_workspace_id TEXT NOT NULL DEFAULT '',
+  source_path TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 )`); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO workspaces (
-id, name, dir_path, is_active, is_daily, daily_date, mcp_url, canvas_session_id, chat_model, chat_model_reasoning_effort, companion_config_json, created_at, updated_at
+id, name, dir_path, is_active, is_daily, daily_date, mcp_url, canvas_session_id, chat_model, chat_model_reasoning_effort, companion_config_json, source_workspace_id, source_path, created_at, updated_at
 )
 SELECT
-id, name, dir_path, is_active, COALESCE(is_daily, 0), daily_date, COALESCE(mcp_url, ''), COALESCE(canvas_session_id, ''), COALESCE(chat_model, ''), COALESCE(chat_model_reasoning_effort, ''), COALESCE(companion_config_json, '{}'), created_at, updated_at
+id, name, dir_path, is_active, COALESCE(is_daily, 0), daily_date, COALESCE(mcp_url, ''), COALESCE(canvas_session_id, ''), COALESCE(chat_model, ''), COALESCE(chat_model_reasoning_effort, ''), COALESCE(companion_config_json, '{}'), '', '', created_at, updated_at
 FROM workspaces_project_legacy`); err != nil {
 		return err
 	}

@@ -481,7 +481,7 @@ test('folder markdown links start an agent in the linked workspace rooted at the
   await clearLog(page);
   await page.evaluate(async () => {
     const mod = await import(`../../internal/web/static/app-workspace-runtime.js?ts=${Date.now()}`);
-    await mod.startAgentHereAtPath('/tmp/vault/project/path', 'brain');
+    await mod.startAgentHereAtPath('/tmp/vault/project/path', 'brain', 'topics/active.md');
   });
 
   await expect.poll(async () => {
@@ -506,12 +506,56 @@ test('folder markdown links start an agent in the linked workspace rooted at the
   await expect.poll(async () => {
     const log = await getLog(page);
     return log.some(
+      (entry) => entry.type === 'api_fetch'
+        && entry.action === 'project_create'
+        && String(entry.payload?.source_path || '') === 'topics/active.md',
+    );
+  }, { timeout: 5_000 }).toBe(true);
+
+  await expect.poll(async () => {
+    const log = await getLog(page);
+    return log.some(
       (entry) => entry.type === 'message_sent'
         && String(entry.text || '') === 'Start agent here.',
     );
   }, { timeout: 5_000 }).toBe(true);
 
   await expect.poll(async () => page.evaluate(() => String((window as any)._slopshellApp?.getState?.().activeWorkspaceId || '')), { timeout: 5_000 }).not.toBe('brain');
+});
+
+test('linked workspace welcome action returns to the source note in one step', async ({ page }) => {
+  await seedBrainWorkspace(page);
+  await page.evaluate(() => {
+    const mod = (window as any)._slopshellApp;
+    if (mod?.getState) mod.getState().activeWorkspaceId = 'linked-1';
+  });
+  await page.evaluate(async () => {
+    const mod = await import(`../../internal/web/static/app-chat-ui.js?ts=${Date.now()}`);
+    mod.renderWelcomeSurface({
+      workspace_id: 'linked-1',
+      title: 'Linked source',
+      sections: [{
+        id: 'origin',
+        title: 'Origin',
+        cards: [{
+          id: 'return-to-source-note',
+          title: 'Return to source note',
+          subtitle: 'topics/active.md',
+          description: 'Go back to the brain note that opened this workspace.',
+          action: {
+            type: 'switch_workspace_and_open_file',
+            workspace_id: 'brain',
+            path: 'topics/active.md',
+          },
+        }],
+      }],
+    });
+  });
+
+  await page.locator('#canvas-text .welcome-card', { hasText: 'Return to source note' }).click();
+
+  await expect.poll(async () => page.evaluate(() => String((window as any)._slopshellApp?.getState?.().activeWorkspaceId || '')), { timeout: 5_000 }).toBe('brain');
+  await expect.poll(async () => page.evaluate(() => String((window as any)._slopshellApp?.getState?.().workspaceOpenFilePath || '')), { timeout: 5_000 }).toBe('topics/active.md');
 });
 
 test('start agent here welcome action opens the linked source folder and sends a starter turn', async ({ page }) => {
@@ -576,6 +620,7 @@ test('file markdown links open the parent folder as source context', async ({ pa
       kind: 'text',
       resolved_path: 'project/path/file.md',
       vault_relative_path: 'project/path/file.md',
+      source_path: 'topics/active.md',
       file_url: '/api/workspaces/brain/markdown-link/file?path=project%2Fpath%2Ffile.md',
     };
     const mod = (window as any).__canvasModule;
@@ -608,6 +653,15 @@ test('file markdown links open the parent folder as source context', async ({ pa
       (entry) => entry.type === 'api_fetch'
         && entry.action === 'project_create'
         && String(entry.payload?.source_workspace_id || '') === 'brain',
+    );
+  }, { timeout: 5_000 }).toBe(true);
+
+  await expect.poll(async () => {
+    const log = await getLog(page);
+    return log.some(
+      (entry) => entry.type === 'api_fetch'
+        && entry.action === 'project_create'
+        && String(entry.payload?.source_path || '') === 'topics/active.md',
     );
   }, { timeout: 5_000 }).toBe(true);
 

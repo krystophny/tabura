@@ -1653,6 +1653,8 @@
           kind,
           workspace_path: `/tmp/${id}`,
           root_path: `/tmp/${id}`,
+          source_workspace_id: String(body?.source_workspace_id || '').trim(),
+          source_path: String(body?.source_path || '').trim(),
           chat_session_id: `chat-${id}`,
           canvas_session_id: id,
           chat_mode: 'chat',
@@ -1677,6 +1679,7 @@
             path: String(body?.path || '').trim(),
             workspace_id: id,
             source_workspace_id: String(body?.source_workspace_id || '').trim(),
+            source_path: String(body?.source_path || '').trim(),
           },
         });
         return new Response(JSON.stringify({

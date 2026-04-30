@@ -100,6 +100,27 @@ func (a *App) createWorkspace2(req runtimeWorkspaceCreateRequest) (store.Workspa
 	if err != nil {
 		return store.Workspace{}, false, err
 	}
+	sourcePath := strings.TrimSpace(req.SourcePath)
+	if sourcePath != "" {
+		sourcePath, err = normalizeProjectListPath(sourcePath)
+		if err != nil {
+			return store.Workspace{}, false, err
+		}
+	}
+	applySource := func(workspace store.Workspace) (store.Workspace, error) {
+		if !hasSource {
+			return workspace, nil
+		}
+		updated, err := a.store.UpdateWorkspaceSource(
+			workspace.ID,
+			workspaceIDStr(sourceProject.ID),
+			sourcePath,
+		)
+		if err != nil {
+			return store.Workspace{}, err
+		}
+		return updated, nil
+	}
 
 	var absRoot string
 	switch kind {
@@ -167,11 +188,19 @@ func (a *App) createWorkspace2(req runtimeWorkspaceCreateRequest) (store.Workspa
 	workspacePath := absRoot
 
 	if existing, err := a.store.GetWorkspaceByStoredPath(workspacePath); err == nil {
+		existing, err = applySource(existing)
+		if err != nil {
+			return store.Workspace{}, false, err
+		}
 		return existing, false, nil
 	} else if !isNoRows(err) {
 		return store.Workspace{}, false, err
 	}
 	if existing, err := a.store.GetWorkspaceByRootPath(absRoot); err == nil {
+		existing, err = applySource(existing)
+		if err != nil {
+			return store.Workspace{}, false, err
+		}
 		return existing, false, nil
 	} else if !isNoRows(err) {
 		return store.Workspace{}, false, err
@@ -188,6 +217,10 @@ func (a *App) createWorkspace2(req runtimeWorkspaceCreateRequest) (store.Workspa
 	}
 	if hasSource {
 		if err := a.inheritWorkspaceSettings(workspaceIDStr(created.ID), sourceProject); err != nil {
+			return store.Workspace{}, false, err
+		}
+		created, err = applySource(created)
+		if err != nil {
 			return store.Workspace{}, false, err
 		}
 		refreshed, refreshErr := a.store.GetEnrichedWorkspace(workspaceIDStr(created.ID))

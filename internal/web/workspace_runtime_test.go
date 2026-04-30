@@ -1517,13 +1517,16 @@ func TestProjectWelcomeIncludesStartAgentCardForLinkedWorkspaces(t *testing.T) {
 		t.Fatalf("write active note: %v", err)
 	}
 	app := newAuthedTestApp(t)
-	if _, err := app.store.CreateWorkspace("Work brain", brainRoot, store.SphereWork); err != nil {
+	brain, err := app.store.CreateWorkspace("Work brain", brainRoot, store.SphereWork)
+	if err != nil {
 		t.Fatalf("CreateWorkspace(brain) error: %v", err)
 	}
 	linked, _, err := app.createWorkspace2(runtimeWorkspaceCreateRequest{
-		Name: "Linked source",
-		Kind: "linked",
-		Path: linkedRoot,
+		Name:              "Linked source",
+		Kind:              "linked",
+		Path:              linkedRoot,
+		SourceWorkspaceID: workspaceIDStr(brain.ID),
+		SourcePath:        "topics/active.md",
 	})
 	if err != nil {
 		t.Fatalf("create linked workspace: %v", err)
@@ -1533,11 +1536,47 @@ func TestProjectWelcomeIncludesStartAgentCardForLinkedWorkspaces(t *testing.T) {
 	if rrWelcome.Code != http.StatusOK {
 		t.Fatalf("expected linked welcome 200, got %d: %s", rrWelcome.Code, rrWelcome.Body.String())
 	}
-	if !strings.Contains(rrWelcome.Body.String(), "Start agent here") {
-		t.Fatalf("welcome missing start-agent card: %s", rrWelcome.Body.String())
+	var welcome workspaceWelcomeResponse
+	if err := json.Unmarshal(rrWelcome.Body.Bytes(), &welcome); err != nil {
+		t.Fatalf("decode welcome response: %v", err)
 	}
-	if !strings.Contains(rrWelcome.Body.String(), "Use the nearest AGENTS.md or CLAUDE.md from this source folder.") {
-		t.Fatalf("welcome missing nearest-instructions guidance: %s", rrWelcome.Body.String())
+	if welcome.Project.SourceWorkspaceID != workspaceIDStr(brain.ID) {
+		t.Fatalf("welcome source workspace id = %q, want %q", welcome.Project.SourceWorkspaceID, workspaceIDStr(brain.ID))
+	}
+	if welcome.Project.SourcePath != "topics/active.md" {
+		t.Fatalf("welcome source path = %q, want topics/active.md", welcome.Project.SourcePath)
+	}
+	var agentCard *workspaceWelcomeCard
+	var originCard *workspaceWelcomeCard
+	for i := range welcome.Sections {
+		section := welcome.Sections[i]
+		for j := range section.Cards {
+			card := &section.Cards[j]
+			switch card.ID {
+			case "start-agent-here":
+				agentCard = card
+			case "return-to-source-note":
+				originCard = card
+			}
+		}
+	}
+	if agentCard == nil {
+		t.Fatalf("welcome missing start-agent card: %#v", welcome.Sections)
+	}
+	if !strings.Contains(agentCard.Description, "Use the nearest AGENTS.md or CLAUDE.md from this source folder.") {
+		t.Fatalf("welcome missing nearest-instructions guidance: %s", agentCard.Description)
+	}
+	if originCard == nil {
+		t.Fatalf("welcome missing origin card: %#v", welcome.Sections)
+	}
+	if originCard.Action.Type != "switch_workspace_and_open_file" {
+		t.Fatalf("origin action type = %q, want switch_workspace_and_open_file", originCard.Action.Type)
+	}
+	if originCard.Action.WorkspaceID != workspaceIDStr(brain.ID) {
+		t.Fatalf("origin workspace id = %q, want %q", originCard.Action.WorkspaceID, workspaceIDStr(brain.ID))
+	}
+	if originCard.Action.Path != "topics/active.md" {
+		t.Fatalf("origin path = %q, want topics/active.md", originCard.Action.Path)
 	}
 }
 
@@ -1574,6 +1613,7 @@ func TestLinkedWorkspaceCreationCopiesSourceSettings(t *testing.T) {
 		Kind:              "linked",
 		Path:              linkedRoot,
 		SourceWorkspaceID: workspaceIDStr(source.ID),
+		SourcePath:        "topics/active.md",
 	})
 	if err != nil {
 		t.Fatalf("create linked workspace: %v", err)
@@ -1592,6 +1632,12 @@ func TestLinkedWorkspaceCreationCopiesSourceSettings(t *testing.T) {
 	}
 	if got := strings.TrimSpace(linked.CompanionConfigJSON); got != `{"companion_enabled":true,"idle_surface":"black"}` {
 		t.Fatalf("linked companion config = %q", got)
+	}
+	if linked.SourceWorkspaceID != workspaceIDStr(source.ID) {
+		t.Fatalf("linked source workspace id = %q, want %q", linked.SourceWorkspaceID, workspaceIDStr(source.ID))
+	}
+	if linked.SourcePath != "topics/active.md" {
+		t.Fatalf("linked source path = %q, want topics/active.md", linked.SourcePath)
 	}
 }
 
