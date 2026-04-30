@@ -267,6 +267,17 @@ func (a *App) ensureStartupWorkspace() (store.Workspace, error) {
 	workspace, err := a.store.ActiveWorkspace()
 	switch {
 	case err == nil:
+		localProjectDir := strings.TrimSpace(a.localProjectDir)
+		if localProjectDir != "" && workspaceMatchesPath(workspace, localProjectDir) {
+			defaultWorkspace, defaultErr := a.ensureDefaultWorkspace()
+			if defaultErr == nil && defaultWorkspace.ID != workspace.ID {
+				if err := a.store.SetActiveWorkspace(defaultWorkspace.ID); err != nil {
+					return store.Workspace{}, err
+				}
+				a.closeAllAppSessions()
+				workspace = defaultWorkspace
+			}
+		}
 		if _, err := a.store.GetOrCreateChatSessionForWorkspace(workspace.ID); err != nil {
 			return store.Workspace{}, err
 		}
@@ -276,6 +287,19 @@ func (a *App) ensureStartupWorkspace() (store.Workspace, error) {
 	default:
 		return a.ensureDefaultWorkspace()
 	}
+}
+
+func workspaceMatchesPath(workspace store.Workspace, path string) bool {
+	cleanPath := absoluteCleanPath(path)
+	if cleanPath == "" {
+		return false
+	}
+	for _, candidate := range []string{workspace.DirPath, workspace.RootPath, workspace.WorkspacePath} {
+		if absoluteCleanPath(candidate) == cleanPath {
+			return true
+		}
+	}
+	return false
 }
 
 func (a *App) ensureDefaultWorkspace() (store.Workspace, error) {

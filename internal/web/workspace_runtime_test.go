@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -216,6 +217,14 @@ brain = "brain"
 		_ = app.Shutdown(context.Background())
 	})
 
+	localWorkspace, err := app.store.CreateWorkspace("Default Workspace", localProjectDir, store.SpherePrivate)
+	if err != nil {
+		t.Fatalf("CreateWorkspace(local) error: %v", err)
+	}
+	if err := app.store.SetActiveWorkspace(localWorkspace.ID); err != nil {
+		t.Fatalf("SetActiveWorkspace(local) error: %v", err)
+	}
+
 	startupWorkspace, err := app.ensureStartupWorkspace()
 	if err != nil {
 		t.Fatalf("ensureStartupWorkspace() error: %v", err)
@@ -225,6 +234,69 @@ brain = "brain"
 	}
 	if startupWorkspace.Name != "Work brain" {
 		t.Fatalf("startup name = %q, want %q", startupWorkspace.Name, "Work brain")
+	}
+	activeWorkspace, err := app.store.ActiveWorkspace()
+	if err != nil {
+		t.Fatalf("ActiveWorkspace() error: %v", err)
+	}
+	if activeWorkspace.DirPath != brainRoot {
+		t.Fatalf("active workspace dir_path = %q, want %q", activeWorkspace.DirPath, brainRoot)
+	}
+}
+
+func TestWorkPersonalGuardrailUsesBrainConfigGetRoot(t *testing.T) {
+	rootDir := t.TempDir()
+	workVault := filepath.Join(rootDir, "work-vault")
+	privateVault := filepath.Join(rootDir, "private-vault")
+	workBrainRoot := filepath.Join(workVault, "brain")
+	workPersonalRoot := filepath.Join(workVault, "personal")
+	if err := os.MkdirAll(workBrainRoot, 0o755); err != nil {
+		t.Fatalf("MkdirAll(workBrainRoot): %v", err)
+	}
+	if err := os.MkdirAll(workPersonalRoot, 0o755); err != nil {
+		t.Fatalf("MkdirAll(workPersonalRoot): %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(privateVault, "brain"), 0o755); err != nil {
+		t.Fatalf("MkdirAll(private brain): %v", err)
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/mcp" || r.Method != http.MethodPost {
+			http.NotFound(w, r)
+			return
+		}
+		var req map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		resp := map[string]any{
+			"jsonrpc": "2.0",
+			"id":      req["id"],
+			"result": map[string]any{
+				"structuredContent": map[string]any{
+					"vaults": []any{
+						map[string]any{"sphere": "work", "root": workVault, "brain": "brain"},
+						map[string]any{"sphere": "private", "root": privateVault, "brain": "brain"},
+					},
+				},
+			},
+		}
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	t.Setenv("SLOPSHELL_BRAIN_WORK_ROOT", filepath.Join(rootDir, "env-work", "brain"))
+	t.Setenv("SLOPSHELL_BRAIN_PRIVATE_ROOT", filepath.Join(rootDir, "env-private", "brain"))
+
+	app := newAuthedTestApp(t)
+	app.tunnels.setEndpoint(LocalSessionID, mcpEndpoint{httpURL: server.URL})
+
+	if !pathInWorkPersonalGuardrail(filepath.Join(workPersonalRoot, "diary.md")) {
+		t.Fatalf("expected configured work personal subtree to be blocked")
+	}
+	if pathInWorkPersonalGuardrail(filepath.Join(rootDir, "env-work", "personal", "diary.md")) {
+		t.Fatalf("expected env fallback to be ignored when brain.config.get is available")
 	}
 }
 

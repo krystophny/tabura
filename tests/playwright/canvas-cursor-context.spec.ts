@@ -476,11 +476,11 @@ test('markdown image paths are rewritten through the canvas file proxy', async (
   await expect(page.locator('#canvas-text img')).toHaveAttribute('src', /docs%2Fimages%2Fdiagram\.png/);
 });
 
-test('folder markdown links open a linked workspace rooted at the vault target', async ({ page }) => {
+test('folder markdown links start an agent in the linked workspace rooted at the vault target', async ({ page }) => {
   await seedBrainWorkspace(page);
   await page.evaluate(async () => {
     const mod = await import(`../../internal/web/static/app-workspace-runtime.js?ts=${Date.now()}`);
-    await mod.createLinkedWorkspaceAtPath('/tmp/vault/project/path');
+    await mod.startAgentHereAtPath('/tmp/vault/project/path');
   });
 
   await expect.poll(async () => {
@@ -490,6 +490,14 @@ test('folder markdown links open a linked workspace rooted at the vault target',
         && entry.action === 'project_create'
         && String(entry.payload?.kind || '') === 'linked'
         && String(entry.payload?.path || '') === '/tmp/vault/project/path',
+    );
+  }, { timeout: 5_000 }).toBe(true);
+
+  await expect.poll(async () => {
+    const log = await getLog(page);
+    return log.some(
+      (entry) => entry.type === 'message_sent'
+        && String(entry.text || '') === 'Start agent here.',
     );
   }, { timeout: 5_000 }).toBe(true);
 

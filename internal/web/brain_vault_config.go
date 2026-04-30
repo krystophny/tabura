@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/BurntSushi/toml"
@@ -24,6 +25,31 @@ type sloptoolsVault struct {
 	Sphere string `toml:"sphere"`
 	Root   string `toml:"root"`
 	Brain  string `toml:"brain"`
+}
+
+var (
+	brainRootsProviderMu sync.RWMutex
+	brainRootsProvider   func() map[string]string
+)
+
+func setBrainRootsProvider(fn func() map[string]string) {
+	brainRootsProviderMu.Lock()
+	brainRootsProvider = fn
+	brainRootsProviderMu.Unlock()
+}
+
+func currentBrainRoots() map[string]string {
+	brainRootsProviderMu.RLock()
+	fn := brainRootsProvider
+	brainRootsProviderMu.RUnlock()
+	if fn == nil {
+		return nil
+	}
+	roots := fn()
+	if len(roots) == 0 {
+		return nil
+	}
+	return roots
 }
 
 func sloptoolsVaultConfigPath() string {
