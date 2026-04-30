@@ -27,7 +27,7 @@ func (s *Store) ListItemsByStateFiltered(state string, filter ItemListFilter) ([
 	parts := []string{"state = ?"}
 	args := []any{cleanState}
 	parts, args = appendItemFilterClauses(parts, args, normalizedFilter, "")
-	query := `SELECT id, title, kind, state, workspace_id, ` + scopedContextSelect("context_items", "item_id", "items.id") + ` AS sphere, artifact_id, actor_id, visible_after, follow_up_at, source, source_ref, review_target, reviewer, reviewed_at, created_at, updated_at
+	query := `SELECT id, title, kind, state, workspace_id, ` + scopedContextSelect("context_items", "item_id", "items.id") + ` AS sphere, artifact_id, actor_id, visible_after, follow_up_at, due_at, source, source_ref, review_target, reviewer, reviewed_at, created_at, updated_at
 		 FROM items
 		 WHERE ` + stringsJoin(parts, " AND ")
 	rows, err := s.db.Query(
@@ -69,6 +69,7 @@ var itemSummarySelect = `SELECT
  i.actor_id,
  i.visible_after,
  i.follow_up_at,
+ i.due_at,
  i.source,
  i.source_ref,
  i.review_target,
@@ -181,8 +182,26 @@ func (s *Store) ListWaitingItemsFiltered(filter ItemListFilter) ([]ItemSummary, 
 	return s.listItemSummariesByState(ItemStateWaiting, filter)
 }
 
+// ListNextItemsFiltered returns items in the next state that are currently
+// actionable. Project items (kind=project) are excluded by default so they do
+// not masquerade as executable next actions; callers that want the project
+// drill-down opt in via Section=ItemSidebarSectionProject, and callers that
+// genuinely need both kinds opt in via IncludeProjectItems.
 func (s *Store) ListNextItemsFiltered(filter ItemListFilter) ([]ItemSummary, error) {
-	return s.listItemSummariesByState(ItemStateNext, filter)
+	normalizedFilter, err := s.prepareItemListFilter(filter)
+	if err != nil {
+		return nil, err
+	}
+	parts := []string{"i.state = ?"}
+	args := []any{ItemStateNext}
+	if !normalizedFilter.IncludeProjectItems && normalizedFilter.Section != ItemSidebarSectionProject {
+		parts = append(parts, "i.kind = ?")
+		args = append(args, ItemKindAction)
+	}
+	parts, args = appendItemFilterClauses(parts, args, normalizedFilter, "i.")
+	query := itemSummarySelect + ` WHERE ` + stringsJoin(parts, ` AND `) + `
+ ORDER BY i.updated_at DESC, i.id ASC`
+	return s.listItemSummaries(query, args...)
 }
 
 func (s *Store) ListDeferredItemsFiltered(filter ItemListFilter) ([]ItemSummary, error) {
@@ -413,7 +432,7 @@ func (s *Store) ListItemsFiltered(filter ItemListFilter) ([]Item, error) {
 	if err != nil {
 		return nil, err
 	}
-	query := `SELECT id, title, kind, state, workspace_id, ` + scopedContextSelect("context_items", "item_id", "items.id") + ` AS sphere, artifact_id, actor_id, visible_after, follow_up_at, source, source_ref, review_target, reviewer, reviewed_at, created_at, updated_at
+	query := `SELECT id, title, kind, state, workspace_id, ` + scopedContextSelect("context_items", "item_id", "items.id") + ` AS sphere, artifact_id, actor_id, visible_after, follow_up_at, due_at, source, source_ref, review_target, reviewer, reviewed_at, created_at, updated_at
 		 FROM items`
 	args := []any{}
 	parts := []string{}

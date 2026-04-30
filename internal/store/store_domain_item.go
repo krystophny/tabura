@@ -52,8 +52,8 @@ func (s *Store) CreateItem(title string, opts ItemOptions) (Item, error) {
 
 	res, err := tx.Exec(
 		`INSERT INTO items (
-			title, kind, state, workspace_id, artifact_id, actor_id, visible_after, follow_up_at, source, source_ref, review_target, reviewer, reviewed_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			title, kind, state, workspace_id, artifact_id, actor_id, visible_after, follow_up_at, due_at, source, source_ref, review_target, reviewer, reviewed_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		cleanTitle,
 		cleanKind,
 		cleanState,
@@ -62,6 +62,7 @@ func (s *Store) CreateItem(title string, opts ItemOptions) (Item, error) {
 		opts.ActorID,
 		normalizeOptionalString(opts.VisibleAfter),
 		normalizeOptionalString(opts.FollowUpAt),
+		normalizeOptionalString(opts.DueAt),
 		normalizeOptionalString(opts.Source),
 		normalizeOptionalString(opts.SourceRef),
 		normalizeOptionalString(normalizedReviewTargetPointer(opts.ReviewTarget)),
@@ -94,7 +95,7 @@ func (s *Store) CreateItem(title string, opts ItemOptions) (Item, error) {
 
 func (s *Store) GetItem(id int64) (Item, error) {
 	return scanItem(s.db.QueryRow(
-		`SELECT id, title, kind, state, workspace_id, `+scopedContextSelect("context_items", "item_id", "items.id")+` AS sphere, artifact_id, actor_id, visible_after, follow_up_at, source, source_ref, review_target, reviewer, reviewed_at, created_at, updated_at
+		`SELECT id, title, kind, state, workspace_id, `+scopedContextSelect("context_items", "item_id", "items.id")+` AS sphere, artifact_id, actor_id, visible_after, follow_up_at, due_at, source, source_ref, review_target, reviewer, reviewed_at, created_at, updated_at
 		 FROM items
 		 WHERE id = ?`,
 		id,
@@ -108,7 +109,7 @@ func (s *Store) GetItemBySource(source, sourceRef string) (Item, error) {
 		return Item{}, errors.New("item source and source_ref are required")
 	}
 	return scanItem(s.db.QueryRow(
-		`SELECT id, title, kind, state, workspace_id, `+scopedContextSelect("context_items", "item_id", "items.id")+` AS sphere, artifact_id, actor_id, visible_after, follow_up_at, source, source_ref, review_target, reviewer, reviewed_at, created_at, updated_at
+		`SELECT id, title, kind, state, workspace_id, `+scopedContextSelect("context_items", "item_id", "items.id")+` AS sphere, artifact_id, actor_id, visible_after, follow_up_at, due_at, source, source_ref, review_target, reviewer, reviewed_at, created_at, updated_at
 		 FROM items
 		 WHERE source = ? AND source_ref = ?`,
 		cleanSource,
@@ -289,169 +290,28 @@ func (s *Store) UpdateItem(id int64, updates ItemUpdate) error {
 	if err != nil {
 		return err
 	}
-
-	parts := []string{}
-	args := []any{}
-	artifactUpdated := false
-	scopeUpdated := false
-	var artifactID *int64
-	targetWorkspaceID := item.WorkspaceID
-	clearDeferredTimes := false
-
-	if updates.Title != nil {
-		title := strings.TrimSpace(*updates.Title)
-		if title == "" {
-			return errors.New("item title is required")
-		}
-		parts = append(parts, "title = ?")
-		args = append(args, title)
+	plan, err := s.buildItemUpdatePlan(id, item, updates)
+	if err != nil {
+		return err
 	}
-	if updates.Kind != nil {
-		kind := normalizeItemKind(*updates.Kind)
-		if kind == "" {
-			return errors.New("invalid item kind")
-		}
-		parts = append(parts, "kind = ?")
-		args = append(args, kind)
-	}
-	if updates.State != nil {
-		next := normalizeItemState(*updates.State)
-		if err := validateItemTransition(item.State, next); err != nil {
-			return err
-		}
-		clearDeferredTimes = (next == ItemStateInbox && item.State != ItemStateInbox) || next == ItemStateNext
-		parts = append(parts, "state = ?")
-		args = append(args, next)
-	}
-	if updates.WorkspaceID != nil {
-		parts = append(parts, "workspace_id = ?")
-		args = append(args, nullablePositiveID(*updates.WorkspaceID))
-		if *updates.WorkspaceID > 0 {
-			value := *updates.WorkspaceID
-			targetWorkspaceID = &value
-		} else {
-			targetWorkspaceID = nil
-		}
-	}
-	if updates.Sphere != nil {
-		if targetWorkspaceID != nil {
-			return errors.New("item sphere is derived from workspace")
-		}
-		nextSphere := normalizeRequiredSphere(*updates.Sphere)
-		if nextSphere == "" {
-			return errors.New("item sphere must be work or private")
-		}
-		item.Sphere = nextSphere
-		scopeUpdated = true
-	}
-	if updates.ArtifactID != nil {
-		artifactUpdated = true
-		if *updates.ArtifactID > 0 {
-			value := *updates.ArtifactID
-			artifactID = &value
-		}
-	}
-	if updates.ActorID != nil {
-		parts = append(parts, "actor_id = ?")
-		args = append(args, nullablePositiveID(*updates.ActorID))
-	}
-	if updates.VisibleAfter != nil {
-		value, err := normalizeOptionalRFC3339String(updates.VisibleAfter)
-		if err != nil {
-			return err
-		}
-		parts = append(parts, "visible_after = ?")
-		args = append(args, value)
-	}
-	if updates.FollowUpAt != nil {
-		value, err := normalizeOptionalRFC3339String(updates.FollowUpAt)
-		if err != nil {
-			return err
-		}
-		parts = append(parts, "follow_up_at = ?")
-		args = append(args, value)
-	}
-	if updates.Source != nil {
-		sourceValue := strings.TrimSpace(*updates.Source)
-		sourceRefValue := strings.TrimSpace(nullStringValue(updates.SourceRef))
-		switch {
-		case sourceValue == "" && sourceRefValue != "":
-			return errors.New("item source and source_ref are required")
-		case sourceValue != "" && sourceRefValue == "":
-			return errors.New("item source and source_ref are required")
-		case sourceValue != "" && sourceRefValue != "":
-			if err := s.UpdateItemSource(id, sourceValue, sourceRefValue); err != nil {
-				return err
-			}
-		case sourceValue == "" && sourceRefValue == "":
-			parts = append(parts, "source = ?", "source_ref = ?")
-			args = append(args, nil, nil)
-		}
-	}
-	if updates.ReviewTarget != nil || updates.Reviewer != nil {
-		if err := validateReviewTargetPointer(updates.ReviewTarget); err != nil {
-			return err
-		}
-		cleanTarget := normalizedReviewTargetPointer(updates.ReviewTarget)
-		cleanReviewer := normalizedReviewerPointer(updates.Reviewer)
-		if cleanTarget == nil && cleanReviewer != nil {
-			return errors.New("review target is required when reviewer is set")
-		}
-		parts = append(parts, "review_target = ?", "reviewer = ?", "reviewed_at = ?")
-		args = append(args,
-			normalizeOptionalString(cleanTarget),
-			normalizeOptionalString(cleanReviewer),
-			normalizeOptionalString(reviewTimestampPointer(updates.ReviewTarget, updates.Reviewer)),
-		)
-	}
-	if targetWorkspaceID != nil {
-		workspaceSphere, err := s.workspaceSphere(*targetWorkspaceID)
-		if err != nil {
-			return err
-		}
-		item.Sphere = workspaceSphere
-		scopeUpdated = true
-	}
-	if clearDeferredTimes {
-		if updates.VisibleAfter == nil {
-			parts = append(parts, "visible_after = NULL")
-		}
-		if updates.FollowUpAt == nil {
-			parts = append(parts, "follow_up_at = NULL")
-		}
-	}
-	if len(parts) == 0 && !artifactUpdated && !scopeUpdated {
+	if len(plan.parts) == 0 && !plan.artifactUpdated && !plan.scopeUpdated {
 		return nil
 	}
-	if len(parts) > 0 {
-		parts = append(parts, "updated_at = datetime('now')")
-		args = append(args, id)
-		res, err := s.db.Exec(`UPDATE items SET `+stringsJoin(parts, ", ")+` WHERE id = ?`, args...)
-		if err != nil {
-			return err
-		}
-		affected, err := res.RowsAffected()
-		if err != nil {
-			return err
-		}
-		if affected == 0 {
-			return sql.ErrNoRows
-		}
+	if err := s.applyItemUpdateParts(id, plan.parts, plan.args); err != nil {
+		return err
 	}
-	if artifactUpdated {
-		if err := s.syncPrimaryItemArtifact(id, artifactID); err != nil {
+	if plan.artifactUpdated {
+		if err := s.syncPrimaryItemArtifact(id, plan.artifactID); err != nil {
 			return err
 		}
 	}
-	if item.Sphere != "" {
-		if err := s.syncScopedContextLink("context_items", "item_id", id, item.Sphere); err != nil {
+	if plan.item.Sphere != "" {
+		if err := s.syncScopedContextLink("context_items", "item_id", id, plan.item.Sphere); err != nil {
 			return err
 		}
 	}
 	if updates.WorkspaceID != nil || item.WorkspaceID != nil {
-		if err := s.syncItemDateContext(id, targetWorkspaceID); err != nil {
-			return err
-		}
+		return s.syncItemDateContext(id, plan.targetWorkspaceID)
 	}
 	return nil
 }

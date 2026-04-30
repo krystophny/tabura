@@ -20,6 +20,7 @@ const itemsTableSchema = `CREATE TABLE IF NOT EXISTS items (
   actor_id INTEGER REFERENCES actors(id) ON DELETE SET NULL,
   visible_after TEXT,
   follow_up_at TEXT,
+  due_at TEXT,
   source TEXT,
   source_ref TEXT,
   review_target TEXT CHECK (review_target IN ('agent', 'github', 'email')),
@@ -29,8 +30,7 @@ const itemsTableSchema = `CREATE TABLE IF NOT EXISTS items (
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );`
 
-func (s *Store) migrateDomainTables() error {
-	schema := `
+const domainTablesSchema = `
 CREATE TABLE IF NOT EXISTS workspaces (
   id INTEGER PRIMARY KEY,
   name TEXT NOT NULL,
@@ -213,7 +213,9 @@ CREATE TABLE IF NOT EXISTS push_registrations (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_push_registrations_identity
   ON push_registrations(platform, device_token, session_id, workspace_id);
 `
-	if _, err := s.db.Exec(schema); err != nil {
+
+func (s *Store) migrateDomainTables() error {
+	if _, err := s.db.Exec(domainTablesSchema); err != nil {
 		return err
 	}
 	if _, err := s.db.Exec(itemsTableSchema); err != nil {
@@ -261,6 +263,9 @@ CREATE TABLE IF NOT EXISTS context_time_entries (
 		return err
 	}
 	if err := s.migrateItemReviewDispatchSupport(); err != nil {
+		return err
+	}
+	if err := s.migrateItemDueAtSupport(); err != nil {
 		return err
 	}
 	if err := s.migrateMailTriageReviewActionSupport(); err != nil {
@@ -327,6 +332,18 @@ FROM mail_triage_reviews_legacy_action`); err != nil {
 		return err
 	}
 	return tx.Commit()
+}
+
+func (s *Store) migrateItemDueAtSupport() error {
+	tableColumns, err := s.tableColumnSet("items")
+	if err != nil {
+		return err
+	}
+	if tableColumns["items"]["due_at"] {
+		return nil
+	}
+	_, err = s.db.Exec(`ALTER TABLE items ADD COLUMN due_at TEXT`)
+	return err
 }
 
 func normalizeItemReviewTarget(target string) string {
@@ -671,132 +688,6 @@ func scanArtifact(
 	out.RefURL = nullStringPointer(refURL)
 	out.Title = nullStringPointer(title)
 	out.MetaJSON = nullStringPointer(metaJSON)
-	return out, nil
-}
-
-func scanItem(
-	row interface {
-		Scan(dest ...any) error
-	},
-) (Item, error) {
-	var (
-		out                                Item
-		workspaceID, artifactID, actorID   sql.NullInt64
-		visibleAfter, followUpAt           sql.NullString
-		sphere                             string
-		source, sourceRef                  sql.NullString
-		reviewTarget, reviewer, reviewedAt sql.NullString
-	)
-	err := row.Scan(
-		&out.ID,
-		&out.Title,
-		&out.Kind,
-		&out.State,
-		&workspaceID,
-		&sphere,
-		&artifactID,
-		&actorID,
-		&visibleAfter,
-		&followUpAt,
-		&source,
-		&sourceRef,
-		&reviewTarget,
-		&reviewer,
-		&reviewedAt,
-		&out.CreatedAt,
-		&out.UpdatedAt,
-	)
-	if err != nil {
-		return Item{}, err
-	}
-	out.Title = strings.TrimSpace(out.Title)
-	out.Kind = normalizeItemKind(out.Kind)
-	out.State = normalizeItemState(out.State)
-	out.WorkspaceID = nullInt64Pointer(workspaceID)
-	out.Sphere = normalizeSphere(sphere)
-	out.ArtifactID = nullInt64Pointer(artifactID)
-	out.ActorID = nullInt64Pointer(actorID)
-	out.VisibleAfter = nullStringPointer(visibleAfter)
-	out.FollowUpAt = nullStringPointer(followUpAt)
-	out.Source = nullStringPointer(source)
-	out.SourceRef = nullStringPointer(sourceRef)
-	out.ReviewTarget = nullStringPointer(reviewTarget)
-	if out.ReviewTarget != nil {
-		*out.ReviewTarget = normalizeItemReviewTarget(*out.ReviewTarget)
-		if *out.ReviewTarget == "" {
-			out.ReviewTarget = nil
-		}
-	}
-	out.Reviewer = nullStringPointer(reviewer)
-	out.ReviewedAt = nullStringPointer(reviewedAt)
-	return out, nil
-}
-
-func scanItemSummary(
-	row interface {
-		Scan(dest ...any) error
-	},
-) (ItemSummary, error) {
-	var (
-		out                                    ItemSummary
-		workspaceID, artifactID, actorID       sql.NullInt64
-		visibleAfter, followUpAt               sql.NullString
-		sphere                                 string
-		source, sourceRef                      sql.NullString
-		reviewTarget, reviewer, reviewedAt     sql.NullString
-		artifactTitle, artifactKind, actorName sql.NullString
-	)
-	err := row.Scan(
-		&out.ID,
-		&out.Title,
-		&out.Kind,
-		&out.State,
-		&workspaceID,
-		&sphere,
-		&artifactID,
-		&actorID,
-		&visibleAfter,
-		&followUpAt,
-		&source,
-		&sourceRef,
-		&reviewTarget,
-		&reviewer,
-		&reviewedAt,
-		&out.CreatedAt,
-		&out.UpdatedAt,
-		&artifactTitle,
-		&artifactKind,
-		&actorName,
-	)
-	if err != nil {
-		return ItemSummary{}, err
-	}
-	out.Title = strings.TrimSpace(out.Title)
-	out.Kind = normalizeItemKind(out.Kind)
-	out.State = normalizeItemState(out.State)
-	out.WorkspaceID = nullInt64Pointer(workspaceID)
-	out.Sphere = normalizeSphere(sphere)
-	out.ArtifactID = nullInt64Pointer(artifactID)
-	out.ActorID = nullInt64Pointer(actorID)
-	out.VisibleAfter = nullStringPointer(visibleAfter)
-	out.FollowUpAt = nullStringPointer(followUpAt)
-	out.Source = nullStringPointer(source)
-	out.SourceRef = nullStringPointer(sourceRef)
-	out.ReviewTarget = nullStringPointer(reviewTarget)
-	if out.ReviewTarget != nil {
-		*out.ReviewTarget = normalizeItemReviewTarget(*out.ReviewTarget)
-		if *out.ReviewTarget == "" {
-			out.ReviewTarget = nil
-		}
-	}
-	out.Reviewer = nullStringPointer(reviewer)
-	out.ReviewedAt = nullStringPointer(reviewedAt)
-	out.ArtifactTitle = nullStringPointer(artifactTitle)
-	if artifactKind.Valid {
-		normalized := normalizeArtifactKind(ArtifactKind(artifactKind.String))
-		out.ArtifactKind = &normalized
-	}
-	out.ActorName = nullStringPointer(actorName)
 	return out, nil
 }
 

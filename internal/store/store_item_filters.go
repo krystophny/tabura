@@ -25,6 +25,7 @@ func normalizeOptionalSidebarSectionFilter(raw string) (string, error) {
 func normalizeItemListFilter(filter ItemListFilter) (ItemListFilter, error) {
 	normalized := ItemListFilter{
 		Source:              normalizeOptionalSourceFilter(filter.Source),
+		SourceContainer:     strings.TrimSpace(filter.SourceContainer),
 		WorkspaceUnassigned: filter.WorkspaceUnassigned,
 	}
 	sphere, err := normalizeOptionalSphereFilter(filter.Sphere)
@@ -50,6 +51,33 @@ func normalizeItemListFilter(filter ItemListFilter) (ItemListFilter, error) {
 	if normalized.WorkspaceID != nil && normalized.WorkspaceUnassigned {
 		return ItemListFilter{}, errors.New("workspace_id cannot be combined with workspace_id=null")
 	}
+	if filter.ProjectItemID != nil {
+		if *filter.ProjectItemID <= 0 {
+			return ItemListFilter{}, errors.New("project_item_id must be a positive integer")
+		}
+		value := *filter.ProjectItemID
+		normalized.ProjectItemID = &value
+	}
+	if filter.ActorID != nil {
+		if *filter.ActorID <= 0 {
+			return ItemListFilter{}, errors.New("actor_id must be a positive integer")
+		}
+		value := *filter.ActorID
+		normalized.ActorID = &value
+	}
+	if normalized.DueBefore, err = normalizeOptionalRFC3339Filter(filter.DueBefore, "due_before"); err != nil {
+		return ItemListFilter{}, err
+	}
+	if normalized.DueAfter, err = normalizeOptionalRFC3339Filter(filter.DueAfter, "due_after"); err != nil {
+		return ItemListFilter{}, err
+	}
+	if normalized.FollowUpBefore, err = normalizeOptionalRFC3339Filter(filter.FollowUpBefore, "follow_up_before"); err != nil {
+		return ItemListFilter{}, err
+	}
+	if normalized.FollowUpAfter, err = normalizeOptionalRFC3339Filter(filter.FollowUpAfter, "follow_up_after"); err != nil {
+		return ItemListFilter{}, err
+	}
+	normalized.IncludeProjectItems = filter.IncludeProjectItems
 	normalized.Label = normalizeOptionalContextQuery(filter.Label)
 	if filter.LabelID != nil {
 		if *filter.LabelID <= 0 {
@@ -60,6 +88,18 @@ func normalizeItemListFilter(filter ItemListFilter) (ItemListFilter, error) {
 	}
 	if normalized.Label != "" && normalized.LabelID != nil {
 		return ItemListFilter{}, errors.New("label cannot be combined with label_id")
+	}
+	return normalized, nil
+}
+
+func normalizeOptionalRFC3339Filter(raw, field string) (string, error) {
+	clean := strings.TrimSpace(raw)
+	if clean == "" {
+		return "", nil
+	}
+	normalized, err := normalizeRFC3339String(clean)
+	if err != nil {
+		return "", errors.New(field + " must be a valid RFC3339 timestamp")
 	}
 	return normalized, nil
 }
@@ -128,6 +168,8 @@ WHERE mart.id = `+column("artifact_id")+`
 	return parts, args
 }
 
+type itemFilterColumnFunc func(string) string
+
 func appendItemFilterClauses(parts []string, args []any, filter ItemListFilter, alias string) ([]string, []any) {
 	column := func(name string) string {
 		return alias + name
@@ -138,6 +180,14 @@ func appendItemFilterClauses(parts []string, args []any, filter ItemListFilter, 
 		}
 		return alias + name
 	}
+	parts, args = appendItemScopeFilterClauses(parts, args, filter, column, outerColumn)
+	parts, args = appendItemDateFilterClauses(parts, args, filter, column)
+	parts, args = appendItemOwnerFilterClauses(parts, args, filter, column, outerColumn)
+	parts, args = appendItemSectionFilterClauses(parts, args, filter, column, outerColumn)
+	return appendItemLabelFilterClauses(parts, args, filter, outerColumn)
+}
+
+func appendItemScopeFilterClauses(parts []string, args []any, filter ItemListFilter, column, outerColumn itemFilterColumnFunc) ([]string, []any) {
 	if filter.Sphere != "" {
 		parts = append(parts, scopedContextFilter("context_items", "item_id", outerColumn("id")))
 		args = append(args, filter.Sphere)
@@ -146,6 +196,38 @@ func appendItemFilterClauses(parts []string, args []any, filter ItemListFilter, 
 		parts = append(parts, "lower(trim("+column("source")+")) = ?")
 		args = append(args, filter.Source)
 	}
+	if filter.SourceContainer != "" {
+		parts = append(parts, `EXISTS (
+SELECT 1 FROM external_bindings eb
+WHERE eb.item_id = `+outerColumn("id")+`
+  AND eb.container_ref IS NOT NULL
+  AND lower(trim(eb.container_ref)) = lower(trim(?))
+)`)
+		args = append(args, filter.SourceContainer)
+	}
+	return parts, args
+}
+
+func appendItemDateFilterClauses(parts []string, args []any, filter ItemListFilter, column itemFilterColumnFunc) ([]string, []any) {
+	parts, args = appendItemDateWindow(parts, args, column("due_at"), "<=", filter.DueBefore)
+	parts, args = appendItemDateWindow(parts, args, column("due_at"), ">=", filter.DueAfter)
+	parts, args = appendItemDateWindow(parts, args, column("follow_up_at"), "<=", filter.FollowUpBefore)
+	return appendItemDateWindow(parts, args, column("follow_up_at"), ">=", filter.FollowUpAfter)
+}
+
+func appendItemDateWindow(parts []string, args []any, column, operator, value string) ([]string, []any) {
+	if value == "" {
+		return parts, args
+	}
+	parts = append(parts,
+		column+" IS NOT NULL",
+		"trim("+column+") <> ''",
+		"datetime("+column+") "+operator+" datetime(?)",
+	)
+	return parts, append(args, value)
+}
+
+func appendItemOwnerFilterClauses(parts []string, args []any, filter ItemListFilter, column, outerColumn itemFilterColumnFunc) ([]string, []any) {
 	if filter.WorkspaceID != nil {
 		parts = append(parts, column("workspace_id")+" = ?")
 		args = append(args, *filter.WorkspaceID)
@@ -153,7 +235,22 @@ func appendItemFilterClauses(parts []string, args []any, filter ItemListFilter, 
 	if filter.WorkspaceUnassigned {
 		parts = append(parts, column("workspace_id")+" IS NULL")
 	}
-	parts, args = appendItemSectionFilterClauses(parts, args, filter, column, outerColumn)
+	if filter.ActorID != nil {
+		parts = append(parts, column("actor_id")+" = ?")
+		args = append(args, *filter.ActorID)
+	}
+	if filter.ProjectItemID != nil {
+		parts = append(parts, `EXISTS (
+SELECT 1 FROM item_children link
+WHERE link.parent_item_id = ?
+  AND link.child_item_id = `+outerColumn("id")+`
+)`)
+		args = append(args, *filter.ProjectItemID)
+	}
+	return parts, args
+}
+
+func appendItemLabelFilterClauses(parts []string, args []any, filter ItemListFilter, outerColumn itemFilterColumnFunc) ([]string, []any) {
 	if filter.labelResolved {
 		if len(filter.resolvedLabelGroups) == 0 {
 			parts = append(parts, "0=1")
