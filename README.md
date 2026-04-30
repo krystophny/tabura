@@ -247,7 +247,7 @@ Markdown text artifacts support TeX math rendering via MathJax.
 1. Zen canvas: invisible chrome, full-viewport document surface.
 2. Tap-to-talk voice capture with recording dot indicator.
 3. Ephemeral response overlays with hidden chat history in the edge panel.
-4. Edge-reveal panels for hidden project/diagnostics chrome.
+4. Edge-reveal panels for hidden workspace/diagnostics chrome.
 5. E-ink-friendly: no animations for functional elements, static indicators.
 
 See:

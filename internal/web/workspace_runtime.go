@@ -345,7 +345,7 @@ func (a *App) ensureDefaultWorkspace() (store.Workspace, error) {
 		if err != nil {
 			return store.Workspace{}, err
 		}
-		absRoot = filepath.Clean(boot.Paths.ProjectDir)
+		absRoot = filepath.Clean(boot.Paths.WorkspaceDir)
 		name = defaultWorkspaceNameForPath(absRoot)
 	}
 	workspacePath := absRoot
@@ -406,7 +406,7 @@ func (a *App) listProjectsWithDefault() ([]store.Workspace, store.Workspace, err
 	}
 	projects = filterWorkPersonalGuardrailWorkspaces(projects)
 	if len(projects) == 0 {
-		return nil, store.Workspace{}, errors.New("no projects available")
+		return nil, store.Workspace{}, errors.New("no workspaces available")
 	}
 	defaultProject := store.Workspace{}
 	for _, project := range projects {
@@ -423,7 +423,7 @@ func (a *App) listProjectsWithDefault() ([]store.Workspace, store.Workspace, err
 
 func (a *App) chooseActiveProject(projects []store.Workspace, defaultProject store.Workspace) (store.Workspace, error) {
 	if len(projects) == 0 {
-		return store.Workspace{}, errors.New("no projects available")
+		return store.Workspace{}, errors.New("no workspaces available")
 	}
 	activeSphere := a.runtimeActiveSphere()
 	if workspace, err := a.store.ActiveWorkspace(); err == nil {

@@ -41,27 +41,26 @@ func TestParseServerConfigAcceptsMCPSocketPath(t *testing.T) {
 	}
 }
 
-func TestWorkspaceDirFlagAcceptsCompatibilityAlias(t *testing.T) {
-	t.Run("primary", func(t *testing.T) {
-		fs := flag.NewFlagSet("test", flag.ContinueOnError)
-		workspaceDir := bindWorkspaceDirFlag(fs, ".")
-		if err := fs.Parse([]string{"--workspace-dir", "/tmp/workspace"}); err != nil {
-			t.Fatalf("parse workspace-dir: %v", err)
-		}
-		if got := *workspaceDir; got != "/tmp/workspace" {
-			t.Fatalf("workspace-dir = %q, want /tmp/workspace", got)
-		}
-	})
-	t.Run("alias", func(t *testing.T) {
-		fs := flag.NewFlagSet("test", flag.ContinueOnError)
-		workspaceDir := bindWorkspaceDirFlag(fs, ".")
-		if err := fs.Parse([]string{"--project-dir", "/tmp/workspace"}); err != nil {
-			t.Fatalf("parse project-dir alias: %v", err)
-		}
-		if got := *workspaceDir; got != "/tmp/workspace" {
-			t.Fatalf("project-dir alias = %q, want /tmp/workspace", got)
-		}
-	})
+func TestWorkspaceDirFlagUsesWorkspaceCopy(t *testing.T) {
+	fs := flag.NewFlagSet("test", flag.ContinueOnError)
+	workspaceDir := bindWorkspaceDirFlag(fs, ".")
+	if err := fs.Parse([]string{"--workspace-dir", "/tmp/workspace"}); err != nil {
+		t.Fatalf("parse workspace-dir: %v", err)
+	}
+	if got := *workspaceDir; got != "/tmp/workspace" {
+		t.Fatalf("workspace-dir = %q, want /tmp/workspace", got)
+	}
+}
+
+func TestWorkspaceDirFlagRejectsProjectDirAlias(t *testing.T) {
+	fs := flag.NewFlagSet("test", flag.ContinueOnError)
+	workspaceDir := bindWorkspaceDirFlag(fs, ".")
+	if err := fs.Parse([]string{"--project-dir", "/tmp/workspace"}); err == nil {
+		t.Fatal("expected --project-dir to be rejected")
+	}
+	if got := *workspaceDir; got != "." {
+		t.Fatalf("workspace-dir = %q, want default . after rejected alias", got)
+	}
 }
 
 func TestParseServerConfigRejectsIncompleteTLSConfig(t *testing.T) {
@@ -143,10 +142,10 @@ func TestCmdSchemaOutputsProtocolJSON(t *testing.T) {
 	}
 }
 
-func TestCmdBootstrapUsesWorkspaceCopyAndAlias(t *testing.T) {
+func TestCmdBootstrapUsesWorkspaceCopy(t *testing.T) {
 	workspaceDir := t.TempDir()
 	out := captureStdout(t, func() {
-		status := cmdBootstrap([]string{"--project-dir", workspaceDir})
+		status := cmdBootstrap([]string{"--workspace-dir", workspaceDir})
 		if status != 0 {
 			t.Fatalf("cmdBootstrap() status = %d, want 0", status)
 		}

@@ -8,7 +8,7 @@ import (
 )
 
 type Paths struct {
-	ProjectDir    string
+	WorkspaceDir  string
 	MCPConfigPath string
 }
 
@@ -30,7 +30,7 @@ func BootstrapProject(projectDir string) (Result, error) {
 		return Result{}, err
 	}
 	paths := Paths{
-		ProjectDir:    abs,
+		WorkspaceDir:  abs,
 		MCPConfigPath: filepath.Join(slopshellDir, "codex-mcp.toml"),
 	}
 	_ = os.WriteFile(paths.MCPConfigPath, []byte(fmt.Sprintf("[mcp_servers.slopshell]\ncommand = \"slopshell\"\nargs = [\"mcp-server\", \"--workspace-dir\", \"%s\"]\n", strings.ReplaceAll(abs, "\\", "\\\\"))), 0o644)

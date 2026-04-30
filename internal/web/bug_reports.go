@@ -251,7 +251,7 @@ func (a *App) resolveBugReportWorkspace() (bugReportWorkspace, error) {
 	} else if ok {
 		return workspace, nil
 	}
-	return bugReportWorkspace{}, errors.New("bug report requires an active workspace or local project")
+	return bugReportWorkspace{}, errors.New("bug report requires an active workspace or local workspace")
 }
 
 func (a *App) createGitHubIssueFromBugReport(workspace bugReportWorkspace, bundlePath string, bundle bugReportBundle) (ghIssueListItem, int64, error) {

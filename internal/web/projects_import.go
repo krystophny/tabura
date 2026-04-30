@@ -36,7 +36,7 @@ func (a *App) nextManagedWorkspacePath(name string) (string, error) {
 			return path, nil
 		}
 	}
-	return "", errors.New("unable to allocate managed project path")
+	return "", errors.New("unable to allocate managed workspace path")
 }
 
 func (a *App) nextTemporaryWorkspacePath(kind, name string) (string, error) {
@@ -55,7 +55,7 @@ func (a *App) nextTemporaryWorkspacePath(kind, name string) (string, error) {
 			return path, nil
 		}
 	}
-	return "", errors.New("unable to allocate temporary project path")
+	return "", errors.New("unable to allocate temporary workspace path")
 }
 
 func (a *App) workspaceSourceByID(workspaceID string) (store.Workspace, bool, error) {
@@ -106,7 +106,7 @@ func (a *App) createWorkspace2(req runtimeWorkspaceCreateRequest) (store.Workspa
 	case "linked":
 		rootPath := strings.TrimSpace(req.Path)
 		if rootPath == "" {
-			return store.Workspace{}, false, errors.New("path is required for linked projects")
+			return store.Workspace{}, false, errors.New("path is required for linked workspaces")
 		}
 		if err := enforceWorkPersonalPath(rootPath); err != nil {
 			return store.Workspace{}, false, err
@@ -122,10 +122,10 @@ func (a *App) createWorkspace2(req runtimeWorkspaceCreateRequest) (store.Workspa
 		if err != nil {
 			return store.Workspace{}, false, err
 		}
-		absRoot = filepath.Clean(boot.Paths.ProjectDir)
+		absRoot = filepath.Clean(boot.Paths.WorkspaceDir)
 	case "meeting", "task":
 		if strings.TrimSpace(req.Path) != "" {
-			return store.Workspace{}, false, errors.New("path is not supported for temporary projects")
+			return store.Workspace{}, false, errors.New("path is not supported for temporary workspaces")
 		}
 		if name == "" {
 			name = defaultTemporaryWorkspaceName(kind, time.Now())
@@ -141,7 +141,7 @@ func (a *App) createWorkspace2(req runtimeWorkspaceCreateRequest) (store.Workspa
 		if err != nil {
 			return store.Workspace{}, false, err
 		}
-		absRoot = filepath.Clean(boot.Paths.ProjectDir)
+		absRoot = filepath.Clean(boot.Paths.WorkspaceDir)
 	default:
 		rootPath := strings.TrimSpace(req.Path)
 		if rootPath == "" {
@@ -158,7 +158,7 @@ func (a *App) createWorkspace2(req runtimeWorkspaceCreateRequest) (store.Workspa
 		if err != nil {
 			return store.Workspace{}, false, err
 		}
-		absRoot = filepath.Clean(boot.Paths.ProjectDir)
+		absRoot = filepath.Clean(boot.Paths.WorkspaceDir)
 	}
 
 	if name == "" {
@@ -226,7 +226,7 @@ func (a *App) persistTemporaryWorkspaceTarget(project store.Workspace, req tempo
 			return "", "", err
 		}
 		if existing, err := a.store.GetWorkspaceByRootPath(absTarget); err == nil && existing.ID != project.ID {
-			return "", "", errors.New("path is already used by another project")
+			return "", "", errors.New("path is already used by another workspace")
 		} else if err != nil && !isNoRows(err) {
 			return "", "", err
 		}
@@ -269,7 +269,7 @@ func (a *App) persistTemporaryWorkspace(workspaceID string, req temporaryWorkspa
 		return store.Workspace{}, err
 	}
 	if !isTemporaryWorkspace(project) {
-		return store.Workspace{}, errors.New("project is not temporary")
+		return store.Workspace{}, errors.New("workspace is not temporary")
 	}
 	workspace, err := a.ensureWorkspaceReady(project, false)
 	if err != nil {
@@ -335,7 +335,7 @@ func (a *App) discardTemporaryWorkspace(workspaceID string) (store.Workspace, er
 		return store.Workspace{}, err
 	}
 	if !isTemporaryWorkspace(project) {
-		return store.Workspace{}, errors.New("project is not temporary")
+		return store.Workspace{}, errors.New("workspace is not temporary")
 	}
 	workspaces, err := a.store.ListWorkspacesForID(workspaceIDStr(project.ID))
 	if err != nil {

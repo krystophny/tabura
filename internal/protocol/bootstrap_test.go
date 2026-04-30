@@ -18,8 +18,8 @@ func TestBootstrapProjectCreatesExpectedFilesWithoutAgentsMutation(t *testing.T)
 	if result.GitInitialized {
 		t.Fatalf("GitInitialized = true, want false")
 	}
-	if result.Paths.ProjectDir == "" {
-		t.Fatalf("ProjectDir should not be empty")
+	if result.Paths.WorkspaceDir == "" {
+		t.Fatalf("WorkspaceDir should not be empty")
 	}
 	if _, err := os.Stat(filepath.Join(projectDir, "AGENTS.md")); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("AGENTS.md should not be created, stat err = %v", err)

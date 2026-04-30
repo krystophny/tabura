@@ -112,7 +112,7 @@ func parseFlags(args []string) (cliOptions, []string, error) {
 		tokenFile:  os.Getenv(envTokenFile),
 	}
 	fs.StringVar(&opts.baseURL, "base-url", opts.baseURL, "slopshell server base URL")
-	fs.StringVar(&opts.projectDir, "project-dir", opts.projectDir, "workspace directory (defaults to cwd)")
+	fs.StringVar(&opts.projectDir, "workspace-dir", opts.projectDir, "workspace directory (defaults to cwd)")
 	fs.StringVar(&opts.resumeID, "resume", "", "resume a prior chat session by id instead of starting fresh")
 	fs.StringVar(&opts.prompt, "prompt", "", "one-shot prompt (also -p)")
 	fs.StringVar(&opts.prompt, "p", "", "one-shot prompt (shorthand for --prompt)")
@@ -177,7 +177,7 @@ usage:
 
 flags:
   --base-url URL        slopshell server (default http://127.0.0.1:8420 or $SLOPSHELL_BASE_URL)
-  --project-dir DIR     workspace directory (default cwd)
+  --workspace-dir DIR   workspace directory (default cwd)
   --resume SESSION_ID   resume a prior chat session instead of starting fresh
   -p, --prompt STRING   one-shot mode: send this prompt and exit
   --model ALIAS         local|spark|gpt|mini (default local)

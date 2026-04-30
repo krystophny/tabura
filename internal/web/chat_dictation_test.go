@@ -57,7 +57,7 @@ func TestChatSessionDictationLifecycle(t *testing.T) {
 	app := newAuthedTestApp(t)
 	projectRoot := filepath.Join(t.TempDir(), "project")
 	if err := os.MkdirAll(projectRoot, 0755); err != nil {
-		t.Fatalf("mkdir project root: %v", err)
+		t.Fatalf("mkdir workspace root: %v", err)
 	}
 	project, err := app.store.CreateEnrichedWorkspace("Dictation", "dictation-project", projectRoot, "managed", "", "", false)
 	if err != nil {

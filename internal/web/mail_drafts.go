@@ -345,7 +345,7 @@ func (a *App) activeMailDraftProject() (store.Workspace, error) {
 		return store.Workspace{}, err
 	}
 	if strings.TrimSpace(workspaceID) == "" {
-		return store.Workspace{}, errors.New("mail draft requires an active project")
+		return store.Workspace{}, errors.New("mail draft requires an active workspace")
 	}
 	return a.store.GetEnrichedWorkspace(workspaceID)
 }

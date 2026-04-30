@@ -925,7 +925,7 @@ func (a *App) start(host string, port int, certFile, keyFile string) error {
 		fmt.Printf("  %s\n", u)
 	}
 	if a.localProjectDir != "" {
-		fmt.Printf("  local project: %s\n", a.localProjectDir)
+		fmt.Printf("  local workspace: %s\n", a.localProjectDir)
 		if a.localMCPSocket != "" {
 			fmt.Printf("  local MCP:     unix:%s (mode 0600)\n", a.localMCPSocket)
 		}

@@ -110,7 +110,6 @@ type serverConfig struct {
 
 func bindWorkspaceDirFlag(fs *flag.FlagSet, defaultValue string) *string {
 	workspaceDir := fs.String("workspace-dir", defaultValue, "workspace dir")
-	fs.StringVar(workspaceDir, "project-dir", defaultValue, "compatibility alias for --workspace-dir")
 	return workspaceDir
 }
 
@@ -125,7 +124,7 @@ func cmdBootstrap(args []string) int {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
-	fmt.Printf("workspace prepared: %s\n", res.Paths.ProjectDir)
+	fmt.Printf("workspace prepared: %s\n", res.Paths.WorkspaceDir)
 	fmt.Printf("mcp config snippet: %s\n", res.Paths.MCPConfigPath)
 	fmt.Println("workspace AGENTS.md files are left untouched")
 	if res.GitInitialized {
@@ -146,7 +145,7 @@ func cmdMCPServer(args []string) int {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
-	adapter := canvas.NewAdapter(res.Paths.ProjectDir, nil)
+	adapter := canvas.NewAdapter(res.Paths.WorkspaceDir, nil)
 	st, err := store.New(filepath.Join(*dataDir, "slopshell.db"))
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -203,7 +202,7 @@ func runServer(cfg *serverConfig) int {
 	}
 	app, err := web.New(
 		cfg.dataDir,
-		res.Paths.ProjectDir,
+		res.Paths.WorkspaceDir,
 		cfg.mcpSocket,
 		cfg.appServerURL,
 		cfg.model,

@@ -538,10 +538,12 @@ func TestResolveCanvasFilePath_PrefersShallowWorkspaceMatch(t *testing.T) {
 	}
 }
 
-func TestResolveCanvasFilePath_RejectsEscapingProjectRoot(t *testing.T) {
+func TestResolveCanvasFilePath_RejectsEscapingWorkspaceRoot(t *testing.T) {
 	tmp := t.TempDir()
 	if _, _, err := resolveCanvasFilePath(tmp, "../outside.md"); err == nil {
-		t.Fatal("expected error for escaping project root")
+		t.Fatal("expected error for escaping workspace root")
+	} else if !strings.Contains(err.Error(), "workspace root") {
+		t.Fatalf("unexpected error %q", err)
 	}
 }
 
