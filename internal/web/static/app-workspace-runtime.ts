@@ -1,6 +1,12 @@
 import * as env from './app-env.js';
 import * as context from './app-context.js';
 import {
+  createLinkedWorkspaceAtPath as createLinkedWorkspaceAtPathImpl,
+  discardTemporaryProject as discardTemporaryProjectImpl,
+  persistTemporaryProject as persistTemporaryProjectImpl,
+  startAgentHereAtPath as startAgentHereAtPathImpl,
+} from './app-workspace-actions.js';
+import {
   applyWorkspaceBusyStates,
   applyWorkspaceFocusSnapshot,
   normalizeWorkspaceBusyStates,
@@ -726,119 +732,35 @@ export async function createTemporaryProject(kind, sourceWorkspaceID = '') {
   }
 }
 
-async function openLinkedWorkspaceAtPath(workspacePath, statusText, failurePrefix, readyText, sourceWorkspaceID = '') {
-  const path = String(workspacePath || '').trim();
-  if (!path) return '';
-  if (state.projectSwitchInFlight || state.projectModelSwitchInFlight) return '';
-  showStatus(statusText);
-  try {
-    const sourceID = String(sourceWorkspaceID || '').trim();
-    const resp = await fetch(apiURL('runtime/workspaces'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        kind: 'linked',
-        path,
-        activate: true,
-        ...(sourceID ? { source_workspace_id: sourceID } : {}),
-      }),
-    });
-    if (!resp.ok) {
-      const detail = (await resp.text()).trim() || `HTTP ${resp.status}`;
-      throw new Error(detail);
-    }
-    const responsePayload = await resp.json();
-    const project = responsePayload?.workspace || {};
-    const workspaceID = String(project?.id || '').trim();
-    await fetchProjects();
-    if (workspaceID) {
-      await switchProject(workspaceID);
-      return workspaceID;
-    }
-    showStatus(readyText);
-    return '';
-  } catch (err) {
-    const message = String(err?.message || err || 'workspace open failed');
-    appendPlainMessage('system', `${failurePrefix}: ${message}`);
-    showStatus(`${failurePrefix}: ${message}`);
-    return '';
-  }
+function workspaceActionDeps() {
+  return {
+    apiURL,
+    state,
+    showStatus,
+    appendPlainMessage,
+    fetchProjects,
+    switchProject,
+    upsertProject,
+    renderEdgeTopProjects,
+    renderEdgeTopModelButtons,
+    submitMessage,
+  };
 }
 
 export async function createLinkedWorkspaceAtPath(workspacePath, sourceWorkspaceID = '') {
-  await openLinkedWorkspaceAtPath(
-    workspacePath,
-    'opening linked workspace...',
-    'Linked workspace open failed',
-    'linked workspace ready',
-    sourceWorkspaceID,
-  );
+  await createLinkedWorkspaceAtPathImpl(workspaceActionDeps(), workspacePath, sourceWorkspaceID);
 }
 
 export async function startAgentHereAtPath(workspacePath, sourceWorkspaceID = '') {
-  const workspaceID = await openLinkedWorkspaceAtPath(
-    workspacePath,
-    'starting agent here...',
-    'Start agent here failed',
-    'agent ready',
-    sourceWorkspaceID,
-  );
-  if (!workspaceID) return;
-  await submitMessage('Start agent here.', { kind: 'start_agent_here' });
+  await startAgentHereAtPathImpl(workspaceActionDeps(), workspacePath, sourceWorkspaceID);
 }
 
 export async function persistTemporaryProject(workspaceID) {
-  const id = String(workspaceID || '').trim();
-  if (!id) return;
-  if (state.projectSwitchInFlight || state.projectModelSwitchInFlight) return;
-  showStatus('saving session...');
-  try {
-    const resp = await fetch(apiURL(`runtime/workspaces/${encodeURIComponent(id)}/persist`), { method: 'POST' });
-    if (!resp.ok) {
-      const detail = (await resp.text()).trim() || `HTTP ${resp.status}`;
-      throw new Error(detail);
-    }
-    const payload = await resp.json();
-    if (payload?.workspace) {
-      upsertProject(payload.workspace);
-    }
-    await fetchProjects();
-    renderEdgeTopProjects();
-    renderEdgeTopModelButtons();
-    showStatus('session saved');
-  } catch (err) {
-    const message = String(err?.message || err || 'session save failed');
-    appendPlainMessage('system', `Session save failed: ${message}`);
-    showStatus(`session save failed: ${message}`);
-  }
+  await persistTemporaryProjectImpl(workspaceActionDeps(), workspaceID);
 }
 
 export async function discardTemporaryProject(workspaceID) {
-  const id = String(workspaceID || '').trim();
-  if (!id) return;
-  if (state.projectSwitchInFlight || state.projectModelSwitchInFlight) return;
-  showStatus('discarding session...');
-  try {
-    const resp = await fetch(apiURL(`runtime/workspaces/${encodeURIComponent(id)}/discard`), { method: 'POST' });
-    if (!resp.ok) {
-      const detail = (await resp.text()).trim() || `HTTP ${resp.status}`;
-      throw new Error(detail);
-    }
-    const payload = await resp.json();
-    const nextWorkspaceID = String(payload?.active_workspace_id || '').trim() || state.defaultWorkspaceId || state.projects[0]?.id || '';
-    await fetchProjects();
-    if (nextWorkspaceID) {
-      await switchProject(nextWorkspaceID);
-      return;
-    }
-    renderEdgeTopProjects();
-    renderEdgeTopModelButtons();
-    showStatus('session discarded');
-  } catch (err) {
-    const message = String(err?.message || err || 'session discard failed');
-    appendPlainMessage('system', `Session discard failed: ${message}`);
-    showStatus(`session discard failed: ${message}`);
-  }
+  await discardTemporaryProjectImpl(workspaceActionDeps(), workspaceID);
 }
 
 export async function activateProject(workspaceID) {
