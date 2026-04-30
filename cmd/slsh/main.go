@@ -43,6 +43,18 @@ func main() {
 }
 
 func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
+	// Check for brain subcommands before parsing chat flags.
+	if isBrainSubcommand(args) {
+		brainArgs, _ := splitBrainArgs(args)
+		// Parse flags for brain commands too (needed for --base-url, --token-file).
+		opts, _, err := parseFlags(args)
+		if err != nil {
+			fmt.Fprintln(stderr, err)
+			return 2
+		}
+		return handleBrainCommand(brainArgs, opts)
+	}
+
 	opts, tail, err := parseFlags(args)
 	if err != nil {
 		fmt.Fprintln(stderr, err)
