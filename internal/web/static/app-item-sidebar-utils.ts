@@ -40,7 +40,7 @@ export function normalizeItemSidebarView(rawView) {
   return 'inbox';
 }
 
-export const SIDEBAR_SECTION_IDS = ['project_items', 'people', 'drift', 'dedup'];
+export const SIDEBAR_SECTION_IDS = ['project_items', 'people', 'drift', 'dedup', 'recent_meetings'];
 
 export function normalizeItemSidebarFilters(rawFilters = null) {
   const filters = rawFilters && typeof rawFilters === 'object' ? rawFilters : {};

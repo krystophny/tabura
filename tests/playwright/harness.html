@@ -2421,11 +2421,14 @@
         }
         return new Response(JSON.stringify({ ok: true, artifact }), { status: 200 });
       }
-      if (u.includes('/api/items/inbox') || u.includes('/api/items/waiting') || u.includes('/api/items/someday') || u.includes('/api/items/done')) {
+      if (u.includes('/api/items/inbox') || u.includes('/api/items/next') || u.includes('/api/items/waiting') || u.includes('/api/items/deferred') || u.includes('/api/items/someday') || u.includes('/api/items/review') || u.includes('/api/items/done')) {
         const itemData = window.__itemSidebarData || defaultItemSidebarData();
         let key = 'inbox';
+        if (u.includes('/api/items/next')) key = 'next';
         if (u.includes('/api/items/waiting')) key = 'waiting';
+        if (u.includes('/api/items/deferred')) key = 'deferred';
         if (u.includes('/api/items/someday')) key = 'someday';
+        if (u.includes('/api/items/review')) key = 'review';
         if (u.includes('/api/items/done')) key = 'done';
         const sphere = requestedSphere(u);
         const filters = requestedItemFilters(u);

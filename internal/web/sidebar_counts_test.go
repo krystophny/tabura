@@ -165,3 +165,57 @@ func TestItemListFilterSectionRejectsUnknownValue(t *testing.T) {
 		t.Fatalf("status = %d, want 400 for invalid section", rr.Code)
 	}
 }
+
+// Section drill-down for `recent_meetings` returns only review items linked
+// to a meeting transcript or summary artifact created in the last seven days.
+func TestItemListFilterSectionDrillsDownToRecentMeetings(t *testing.T) {
+	app := newAuthedTestApp(t)
+
+	transcriptPath := "/tmp/recent-transcript.md"
+	transcriptTitle := "Recent transcript"
+	transcript, err := app.store.CreateArtifact(store.ArtifactKindTranscript, &transcriptPath, nil, &transcriptTitle, nil)
+	if err != nil {
+		t.Fatalf("CreateArtifact(transcript) error: %v", err)
+	}
+	plainPath := "/tmp/plain.md"
+	plainTitle := "Plain note"
+	plain, err := app.store.CreateArtifact(store.ArtifactKindMarkdown, &plainPath, nil, &plainTitle, nil)
+	if err != nil {
+		t.Fatalf("CreateArtifact(plain) error: %v", err)
+	}
+
+	if _, err := app.store.CreateItem("Triage transcript", store.ItemOptions{
+		State:      store.ItemStateReview,
+		ArtifactID: &transcript.ID,
+	}); err != nil {
+		t.Fatalf("CreateItem(transcript) error: %v", err)
+	}
+	if _, err := app.store.CreateItem("Triage plain note", store.ItemOptions{
+		State:      store.ItemStateReview,
+		ArtifactID: &plain.ID,
+	}); err != nil {
+		t.Fatalf("CreateItem(plain) error: %v", err)
+	}
+	if _, err := app.store.CreateItem("Triage no artifact", store.ItemOptions{
+		State: store.ItemStateReview,
+	}); err != nil {
+		t.Fatalf("CreateItem(no artifact) error: %v", err)
+	}
+
+	rr := doAuthedJSONRequest(t, app.Router(), http.MethodGet, "/api/items/review?section=recent_meetings", nil)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", rr.Code, rr.Body.String())
+	}
+	payload := decodeJSONResponse(t, rr)
+	items, ok := payload["items"].([]any)
+	if !ok {
+		t.Fatalf("items payload = %#v", payload)
+	}
+	if len(items) != 1 {
+		t.Fatalf("len(items) = %d, want 1 (only the transcript-linked review item)", len(items))
+	}
+	first, _ := items[0].(map[string]any)
+	if first["title"] != "Triage transcript" {
+		t.Fatalf("items[0].title = %v, want 'Triage transcript'", first["title"])
+	}
+}

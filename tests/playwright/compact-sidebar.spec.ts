@@ -161,6 +161,46 @@ test.describe('compact sidebar navigation (#746)', () => {
     })).toBe('');
   });
 
+  test('clicking the recent-meetings row drills into review with a recent_meetings filter', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await waitReady(page);
+    await seedSectionFixture(page, {
+      projectItemsOpen: 0,
+      peopleOpen: 0,
+      driftReview: 0,
+      dedupReview: 0,
+      recentMeetings: 4,
+    });
+    await openInbox(page);
+    await page.evaluate(async () => {
+      const mod = await import('../../internal/web/static/app-item-sidebar-utils.js');
+      await mod.refreshItemSidebarCounts();
+    });
+    await page.locator('#sidebar-secondary-toggle').click();
+
+    const meetingsRow = page.locator('.sidebar-secondary-row[data-section-id="recent-meetings"]');
+    await expect(meetingsRow.locator('.sidebar-secondary-row-count')).toHaveText('4');
+
+    await meetingsRow.click();
+    await expect.poll(async () => page.evaluate(() => {
+      const app = (window as any)._slopshellApp;
+      const s = app?.getState?.() || {};
+      return {
+        section: String(s.itemSidebarFilters?.section || ''),
+        view: String(s.itemSidebarView || ''),
+      };
+    })).toEqual({ section: 'recent_meetings', view: 'review' });
+    await expect(meetingsRow).toHaveClass(/is-active/);
+    await expect(page.locator('.sidebar-tab.is-active')).toContainText(/Review/i);
+
+    await meetingsRow.click();
+    await expect.poll(async () => page.evaluate(() => {
+      const app = (window as any)._slopshellApp;
+      const filters = app?.getState?.().itemSidebarFilters || {};
+      return String(filters.section || '');
+    })).toBe('');
+  });
+
   test('does not conflate project items with the active workspace pin', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await waitReady(page);

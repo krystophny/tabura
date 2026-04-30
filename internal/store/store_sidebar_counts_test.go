@@ -312,3 +312,97 @@ func TestSidebarSectionFilterRejectsUnknownValue(t *testing.T) {
 		t.Fatal("expected error for unknown section filter, got nil")
 	}
 }
+
+// Recent-meetings drill-down must restrict the queue to items linked to a
+// meeting transcript or summary artifact created in the last seven days.
+// Items with no artifact, items linked to a non-meeting artifact, and items
+// linked to a stale meeting artifact must all be excluded.
+func TestSidebarSectionFilterDrillsDownToRecentMeetings(t *testing.T) {
+	s := newTestStore(t)
+
+	recentTranscriptPath := "/tmp/recent-transcript.md"
+	recentTranscriptTitle := "Recent transcript"
+	recentTranscript, err := s.CreateArtifact(ArtifactKindTranscript, &recentTranscriptPath, nil, &recentTranscriptTitle, nil)
+	if err != nil {
+		t.Fatalf("CreateArtifact(recent transcript) error: %v", err)
+	}
+	recentSummaryPath := "/tmp/recent-summary.md"
+	recentSummaryTitle := "Recent summary"
+	recentMeta := `{"source":"meeting_summary","summary":"recap"}`
+	recentSummary, err := s.CreateArtifact(ArtifactKindMarkdown, &recentSummaryPath, nil, &recentSummaryTitle, &recentMeta)
+	if err != nil {
+		t.Fatalf("CreateArtifact(recent summary) error: %v", err)
+	}
+	staleTranscriptPath := "/tmp/stale-transcript.md"
+	staleTranscriptTitle := "Stale transcript"
+	staleTranscript, err := s.CreateArtifact(ArtifactKindTranscript, &staleTranscriptPath, nil, &staleTranscriptTitle, nil)
+	if err != nil {
+		t.Fatalf("CreateArtifact(stale transcript) error: %v", err)
+	}
+	staleCutoff := time.Now().UTC().Add(-30 * 24 * time.Hour).Format(time.RFC3339Nano)
+	if _, err := s.db.Exec(`UPDATE artifacts SET created_at = ? WHERE id = ?`, staleCutoff, staleTranscript.ID); err != nil {
+		t.Fatalf("backdate stale transcript error: %v", err)
+	}
+	unrelatedPath := "/tmp/unrelated.md"
+	unrelatedTitle := "Unrelated note"
+	unrelated, err := s.CreateArtifact(ArtifactKindMarkdown, &unrelatedPath, nil, &unrelatedTitle, nil)
+	if err != nil {
+		t.Fatalf("CreateArtifact(unrelated) error: %v", err)
+	}
+
+	if _, err := s.CreateItem("Review recent transcript", ItemOptions{
+		State:      ItemStateReview,
+		ArtifactID: &recentTranscript.ID,
+	}); err != nil {
+		t.Fatalf("CreateItem(recent transcript) error: %v", err)
+	}
+	if _, err := s.CreateItem("Review recent summary", ItemOptions{
+		State:      ItemStateReview,
+		ArtifactID: &recentSummary.ID,
+	}); err != nil {
+		t.Fatalf("CreateItem(recent summary) error: %v", err)
+	}
+	if _, err := s.CreateItem("Review stale transcript", ItemOptions{
+		State:      ItemStateReview,
+		ArtifactID: &staleTranscript.ID,
+	}); err != nil {
+		t.Fatalf("CreateItem(stale transcript) error: %v", err)
+	}
+	if _, err := s.CreateItem("Review unrelated note", ItemOptions{
+		State:      ItemStateReview,
+		ArtifactID: &unrelated.ID,
+	}); err != nil {
+		t.Fatalf("CreateItem(unrelated) error: %v", err)
+	}
+	if _, err := s.CreateItem("Review with no artifact", ItemOptions{State: ItemStateReview}); err != nil {
+		t.Fatalf("CreateItem(no artifact) error: %v", err)
+	}
+
+	all, err := s.ListReviewItemsFiltered(ItemListFilter{})
+	if err != nil {
+		t.Fatalf("ListReviewItemsFiltered() error: %v", err)
+	}
+	if len(all) != 5 {
+		t.Fatalf("baseline review queue len = %d, want 5", len(all))
+	}
+
+	scoped, err := s.ListReviewItemsFiltered(ItemListFilter{Section: ItemSidebarSectionRecentMeetings})
+	if err != nil {
+		t.Fatalf("ListReviewItemsFiltered(recent_meetings) error: %v", err)
+	}
+	if len(scoped) != 2 {
+		titles := make([]string, 0, len(scoped))
+		for _, item := range scoped {
+			titles = append(titles, item.Title)
+		}
+		t.Fatalf("recent_meetings drill-down len = %d, want 2 (recent transcript + summary; stale + non-meeting + no-artifact excluded); got titles=%v",
+			len(scoped), titles)
+	}
+	gotTitles := map[string]bool{}
+	for _, item := range scoped {
+		gotTitles[item.Title] = true
+	}
+	if !gotTitles["Review recent transcript"] || !gotTitles["Review recent summary"] {
+		t.Fatalf("recent_meetings drill-down missing expected titles, got %#v", gotTitles)
+	}
+}

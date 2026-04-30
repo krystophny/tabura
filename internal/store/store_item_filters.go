@@ -3,6 +3,7 @@ package store
 import (
 	"errors"
 	"strings"
+	"time"
 )
 
 func normalizeOptionalSidebarSectionFilter(raw string) (string, error) {
@@ -14,10 +15,11 @@ func normalizeOptionalSidebarSectionFilter(raw string) (string, error) {
 	case ItemSidebarSectionProject,
 		ItemSidebarSectionPeople,
 		ItemSidebarSectionDrift,
-		ItemSidebarSectionDedup:
+		ItemSidebarSectionDedup,
+		ItemSidebarSectionRecentMeetings:
 		return clean, nil
 	}
-	return "", errors.New("section must be one of project_items, people, drift, dedup")
+	return "", errors.New("section must be one of project_items, people, drift, dedup, recent_meetings")
 }
 
 func normalizeItemListFilter(filter ItemListFilter) (ItemListFilter, error) {
@@ -35,6 +37,9 @@ func normalizeItemListFilter(filter ItemListFilter) (ItemListFilter, error) {
 		return ItemListFilter{}, err
 	}
 	normalized.Section = section
+	if section == ItemSidebarSectionRecentMeetings {
+		normalized.recentMeetingsCutoff = time.Now().UTC().Add(-RecentMeetingsLookbackHours * time.Hour).Format(time.RFC3339Nano)
+	}
 	if filter.WorkspaceID != nil {
 		if *filter.WorkspaceID <= 0 {
 			return ItemListFilter{}, errors.New("workspace_id must be a positive integer")
@@ -127,6 +132,22 @@ WHERE dup.id <> `+outerColumn("id")+`
   AND lower(trim(dup.source_ref)) = lower(trim(`+column("source_ref")+`))
 )`,
 		)
+	case ItemSidebarSectionRecentMeetings:
+		cutoff := filter.recentMeetingsCutoff
+		if cutoff == "" {
+			cutoff = time.Now().UTC().Add(-RecentMeetingsLookbackHours * time.Hour).Format(time.RFC3339Nano)
+		}
+		parts = append(parts, column("artifact_id")+" IS NOT NULL", `EXISTS (
+SELECT 1 FROM artifacts mart
+WHERE mart.id = `+column("artifact_id")+`
+  AND datetime(mart.created_at) >= datetime(?)
+  AND (
+    lower(trim(mart.kind)) = 'transcript'
+    OR (mart.meta_json IS NOT NULL AND mart.meta_json LIKE '%"source":"meeting_summary"%')
+    OR (mart.meta_json IS NOT NULL AND mart.meta_json LIKE '%"source":"meeting_notes"%')
+  )
+)`)
+		args = append(args, cutoff)
 	}
 	if filter.labelResolved {
 		if len(filter.resolvedLabelGroups) == 0 {
