@@ -81,11 +81,11 @@ Requirements:
 ## Core Commands
 
 ```bash
-slopshell bootstrap --project-dir .
-slopshell mcp-server --project-dir .
-sloptools mcp-server --project-dir . --data-dir ~/.local/share/sloppy
-slopshell server --project-dir . --data-dir ~/.slopshell-web --mcp-socket "${XDG_RUNTIME_DIR:-$HOME/.cache}/sloppy/mcp.sock" --web-host 0.0.0.0 --web-port 8420 --app-server-url ws://127.0.0.1:8787 --tts-url http://127.0.0.1:8424
-slopshell server --project-dir . --data-dir ~/.slopshell-web --mcp-socket "${XDG_RUNTIME_DIR:-$HOME/.cache}/sloppy/mcp.sock" --web-host 0.0.0.0 --web-port 8443 --web-cert-file ~/.config/slopshell/certs/slopshell.pem --web-key-file ~/.config/slopshell/certs/slopshell-key.pem --app-server-url ws://127.0.0.1:8787 --tts-url http://127.0.0.1:8424
+slopshell bootstrap --workspace-dir .
+slopshell mcp-server --workspace-dir .
+sloptools mcp-server --workspace-dir . --data-dir ~/.local/share/sloppy
+slopshell server --workspace-dir . --data-dir ~/.slopshell-web --mcp-socket "${XDG_RUNTIME_DIR:-$HOME/.cache}/sloppy/mcp.sock" --web-host 0.0.0.0 --web-port 8420 --app-server-url ws://127.0.0.1:8787 --tts-url http://127.0.0.1:8424
+slopshell server --workspace-dir . --data-dir ~/.slopshell-web --mcp-socket "${XDG_RUNTIME_DIR:-$HOME/.cache}/sloppy/mcp.sock" --web-host 0.0.0.0 --web-port 8443 --web-cert-file ~/.config/slopshell/certs/slopshell.pem --web-key-file ~/.config/slopshell/certs/slopshell-key.pem --app-server-url ws://127.0.0.1:8787 --tts-url http://127.0.0.1:8424
 ```
 
 ## Terminal client: `slsh`
@@ -215,7 +215,7 @@ Example with `mkcert`:
 mkdir -p ~/.config/slopshell/certs
 mkcert -install
 mkcert -cert-file ~/.config/slopshell/certs/slopshell.pem -key-file ~/.config/slopshell/certs/slopshell-key.pem localhost 127.0.0.1 ::1 192.168.1.50
-slopshell server --project-dir . --data-dir ~/.slopshell-web --mcp-socket "${XDG_RUNTIME_DIR:-$HOME/.cache}/sloppy/mcp.sock" --web-host 0.0.0.0 --web-port 8443 --web-cert-file ~/.config/slopshell/certs/slopshell.pem --web-key-file ~/.config/slopshell/certs/slopshell-key.pem --app-server-url ws://127.0.0.1:8787 --tts-url http://127.0.0.1:8424
+slopshell server --workspace-dir . --data-dir ~/.slopshell-web --mcp-socket "${XDG_RUNTIME_DIR:-$HOME/.cache}/sloppy/mcp.sock" --web-host 0.0.0.0 --web-port 8443 --web-cert-file ~/.config/slopshell/certs/slopshell.pem --web-key-file ~/.config/slopshell/certs/slopshell-key.pem --app-server-url ws://127.0.0.1:8787 --tts-url http://127.0.0.1:8424
 ```
 
 If a second device (for example a Mac) connects to this server, trust the same local CA on that device too.

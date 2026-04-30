@@ -33,7 +33,7 @@ func BootstrapProject(projectDir string) (Result, error) {
 		ProjectDir:    abs,
 		MCPConfigPath: filepath.Join(slopshellDir, "codex-mcp.toml"),
 	}
-	_ = os.WriteFile(paths.MCPConfigPath, []byte(fmt.Sprintf("[mcp_servers.slopshell]\ncommand = \"slopshell\"\nargs = [\"mcp-server\", \"--project-dir\", \"%s\"]\n", strings.ReplaceAll(abs, "\\", "\\\\"))), 0o644)
+	_ = os.WriteFile(paths.MCPConfigPath, []byte(fmt.Sprintf("[mcp_servers.slopshell]\ncommand = \"slopshell\"\nargs = [\"mcp-server\", \"--workspace-dir\", \"%s\"]\n", strings.ReplaceAll(abs, "\\", "\\\\"))), 0o644)
 	_ = ensureGitignore(abs)
 	gitInit := false
 	if _, err := os.Stat(filepath.Join(abs, ".git")); err == nil {

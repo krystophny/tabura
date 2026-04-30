@@ -42,7 +42,7 @@ func (s *Server) resolveTempArtifactsDir(cwdArg string) (string, string, error) 
 	}
 	tmpAbs := filepath.Clean(filepath.Join(rootAbs, tempArtifactsDirRel))
 	if !isPathWithinDir(tmpAbs, rootAbs) {
-		return "", "", errors.New("temp artifacts directory escapes project root")
+		return "", "", errors.New("temp artifacts directory escapes workspace root")
 	}
 	return rootAbs, tmpAbs, nil
 }
@@ -345,7 +345,7 @@ func sanitizeFilename(name string) string {
 func (s *Server) writeImportedFile(handoffID, filename string, content []byte) (string, error) {
 	projectDir := s.adapter.ProjectDir()
 	if strings.TrimSpace(projectDir) == "" {
-		return "", errors.New("project directory not configured")
+		return "", errors.New("workspace directory not configured")
 	}
 	importDir := filepath.Join(projectDir, ".slopshell", "artifacts", "imports")
 	if err := os.MkdirAll(importDir, 0o755); err != nil {

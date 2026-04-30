@@ -27,6 +27,8 @@ Items have two canonical kinds:
 
 Project items may have child item links. Initial child roles are `next_action`, `support`, and `blocked_by`. A project item is healthy when it has at least one child in next, waiting, deferred, or someday state; it is stalled when it has no such child.
 
+Project items may also own supporting artifacts through `item_artifacts` links. The primary artifact, if present, is the canonical canvas artifact; related and output artifacts remain attached as supporting material.
+
 External systems may also have "projects" or similar containers: Todoist projects, GitHub Projects, GitLab milestones, mail folders. In Slopshell these are **source containers**. They may provide labels, filters, or default routing, but they are not Workspaces and are not GTD project items unless explicitly linked or promoted.
 
 ### Key invariants

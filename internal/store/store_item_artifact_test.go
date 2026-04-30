@@ -192,3 +192,47 @@ func TestStoreItemArtifactLinkLifecycle(t *testing.T) {
 		t.Fatalf("restored primary artifact = %+v, want source artifact %d", restoredArtifacts[0], sourceArtifact.ID)
 	}
 }
+
+func TestStoreProjectItemsCanOwnSupportingArtifacts(t *testing.T) {
+	s := newTestStore(t)
+
+	project, err := s.CreateItem("Plan GTD outcome", ItemOptions{Kind: ItemKindProject})
+	if err != nil {
+		t.Fatalf("CreateItem(project) error: %v", err)
+	}
+	if project.Kind != ItemKindProject {
+		t.Fatalf("project kind = %q, want %q", project.Kind, ItemKindProject)
+	}
+
+	primaryTitle := "Project brief"
+	primaryArtifact, err := s.CreateArtifact(ArtifactKindMarkdown, nil, nil, &primaryTitle, nil)
+	if err != nil {
+		t.Fatalf("CreateArtifact(primary) error: %v", err)
+	}
+	supportTitle := "Supporting note"
+	supportArtifact, err := s.CreateArtifact(ArtifactKindMarkdown, nil, nil, &supportTitle, nil)
+	if err != nil {
+		t.Fatalf("CreateArtifact(support) error: %v", err)
+	}
+
+	if err := s.LinkItemArtifact(project.ID, primaryArtifact.ID, "source"); err != nil {
+		t.Fatalf("LinkItemArtifact(source) error: %v", err)
+	}
+	if err := s.LinkItemArtifact(project.ID, supportArtifact.ID, "related"); err != nil {
+		t.Fatalf("LinkItemArtifact(related) error: %v", err)
+	}
+
+	artifacts, err := s.ListItemArtifacts(project.ID)
+	if err != nil {
+		t.Fatalf("ListItemArtifacts(project) error: %v", err)
+	}
+	if len(artifacts) != 2 {
+		t.Fatalf("ListItemArtifacts(project) len = %d, want 2", len(artifacts))
+	}
+	if artifacts[0].ArtifactID != primaryArtifact.ID || artifacts[0].Role != "source" {
+		t.Fatalf("primary project artifact = %+v, want source artifact %d", artifacts[0], primaryArtifact.ID)
+	}
+	if artifacts[1].ArtifactID != supportArtifact.ID || artifacts[1].Role != "related" {
+		t.Fatalf("supporting project artifact = %+v, want related artifact %d", artifacts[1], supportArtifact.ID)
+	}
+}

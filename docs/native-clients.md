@@ -17,10 +17,10 @@ Use [`native-clients-plan.md`](native-clients-plan.md) for the architecture deci
 
    ```bash
    TMP_ROOT="$(mktemp -d -t slopshell-native-XXXXXX)"
-   PROJECT_DIR="$TMP_ROOT/project"
+   WORKSPACE_DIR="$TMP_ROOT/workspace"
    DATA_DIR="$TMP_ROOT/data"
    go run ./cmd/slopshell server \
-     --project-dir "$PROJECT_DIR" \
+     --workspace-dir "$WORKSPACE_DIR" \
      --data-dir "$DATA_DIR" \
      --web-host 0.0.0.0 \
      --web-port 8420 \

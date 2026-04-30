@@ -32,8 +32,12 @@ func TestBootstrapProjectCreatesExpectedFilesWithoutAgentsMutation(t *testing.T)
 	if err != nil {
 		t.Fatalf("read mcp config: %v", err)
 	}
-	if !strings.Contains(string(mcpBody), "mcp-server") {
+	body := string(mcpBody)
+	if !strings.Contains(body, "mcp-server") {
 		t.Fatalf("mcp config missing mcp-server invocation")
+	}
+	if !strings.Contains(body, "--workspace-dir") {
+		t.Fatalf("mcp config missing --workspace-dir flag")
 	}
 
 	gitignoreBody, err := os.ReadFile(filepath.Join(projectDir, ".gitignore"))

@@ -108,20 +108,26 @@ type serverConfig struct {
 	devRuntime           bool
 }
 
+func bindWorkspaceDirFlag(fs *flag.FlagSet, defaultValue string) *string {
+	workspaceDir := fs.String("workspace-dir", defaultValue, "workspace dir")
+	fs.StringVar(workspaceDir, "project-dir", defaultValue, "compatibility alias for --workspace-dir")
+	return workspaceDir
+}
+
 func cmdBootstrap(args []string) int {
 	fs := flag.NewFlagSet("bootstrap", flag.ContinueOnError)
-	projectDir := fs.String("project-dir", ".", "project dir")
+	workspaceDir := bindWorkspaceDirFlag(fs, ".")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
-	res, err := protocol.BootstrapProject(*projectDir)
+	res, err := protocol.BootstrapProject(*workspaceDir)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
-	fmt.Printf("project prepared: %s\n", res.Paths.ProjectDir)
+	fmt.Printf("workspace prepared: %s\n", res.Paths.ProjectDir)
 	fmt.Printf("mcp config snippet: %s\n", res.Paths.MCPConfigPath)
-	fmt.Println("project AGENTS.md files are left untouched")
+	fmt.Println("workspace AGENTS.md files are left untouched")
 	if res.GitInitialized {
 		fmt.Println("git initialized")
 	}
@@ -130,12 +136,12 @@ func cmdBootstrap(args []string) int {
 
 func cmdMCPServer(args []string) int {
 	fs := flag.NewFlagSet("mcp-server", flag.ContinueOnError)
-	projectDir := fs.String("project-dir", ".", "project dir")
+	workspaceDir := bindWorkspaceDirFlag(fs, ".")
 	dataDir := fs.String("data-dir", filepath.Join(os.Getenv("HOME"), ".slopshell-web"), "data dir")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
-	res, err := protocol.BootstrapProject(*projectDir)
+	res, err := protocol.BootstrapProject(*workspaceDir)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
@@ -163,7 +169,7 @@ func parseServerConfig(args []string) (*serverConfig, int) {
 	cfg := &serverConfig{
 		dataDir: filepath.Join(os.Getenv("HOME"), ".slopshell-web"),
 	}
-	projectDir := fs.String("project-dir", ".", "project dir")
+	workspaceDir := bindWorkspaceDirFlag(fs, ".")
 	fs.StringVar(&cfg.dataDir, "data-dir", cfg.dataDir, "data dir")
 	fs.StringVar(&cfg.mcpSocket, "mcp-socket", strings.TrimSpace(os.Getenv("SLOPSHELL_MCP_SOCKET")), "path to the embedded sloptools MCP unix socket (mode 0600); empty = default $XDG_RUNTIME_DIR/sloppy/mcp.sock")
 	fs.StringVar(&cfg.webHost, "web-host", "127.0.0.1", "web listener host")
@@ -179,7 +185,7 @@ func parseServerConfig(args []string) (*serverConfig, int) {
 	if err := fs.Parse(args); err != nil {
 		return nil, 2
 	}
-	cfg.projectDir = *projectDir
+	cfg.projectDir = *workspaceDir
 	hasCert := strings.TrimSpace(cfg.webCertFile) != ""
 	hasKey := strings.TrimSpace(cfg.webKeyFile) != ""
 	if hasCert != hasKey {

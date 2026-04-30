@@ -3,9 +3,11 @@ package main
 import (
 	"bytes"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -37,6 +39,29 @@ func TestParseServerConfigAcceptsMCPSocketPath(t *testing.T) {
 	if cfg.mcpSocket != "/run/user/1000/sloppy/mcp.sock" {
 		t.Fatalf("mcpSocket = %q, want /run/user/1000/sloppy/mcp.sock", cfg.mcpSocket)
 	}
+}
+
+func TestWorkspaceDirFlagAcceptsCompatibilityAlias(t *testing.T) {
+	t.Run("primary", func(t *testing.T) {
+		fs := flag.NewFlagSet("test", flag.ContinueOnError)
+		workspaceDir := bindWorkspaceDirFlag(fs, ".")
+		if err := fs.Parse([]string{"--workspace-dir", "/tmp/workspace"}); err != nil {
+			t.Fatalf("parse workspace-dir: %v", err)
+		}
+		if got := *workspaceDir; got != "/tmp/workspace" {
+			t.Fatalf("workspace-dir = %q, want /tmp/workspace", got)
+		}
+	})
+	t.Run("alias", func(t *testing.T) {
+		fs := flag.NewFlagSet("test", flag.ContinueOnError)
+		workspaceDir := bindWorkspaceDirFlag(fs, ".")
+		if err := fs.Parse([]string{"--project-dir", "/tmp/workspace"}); err != nil {
+			t.Fatalf("parse project-dir alias: %v", err)
+		}
+		if got := *workspaceDir; got != "/tmp/workspace" {
+			t.Fatalf("project-dir alias = %q, want /tmp/workspace", got)
+		}
+	})
 }
 
 func TestParseServerConfigRejectsIncompleteTLSConfig(t *testing.T) {
@@ -118,6 +143,25 @@ func TestCmdSchemaOutputsProtocolJSON(t *testing.T) {
 	}
 }
 
+func TestCmdBootstrapUsesWorkspaceCopyAndAlias(t *testing.T) {
+	workspaceDir := t.TempDir()
+	out := captureStdout(t, func() {
+		status := cmdBootstrap([]string{"--project-dir", workspaceDir})
+		if status != 0 {
+			t.Fatalf("cmdBootstrap() status = %d, want 0", status)
+		}
+	})
+	if !strings.Contains(out, "workspace prepared:") {
+		t.Fatalf("cmdBootstrap output missing workspace prepared copy: %q", out)
+	}
+	mcpBody, err := os.ReadFile(filepath.Join(workspaceDir, ".slopshell", "codex-mcp.toml"))
+	if err != nil {
+		t.Fatalf("read bootstrap mcp config: %v", err)
+	}
+	if !strings.Contains(string(mcpBody), "--workspace-dir") {
+		t.Fatalf("bootstrap mcp config missing --workspace-dir: %q", string(mcpBody))
+	}
+}
 
 func TestCmdUpdateFailureReturnsStatusOne(t *testing.T) {
 	prev := runUpdate
