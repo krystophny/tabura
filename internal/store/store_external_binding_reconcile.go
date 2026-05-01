@@ -191,11 +191,18 @@ func (s *Store) RecordExternalBindingDrift(binding ExternalBinding, local, upstr
 	if err == nil {
 		return s.updateExternalBindingDrift(existing.ID, binding, local, upstream, revision, now)
 	}
+	openDrift, err := s.getUnresolvedExternalBindingDriftByBinding(binding.ID)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return ExternalBindingDrift{}, err
+	}
+	if err == nil {
+		return s.updateExternalBindingDrift(openDrift.ID, binding, local, upstream, revision, now)
+	}
 	if _, err := s.db.Exec(
 		`INSERT INTO external_binding_drifts (
-binding_id, item_id, account_id, provider, object_type, remote_id, source_container,
-local_state, upstream_state, local_title, upstream_title, local_updated_at,
-upstream_updated_at, upstream_revision, detected_at
+	binding_id, item_id, account_id, provider, object_type, remote_id, source_container,
+	local_state, upstream_state, local_title, upstream_title, local_updated_at,
+	upstream_updated_at, upstream_revision, detected_at
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		binding.ID,
 		local.ID,
@@ -281,7 +288,7 @@ func (s *Store) CountUnresolvedExternalBindingDrifts(filter ItemListFilter) (int
 	return len(drifts), nil
 }
 
-func (s *Store) HasPreservedLocalExternalBindingDrift(bindingID int64, localState string) (bool, error) {
+func (s *Store) HasLocalExternalBindingDrift(bindingID int64, localState string) (bool, error) {
 	state := strings.TrimSpace(localState)
 	if bindingID <= 0 || state == "" {
 		return false, nil
@@ -292,8 +299,10 @@ func (s *Store) HasPreservedLocalExternalBindingDrift(bindingID int64, localStat
 		 FROM external_binding_drifts
 		 WHERE binding_id = ?
 		   AND local_state = ?
-		   AND resolved_at IS NOT NULL
-		   AND resolution IN (?, ?)
+		   AND (
+		     resolved_at IS NULL
+		     OR resolution IN (?, ?)
+		   )
 		 LIMIT 1`,
 		bindingID,
 		state,
@@ -408,6 +417,10 @@ func (s *Store) GetExternalBindingDrift(id int64) (ExternalBindingDrift, error) 
 
 func (s *Store) getExternalBindingDriftByRevision(bindingID int64, revision string) (ExternalBindingDrift, error) {
 	return scanExternalBindingDrift(s.db.QueryRow(externalBindingDriftSelect+` WHERE d.binding_id = ? AND d.upstream_revision = ?`, bindingID, revision))
+}
+
+func (s *Store) getUnresolvedExternalBindingDriftByBinding(bindingID int64) (ExternalBindingDrift, error) {
+	return scanExternalBindingDrift(s.db.QueryRow(externalBindingDriftSelect+` WHERE d.binding_id = ? AND d.resolved_at IS NULL`, bindingID))
 }
 
 func scanExternalBindingDrift(row interface{ Scan(dest ...any) error }) (ExternalBindingDrift, error) {

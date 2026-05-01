@@ -362,7 +362,7 @@ func (s *StoreSink) shouldRecordItemDrift(local store.Item, existing store.Exter
 	if storeTimeAfter(local.UpdatedAt, existing.LastSyncedAt) {
 		return true, nil
 	}
-	return s.store.HasPreservedLocalExternalBindingDrift(existing.ID, local.State)
+	return s.store.HasLocalExternalBindingDrift(existing.ID, local.State)
 }
 
 func remoteRevisionChanged(oldRevision, newRevision *string) bool {
@@ -433,16 +433,6 @@ func firstInt64(values ...*int64) *int64 {
 	for _, value := range values {
 		if value != nil {
 			next := *value
-			return &next
-		}
-	}
-	return nil
-}
-
-func firstString(values ...*string) *string {
-	for _, value := range values {
-		if value != nil && strings.TrimSpace(*value) != "" {
-			next := strings.TrimSpace(*value)
 			return &next
 		}
 	}

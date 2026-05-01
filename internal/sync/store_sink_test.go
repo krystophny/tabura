@@ -235,6 +235,43 @@ func TestStoreSinkReopensDismissedStateDriftOnNewRemoteRevision(t *testing.T) {
 	}
 }
 
+func TestStoreSinkUpdatesUnresolvedStateDriftOnNewRemoteRevision(t *testing.T) {
+	s := newTestStore(t)
+	sink := tabsync.NewStoreSink(s)
+
+	account, item := createSyncedTodoistItem(t, s, sink, "remote-open-redrift")
+
+	time.Sleep(1100 * time.Millisecond)
+	localState := store.ItemStateWaiting
+	if err := s.UpdateItem(item.ID, store.ItemUpdate{State: &localState}); err != nil {
+		t.Fatalf("UpdateItem(local overlay) error: %v", err)
+	}
+	upsertTodoistRemoteState(t, sink, account, "remote-open-redrift", "Closed upstream task", store.ItemStateDone, "2026-03-08T10:05:00Z")
+	firstDrifts := unresolvedDrifts(t, s)
+	if len(firstDrifts) != 1 {
+		t.Fatalf("first drift count = %d, want 1", len(firstDrifts))
+	}
+
+	upsertTodoistRemoteState(t, sink, account, "remote-open-redrift", "Deferred upstream task", store.ItemStateDeferred, "2026-03-08T10:10:00Z")
+	got, err := s.GetItem(item.ID)
+	if err != nil {
+		t.Fatalf("GetItem() error: %v", err)
+	}
+	if got.State != store.ItemStateWaiting {
+		t.Fatalf("local item state = %q, want waiting preserved", got.State)
+	}
+	secondDrifts := unresolvedDrifts(t, s)
+	if len(secondDrifts) != 1 {
+		t.Fatalf("second drift count = %d, want 1", len(secondDrifts))
+	}
+	if secondDrifts[0].ID != firstDrifts[0].ID {
+		t.Fatalf("second drift ID = %d, want existing drift %d", secondDrifts[0].ID, firstDrifts[0].ID)
+	}
+	if secondDrifts[0].LocalState != store.ItemStateWaiting || secondDrifts[0].UpstreamState != store.ItemStateDeferred {
+		t.Fatalf("drift states = local %q upstream %q, want waiting/deferred", secondDrifts[0].LocalState, secondDrifts[0].UpstreamState)
+	}
+}
+
 func createSyncedTodoistItem(t *testing.T, s *store.Store, sink *tabsync.StoreSink, remoteID string) (store.ExternalAccount, store.Item) {
 	t.Helper()
 	account, err := s.CreateExternalAccount(store.SphereWork, store.ExternalProviderTodoist, "todo", map[string]any{})
