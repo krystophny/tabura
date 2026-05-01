@@ -298,8 +298,23 @@ func (s *Store) ResolveExternalBindingDrift(id int64, action string) (ExternalBi
 			return ExternalBindingDrift{}, err
 		}
 	}
+	return s.markExternalBindingDriftResolved(id, cleanAction)
+}
+
+func (s *Store) MarkExternalBindingDriftReingested(id int64) (ExternalBindingDrift, error) {
+	drift, err := s.GetExternalBindingDrift(id)
+	if err != nil {
+		return ExternalBindingDrift{}, err
+	}
+	if drift.ResolvedAt != nil {
+		return drift, nil
+	}
+	return s.markExternalBindingDriftResolved(id, ExternalBindingDriftActionReingest)
+}
+
+func (s *Store) markExternalBindingDriftResolved(id int64, resolution string) (ExternalBindingDrift, error) {
 	now := time.Now().UTC().Format(time.RFC3339Nano)
-	if _, err := s.db.Exec(`UPDATE external_binding_drifts SET resolved_at = ?, resolution = ? WHERE id = ?`, now, cleanAction, id); err != nil {
+	if _, err := s.db.Exec(`UPDATE external_binding_drifts SET resolved_at = ?, resolution = ? WHERE id = ?`, now, resolution, id); err != nil {
 		return ExternalBindingDrift{}, err
 	}
 	return s.GetExternalBindingDrift(id)
@@ -328,12 +343,10 @@ func normalizeExternalBindingDriftAction(raw string) (string, error) {
 		return ExternalBindingDriftActionKeepLocal, nil
 	case ExternalBindingDriftActionTakeUpstream:
 		return ExternalBindingDriftActionTakeUpstream, nil
-	case ExternalBindingDriftActionReingest:
-		return ExternalBindingDriftActionReingest, nil
 	case ExternalBindingDriftActionDismiss:
 		return ExternalBindingDriftActionDismiss, nil
 	default:
-		return "", errors.New("action must be keep_local, take_upstream, reingest_source, or dismiss")
+		return "", errors.New("action must be keep_local, take_upstream, or dismiss")
 	}
 }
 

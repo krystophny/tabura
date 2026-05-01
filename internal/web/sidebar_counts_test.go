@@ -1,20 +1,17 @@
 package web
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 	"testing"
 	"time"
 
+	"github.com/sloppy-org/slopshell/internal/email"
+	"github.com/sloppy-org/slopshell/internal/providerdata"
 	"github.com/sloppy-org/slopshell/internal/store"
 )
 
-// The compact sidebar (issue #746) renders Workspace pin, item queues, and a
-// secondary expandable section that surfaces project-item, people,
-// drift-review, dedup-review, and recent-meeting counts as filters. The counts
-// API must include both the per-state map and a `sections` payload so the
-// frontend can render those filters without confusing project items with
-// Workspaces.
 func TestItemCountsExposesSidebarSectionCountsAlongsidePerStateCounts(t *testing.T) {
 	app := newAuthedTestApp(t)
 
@@ -191,7 +188,7 @@ func TestItemReviewDriftQueueAndActions(t *testing.T) {
 }
 
 func TestItemDriftActionsResolveQueueEntries(t *testing.T) {
-	for _, action := range []string{"keep_local", "reingest_source", "dismiss"} {
+	for _, action := range []string{"keep_local", "dismiss"} {
 		t.Run(action, func(t *testing.T) {
 			app := newAuthedTestApp(t)
 			drift := seedDriftReviewFixture(t, app)
@@ -208,6 +205,81 @@ func TestItemDriftActionsResolveQueueEntries(t *testing.T) {
 				t.Fatalf("unresolved drift count after %s = %d, want 0", action, len(drifts))
 			}
 		})
+	}
+}
+
+func TestItemDriftReingestRefreshesSourceBeforeResolving(t *testing.T) {
+	app := newAuthedTestApp(t)
+	account, err := app.store.CreateExternalAccount(store.SphereWork, store.ExternalProviderGmail, "Gmail", nil)
+	if err != nil {
+		t.Fatalf("CreateExternalAccount() error: %v", err)
+	}
+	local, err := app.store.CreateItem("Local overlay", store.ItemOptions{State: store.ItemStateWaiting})
+	if err != nil {
+		t.Fatalf("CreateItem(local) error: %v", err)
+	}
+	remoteAt := "2026-03-08T10:05:00Z"
+	binding, err := app.store.UpsertExternalBinding(store.ExternalBinding{
+		AccountID:       account.ID,
+		Provider:        account.Provider,
+		ObjectType:      emailBindingObjectType,
+		RemoteID:        "gmail-drift",
+		ItemID:          &local.ID,
+		RemoteUpdatedAt: &remoteAt,
+	})
+	if err != nil {
+		t.Fatalf("UpsertExternalBinding() error: %v", err)
+	}
+	upstream := local
+	upstream.Title = "Remote refreshed"
+	upstream.State = store.ItemStateInbox
+	drift, err := app.store.RecordExternalBindingDrift(binding, local, upstream)
+	if err != nil {
+		t.Fatalf("RecordExternalBindingDrift() error: %v", err)
+	}
+	provider := &fakeEmailSyncProvider{
+		listFunc: func(opts email.SearchOptions) ([]string, error) {
+			if opts.Folder == "INBOX" || !opts.Since.IsZero() {
+				return []string{"gmail-drift"}, nil
+			}
+			return nil, nil
+		},
+		messages: map[string]*providerdata.EmailMessage{
+			"gmail-drift": {
+				ID:         "gmail-drift",
+				ThreadID:   "thread-gmail-drift",
+				Subject:    "Remote refreshed",
+				Sender:     "Source <source@example.com>",
+				Recipients: []string{"me@example.com"},
+				Date:       time.Date(2026, time.March, 8, 10, 5, 0, 0, time.UTC),
+				Labels:     []string{"INBOX"},
+			},
+		},
+	}
+	app.newEmailSyncProvider = func(context.Context, store.ExternalAccount) (emailSyncProvider, error) {
+		return provider, nil
+	}
+
+	rr := doAuthedJSONRequest(t, app.Router(), http.MethodPost, "/api/items/drift/"+strconv.FormatInt(drift.ID, 10)+"/reingest_source", nil)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("reingest status = %d, want 200: %s", rr.Code, rr.Body.String())
+	}
+	item, err := app.store.GetItem(local.ID)
+	if err != nil {
+		t.Fatalf("GetItem() error: %v", err)
+	}
+	if item.Title != "Remote refreshed" || item.State != store.ItemStateInbox {
+		t.Fatalf("item after reingest = title %q state %q, want refreshed inbox", item.Title, item.State)
+	}
+	drifts, err := app.store.ListUnresolvedExternalBindingDrifts(store.ItemListFilter{})
+	if err != nil {
+		t.Fatalf("ListUnresolvedExternalBindingDrifts() error: %v", err)
+	}
+	if len(drifts) != 0 {
+		t.Fatalf("unresolved drift count after reingest = %d, want 0", len(drifts))
+	}
+	if len(provider.listCalls) == 0 {
+		t.Fatal("reingest_source did not call the source provider")
 	}
 }
 
