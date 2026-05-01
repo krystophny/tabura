@@ -9,7 +9,7 @@ const loadItemSidebarView = (...args) => refs.loadItemSidebarView(...args);
 const isEmailSidebarItem = (...args) => refs.isEmailSidebarItem(...args);
 const defaultItemSidebarLaterVisibleAfter = (...args) => refs.defaultItemSidebarLaterVisibleAfter(...args);
 
-const ITEM_SIDEBAR_GESTURE_UNDO_TIMEOUT_MS = 6000;
+const ITEM_SIDEBAR_GESTURE_UNDO_TIMEOUT_MS = 5000;
 
 // performItemSidebarGesture executes a swipe gesture against the
 // /api/items/{id}/gesture endpoint and stages an undo affordance for the user.
