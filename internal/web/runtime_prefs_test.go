@@ -75,6 +75,9 @@ func TestRuntimeYoloModeUpdatePersists(t *testing.T) {
 	if got := strFromAny(setPayload["execution_policy"]); got != executionPolicyAutonomous {
 		t.Fatalf("execution_policy = %q, want %q", got, executionPolicyAutonomous)
 	}
+	if got := boolFromAny(setPayload["safety_yolo_mode"]); !got {
+		t.Fatalf("safety_yolo_mode = %v, want true", got)
+	}
 	rr := doAuthedJSONRequest(t, app.Router(), http.MethodGet, "/api/runtime", nil)
 	if rr.Code != http.StatusOK {
 		t.Fatalf("runtime status=%d body=%s", rr.Code, rr.Body.String())

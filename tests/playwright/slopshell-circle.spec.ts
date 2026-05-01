@@ -10,8 +10,7 @@ async function getLog(page: Page) {
   return page.evaluate(() => (window as any).__harnessLog.slice());
 }
 
-async function waitReady(page: Page) {
-  await page.goto('/tests/playwright/harness.html');
+async function waitForAppReady(page: Page) {
   await page.waitForFunction(() => {
     const app = (window as any)._slopshellApp;
     if (typeof app?.getState !== 'function') return false;
@@ -19,6 +18,11 @@ async function waitReady(page: Page) {
     return s.chatWs && s.chatWs.readyState === (window as any).WebSocket.OPEN;
   }, null, { timeout: 5_000 });
   await page.waitForTimeout(200);
+}
+
+async function waitReady(page: Page) {
+  await page.goto('/tests/playwright/harness.html');
+  await waitForAppReady(page);
 }
 
 async function switchToTestProject(page: Page) {
@@ -137,6 +141,40 @@ test('fast stays orthogonal and surfaces LOCAL plus FAST in runtime summary', as
   expect(log.some((entry: any) => entry?.type === 'api_fetch'
     && entry?.action === 'runtime_preferences'
     && entry?.payload?.fast_mode === true)).toBe(true);
+});
+
+test('yolo and silent toggles update runtime summary and survive reload', async ({ page }) => {
+  await clearLog(page);
+
+  await page.evaluate(async () => {
+    const mod = await import('/internal/web/static/app-tts.js');
+    await mod.setYoloMode(true);
+  });
+  await expect(page.locator('#edge-top-models .edge-runtime-chip')).toContainText(['LOCAL', 'YOLO', 'Voice']);
+
+  await openCircle(page);
+  await clickSegment(page, 'silent');
+  await expect(page.locator('#slopshell-circle-segment-silent')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('body')).toHaveClass(/silent-mode/);
+  await expect(page.locator('#edge-top-models .edge-runtime-chip')).toContainText(['LOCAL', 'YOLO', 'Silent']);
+
+  const log = await getLog(page);
+  expect(log.some((entry: any) => entry?.type === 'api_fetch'
+    && entry?.action === 'runtime_yolo'
+    && entry?.payload?.safety_yolo_mode === true)).toBe(true);
+  expect(log.some((entry: any) => entry?.type === 'api_fetch'
+    && entry?.action === 'runtime_preferences'
+    && entry?.payload?.silent_mode === true)).toBe(true);
+
+  await page.reload();
+  await waitForAppReady(page);
+  await switchToTestProject(page);
+
+  await expect(page.locator('#edge-top-models .edge-runtime-chip')).toContainText(['LOCAL', 'YOLO', 'Silent']);
+  await expect(page.locator('#slopshell-circle-segment-silent')).toHaveAttribute('aria-pressed', 'true');
+  const persisted = await page.evaluate(() => (window as any).__getRuntimeState?.());
+  expect(persisted?.safety_yolo_mode).toBe(true);
+  expect(persisted?.silent_mode).toBe(true);
 });
 
 test('corner placement persists across reloads', async ({ page }) => {
