@@ -826,7 +826,7 @@ export function bindUi() {
     if (ev.key.length === 1 && !isTextInputVisible()) {
       const edgeR = document.getElementById('edge-right');
       const cpInput = document.getElementById('chat-pane-input');
-      const chatPaneOpen = edgeR && (edgeR.classList.contains('edge-active') || edgeR.classList.contains('edge-pinned'));
+      const chatPaneOpen = edgeR && edgeR.classList.contains('edge-pinned');
       if (chatPaneOpen && cpInput instanceof HTMLTextAreaElement && !window.matchMedia('(max-width: 767px)').matches) {
         cancelLiveSessionListen();
         cpInput.focus();

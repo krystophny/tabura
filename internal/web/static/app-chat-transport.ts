@@ -743,7 +743,7 @@ export function handleChatEvent(payload) {
       if (state.canvasActionThisTurn) {
         // LLM touched the canvas this turn — keep showing the document.
         const edgeRight = document.getElementById('edge-right');
-        if (edgeRight) edgeRight.classList.remove('edge-active', 'edge-pinned');
+        if (edgeRight) edgeRight.classList.remove('edge-pinned');
       }
       hideOverlay();
       state.canvasActionThisTurn = false;

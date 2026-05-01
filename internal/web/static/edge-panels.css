@@ -57,7 +57,6 @@ body.black-screen .edge-left-tap:active {
   border-left: 1px solid var(--border);
 }
 
-.edge-right.edge-active,
 .edge-right.edge-pinned {
   transform: translateX(0);
   pointer-events: auto;
@@ -175,7 +174,6 @@ body.panel-motion-enabled {
   transform: translateY(-100%);
 }
 
-.edge-top.edge-active,
 .edge-top.edge-pinned {
   transform: translateY(0);
   z-index: 440;

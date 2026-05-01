@@ -740,7 +740,7 @@ export function openComposerAt(x, y, anchor = null, initialText = '') {
     const input = document.getElementById('chat-pane-input');
     setInputAnchor(anchor);
     if (edgeRight instanceof HTMLElement) {
-      edgeRight.classList.add('edge-active', 'edge-pinned');
+      edgeRight.classList.add('edge-pinned');
     }
     if (input instanceof HTMLTextAreaElement) {
       input.focus();

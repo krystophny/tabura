@@ -103,7 +103,7 @@ export function applyCanvasArtifactEvent(payload) {
   state.canvasActionThisTurn = state.canvasActionThisTurn || realArtifact;
   if (isMobileSilent() && realArtifact) {
     const edgeRight = document.getElementById('edge-right');
-    if (edgeRight) edgeRight.classList.remove('edge-active', 'edge-pinned');
+    if (edgeRight) edgeRight.classList.remove('edge-pinned');
   }
 }
 
