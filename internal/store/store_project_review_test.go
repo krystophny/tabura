@@ -1,8 +1,18 @@
 package store
 
-import (
-	"testing"
-)
+import "testing"
+
+type projectReviewSpec struct {
+	title          string
+	childState     string
+	role           string
+	wantNextAction bool
+	wantWaiting    bool
+	wantDeferred   bool
+	wantSomeday    bool
+	wantStalled    bool
+	wantTotal      int
+}
 
 // TestListProjectItemReviewsCoversAllHealthStates exercises the five GTD
 // project-item shapes the issue calls out: a project item with a next action,
@@ -23,45 +33,8 @@ func TestListProjectItemReviewsCoversAllHealthStates(t *testing.T) {
 		t.Fatalf("CreateItem(done project) error: %v", err)
 	}
 
-	specs := []struct {
-		title         string
-		childState    string
-		role          string
-		wantNextAction bool
-		wantWaiting   bool
-		wantDeferred  bool
-		wantSomeday   bool
-		wantStalled   bool
-		wantTotal     int
-	}{
-		{title: "Outcome with next action", childState: ItemStateNext, role: ItemLinkRoleNextAction, wantNextAction: true, wantTotal: 1},
-		{title: "Outcome waiting only", childState: ItemStateWaiting, role: ItemLinkRoleSupport, wantWaiting: true, wantTotal: 1},
-		{title: "Outcome deferred only", childState: ItemStateDeferred, role: ItemLinkRoleBlockedBy, wantDeferred: true, wantTotal: 1},
-		{title: "Outcome someday only", childState: ItemStateSomeday, role: ItemLinkRoleSupport, wantSomeday: true, wantTotal: 1},
-		{title: "Outcome stalled", childState: "", wantStalled: true, wantTotal: 0},
-	}
-
-	parents := make(map[string]int64, len(specs))
-	for _, spec := range specs {
-		parent, err := s.CreateItem(spec.title, ItemOptions{
-			Kind:  ItemKindProject,
-			State: ItemStateNext,
-		})
-		if err != nil {
-			t.Fatalf("CreateItem(%q) error: %v", spec.title, err)
-		}
-		parents[spec.title] = parent.ID
-		if spec.childState == "" {
-			continue
-		}
-		child, err := s.CreateItem(spec.title+" child", ItemOptions{State: spec.childState})
-		if err != nil {
-			t.Fatalf("CreateItem(%q child) error: %v", spec.title, err)
-		}
-		if err := s.LinkItemChild(parent.ID, child.ID, spec.role); err != nil {
-			t.Fatalf("LinkItemChild(%q) error: %v", spec.title, err)
-		}
-	}
+	specs := projectReviewHealthSpecs()
+	parents := seedProjectReviewSpecs(t, s, specs)
 
 	// A done child must count toward Total but never restore health: it is
 	// closed work, not an open loop. Add one to the stalled outcome to prove
@@ -86,6 +59,47 @@ func TestListProjectItemReviewsCoversAllHealthStates(t *testing.T) {
 		t.Fatalf("review[0] stalled = false, want true (stalled outcomes must lead the weekly review traversal)")
 	}
 
+	assertProjectReviewHealthSpecs(t, reviews, specs)
+}
+
+func projectReviewHealthSpecs() []projectReviewSpec {
+	return []projectReviewSpec{
+		{title: "Outcome with next action", childState: ItemStateNext, role: ItemLinkRoleNextAction, wantNextAction: true, wantTotal: 1},
+		{title: "Outcome waiting only", childState: ItemStateWaiting, role: ItemLinkRoleSupport, wantWaiting: true, wantTotal: 1},
+		{title: "Outcome deferred only", childState: ItemStateDeferred, role: ItemLinkRoleBlockedBy, wantDeferred: true, wantTotal: 1},
+		{title: "Outcome someday only", childState: ItemStateSomeday, role: ItemLinkRoleSupport, wantSomeday: true, wantTotal: 1},
+		{title: "Outcome stalled", wantStalled: true},
+	}
+}
+
+func seedProjectReviewSpecs(t *testing.T, s *Store, specs []projectReviewSpec) map[string]int64 {
+	t.Helper()
+	parents := make(map[string]int64, len(specs))
+	for _, spec := range specs {
+		parent, err := s.CreateItem(spec.title, ItemOptions{
+			Kind:  ItemKindProject,
+			State: ItemStateNext,
+		})
+		if err != nil {
+			t.Fatalf("CreateItem(%q) error: %v", spec.title, err)
+		}
+		parents[spec.title] = parent.ID
+		if spec.childState == "" {
+			continue
+		}
+		child, err := s.CreateItem(spec.title+" child", ItemOptions{State: spec.childState})
+		if err != nil {
+			t.Fatalf("CreateItem(%q child) error: %v", spec.title, err)
+		}
+		if err := s.LinkItemChild(parent.ID, child.ID, spec.role); err != nil {
+			t.Fatalf("LinkItemChild(%q) error: %v", spec.title, err)
+		}
+	}
+	return parents
+}
+
+func assertProjectReviewHealthSpecs(t *testing.T, reviews []ProjectItemReview, specs []projectReviewSpec) {
+	t.Helper()
 	byTitle := make(map[string]ProjectItemReview, len(reviews))
 	for _, review := range reviews {
 		if review.Item.Kind != ItemKindProject {
@@ -97,53 +111,65 @@ func TestListProjectItemReviewsCoversAllHealthStates(t *testing.T) {
 		byTitle[review.Item.Title] = review
 	}
 	for _, spec := range specs {
-		got, ok := byTitle[spec.title]
-		if !ok {
-			t.Fatalf("review missing %q; titles=%v", spec.title, mapKeys(byTitle))
+		assertProjectReviewHealthSpec(t, byTitle, spec)
+	}
+}
+
+func assertProjectReviewHealthSpec(t *testing.T, reviews map[string]ProjectItemReview, spec projectReviewSpec) {
+	t.Helper()
+	got, ok := reviews[spec.title]
+	if !ok {
+		t.Fatalf("review missing %q; titles=%v", spec.title, mapKeys(reviews))
+	}
+	if got.Health.HasNextAction != spec.wantNextAction {
+		t.Fatalf("%q HasNextAction = %t, want %t", spec.title, got.Health.HasNextAction, spec.wantNextAction)
+	}
+	if got.Health.HasWaiting != spec.wantWaiting {
+		t.Fatalf("%q HasWaiting = %t, want %t", spec.title, got.Health.HasWaiting, spec.wantWaiting)
+	}
+	if got.Health.HasDeferred != spec.wantDeferred {
+		t.Fatalf("%q HasDeferred = %t, want %t", spec.title, got.Health.HasDeferred, spec.wantDeferred)
+	}
+	if got.Health.HasSomeday != spec.wantSomeday {
+		t.Fatalf("%q HasSomeday = %t, want %t", spec.title, got.Health.HasSomeday, spec.wantSomeday)
+	}
+	if got.Health.Stalled != spec.wantStalled {
+		t.Fatalf("%q Stalled = %t, want %t", spec.title, got.Health.Stalled, spec.wantStalled)
+	}
+	assertProjectReviewChildCounts(t, got, spec)
+}
+
+func assertProjectReviewChildCounts(t *testing.T, got ProjectItemReview, spec projectReviewSpec) {
+	t.Helper()
+	switch spec.childState {
+	case ItemStateNext:
+		if got.Children.Next != 1 {
+			t.Fatalf("%q child Next count = %d, want 1", spec.title, got.Children.Next)
 		}
-		if got.Health.HasNextAction != spec.wantNextAction {
-			t.Fatalf("%q HasNextAction = %t, want %t", spec.title, got.Health.HasNextAction, spec.wantNextAction)
+	case ItemStateWaiting:
+		if got.Children.Waiting != 1 {
+			t.Fatalf("%q child Waiting count = %d, want 1", spec.title, got.Children.Waiting)
 		}
-		if got.Health.HasWaiting != spec.wantWaiting {
-			t.Fatalf("%q HasWaiting = %t, want %t", spec.title, got.Health.HasWaiting, spec.wantWaiting)
+	case ItemStateDeferred:
+		if got.Children.Deferred != 1 {
+			t.Fatalf("%q child Deferred count = %d, want 1", spec.title, got.Children.Deferred)
 		}
-		if got.Health.HasDeferred != spec.wantDeferred {
-			t.Fatalf("%q HasDeferred = %t, want %t", spec.title, got.Health.HasDeferred, spec.wantDeferred)
+	case ItemStateSomeday:
+		if got.Children.Someday != 1 {
+			t.Fatalf("%q child Someday count = %d, want 1", spec.title, got.Children.Someday)
 		}
-		if got.Health.HasSomeday != spec.wantSomeday {
-			t.Fatalf("%q HasSomeday = %t, want %t", spec.title, got.Health.HasSomeday, spec.wantSomeday)
+	}
+	if spec.title == "Outcome stalled" {
+		if got.Children.Done != 1 {
+			t.Fatalf("stalled outcome child Done count = %d, want 1", got.Children.Done)
 		}
-		if got.Health.Stalled != spec.wantStalled {
-			t.Fatalf("%q Stalled = %t, want %t", spec.title, got.Health.Stalled, spec.wantStalled)
+		if got.Children.Total != 1 {
+			t.Fatalf("stalled outcome child Total = %d, want 1 (done child counts toward Total)", got.Children.Total)
 		}
-		switch spec.childState {
-		case ItemStateNext:
-			if got.Children.Next != 1 {
-				t.Fatalf("%q child Next count = %d, want 1", spec.title, got.Children.Next)
-			}
-		case ItemStateWaiting:
-			if got.Children.Waiting != 1 {
-				t.Fatalf("%q child Waiting count = %d, want 1", spec.title, got.Children.Waiting)
-			}
-		case ItemStateDeferred:
-			if got.Children.Deferred != 1 {
-				t.Fatalf("%q child Deferred count = %d, want 1", spec.title, got.Children.Deferred)
-			}
-		case ItemStateSomeday:
-			if got.Children.Someday != 1 {
-				t.Fatalf("%q child Someday count = %d, want 1", spec.title, got.Children.Someday)
-			}
-		}
-		if spec.title == "Outcome stalled" {
-			if got.Children.Done != 1 {
-				t.Fatalf("stalled outcome child Done count = %d, want 1", got.Children.Done)
-			}
-			if got.Children.Total != 1 {
-				t.Fatalf("stalled outcome child Total = %d, want 1 (done child counts toward Total)", got.Children.Total)
-			}
-		} else if got.Children.Total != spec.wantTotal {
-			t.Fatalf("%q child Total = %d, want %d", spec.title, got.Children.Total, spec.wantTotal)
-		}
+		return
+	}
+	if got.Children.Total != spec.wantTotal {
+		t.Fatalf("%q child Total = %d, want %d", spec.title, got.Children.Total, spec.wantTotal)
 	}
 }
 

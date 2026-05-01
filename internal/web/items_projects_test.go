@@ -8,46 +8,18 @@ import (
 	"github.com/sloppy-org/slopshell/internal/store"
 )
 
-// TestItemProjectReviewListsActiveOutcomesWithHealth exercises every shape the
-// composite-outcome review must report on: a project item with a next action
-// (healthy), a waiting-only project item, a deferred-only project item, a
-// someday-only project item, and a stalled project item with no actionable
-// child. The endpoint must surface all five with correct health flags and
-// must keep done outcomes out.
+type itemProjectReviewSpec struct {
+	title      string
+	childState string
+	role       string
+	wantHealth map[string]bool
+}
+
 func TestItemProjectReviewListsActiveOutcomesWithHealth(t *testing.T) {
 	app := newAuthedTestApp(t)
 
-	specs := []struct {
-		title       string
-		childState  string
-		role        string
-		wantStalled bool
-	}{
-		{title: "Outcome with next action", childState: store.ItemStateNext, role: store.ItemLinkRoleNextAction},
-		{title: "Outcome waiting only", childState: store.ItemStateWaiting, role: store.ItemLinkRoleSupport},
-		{title: "Outcome deferred only", childState: store.ItemStateDeferred, role: store.ItemLinkRoleBlockedBy},
-		{title: "Outcome someday only", childState: store.ItemStateSomeday, role: store.ItemLinkRoleSupport},
-		{title: "Outcome stalled", childState: "", wantStalled: true},
-	}
-	for _, spec := range specs {
-		parent, err := app.store.CreateItem(spec.title, store.ItemOptions{
-			Kind:  store.ItemKindProject,
-			State: store.ItemStateNext,
-		})
-		if err != nil {
-			t.Fatalf("CreateItem(%q) error: %v", spec.title, err)
-		}
-		if spec.childState == "" {
-			continue
-		}
-		child, err := app.store.CreateItem(spec.title+" child", store.ItemOptions{State: spec.childState})
-		if err != nil {
-			t.Fatalf("CreateItem(child %q) error: %v", spec.title, err)
-		}
-		if err := app.store.LinkItemChild(parent.ID, child.ID, spec.role); err != nil {
-			t.Fatalf("LinkItemChild(%q) error: %v", spec.title, err)
-		}
-	}
+	specs := itemProjectReviewHealthSpecs()
+	seedItemProjectReviewSpecs(t, app, specs)
 	if _, err := app.store.CreateItem("Closed outcome", store.ItemOptions{
 		Kind:  store.ItemKindProject,
 		State: store.ItemStateDone,
@@ -81,6 +53,67 @@ func TestItemProjectReviewListsActiveOutcomesWithHealth(t *testing.T) {
 		t.Fatalf("first row stalled = %v, want true", firstHealth["stalled"])
 	}
 
+	assertItemProjectReviewHealthSpecs(t, rows, specs)
+}
+
+func itemProjectReviewHealthSpecs() []itemProjectReviewSpec {
+	return []itemProjectReviewSpec{
+		{
+			title:      "Outcome with next action",
+			childState: store.ItemStateNext,
+			role:       store.ItemLinkRoleNextAction,
+			wantHealth: map[string]bool{"has_next_action": true},
+		},
+		{
+			title:      "Outcome waiting only",
+			childState: store.ItemStateWaiting,
+			role:       store.ItemLinkRoleSupport,
+			wantHealth: map[string]bool{"has_waiting": true},
+		},
+		{
+			title:      "Outcome deferred only",
+			childState: store.ItemStateDeferred,
+			role:       store.ItemLinkRoleBlockedBy,
+			wantHealth: map[string]bool{"has_deferred": true},
+		},
+		{
+			title:      "Outcome someday only",
+			childState: store.ItemStateSomeday,
+			role:       store.ItemLinkRoleSupport,
+			wantHealth: map[string]bool{"has_someday": true},
+		},
+		{
+			title:      "Outcome stalled",
+			wantHealth: map[string]bool{"stalled": true},
+		},
+	}
+}
+
+func seedItemProjectReviewSpecs(t *testing.T, app *App, specs []itemProjectReviewSpec) {
+	t.Helper()
+	for _, spec := range specs {
+		parent, err := app.store.CreateItem(spec.title, store.ItemOptions{
+			Kind:  store.ItemKindProject,
+			State: store.ItemStateNext,
+		})
+		if err != nil {
+			t.Fatalf("CreateItem(%q) error: %v", spec.title, err)
+		}
+		if spec.childState == "" {
+			continue
+		}
+		child, err := app.store.CreateItem(spec.title+" child", store.ItemOptions{State: spec.childState})
+		if err != nil {
+			t.Fatalf("CreateItem(child %q) error: %v", spec.title, err)
+		}
+		if err := app.store.LinkItemChild(parent.ID, child.ID, spec.role); err != nil {
+			t.Fatalf("LinkItemChild(%q) error: %v", spec.title, err)
+		}
+	}
+}
+
+func assertItemProjectReviewHealthSpecs(t *testing.T, rows []any, specs []itemProjectReviewSpec) {
+	t.Helper()
 	healthByTitle := make(map[string]map[string]any, len(rows))
 	for _, raw := range rows {
 		row := raw.(map[string]any)
@@ -93,34 +126,16 @@ func TestItemProjectReviewListsActiveOutcomesWithHealth(t *testing.T) {
 		}
 		healthByTitle[item["title"].(string)] = row["health"].(map[string]any)
 	}
-	healthExpect := map[string]struct {
-		hasNext, hasWaiting, hasDeferred, hasSomeday, stalled bool
-	}{
-		"Outcome with next action": {hasNext: true},
-		"Outcome waiting only":     {hasWaiting: true},
-		"Outcome deferred only":    {hasDeferred: true},
-		"Outcome someday only":     {hasSomeday: true},
-		"Outcome stalled":          {stalled: true},
-	}
-	for title, expect := range healthExpect {
-		got, ok := healthByTitle[title]
+	for _, spec := range specs {
+		got, ok := healthByTitle[spec.title]
 		if !ok {
-			t.Fatalf("review missing %q", title)
+			t.Fatalf("review missing %q", spec.title)
 		}
-		if got["has_next_action"].(bool) != expect.hasNext {
-			t.Fatalf("%q has_next_action = %v, want %v", title, got["has_next_action"], expect.hasNext)
-		}
-		if got["has_waiting"].(bool) != expect.hasWaiting {
-			t.Fatalf("%q has_waiting = %v, want %v", title, got["has_waiting"], expect.hasWaiting)
-		}
-		if got["has_deferred"].(bool) != expect.hasDeferred {
-			t.Fatalf("%q has_deferred = %v, want %v", title, got["has_deferred"], expect.hasDeferred)
-		}
-		if got["has_someday"].(bool) != expect.hasSomeday {
-			t.Fatalf("%q has_someday = %v, want %v", title, got["has_someday"], expect.hasSomeday)
-		}
-		if got["stalled"].(bool) != expect.stalled {
-			t.Fatalf("%q stalled = %v, want %v", title, got["stalled"], expect.stalled)
+		for _, field := range []string{"has_next_action", "has_waiting", "has_deferred", "has_someday", "stalled"} {
+			want := spec.wantHealth[field]
+			if got[field].(bool) != want {
+				t.Fatalf("%q %s = %v, want %v", spec.title, field, got[field], want)
+			}
 		}
 	}
 }
