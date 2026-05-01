@@ -387,7 +387,7 @@ func TestHandleBugReportCreateSkipsIssueAutofilingForLowSignalBundle(t *testing.
 	}
 }
 
-func TestHandleBugReportCreateSkipsIssueAutofilingForReportButtonOnlyEvents(t *testing.T) {
+func TestHandleBugReportCreateSkipsIssueAutofilingForReportButtonOnlyEventsWithDefaultDialogueDiagnostics(t *testing.T) {
 	app := newAuthedTestApp(t)
 	workspaceDir := t.TempDir()
 	workspace, err := app.store.CreateWorkspace("default", workspaceDir, store.SpherePrivate)
@@ -410,6 +410,16 @@ func TestHandleBugReportCreateSkipsIssueAutofilingForReportButtonOnlyEvents(t *t
 		"recent_events": []string{
 			"2026-03-21T16:47:35Z pointer mouse at (1420,18)",
 			"2026-03-21T16:47:35Z bug report button",
+		},
+		"dialogue_diagnostics": map[string]any{
+			"connected":          false,
+			"sessionId":          "",
+			"profile":            "balanced",
+			"evalLoggingEnabled": true,
+			"readyAt":            0,
+			"lastAction":         nil,
+			"lastMetrics":        nil,
+			"recentEvents":       []any{},
 		},
 		"screenshot_data_url": testPNGDataURL,
 	})

@@ -553,7 +553,6 @@ func bugReportHasActionableSummary(bundle bugReportBundle) bool {
 		bugReportActionableRecentEventSummary(bundle.RecentEvents),
 		bugReportCanvasArtifactTitle(bundle.CanvasState),
 		bugReportStructuredInteraction(bundle.CanvasState),
-		bugReportJSON(bundle.DialogueDiagnostics),
 		bugReportJSON(bundle.MeetingDiagnostics),
 	} {
 		if strings.TrimSpace(candidate) != "" {
