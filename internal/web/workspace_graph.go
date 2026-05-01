@@ -28,10 +28,6 @@ func parseWorkspaceGraphFilter(r *http.Request, workspace store.Workspace) works
 	return filter
 }
 
-func buildWorkspaceLocalGraph(a *App, workspace store.Workspace, sourceRaw string, filter workspaceGraphFilter) workspaceLocalGraph {
-	return buildWorkspaceLocalGraphForRequest(a, workspace, workspaceGraphRequest{SourcePath: sourceRaw}, filter)
-}
-
 func buildWorkspaceLocalGraphForRequest(a *App, workspace store.Workspace, req workspaceGraphRequest, filter workspaceGraphFilter) workspaceLocalGraph {
 	root, err := resolveWorkspaceGraphRoot(a, workspace, req)
 	if err != nil {
