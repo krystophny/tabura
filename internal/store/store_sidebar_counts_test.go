@@ -313,51 +313,40 @@ func TestReviewQueueIncludesDueWaitingItemsAndStalledProjectItems(t *testing.T) 
 	}
 }
 
-func TestCountSidebarSectionsFilteredCountsDuplicateSourcePairs(t *testing.T) {
+func TestCountSidebarSectionsFilteredCountsDedupCandidates(t *testing.T) {
 	s := newTestStore(t)
 
-	source := "github"
-	ref := "krystophny/repo#42"
-	if _, err := s.CreateItem("Dup A", ItemOptions{
-		State:     ItemStateNext,
-		Source:    &source,
-		SourceRef: &ref,
-	}); err != nil {
+	first, err := s.CreateItem("Dup A", ItemOptions{State: ItemStateNext})
+	if err != nil {
 		t.Fatalf("CreateItem(dup A) error: %v", err)
 	}
-	if _, err := s.CreateItem("Dup B", ItemOptions{
-		State:     ItemStateInbox,
-		Source:    &source,
-		SourceRef: &ref,
-	}); err != nil {
+	second, err := s.CreateItem("Dup B", ItemOptions{State: ItemStateInbox})
+	if err != nil {
 		t.Fatalf("CreateItem(dup B) error: %v", err)
 	}
-	uniqueRef := "krystophny/repo#1"
-	if _, err := s.CreateItem("Unique source/ref", ItemOptions{
-		State:     ItemStateNext,
-		Source:    &source,
-		SourceRef: &uniqueRef,
-	}); err != nil {
-		t.Fatalf("CreateItem(unique) error: %v", err)
+	resolvedA, err := s.CreateItem("Resolved A", ItemOptions{State: ItemStateNext})
+	if err != nil {
+		t.Fatalf("CreateItem(resolved A) error: %v", err)
 	}
-	if _, err := s.CreateItem("No source", ItemOptions{State: ItemStateNext}); err != nil {
-		t.Fatalf("CreateItem(no source) error: %v", err)
+	resolvedB, err := s.CreateItem("Resolved B", ItemOptions{State: ItemStateNext})
+	if err != nil {
+		t.Fatalf("CreateItem(resolved B) error: %v", err)
 	}
-	// Done duplicates should not be counted as live dedup work.
-	doneRef := "krystophny/repo#9"
-	if _, err := s.CreateItem("Dup done A", ItemOptions{
-		State:     ItemStateDone,
-		Source:    &source,
-		SourceRef: &doneRef,
+	if _, err := s.CreateItemDedupCandidate(ItemDedupCandidateOptions{
+		Kind:  ItemKindAction,
+		Items: []ItemDedupCandidateItemInput{{ItemID: first.ID}, {ItemID: second.ID}},
 	}); err != nil {
-		t.Fatalf("CreateItem(done dup A) error: %v", err)
+		t.Fatalf("CreateItemDedupCandidate(open) error: %v", err)
 	}
-	if _, err := s.CreateItem("Dup done B", ItemOptions{
-		State:     ItemStateDone,
-		Source:    &source,
-		SourceRef: &doneRef,
-	}); err != nil {
-		t.Fatalf("CreateItem(done dup B) error: %v", err)
+	resolved, err := s.CreateItemDedupCandidate(ItemDedupCandidateOptions{
+		Kind:  ItemKindAction,
+		Items: []ItemDedupCandidateItemInput{{ItemID: resolvedA.ID}, {ItemID: resolvedB.ID}},
+	})
+	if err != nil {
+		t.Fatalf("CreateItemDedupCandidate(resolved) error: %v", err)
+	}
+	if _, err := s.ApplyItemDedupDecision(resolved.ID, ItemDedupActionKeepSeparate, nil); err != nil {
+		t.Fatalf("ApplyItemDedupDecision(keep_separate) error: %v", err)
 	}
 
 	now := time.Date(2026, time.April, 30, 10, 0, 0, 0, time.UTC)
@@ -365,8 +354,8 @@ func TestCountSidebarSectionsFilteredCountsDuplicateSourcePairs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CountSidebarSectionsFiltered() error: %v", err)
 	}
-	if got.DedupReview != 2 {
-		t.Fatalf("DedupReview = %d, want 2 (the two open rows sharing source/source_ref; done duplicates excluded)", got.DedupReview)
+	if got.DedupReview != 1 {
+		t.Fatalf("DedupReview = %d, want 1 open candidate group", got.DedupReview)
 	}
 }
 

@@ -43,8 +43,8 @@ func TestItemCountsExposesSidebarSectionCountsAlongsidePerStateCounts(t *testing
 	if got := int(sections["drift_review"].(float64)); got != 1 {
 		t.Fatalf("sections[drift_review] = %d, want 1 (unresolved external-binding drift)", got)
 	}
-	if got := int(sections["dedup_review"].(float64)); got != 2 {
-		t.Fatalf("sections[dedup_review] = %d, want 2 (the colliding source/source_ref pair)", got)
+	if got := int(sections["dedup_review"].(float64)); got != 1 {
+		t.Fatalf("sections[dedup_review] = %d, want 1 open dedup candidate group", got)
 	}
 	if got := int(sections["recent_meetings"].(float64)); got != 1 {
 		t.Fatalf("sections[recent_meetings] = %d, want 1", got)
@@ -95,21 +95,19 @@ func seedSidebarCountsFixture(t *testing.T, app *App) {
 
 	seedDriftReviewFixture(t, app)
 
-	source := "github"
-	dupRef := "krystophny/repo#42"
-	if _, err := app.store.CreateItem("Dup A", store.ItemOptions{
-		State:     store.ItemStateNext,
-		Source:    &source,
-		SourceRef: &dupRef,
-	}); err != nil {
+	dupA, err := app.store.CreateItem("Dup A", store.ItemOptions{State: store.ItemStateNext})
+	if err != nil {
 		t.Fatalf("CreateItem(dup A) error: %v", err)
 	}
-	if _, err := app.store.CreateItem("Dup B", store.ItemOptions{
-		State:     store.ItemStateInbox,
-		Source:    &source,
-		SourceRef: &dupRef,
-	}); err != nil {
+	dupB, err := app.store.CreateItem("Dup B", store.ItemOptions{State: store.ItemStateInbox})
+	if err != nil {
 		t.Fatalf("CreateItem(dup B) error: %v", err)
+	}
+	if _, err := app.store.CreateItemDedupCandidate(store.ItemDedupCandidateOptions{
+		Kind:  store.ItemKindAction,
+		Items: []store.ItemDedupCandidateItemInput{{ItemID: dupA.ID}, {ItemID: dupB.ID}},
+	}); err != nil {
+		t.Fatalf("CreateItemDedupCandidate() error: %v", err)
 	}
 
 	transcriptPath := "/tmp/transcript.md"

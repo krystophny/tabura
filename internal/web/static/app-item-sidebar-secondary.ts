@@ -19,7 +19,7 @@ const SIDEBAR_SECTION_DRILLDOWN: Record<string, { section: string; view: string 
   'project-items': { section: 'project_items', view: null },
   people: { section: 'people', view: 'waiting' },
   drift: { section: 'drift', view: 'review' },
-  dedup: { section: 'dedup', view: null },
+  dedup: { section: 'dedup', view: 'review' },
   'recent-meetings': { section: 'recent_meetings', view: 'review' },
 };
 
@@ -181,7 +181,7 @@ function sidebarSecondarySections() {
       label: 'Dedup',
       count: Number(sectionCounts.dedup_review || 0),
       sectionFilter: 'dedup',
-      title: 'Filter to open items whose (source, source_ref) collides with another row: duplicate review backlog.',
+      title: 'Review probable duplicate action and project-item groups before any merge.',
     },
     {
       id: 'recent-meetings',

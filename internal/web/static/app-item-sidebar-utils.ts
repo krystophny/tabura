@@ -129,6 +129,18 @@ export function itemSidebarCountsEndpoint(filters = state.itemSidebarFilters) {
   return appendItemSidebarFilterQuery(appendSphereQuery('items/counts', state.activeSphere, normalizedFilters.all_spheres), normalizedFilters);
 }
 
+export async function fetchItemSidebarDedupReview(filters = state.itemSidebarFilters) {
+  const normalizedFilters = normalizeItemSidebarFilters(filters);
+  const path = appendItemSidebarFilterQuery(appendSphereQuery('items/dedup', state.activeSphere, normalizedFilters.all_spheres), normalizedFilters);
+  const resp = await fetch(apiURL(path), { cache: 'no-store' });
+  if (!resp.ok) {
+    const detail = (await resp.text()).trim() || `HTTP ${resp.status}`;
+    throw new Error(detail);
+  }
+  const payload = await resp.json();
+  return Array.isArray(payload?.groups) ? payload.groups : [];
+}
+
 export function normalizeItemSidebarCounts(rawCounts) {
   const counts = defaultItemSidebarCounts();
   if (!rawCounts || typeof rawCounts !== 'object') return counts;

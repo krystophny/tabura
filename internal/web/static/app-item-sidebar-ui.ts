@@ -27,6 +27,10 @@ const itemSidebarCountsEndpoint = (...args) => refs.itemSidebarCountsEndpoint(..
 const fetchItemSidebarProjectItemReview = (...args) => refs.fetchItemSidebarProjectItemReview(...args);
 const fetchItemSidebarPeopleDashboard = (...args) => refs.fetchItemSidebarPeopleDashboard(...args);
 const fetchItemSidebarPersonDashboard = (...args) => refs.fetchItemSidebarPersonDashboard(...args);
+const fetchItemSidebarDedupReview = (...args) => refs.fetchItemSidebarDedupReview(...args);
+const isDedupCandidateGroup = (...args) => refs.isDedupCandidateGroup(...args);
+const dedupCandidateBadges = (...args) => refs.dedupCandidateBadges(...args);
+const renderDedupCandidateRow = (...args) => refs.renderDedupCandidateRow(...args);
 const openPersonOpenLoops = (...args) => refs.openPersonOpenLoops(...args);
 const openSidebarArtifactItem = (...args) => refs.openSidebarArtifactItem(...args);
 const isMobileViewport = (...args) => refs.isMobileViewport(...args);
@@ -147,6 +151,7 @@ export async function loadItemSidebarView(view = state.itemSidebarView, filters 
     const projectItemList = normalizedFilters.section === 'project_items';
     const peopleList = normalizedFilters.section === 'people' && !(Number(normalizedFilters.actor_id || 0) > 0);
     const personDetail = normalizedFilters.section === 'people' && Number(normalizedFilters.actor_id || 0) > 0;
+    const dedupList = normalizedFilters.section === 'dedup';
     const [itemsPayload, countsResp] = await Promise.all([
       projectItemList
         ? fetchItemSidebarProjectItemReview(normalizedFilters)
@@ -154,6 +159,8 @@ export async function loadItemSidebarView(view = state.itemSidebarView, filters 
           ? fetchItemSidebarPeopleDashboard(normalizedFilters)
           : personDetail
             ? fetchItemSidebarPersonDashboard(normalizedFilters.actor_id, normalizedFilters)
+            : dedupList
+              ? fetchItemSidebarDedupReview(normalizedFilters)
         : fetch(apiURL(itemSidebarEndpoint(normalizedView, normalizedFilters)), { cache: 'no-store' }),
       fetch(apiURL(itemSidebarCountsEndpoint(normalizedFilters)), { cache: 'no-store' }),
     ]);
@@ -162,19 +169,19 @@ export async function loadItemSidebarView(view = state.itemSidebarView, filters 
       throw new Error(detail);
     }
     const countsPayload = await countsResp.json();
-    const sidebarItems = projectItemList || peopleList
+    const sidebarItems = projectItemList || peopleList || dedupList
       ? (Array.isArray(itemsPayload) ? itemsPayload : [])
       : personDetail
         ? []
       : (itemsPayload.ok ? await itemsPayload.json() : null);
-    if (!projectItemList && !peopleList && !personDetail && !itemsPayload.ok) {
+    if (!projectItemList && !peopleList && !personDetail && !dedupList && !itemsPayload.ok) {
       const detail = (await itemsPayload.text()).trim() || `HTTP ${itemsPayload.status}`;
       throw new Error(detail);
     }
     if (workspaceID !== String(state.activeWorkspaceId || '').trim()) return false;
     if (loadSeq !== Number(state.itemSidebarLoadSeq || 0)) return false;
     state.itemSidebarPersonDashboard = personDetail ? itemsPayload : null;
-    state.itemSidebarItems = projectItemList || peopleList
+    state.itemSidebarItems = projectItemList || peopleList || dedupList
       ? sidebarItems
       : (Array.isArray(sidebarItems?.items) ? sidebarItems.items : []);
     state.itemSidebarLoading = false;
@@ -272,6 +279,7 @@ export async function openProjectItemQueue(item) {
 export async function openSidebarItem(item) {
   state.itemSidebarActiveItemID = Number(item?.id || 0);
   renderPrReviewFileList();
+  if (isDedupCandidateGroup(item)) return;
   if (isDriftSidebarItem(item)) return;
   if (String(item?.kind || '').trim().toLowerCase() === 'person_dashboard') {
     await openPersonOpenLoops(item);
@@ -303,6 +311,7 @@ export async function openSidebarItem(item) {
 }
 
 export function itemKindLabel(item) {
+  if (isDedupCandidateGroup(item)) return 'dedup';
   if (isDriftSidebarItem(item)) return 'drift';
   if (String(item?.kind || '').trim().toLowerCase() === 'person_dashboard') return 'person';
   if (String(item?.kind || '').trim().toLowerCase() === 'project') return 'project item';
@@ -318,6 +327,7 @@ export function itemKindLabel(item) {
 }
 
 export function itemIconForRow(item) {
+  if (isDedupCandidateGroup(item)) return { icon: 'symbol', text: '=' };
   if (isDriftSidebarItem(item)) return { icon: 'symbol', text: 'D' };
   if (String(item?.kind || '').trim().toLowerCase() === 'person_dashboard') return { icon: 'symbol', text: '@' };
   if (String(item?.kind || '').trim().toLowerCase() === 'project') return { icon: 'symbol', text: 'P' };
@@ -365,6 +375,10 @@ function driftStateSummary(label, stateValue, updatedAt) {
 }
 
 export function buildItemSidebarSubtitle(item) {
+  if (isDedupCandidateGroup(item)) {
+    const reasoning = String(item?.reasoning || '').trim();
+    return reasoning || 'probable duplicate group awaiting review';
+  }
   if (isDriftSidebarItem(item)) {
     const local = driftStateSummary('local', item?.local_state, item?.local_updated_at);
     const upstream = driftStateSummary('upstream', item?.upstream_state, item?.upstream_updated_at);
@@ -384,6 +398,7 @@ export function buildItemSidebarBadges(item) {
   const badges = [];
   const kind = itemKindLabel(item);
   if (kind) badges.push(kind);
+  if (isDedupCandidateGroup(item)) return badges.concat(dedupCandidateBadges(item));
   if (isDriftSidebarItem(item)) {
     const links = Array.isArray(item?.project_item_links) ? item.project_item_links : [];
     return badges.concat(links.map((link) => `project item: ${String(link)}`));
@@ -766,6 +781,7 @@ function renderEmptyItemSidebarList(list) {
   let emptyLabel = `No ${sidebarTabLabel(state.itemSidebarView).toLowerCase()} items.`;
   if (section === 'project_items') emptyLabel = 'No project items.';
   if (section === 'people') emptyLabel = 'No people with open loops.';
+  if (section === 'dedup') emptyLabel = 'No duplicate candidates.';
   list.appendChild(renderSidebarRow({
     icon: 'symbol',
     iconText: '0',
@@ -776,6 +792,10 @@ function renderEmptyItemSidebarList(list) {
 
 function renderItemSidebarRows(list, items) {
   items.forEach((item) => {
+    if (isDedupCandidateGroup(item)) {
+      list.appendChild(renderDedupCandidateRow(item));
+      return;
+    }
     const icon = itemIconForRow(item);
     const triageEnabled = state.itemSidebarView === 'inbox' || state.itemSidebarView === 'next';
     const row = renderSidebarRow({

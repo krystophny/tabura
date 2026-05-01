@@ -137,18 +137,12 @@ WHERE drift.item_id = `+outerColumn("id")+`
   AND drift.resolved_at IS NULL
 )`)
 	case ItemSidebarSectionDedup:
-		parts = append(parts,
-			column("source")+" IS NOT NULL",
-			"trim("+column("source")+") <> ''",
-			column("source_ref")+" IS NOT NULL",
-			"trim("+column("source_ref")+") <> ''",
-			`EXISTS (
-SELECT 1 FROM items dup
-WHERE dup.id <> `+outerColumn("id")+`
-  AND lower(trim(dup.source)) = lower(trim(`+column("source")+`))
-  AND lower(trim(dup.source_ref)) = lower(trim(`+column("source_ref")+`))
-)`,
-		)
+		parts = append(parts, `EXISTS (
+SELECT 1 FROM item_dedup_candidate_items dci
+JOIN item_dedup_candidates dc ON dc.id = dci.candidate_id
+WHERE dci.item_id = `+outerColumn("id")+`
+  AND dc.state IN ('open', 'review_later')
+)`)
 	case ItemSidebarSectionRecentMeetings:
 		cutoff := filter.recentMeetingsCutoff
 		if cutoff == "" {

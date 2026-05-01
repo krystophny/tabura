@@ -298,7 +298,40 @@ CREATE TABLE IF NOT EXISTS context_time_entries (
 	if err := s.migrateItemArtifactLinkSupport(); err != nil {
 		return err
 	}
-	return s.migrateItemChildLinkSupport()
+	if err := s.migrateItemChildLinkSupport(); err != nil {
+		return err
+	}
+	return s.migrateItemDedupSupport()
+}
+
+func (s *Store) migrateItemDedupSupport() error {
+	_, err := s.db.Exec(`
+CREATE TABLE IF NOT EXISTS item_dedup_candidates (
+  id INTEGER PRIMARY KEY,
+  kind TEXT NOT NULL CHECK (kind IN ('action', 'project')),
+  state TEXT NOT NULL DEFAULT 'open' CHECK (state IN ('open', 'review_later', 'keep_separate', 'merged')),
+  score REAL NOT NULL DEFAULT 0,
+  confidence REAL NOT NULL DEFAULT 0,
+  outcome TEXT NOT NULL DEFAULT '',
+  reasoning TEXT NOT NULL DEFAULT '',
+  detector TEXT NOT NULL DEFAULT '',
+  detected_at TEXT NOT NULL DEFAULT (datetime('now')),
+  reviewed_at TEXT,
+  canonical_item_id INTEGER REFERENCES items(id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS idx_item_dedup_candidates_open
+  ON item_dedup_candidates(state, kind, datetime(detected_at), id);
+CREATE TABLE IF NOT EXISTS item_dedup_candidate_items (
+  candidate_id INTEGER NOT NULL REFERENCES item_dedup_candidates(id) ON DELETE CASCADE,
+  item_id INTEGER NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+  position INTEGER NOT NULL DEFAULT 0,
+  outcome TEXT NOT NULL DEFAULT '',
+  PRIMARY KEY (candidate_id, item_id)
+);
+CREATE INDEX IF NOT EXISTS idx_item_dedup_candidate_items_item
+  ON item_dedup_candidate_items(item_id, candidate_id);
+`)
+	return err
 }
 
 func (s *Store) migrateMailTriageReviewActionSupport() error {

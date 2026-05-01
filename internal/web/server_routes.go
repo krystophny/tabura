@@ -151,6 +151,8 @@ func (a *App) Router() http.Handler {
 	r.Get("/api/items/projects", a.handleItemProjectReview)
 	r.Get("/api/items/people", a.handleItemPeopleDashboard)
 	r.Get("/api/items/people/{actor_id}", a.handleItemPersonDashboard)
+	r.Get("/api/items/dedup", a.handleItemDedupReview)
+	r.Post("/api/items/dedup/{candidate_id}/{action}", a.handleItemDedupAction)
 	r.Get("/api/items/done", a.handleItemDone)
 	r.Get("/api/items/counts", a.handleItemCounts)
 	r.Post("/api/items/sync/github", a.handleGitHubIssueSync)
