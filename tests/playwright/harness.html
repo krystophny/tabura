@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Slopshell Harness</title>
   <link rel="stylesheet" href="../../internal/web/static/style.css">
+  <link rel="stylesheet" href="../../internal/web/static/quick-capture.css">
   <style>
     body { margin: 0; padding: 0; }
   </style>
@@ -73,6 +74,54 @@
         <button id="slopshell-circle-dot" type="button" class="slopshell-circle-dot" aria-label="Toggle Slopshell Circle"></button>
       </div>
       <button id="surface-toggle" type="button" class="surface-toggle" aria-label="Switch interaction surface" style="display:none"></button>
+
+      <button id="quick-capture-toggle" type="button" class="quick-capture-toggle" aria-haspopup="dialog" aria-controls="quick-capture-sheet" aria-expanded="false" aria-label="Quick capture">
+        <span class="quick-capture-toggle-glyph" aria-hidden="true">+</span>
+        <span class="quick-capture-toggle-label">Capture</span>
+      </button>
+      <section id="quick-capture-sheet" class="quick-capture-sheet" role="dialog" aria-modal="true" aria-labelledby="quick-capture-heading" hidden>
+        <div class="quick-capture-backdrop" data-quick-capture-dismiss="true"></div>
+        <form id="quick-capture-form" class="quick-capture-form" autocomplete="off" novalidate>
+          <header class="quick-capture-header">
+            <h2 id="quick-capture-heading">Quick capture</h2>
+            <button type="button" class="quick-capture-close" data-quick-capture-dismiss="true" aria-label="Close quick capture">&times;</button>
+          </header>
+          <p id="quick-capture-error" class="quick-capture-error" role="alert" hidden></p>
+          <label class="quick-capture-field">
+            <span class="quick-capture-field-label">Title</span>
+            <input id="quick-capture-title" type="text" required autocomplete="off">
+          </label>
+          <fieldset class="quick-capture-kind" aria-label="Capture kind">
+            <legend class="quick-capture-field-label">Kind</legend>
+            <label><input type="radio" name="quick-capture-kind" value="action" checked> Action</label>
+            <label><input type="radio" name="quick-capture-kind" value="project"> Project / outcome</label>
+          </fieldset>
+          <details class="quick-capture-context">
+            <summary>Optional context</summary>
+            <label class="quick-capture-field">
+              <span class="quick-capture-field-label">Sphere</span>
+              <select id="quick-capture-sphere">
+                <option value="">Use active sphere</option>
+                <option value="work">Work</option>
+                <option value="private">Private</option>
+              </select>
+            </label>
+            <label class="quick-capture-field">
+              <span class="quick-capture-field-label">Label</span>
+              <input id="quick-capture-label" type="text" autocomplete="off">
+            </label>
+            <label class="quick-capture-field" data-quick-capture-action-only>
+              <span class="quick-capture-field-label">Project item id</span>
+              <input id="quick-capture-project-item-id" type="number" min="1" inputmode="numeric" autocomplete="off">
+            </label>
+          </details>
+          <footer class="quick-capture-actions">
+            <button type="button" class="quick-capture-secondary" data-quick-capture-dismiss="true">Cancel</button>
+            <button id="quick-capture-submit" type="submit" class="quick-capture-primary">Capture to inbox</button>
+          </footer>
+          <p id="quick-capture-status" class="quick-capture-status" role="status" aria-live="polite"></p>
+        </form>
+      </section>
 
       <button id="edge-left-tap" type="button" class="edge-left-tap" aria-label="Toggle file sidebar"></button>
       <button id="edge-right-tap" type="button" class="edge-right-tap" aria-label="Toggle chat panel"></button>

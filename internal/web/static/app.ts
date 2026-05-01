@@ -30,6 +30,7 @@ import * as mailDraftsModule from './app-mail-drafts.js';
 import * as mailVoiceModule from './app-mail-voice.js';
 import * as mailTriageModule from './app-mail-triage.js';
 import * as initModule from './app-init.js';
+import * as quickCaptureModule from './app-quick-capture.js';
 import * as startupModule from './app-startup.js';
 
 setAppRefs({
@@ -64,6 +65,7 @@ setAppRefs({
   ...mailVoiceModule,
   ...mailTriageModule,
   ...initModule,
+  ...quickCaptureModule,
   ...startupModule,
 });
 
@@ -71,6 +73,7 @@ runtimeUiModule.initRuntimeUi();
 bugReportModule.initBugReportUi();
 annotationsModule.initAnnotationUi();
 dictationModule.initDictationUi();
+quickCaptureModule.initQuickCapture();
 
 window._slopshellApp = {
   getState,
