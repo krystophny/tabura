@@ -356,7 +356,6 @@ test.describe('tabula rasa button', () => {
     // Top panel should be unpinned
     const topClasses = await page.locator('#edge-top').getAttribute('class');
     expect(topClasses).not.toContain('edge-pinned');
-    expect(topClasses).not.toContain('edge-active');
 
     // hasArtifact should be false
     const hasArtifact = await page.evaluate(() => (window as any)._slopshellApp?.getState?.().hasArtifact);

@@ -931,13 +931,12 @@ test.describe('canvas - edge panels', () => {
 
     const edgeRight = page.locator('#edge-right');
     const initialClasses = await edgeRight.getAttribute('class');
-    expect(initialClasses).not.toContain('edge-active');
+    expect(initialClasses).not.toContain('edge-pinned');
 
     await page.mouse.move(1275, 360);
     await page.waitForTimeout(100);
 
     const classes = await edgeRight.getAttribute('class');
-    expect(classes).not.toContain('edge-active');
     expect(classes).not.toContain('edge-pinned');
   });
 
@@ -949,7 +948,6 @@ test.describe('canvas - edge panels', () => {
     await page.waitForTimeout(100);
 
     const classes = await edgeTop.getAttribute('class');
-    expect(classes).not.toContain('edge-active');
     expect(classes).not.toContain('edge-pinned');
   });
 
@@ -965,7 +963,6 @@ test.describe('canvas - edge panels', () => {
     await page.waitForTimeout(100);
 
     const classes = await edgeTop.getAttribute('class');
-    expect(classes).not.toContain('edge-active');
     expect(classes).not.toContain('edge-pinned');
   });
 
@@ -983,7 +980,6 @@ test.describe('canvas - edge panels', () => {
     await page.waitForTimeout(100);
     const classes = await edgeRight.getAttribute('class');
     expect(classes).not.toContain('edge-pinned');
-    expect(classes).not.toContain('edge-active');
   });
 
   test('chat log appears in right edge panel', async ({ page }) => {
@@ -1069,7 +1065,6 @@ test.describe('canvas - edge panels', () => {
 
     const classes = await edgeRight.getAttribute('class');
     expect(classes).not.toContain('edge-pinned');
-    expect(classes).not.toContain('edge-active');
   });
 
   test('touch tap inside pinned chat panel does not cancel default focus flow', async ({ page }) => {
@@ -1126,7 +1121,6 @@ test.describe('canvas - edge panels', () => {
 
     const classes = await edgeTop.getAttribute('class');
     expect(classes).not.toContain('edge-pinned');
-    expect(classes).not.toContain('edge-active');
   });
 
   test('touch tap on the sidebar edge strip hides the file sidebar drawer', async ({ page }) => {

@@ -56,7 +56,7 @@ test.describe('live playtest smoke', () => {
 
     await page.keyboard.press('Escape');
     await expect(page.locator('#edge-right')).not.toHaveClass(/edge-pinned/);
-    await expect(page.locator('#edge-top')).not.toHaveClass(/edge-active/);
+    await expect(page.locator('#edge-top')).not.toHaveClass(/edge-pinned/);
   });
 
   test('slopshell circle stays readable and drives all desktop click states', async ({ page }, testInfo) => {

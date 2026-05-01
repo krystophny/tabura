@@ -44,11 +44,7 @@ export function edgePanelsAreOpen() {
 
 function togglePanel(panel) {
   if (!(panel instanceof HTMLElement)) return;
-  if (panel.classList.contains('edge-pinned')) {
-    panel.classList.remove('edge-pinned', 'edge-active');
-  } else {
-    panel.classList.add('edge-active', 'edge-pinned');
-  }
+  panel.classList.toggle('edge-pinned');
 }
 
 export function toggleFileSidebarFromEdge() {
@@ -111,7 +107,7 @@ export function initEdgePanels() {
       clearInkDraft();
       clearCanvas();
       hideCanvasColumn();
-      if (edgeTop) edgeTop.classList.remove('edge-active', 'edge-pinned');
+      if (edgeTop) edgeTop.classList.remove('edge-pinned');
     });
   }
 
@@ -244,8 +240,8 @@ export function initEdgePanels() {
 export function closeEdgePanels() {
   const edgeTop = document.getElementById('edge-top');
   const edgeRight = document.getElementById('edge-right');
-  if (edgeTop) edgeTop.classList.remove('edge-active', 'edge-pinned');
-  if (edgeRight) edgeRight.classList.remove('edge-active', 'edge-pinned');
+  if (edgeTop) edgeTop.classList.remove('edge-pinned');
+  if (edgeRight) edgeRight.classList.remove('edge-pinned');
   if (state.prReviewDrawerOpen) {
     setPrReviewDrawerOpen(false);
   }
