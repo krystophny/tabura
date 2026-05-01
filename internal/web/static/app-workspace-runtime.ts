@@ -540,29 +540,19 @@ export function renderEdgeTopProjects() {
   }
 }
 
-export function renderEdgeTopModelButtons() {
-  const host = document.getElementById('edge-top-models');
-  if (!(host instanceof HTMLElement)) return;
-  host.innerHTML = '';
-  const project = activeProject();
+function createEdgeRuntimeSummary(project) {
   const focusSnapshot = normalizeWorkspaceFocusSnapshot(state.workspaceFocus);
   const hasBusyWork = normalizeWorkspaceBusyStates(state.workspaceBusyStates).some((entry) => entry.status !== 'idle');
-  const shell = document.createElement('div');
-  shell.className = 'edge-runtime-shell';
-
   const summary = document.createElement('div');
   summary.className = 'edge-runtime-summary';
-
   const kicker = document.createElement('div');
   kicker.className = 'edge-runtime-kicker';
   kicker.textContent = 'Today';
   summary.appendChild(kicker);
-
   const title = document.createElement('div');
   title.className = 'edge-runtime-title';
   title.textContent = String(project?.name || project?.id || 'No workspace selected').trim() || 'No workspace selected';
   summary.appendChild(title);
-
   const detail = document.createElement('div');
   detail.className = 'edge-runtime-detail';
   const detailParts = [];
@@ -592,9 +582,39 @@ export function renderEdgeTopModelButtons() {
   busy.textContent = workspaceBusyBadgeText(state.workspaceBusyStates);
   busy.title = workspaceBusyBadgeTitle(focusSnapshot, state.workspaceBusyStates);
   summary.appendChild(busy);
+  return summary;
+}
 
+function createEdgeRuntimeChip(text, title = '') {
+  const chip = document.createElement('span');
+  chip.className = 'edge-runtime-chip';
+  chip.textContent = text;
+  if (title) chip.title = title;
+  return chip;
+}
+
+function createEdgeRuntimeModelChip() {
+  const chip = createEdgeRuntimeChip((activeProjectChatModelAlias() || 'local').toUpperCase());
+  chip.setAttribute('role', 'button');
+  chip.tabIndex = 0;
+  chip.title = 'Workspace default model. Local stays the default; Spark, GPT, and Mini are used only by delegation.';
+  const activateLocal = () => {
+    if (activeProjectChatModelAlias() === 'local' || state.projectModelSwitchInFlight) return;
+    void switchProjectChatModel('local');
+  };
+  chip.addEventListener('click', activateLocal);
+  chip.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    activateLocal();
+  });
+  return chip;
+}
+
+function createEdgeRuntimeActions() {
   const actions = document.createElement('div');
   actions.className = 'edge-runtime-actions';
+
   const liveStatus = document.createElement('span');
   liveStatus.className = 'edge-live-status';
   if (state.liveSessionActive) {
@@ -607,49 +627,29 @@ export function renderEdgeTopModelButtons() {
     liveStatus.title = 'Use the Slopshell Circle for Dialogue, Meeting, Silent, and Stop.';
   }
   actions.appendChild(liveStatus);
-
-  const modelChip = document.createElement('span');
-  modelChip.className = 'edge-runtime-chip';
-  modelChip.textContent = (activeProjectChatModelAlias() || 'local').toUpperCase();
-  modelChip.setAttribute('role', 'button');
-  modelChip.tabIndex = 0;
-  modelChip.title = 'Workspace default model. Local stays the default; Spark, GPT, and Mini are used only by delegation.';
-  const activateLocal = () => {
-    if (activeProjectChatModelAlias() === 'local' || state.projectModelSwitchInFlight) return;
-    void switchProjectChatModel('local');
-  };
-  modelChip.addEventListener('click', activateLocal);
-  modelChip.addEventListener('keydown', (event) => {
-    if (event.key !== 'Enter' && event.key !== ' ') return;
-    event.preventDefault();
-    activateLocal();
-  });
-  actions.appendChild(modelChip);
+  actions.appendChild(createEdgeRuntimeModelChip());
 
   if (state.fastMode) {
-    const fastChip = document.createElement('span');
-    fastChip.className = 'edge-runtime-chip';
-    fastChip.textContent = 'FAST';
-    actions.appendChild(fastChip);
+    actions.appendChild(createEdgeRuntimeChip('FAST'));
   }
-
   if (state.yoloMode) {
-    const yoloChip = document.createElement('span');
-    yoloChip.className = 'edge-runtime-chip';
-    yoloChip.textContent = 'YOLO';
-    yoloChip.title = 'Autonomous execution policy is enabled.';
-    actions.appendChild(yoloChip);
+    actions.appendChild(createEdgeRuntimeChip('YOLO', 'Autonomous execution policy is enabled.'));
   }
-
   if (state.ttsEnabled) {
-    const voiceChip = document.createElement('span');
-    voiceChip.className = 'edge-runtime-chip';
-    voiceChip.textContent = state.ttsSilent ? 'Silent' : 'Voice';
-    actions.appendChild(voiceChip);
+    actions.appendChild(createEdgeRuntimeChip(state.ttsSilent ? 'Silent' : 'Voice'));
   }
+  return actions;
+}
 
-  shell.appendChild(summary);
-  shell.appendChild(actions);
+export function renderEdgeTopModelButtons() {
+  const host = document.getElementById('edge-top-models');
+  if (!(host instanceof HTMLElement)) return;
+  host.innerHTML = '';
+  const shell = document.createElement('div');
+  shell.className = 'edge-runtime-shell';
+
+  shell.appendChild(createEdgeRuntimeSummary(activeProject()));
+  shell.appendChild(createEdgeRuntimeActions());
   host.appendChild(shell);
 }
 
