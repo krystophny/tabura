@@ -80,6 +80,16 @@ type bugReportFile struct {
 	ext   string
 }
 
+type bugReportImageSet struct {
+	screenshot bugReportFile
+	annotated  *bugReportFile
+}
+
+type bugReportImagePaths struct {
+	screenshot string
+	annotated  string
+}
+
 type bugReportWorkspace struct {
 	Name    string
 	DirPath string
@@ -100,56 +110,25 @@ func (a *App) handleBugReportCreate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid JSON", http.StatusBadRequest)
 		return
 	}
-	screenshot, err := decodeBugReportDataURL(req.ScreenshotData)
+	images, err := decodeBugReportImages(req)
 	if err != nil {
-		http.Error(w, "screenshot_data_url must be a valid PNG or JPEG data URL", http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	var annotated *bugReportFile
-	if strings.TrimSpace(req.AnnotatedDataURL) != "" {
-		file, err := decodeBugReportDataURL(req.AnnotatedDataURL)
-		if err != nil {
-			http.Error(w, "annotated_data_url must be a valid PNG or JPEG data URL", http.StatusBadRequest)
-			return
-		}
-		annotated = &file
-	}
-	workspace, err := a.resolveBugReportWorkspace()
+	workspace, err := a.resolveBugReportWorkspaceForRequest(req.ActiveSphere)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusConflict)
 		return
-	}
-	if sphere := normalizeBugReportSphere(req.ActiveSphere); sphere != "" {
-		workspace.Sphere = sphere
-		if workspace.ID != nil && *workspace.ID > 0 {
-			updated, updateErr := a.store.SetWorkspaceSphere(*workspace.ID, sphere)
-			if updateErr != nil {
-				http.Error(w, updateErr.Error(), http.StatusConflict)
-				return
-			}
-			workspace.ID = &updated.ID
-			workspace.Name = updated.Name
-			workspace.DirPath = updated.DirPath
-			workspace.Sphere = updated.Sphere
-		}
 	}
 	reportDir, reportID, err := createBugReportDir(workspace.DirPath, req.Timestamp)
 	if err != nil {
 		http.Error(w, "create bug report dir failed", http.StatusInternalServerError)
 		return
 	}
-	screenshotPath := filepath.Join(reportDir, "screenshot"+screenshot.ext)
-	if err := os.WriteFile(screenshotPath, screenshot.bytes, 0o644); err != nil {
-		http.Error(w, "write screenshot failed", http.StatusInternalServerError)
+	imagePaths, err := writeBugReportImages(reportDir, images)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
-	}
-	var annotatedPath string
-	if annotated != nil {
-		annotatedPath = filepath.Join(reportDir, "annotated"+annotated.ext)
-		if err := os.WriteFile(annotatedPath, annotated.bytes, 0o644); err != nil {
-			http.Error(w, "write annotated image failed", http.StatusInternalServerError)
-			return
-		}
 	}
 	timestamp := normalizeBugReportTimestamp(req.Timestamp)
 	bundle := bugReportBundle{
@@ -171,8 +150,8 @@ func (a *App) handleBugReportCreate(w http.ResponseWriter, r *http.Request) {
 		MeetingDiagnostics:  normalizeBugReportRawJSON(req.MeetingDiagnostics),
 		Note:                strings.TrimSpace(req.Note),
 		VoiceTranscript:     strings.TrimSpace(req.VoiceTranscript),
-		ScreenshotPath:      toBugReportRelativePath(workspace.DirPath, screenshotPath),
-		AnnotatedPath:       toBugReportRelativePath(workspace.DirPath, annotatedPath),
+		ScreenshotPath:      toBugReportRelativePath(workspace.DirPath, imagePaths.screenshot),
+		AnnotatedPath:       toBugReportRelativePath(workspace.DirPath, imagePaths.annotated),
 		WorkspaceDirPath:    workspace.DirPath,
 	}
 	bundlePath := filepath.Join(reportDir, "bundle.json")
@@ -184,7 +163,7 @@ func (a *App) handleBugReportCreate(w http.ResponseWriter, r *http.Request) {
 	if issueSkipReason := bugReportAutoFileSkipReason(bundle); issueSkipReason != "" {
 		bundle.GitHubIssueError = issueSkipReason
 	} else {
-		issue, itemID, issueErr := a.createGitHubIssueFromBugReport(workspace, bundlePath, bundle)
+		issue, itemID, issueErr := a.createGitHubIssueFromBugReport(workspace, bundle)
 		if issueErr != nil {
 			bundle.GitHubIssueError = strings.TrimSpace(issueErr.Error())
 		} else {
@@ -222,12 +201,69 @@ func (a *App) handleBugReportCreate(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, payload)
 }
 
+func decodeBugReportImages(req bugReportRequest) (bugReportImageSet, error) {
+	screenshot, err := decodeBugReportDataURL(req.ScreenshotData)
+	if err != nil {
+		return bugReportImageSet{}, errors.New("screenshot_data_url must be a valid PNG or JPEG data URL")
+	}
+	var annotated *bugReportFile
+	if strings.TrimSpace(req.AnnotatedDataURL) != "" {
+		file, err := decodeBugReportDataURL(req.AnnotatedDataURL)
+		if err != nil {
+			return bugReportImageSet{}, errors.New("annotated_data_url must be a valid PNG or JPEG data URL")
+		}
+		annotated = &file
+	}
+	return bugReportImageSet{screenshot: screenshot, annotated: annotated}, nil
+}
+
+func writeBugReportImages(reportDir string, images bugReportImageSet) (bugReportImagePaths, error) {
+	paths := bugReportImagePaths{
+		screenshot: filepath.Join(reportDir, "screenshot"+images.screenshot.ext),
+	}
+	if err := os.WriteFile(paths.screenshot, images.screenshot.bytes, 0o644); err != nil {
+		return bugReportImagePaths{}, errors.New("write screenshot failed")
+	}
+	if images.annotated == nil {
+		return paths, nil
+	}
+	paths.annotated = filepath.Join(reportDir, "annotated"+images.annotated.ext)
+	if err := os.WriteFile(paths.annotated, images.annotated.bytes, 0o644); err != nil {
+		return bugReportImagePaths{}, errors.New("write annotated image failed")
+	}
+	return paths, nil
+}
+
 func writeBugReportBundle(path string, bundle bugReportBundle) error {
 	bundleJSON, err := json.MarshalIndent(bundle, "", "  ")
 	if err != nil {
 		return err
 	}
 	return os.WriteFile(path, bundleJSON, 0o644)
+}
+
+func (a *App) resolveBugReportWorkspaceForRequest(activeSphere string) (bugReportWorkspace, error) {
+	workspace, err := a.resolveBugReportWorkspace()
+	if err != nil {
+		return bugReportWorkspace{}, err
+	}
+	sphere := normalizeBugReportSphere(activeSphere)
+	if sphere == "" {
+		return workspace, nil
+	}
+	workspace.Sphere = sphere
+	if workspace.ID == nil || *workspace.ID <= 0 {
+		return workspace, nil
+	}
+	updated, err := a.store.SetWorkspaceSphere(*workspace.ID, sphere)
+	if err != nil {
+		return bugReportWorkspace{}, err
+	}
+	workspace.ID = &updated.ID
+	workspace.Name = updated.Name
+	workspace.DirPath = updated.DirPath
+	workspace.Sphere = updated.Sphere
+	return workspace, nil
 }
 
 func (a *App) resolveBugReportWorkspace() (bugReportWorkspace, error) {
@@ -254,7 +290,7 @@ func (a *App) resolveBugReportWorkspace() (bugReportWorkspace, error) {
 	return bugReportWorkspace{}, errors.New("bug report requires an active workspace or local workspace")
 }
 
-func (a *App) createGitHubIssueFromBugReport(workspace bugReportWorkspace, bundlePath string, bundle bugReportBundle) (ghIssueListItem, int64, error) {
+func (a *App) createGitHubIssueFromBugReport(workspace bugReportWorkspace, bundle bugReportBundle) (ghIssueListItem, int64, error) {
 	workspaceID, err := a.ensureBugReportWorkspaceID(workspace)
 	if err != nil {
 		return ghIssueListItem{}, 0, err
@@ -273,7 +309,7 @@ func (a *App) createGitHubIssueFromBugReport(workspace bugReportWorkspace, bundl
 		githubCWD,
 		slopshellBugReportOwnerRepo,
 		bugReportIssueTitle(bundle),
-		bugReportIssueBody(bundle, toBugReportRelativePath(workspace.DirPath, bundlePath)),
+		bugReportIssueBody(bundle),
 		[]string{"bug", "p0"},
 		nil,
 	)
@@ -514,10 +550,9 @@ func bugReportHasActionableSummary(bundle bugReportBundle) bool {
 		firstSentence(bundle.Note),
 		firstSentence(bundle.VoiceTranscript),
 		bugReportLogSummary(bundle.BrowserLogs),
-		bugReportRecentEventSummary(bundle.RecentEvents),
+		bugReportActionableRecentEventSummary(bundle.RecentEvents),
 		bugReportCanvasArtifactTitle(bundle.CanvasState),
 		bugReportStructuredInteraction(bundle.CanvasState),
-		bugReportJSON(bundle.DialogueDiagnostics),
 		bugReportJSON(bundle.MeetingDiagnostics),
 	} {
 		if strings.TrimSpace(candidate) != "" {
@@ -540,6 +575,30 @@ func bugReportLogSummary(lines []string) string {
 		return firstSentence(clean)
 	}
 	return ""
+}
+
+func bugReportActionableRecentEventSummary(lines []string) string {
+	for idx := len(lines) - 1; idx >= 0; idx-- {
+		clean := normalizeBugReportEvidenceLine(lines[idx])
+		if !bugReportRecentEventIsActionable(clean) {
+			continue
+		}
+		return firstSentence(clean)
+	}
+	return ""
+}
+
+func bugReportRecentEventIsActionable(clean string) bool {
+	lower := strings.ToLower(strings.TrimSpace(clean))
+	if lower == "" || strings.Contains(lower, "bug report") || strings.Contains(lower, "report bug") {
+		return false
+	}
+	for _, prefix := range []string{"pointer ", "key ", "tap at ", "click at "} {
+		if strings.HasPrefix(lower, prefix) {
+			return false
+		}
+	}
+	return true
 }
 
 func bugReportRecentEventSummary(lines []string) string {
@@ -708,7 +767,7 @@ func truncateText(raw string, max int) string {
 	return cut + "..."
 }
 
-func bugReportIssueBody(bundle bugReportBundle, bundlePath string) string {
+func bugReportIssueBody(bundle bugReportBundle) string {
 	var b strings.Builder
 	summary := bugReportSummary(bundle)
 	if summary != "" {
@@ -739,6 +798,12 @@ func bugReportIssueBody(bundle bugReportBundle, bundlePath string) string {
 			b.WriteString(line)
 		}
 	}
+	b.WriteString("\n## Evidence handling\n\n")
+	b.WriteString("- Local screenshot and bundle files are not linked because local artifact paths are not remotely reachable.\n")
+	if bundle.AnnotatedPath != "" {
+		b.WriteString("- The annotated image was captured locally but is not linked for the same reason.\n")
+	}
+	b.WriteString("- Extracted context, logs, and diagnostics are summarized inline below for remote triage.\n")
 	if note := strings.TrimSpace(bundle.Note); note != "" {
 		b.WriteString("\n## Note\n\n")
 		b.WriteString(note)

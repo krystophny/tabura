@@ -387,6 +387,54 @@ func TestHandleBugReportCreateSkipsIssueAutofilingForLowSignalBundle(t *testing.
 	}
 }
 
+func TestHandleBugReportCreateSkipsIssueAutofilingForReportButtonOnlyEventsWithDefaultDialogueDiagnostics(t *testing.T) {
+	app := newAuthedTestApp(t)
+	workspaceDir := t.TempDir()
+	workspace, err := app.store.CreateWorkspace("default", workspaceDir, store.SpherePrivate)
+	if err != nil {
+		t.Fatalf("CreateWorkspace() error: %v", err)
+	}
+	if err := app.store.SetActiveWorkspace(workspace.ID); err != nil {
+		t.Fatalf("SetActiveWorkspace() error: %v", err)
+	}
+	app.ghCommandRunner = func(_ context.Context, _ string, args ...string) (string, error) {
+		t.Fatalf("unexpected gh invocation: %v", args)
+		return "", nil
+	}
+
+	rr := doAuthedJSONRequest(t, app.Router(), "POST", "/api/bugs/report", map[string]any{
+		"canvas_state": map[string]any{
+			"interaction_surface": "annotate",
+			"interaction_tool":    "pointer",
+		},
+		"recent_events": []string{
+			"2026-03-21T16:47:35Z pointer mouse at (1420,18)",
+			"2026-03-21T16:47:35Z bug report button",
+		},
+		"dialogue_diagnostics": map[string]any{
+			"connected":          false,
+			"sessionId":          "",
+			"profile":            "balanced",
+			"evalLoggingEnabled": true,
+			"readyAt":            0,
+			"lastAction":         nil,
+			"lastMetrics":        nil,
+			"recentEvents":       []any{},
+		},
+		"screenshot_data_url": testPNGDataURL,
+	})
+	if rr.Code != 200 {
+		t.Fatalf("POST /api/bugs/report status = %d, want 200: %s", rr.Code, rr.Body.String())
+	}
+	payload := decodeJSONResponse(t, rr)
+	if got := intFromAny(payload["issue_number"], 0); got != 0 {
+		t.Fatalf("issue_number = %d, want 0", got)
+	}
+	if got := strFromAny(payload["issue_error"]); got != "auto-filing skipped: add a short note or capture clearer interaction context" {
+		t.Fatalf("issue_error = %q", got)
+	}
+}
+
 func TestHandleBugReportCreateUsesLocalProjectFallback(t *testing.T) {
 	dataDir := t.TempDir()
 	localProjectDir := t.TempDir()
@@ -625,7 +673,7 @@ func TestBugReportIssueTitleUsesBrowserLogFallback(t *testing.T) {
 	if title != "Bug report: TypeError: Cannot read properties of undefined (reading 'click')" {
 		t.Fatalf("bugReportIssueTitle() = %q", title)
 	}
-	body := bugReportIssueBody(bundle, ".slopshell/artifacts/bugs/20260311-110721-568aa357/bundle.json")
+	body := bugReportIssueBody(bundle)
 	if !strings.Contains(body, "## Summary\n\nTypeError: Cannot read properties of undefined (reading 'click')") {
 		t.Fatalf("bugReportIssueBody() missing browser log summary:\n%s", body)
 	}
@@ -658,10 +706,13 @@ func TestBugReportIssueBodyOmitsLocalPathsAndIncludesDiagnostics(t *testing.T) {
 		AnnotatedPath:       ".slopshell/artifacts/bugs/20260311-110721-568aa357/annotated.png",
 	}
 
-	body := bugReportIssueBody(bundle, ".slopshell/artifacts/bugs/20260311-110721-568aa357/bundle.json")
+	body := bugReportIssueBody(bundle)
 	for _, needle := range []string{
 		"## Note",
 		"The indicator froze after the second tap.",
+		"## Evidence handling",
+		"Local screenshot and bundle files are not linked",
+		"Extracted context, logs, and diagnostics are summarized inline",
 		"## Dialogue diagnostics",
 		"\"live_policy\": \"dialogue\"",
 		"## Meeting diagnostics",
@@ -693,7 +744,7 @@ func TestBugReportIssueTitleUsesStructuredFallbackWithoutFreeText(t *testing.T) 
 	if title != "Bug report: pen interaction failed in 2026/03/11" {
 		t.Fatalf("bugReportIssueTitle() = %q", title)
 	}
-	body := bugReportIssueBody(bundle, ".slopshell/artifacts/bugs/20260311-110721-568aa357/bundle.json")
+	body := bugReportIssueBody(bundle)
 	if !strings.Contains(body, "## Summary\n\npen interaction failed in 2026/03/11") {
 		t.Fatalf("bugReportIssueBody() missing structured summary:\n%s", body)
 	}
@@ -738,7 +789,7 @@ func TestBugReportIssueTitleUsesActiveModeFallbackForDefaultWorkspace(t *testing
 	if title != "Bug report: pen interaction failed in default" {
 		t.Fatalf("bugReportIssueTitle() = %q", title)
 	}
-	body := bugReportIssueBody(bundle, ".slopshell/artifacts/bugs/20260321-183934-48759867/bundle.json")
+	body := bugReportIssueBody(bundle)
 	for _, needle := range []string{
 		"## Summary\n\npen interaction failed in default",
 		"- Active mode: `pen`",
@@ -768,7 +819,7 @@ func TestBugReportIssueTitleUsesTypingFallbackForDefaultWorkspace(t *testing.T) 
 	if title != "Bug report: interaction failed in default while typing" {
 		t.Fatalf("bugReportIssueTitle() = %q", title)
 	}
-	body := bugReportIssueBody(bundle, ".slopshell/artifacts/bugs/20260321-164735-94e3e5e1/bundle.json")
+	body := bugReportIssueBody(bundle)
 	for _, needle := range []string{
 		"## Summary\n\ninteraction failed in default while typing",
 		"- Text input visible: `true`",
@@ -799,7 +850,7 @@ func TestBugReportIssueTitleUsesPRReviewFallbackForDefaultWorkspace(t *testing.T
 	if title != "Bug report: interaction failed in default during PR review" {
 		t.Fatalf("bugReportIssueTitle() = %q", title)
 	}
-	body := bugReportIssueBody(bundle, ".slopshell/artifacts/bugs/20260321-164735-94e3e5e1/bundle.json")
+	body := bugReportIssueBody(bundle)
 	for _, needle := range []string{
 		"## Summary\n\ninteraction failed in default during PR review",
 		"- PR review mode: `true`",
@@ -831,7 +882,7 @@ func TestBugReportIssueTitleUsesCanvasStateFallbackForDefaultWorkspace(t *testin
 	if title != "Bug report: interaction failed in default while browsing docs/interaction-grammar.md" {
 		t.Fatalf("bugReportIssueTitle() = %q", title)
 	}
-	body := bugReportIssueBody(bundle, ".slopshell/artifacts/bugs/20260321-161441-a83c6a31/bundle.json")
+	body := bugReportIssueBody(bundle)
 	for _, needle := range []string{
 		"## Summary\n\ninteraction failed in default while browsing docs/interaction-grammar.md",
 		"- Interaction surface: `canvas`",
