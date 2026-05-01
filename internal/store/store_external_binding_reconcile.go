@@ -281,6 +281,31 @@ func (s *Store) CountUnresolvedExternalBindingDrifts(filter ItemListFilter) (int
 	return len(drifts), nil
 }
 
+func (s *Store) HasPreservedLocalExternalBindingDrift(bindingID int64, localState string) (bool, error) {
+	state := strings.TrimSpace(localState)
+	if bindingID <= 0 || state == "" {
+		return false, nil
+	}
+	var found int
+	err := s.db.QueryRow(
+		`SELECT 1
+		 FROM external_binding_drifts
+		 WHERE binding_id = ?
+		   AND local_state = ?
+		   AND resolved_at IS NOT NULL
+		   AND resolution IN (?, ?)
+		 LIMIT 1`,
+		bindingID,
+		state,
+		ExternalBindingDriftActionKeepLocal,
+		ExternalBindingDriftActionDismiss,
+	).Scan(&found)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	return err == nil, err
+}
+
 func (s *Store) ResolveExternalBindingDrift(id int64, action string) (ExternalBindingDrift, error) {
 	cleanAction, err := normalizeExternalBindingDriftAction(action)
 	if err != nil {
