@@ -102,6 +102,20 @@
       return Boolean(window.__confirmResponse);
     };
     const harnessParams = new URL(window.location.href).searchParams;
+    function readHarnessStoredBool(key, fallback) {
+      try {
+        const raw = window.localStorage.getItem(key);
+        if (raw === 'true') return true;
+        if (raw === 'false') return false;
+      } catch (_) {}
+      return fallback;
+    }
+    function writeHarnessStoredBool(key, value) {
+      try {
+        window.localStorage.setItem(key, value ? 'true' : 'false');
+      } catch (_) {}
+    }
+    window.__writeHarnessStoredBool = writeHarnessStoredBool;
     const runtimeState = {
       dev_mode: false,
       boot_id: 'test',
@@ -111,8 +125,9 @@
       turn_intelligence_enabled: true,
       turn_policy_profile: 'balanced',
       turn_eval_logging_enabled: true,
-      silent_mode: false,
-      fast_mode: false,
+      safety_yolo_mode: readHarnessStoredBool('slopshell.harness.safetyYoloMode', false),
+      silent_mode: readHarnessStoredBool('slopshell.harness.silentMode', false),
+      fast_mode: readHarnessStoredBool('slopshell.harness.fastMode', false),
       live_policy: harnessParams.get('live_policy') === 'meeting' ? 'meeting' : 'dialogue',
       tool: 'pointer',
       startup_behavior: 'resume_active',
@@ -202,6 +217,9 @@
       }
       if (Object.prototype.hasOwnProperty.call(next, 'turn_eval_logging_enabled')) {
         runtimeState.turn_eval_logging_enabled = Boolean(next.turn_eval_logging_enabled);
+      }
+      if (Object.prototype.hasOwnProperty.call(next, 'safety_yolo_mode')) {
+        runtimeState.safety_yolo_mode = Boolean(next.safety_yolo_mode);
       }
     };
     window.__getRuntimeState = () => ({ ...runtimeState });

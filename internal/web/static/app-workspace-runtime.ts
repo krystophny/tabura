@@ -633,6 +633,14 @@ export function renderEdgeTopModelButtons() {
     actions.appendChild(fastChip);
   }
 
+  if (state.yoloMode) {
+    const yoloChip = document.createElement('span');
+    yoloChip.className = 'edge-runtime-chip';
+    yoloChip.textContent = 'YOLO';
+    yoloChip.title = 'Autonomous execution policy is enabled.';
+    actions.appendChild(yoloChip);
+  }
+
   if (state.ttsEnabled) {
     const voiceChip = document.createElement('span');
     voiceChip.className = 'edge-runtime-chip';

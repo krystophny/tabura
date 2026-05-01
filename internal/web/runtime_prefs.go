@@ -295,10 +295,12 @@ func (a *App) handleRuntimeYoloModeUpdate(w http.ResponseWriter, r *http.Request
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	enabled := a.yoloModeEnabled()
 	writeJSON(w, map[string]interface{}{
 		"ok":               true,
-		"enabled":          req.Enabled,
-		"execution_policy": executionPolicyForSession("chat", req.Enabled).Name,
+		"enabled":          enabled,
+		"safety_yolo_mode": enabled,
+		"execution_policy": executionPolicyForSession("chat", enabled).Name,
 	})
 }
 

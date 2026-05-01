@@ -419,7 +419,9 @@ export async function setYoloMode(enabled) {
     const detail = (await resp.text()).trim() || `HTTP ${resp.status}`;
     throw new Error(detail);
   }
-  setYoloModeLocal(next, { persist: true, render: true });
+  const payload = await resp.json();
+  const persisted = parseOptionalBoolean(payload?.safety_yolo_mode);
+  setYoloModeLocal(persisted === null ? next : persisted, { persist: true, render: true });
 }
 
 export function toggleYoloMode() {

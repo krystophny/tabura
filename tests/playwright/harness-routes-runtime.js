@@ -17,9 +17,11 @@ __harnessRouteHandlers.push(async function harnessRouteRuntime(u, opts) {
         try { body = JSON.parse(String(opts?.body || '{}')); } catch (_) { body = {}; }
         if (Object.prototype.hasOwnProperty.call(body, 'silent_mode')) {
           runtimeState.silent_mode = Boolean(body.silent_mode);
+          window.__writeHarnessStoredBool?.('slopshell.harness.silentMode', runtimeState.silent_mode);
         }
         if (Object.prototype.hasOwnProperty.call(body, 'fast_mode')) {
           runtimeState.fast_mode = Boolean(body.fast_mode);
+          window.__writeHarnessStoredBool?.('slopshell.harness.fastMode', runtimeState.fast_mode);
         }
         if (typeof body?.tool === 'string') {
           const normalized = String(body.tool).trim().toLowerCase();
@@ -59,6 +61,25 @@ __harnessRouteHandlers.push(async function harnessRouteRuntime(u, opts) {
           active_sphere: runtimeState.active_sphere,
           turn_policy_profile: runtimeState.turn_policy_profile,
           turn_eval_logging_enabled: runtimeState.turn_eval_logging_enabled,
+        }), { status: 200 });
+      }
+      if (u.includes('/api/runtime/yolo') && opts?.method === 'POST') {
+        let body = {};
+        try { body = JSON.parse(String(opts?.body || '{}')); } catch (_) { body = {}; }
+        runtimeState.safety_yolo_mode = Boolean(body.enabled);
+        window.__writeHarnessStoredBool?.('slopshell.harness.safetyYoloMode', runtimeState.safety_yolo_mode);
+        window.__harnessLog.push({
+          type: 'api_fetch',
+          action: 'runtime_yolo',
+          method: opts?.method || 'POST',
+          url: u,
+          payload: { safety_yolo_mode: runtimeState.safety_yolo_mode },
+        });
+        return new Response(JSON.stringify({
+          ok: true,
+          enabled: runtimeState.safety_yolo_mode,
+          safety_yolo_mode: runtimeState.safety_yolo_mode,
+          execution_policy: runtimeState.safety_yolo_mode ? 'autonomous' : 'default',
         }), { status: 200 });
       }
       if (u.includes('/api/live-policy') && opts?.method === 'POST') {
