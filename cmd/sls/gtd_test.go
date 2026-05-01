@@ -21,6 +21,8 @@ func TestIsGtdSubcommand(t *testing.T) {
 		{"gtd inbox", []string{"gtd", "inbox"}, true},
 		{"gtd next with flags", []string{"gtd", "next", "--vault", "work"}, true},
 		{"gtd projects", []string{"gtd", "projects"}, true},
+		{"gtd close", []string{"gtd", "close", "#42"}, true},
+		{"gtd link project", []string{"gtd", "link-project", "42", "90"}, true},
 		{"gtd later alias", []string{"gtd", "later"}, true},
 		{"gtd deferred alias", []string{"gtd", "deferred"}, true},
 		{"gtd defer alias", []string{"gtd", "defer"}, true},
