@@ -31,7 +31,7 @@ type gtdMutationClient struct {
 
 func isGtdMutationName(name string) bool {
 	switch strings.ToLower(strings.TrimSpace(name)) {
-	case "close", "drop", "defer", "delegate", "route", "link-project", "unlink-project":
+	case "close", "drop", "defer", "delegate", "route", "link-project", "unlink-project", "capture":
 		return true
 	default:
 		return false
@@ -94,6 +94,8 @@ func (c *gtdMutationClient) run(args []string) (string, error) {
 		return c.linkProject(args[1:])
 	case "unlink-project":
 		return c.unlinkProject(args[1:])
+	case "capture":
+		return c.capture(args[1:])
 	default:
 		return "", errGtdUsage
 	}

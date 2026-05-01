@@ -109,6 +109,47 @@ __harnessRouteHandlers.push(async function harnessRouteDomain(u, opts) {
         const contexts = Array.isArray(window.__itemSidebarContexts) ? window.__itemSidebarContexts : defaultItemSidebarContexts();
         return new Response(JSON.stringify({ ok: true, contexts }), { status: 200 });
       }
+      if (/\/api\/items\/capture(?:\?|$)/.test(u) && opts?.method === 'POST') {
+        let body = {};
+        try { body = JSON.parse(String(opts?.body || '{}')); } catch (_) { body = {}; }
+        const title = String(body.title || '').trim();
+        if (!title) {
+          return new Response(JSON.stringify({ error: 'title is required' }), { status: 400 });
+        }
+        const kind = String(body.kind || 'action').trim().toLowerCase();
+        const itemID = Number(window.__itemSidebarNextItemID || 1000);
+        window.__itemSidebarNextItemID = itemID + 1;
+        const item = prependItemSidebarEntry({
+          id: itemID,
+          title,
+          kind: kind === 'project' ? 'project' : 'action',
+          state: 'inbox',
+          sphere: normalizeHarnessSphere(body.sphere),
+          artifact_id: 0,
+          source: '',
+          source_ref: '',
+          artifact_title: '',
+          artifact_kind: '',
+          actor_name: '',
+          created_at: '2026-03-10 10:20:00',
+          updated_at: '2026-03-10 10:20:00',
+        }, 'inbox');
+        const payload = { ok: true, item };
+        if (typeof body.label === 'string' && body.label.trim() !== '') {
+          payload.label = { id: 1, name: body.label.trim() };
+        }
+        if (Number(body.project_item_id || 0) > 0) {
+          payload.project_item = { project_item_id: Number(body.project_item_id), role: String(body.project_item_role || 'next_action') };
+        }
+        window.__harnessLog.push({
+          type: 'api_fetch',
+          action: 'item_capture',
+          method: opts?.method || 'POST',
+          url: u,
+          payload: body,
+        });
+        return new Response(JSON.stringify(payload), { status: 201 });
+      }
       if (/\/api\/items(?:\?|$)/.test(u) && opts?.method === 'POST') {
         let body = {};
         try { body = JSON.parse(String(opts?.body || '{}')); } catch (_) { body = {}; }

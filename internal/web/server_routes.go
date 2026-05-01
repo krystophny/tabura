@@ -141,6 +141,7 @@ func (a *App) Router() http.Handler {
 	r.Get("/api/batches/{batch_id}/artifact", a.handleBatchArtifact)
 	r.Get("/api/items", a.handleItemList)
 	r.Post("/api/items", a.handleItemCreate)
+	r.Post("/api/items/capture", a.handleItemCapture)
 	r.Get("/api/items/inbox", a.handleItemInbox)
 	r.Get("/api/items/next", a.handleItemNext)
 	r.Get("/api/items/waiting", a.handleItemWaiting)

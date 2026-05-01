@@ -189,7 +189,7 @@ func handleGtdCommand(args []string, opts cliOptions, stdout, stderr io.Writer) 
 	}
 	queue := findGtdQueue(args[0])
 	if queue == nil {
-		fmt.Fprintf(stderr, "unknown gtd subcommand %q (want inbox|next|waiting|later|someday|review|projects|close|drop|defer|delegate|route|link-project|unlink-project)\n", args[0])
+		fmt.Fprintf(stderr, "unknown gtd subcommand %q (want inbox|next|waiting|later|someday|review|projects|close|drop|defer|delegate|route|link-project|unlink-project|capture)\n", args[0])
 		return 2
 	}
 	filters, err := parseGtdFilters(args[1:])
@@ -229,6 +229,10 @@ func printGtdUsage(out io.Writer) {
 	fmt.Fprintln(out, "  route <item> <workspace|null> assign execution workspace")
 	fmt.Fprintln(out, "  link-project <item> <project-item> [--role next_action|support|blocked_by]")
 	fmt.Fprintln(out, "  unlink-project <item> <project-item>")
+	fmt.Fprintln(out, "  capture <title> [--kind action|project] [--vault work|private] [--workspace ID]")
+	fmt.Fprintln(out, "                  [--actor-id ID] [--label NAME|--label-id ID]")
+	fmt.Fprintln(out, "                  [--project-item-id N [--role next_action|support|blocked_by]]")
+	fmt.Fprintln(out, "                  [--source NAME [--source-ref REF]]")
 	fmt.Fprintln(out, "")
 	fmt.Fprintln(out, "filters:")
 	fmt.Fprintln(out, "  --vault work|private       sphere filter")

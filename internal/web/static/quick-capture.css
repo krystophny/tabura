@@ -1,0 +1,221 @@
+.quick-capture-toggle {
+  position: fixed;
+  bottom: 16px;
+  left: 16px;
+  z-index: 70;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1px solid #d0d7de;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #1f2328;
+  font: 600 14px/1 system-ui, -apple-system, "Segoe UI", sans-serif;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12);
+  cursor: pointer;
+}
+
+.quick-capture-toggle:hover {
+  background: #f6f8fa;
+}
+
+.quick-capture-toggle-glyph {
+  display: inline-block;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.quick-capture-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.quick-capture-sheet[hidden] {
+  display: none;
+}
+
+.quick-capture-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.4);
+}
+
+.quick-capture-form {
+  position: relative;
+  width: min(420px, calc(100vw - 32px));
+  max-height: calc(100vh - 64px);
+  overflow: auto;
+  padding: 20px 22px 18px;
+  background: #ffffff;
+  color: #1f2328;
+  border-radius: 14px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.32);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.quick-capture-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.quick-capture-header h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.quick-capture-close {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: #57606a;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.quick-capture-close:hover {
+  background: #f6f8fa;
+}
+
+.quick-capture-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.quick-capture-field-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #57606a;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.quick-capture-field input,
+.quick-capture-field select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #d0d7de;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #1f2328;
+  font: inherit;
+}
+
+.quick-capture-field input:focus,
+.quick-capture-field select:focus {
+  outline: 2px solid #0969da;
+  outline-offset: 1px;
+}
+
+.quick-capture-kind {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+
+.quick-capture-kind legend {
+  padding: 0;
+}
+
+.quick-capture-kind label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+}
+
+.quick-capture-context {
+  border-top: 1px solid #eaeef2;
+  padding-top: 8px;
+}
+
+.quick-capture-context summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: #57606a;
+}
+
+.quick-capture-context > .quick-capture-field {
+  margin-top: 8px;
+}
+
+.quick-capture-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  border-top: 1px solid #eaeef2;
+  padding-top: 12px;
+}
+
+.quick-capture-primary,
+.quick-capture-secondary {
+  appearance: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font: inherit;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.quick-capture-primary {
+  background: #1f6feb;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.quick-capture-primary:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
+}
+
+.quick-capture-secondary {
+  background: #ffffff;
+  border-color: #d0d7de;
+  color: #1f2328;
+}
+
+.quick-capture-secondary:hover {
+  background: #f6f8fa;
+}
+
+.quick-capture-status {
+  margin: 0;
+  min-height: 1.4em;
+  font-size: 12px;
+  color: #57606a;
+}
+
+.quick-capture-status[data-tone="success"] {
+  color: #1a7f37;
+}
+
+.quick-capture-error {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #ffebe9;
+  color: #cf222e;
+  font-size: 13px;
+}
+
+.quick-capture-form[data-kind="project"] [data-quick-capture-action-only] {
+  display: none;
+}
