@@ -35,6 +35,7 @@ import {
   hydrateTextArtifactImages as hydrateVisualTextArtifactImages,
 } from './canvas-visual.js';
 import { hydrateMarkdownArtifactLinks } from './canvas-markdown-links.js';
+import { clearMarkdownLinkPanel, renderMarkdownLinkPanelForCanvasEvent } from './canvas-markdown-panel.js';
 import { apiURL } from './paths.js';
 
 export { escapeHtml, sanitizeHtml } from './canvas-content.js';
@@ -172,6 +173,7 @@ export function hideAll() {
   if (e.text) e.text.classList.remove('is-active');
   if (e.image) e.image.classList.remove('is-active');
   if (e.pdf) e.pdf.classList.remove('is-active');
+  clearMarkdownLinkPanel();
 }
 function isSelectionInside(root, selection) {
   if (!selection || selection.rangeCount === 0) return false;
@@ -821,6 +823,7 @@ export function renderCanvas(event) {
     }
     hydrateVisualTextArtifactImages(e.text, String(event?.path || '').trim(), currentCanvasSessionID());
     hydrateMarkdownArtifactLinks(e.text, event, renderCanvas);
+    void renderMarkdownLinkPanelForCanvasEvent(event, renderCanvas);
     const textKey = canvasEventPageKey(event);
     const keepIndex = canvasPageState.kind === 'text' && canvasPageState.key === textKey
       ? canvasPageState.pageIndex
