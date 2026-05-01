@@ -633,6 +633,53 @@ __harnessRouteHandlers.push(async function harnessRouteRuntime(u, opts) {
         });
         return new Response(JSON.stringify(updated), { status: 200, headers: { 'Content-Type': 'application/json' } });
       }
+      if (u.includes('/api/workspaces/') && u.includes('/brain-canvas/edges/') && opts?.method === 'POST') {
+        const edgeID = String(u.split('/edges/')[1] || '').split('/')[0];
+        let body = {};
+        try { body = JSON.parse(String(opts?.body || '{}')); } catch (_) { body = {}; }
+        window.__brainCanvasEdgeLog = window.__brainCanvasEdgeLog || [];
+        window.__brainCanvasEdgeLog.push({ action: 'promote', edge_id: edgeID, payload: body });
+        const canvas = window.__mockBrainCanvas || { ok: true, name: 'default', cards: [], edges: [] };
+        canvas.edges = (canvas.edges || []).map((entry) => {
+          if (String(entry?.id || '') !== edgeID) return entry;
+          return {
+            ...entry,
+            mode: 'semantic',
+            label: Object.prototype.hasOwnProperty.call(body, 'label') ? String(body.label || '') : entry.label,
+            relation: Object.prototype.hasOwnProperty.call(body, 'relation') ? String(body.relation || '') : entry.relation,
+          };
+        });
+        window.__mockBrainCanvas = canvas;
+        const edge = canvas.edges.find((entry) => String(entry?.id || '') === edgeID) || { id: edgeID };
+        return new Response(JSON.stringify({ ok: true, edge }), { status: 201, headers: { 'Content-Type': 'application/json' } });
+      }
+      if (u.includes('/api/workspaces/') && u.includes('/brain-canvas/edges/') && opts?.method === 'DELETE') {
+        const edgeID = String(u.split('/edges/')[1] || '').split('/')[0];
+        window.__brainCanvasEdgeLog = window.__brainCanvasEdgeLog || [];
+        window.__brainCanvasEdgeLog.push({ action: 'delete', edge_id: edgeID });
+        if (window.__mockBrainCanvas) {
+          window.__mockBrainCanvas.edges = (window.__mockBrainCanvas.edges || []).filter((entry) => String(entry?.id || '') !== edgeID);
+        }
+        return new Response(null, { status: 204 });
+      }
+      if (u.includes('/api/workspaces/') && u.includes('/brain-canvas/edges') && opts?.method === 'POST') {
+        let body = {};
+        try { body = JSON.parse(String(opts?.body || '{}')); } catch (_) { body = {}; }
+        const canvas = window.__mockBrainCanvas || { ok: true, name: 'default', cards: [], edges: [] };
+        const edge = {
+          id: `edge-${(canvas.edges || []).length + 1}`,
+          fromNode: String(body.fromNode || ''),
+          toNode: String(body.toNode || ''),
+          label: String(body.label || ''),
+          relation: String(body.relation || ''),
+          mode: String(body.mode || 'visual'),
+        };
+        canvas.edges = [...(canvas.edges || []), edge];
+        window.__mockBrainCanvas = canvas;
+        window.__brainCanvasEdgeLog = window.__brainCanvasEdgeLog || [];
+        window.__brainCanvasEdgeLog.push({ action: 'create', payload: body, edge });
+        return new Response(JSON.stringify({ ok: true, edge }), { status: 201, headers: { 'Content-Type': 'application/json' } });
+      }
       if (u.includes('/api/workspaces/') && u.includes('/brain-canvas')) {
         const payload = window.__mockBrainCanvas || { ok: true, name: 'default', cards: [] };
         window.__harnessLog.push({

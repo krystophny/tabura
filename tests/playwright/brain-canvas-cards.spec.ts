@@ -89,6 +89,15 @@ async function renderBrainCanvasArtifact(page: Page) {
           binding: { kind: 'item', id: 7 },
         },
       ],
+      edges: [
+        {
+          id: 'edge-review',
+          fromNode: 'card-note',
+          toNode: 'card-item',
+          label: 'follow up',
+          mode: 'visual',
+        },
+      ],
     };
     (window as any).__mockMarkdownLinkFileText = '# Active note opened';
     mod.renderCanvas({
@@ -112,6 +121,8 @@ test('brain canvas cards persist drag/resize and open backing object', async ({ 
   await expect(page.locator('.canvas-brain-cards-board')).toBeVisible();
   await expect(page.locator('.canvas-brain-card[data-card-id="card-note"]')).toBeVisible();
   await expect(page.locator('.canvas-brain-card[data-card-id="card-item"]')).toBeVisible();
+  await expect(page.locator('.canvas-brain-edge[data-edge-id="edge-review"]')).toHaveCount(1);
+  await expect(page.locator('.canvas-brain-edge-label[data-edge-id="edge-review"]')).toHaveText('follow up');
 
   const noteCard = page.locator('.canvas-brain-card[data-card-id="card-note"]');
   expect(await noteCard.evaluate((el) => (el as HTMLElement).style.transform)).toContain('translate(20px, 30px)');
@@ -173,4 +184,45 @@ test('brain canvas item card writes title through to backend', async ({ page }) 
     return log.some((entry: any) => entry?.card_id === 'card-item'
       && entry?.payload?.title === 'Item retitled via canvas');
   }, { timeout: 5_000 }).toBe(true);
+});
+
+test('brain canvas edges can be created, promoted, and deleted', async ({ page }) => {
+  await renderBrainCanvasArtifact(page);
+
+  await expect(page.locator('.canvas-brain-edge-row[data-edge-id="edge-review"]')).toBeVisible();
+  const row = page.locator('.canvas-brain-edge-row[data-edge-id="edge-review"]');
+  await row.locator('.canvas-brain-edge-relation').fill('supports');
+  await row.getByRole('button', { name: 'Promote' }).click();
+
+  await expect.poll(async () => {
+    const log = await page.evaluate(() => (window as any).__brainCanvasEdgeLog || []);
+    return log.some((entry: any) => entry?.action === 'promote'
+      && entry?.edge_id === 'edge-review'
+      && entry?.payload?.relation === 'supports');
+  }, { timeout: 5_000 }).toBe(true);
+  await expect(page.locator('.canvas-brain-edge[data-edge-id="edge-review"][data-edge-mode="semantic"]')).toHaveCount(1);
+
+  await page.locator('.canvas-brain-edge-form .canvas-brain-edge-card').first().selectOption('card-item');
+  await page.locator('.canvas-brain-edge-form .canvas-brain-edge-card').nth(1).selectOption('card-note');
+  await page.locator('.canvas-brain-edge-form .canvas-brain-edge-label-input').fill('blocks');
+  await page.locator('.canvas-brain-edge-form .canvas-brain-edge-mode').selectOption('semantic');
+  await page.locator('.canvas-brain-edge-form .canvas-brain-edge-relation').fill('blocks');
+  await page.locator('.canvas-brain-edge-form').getByRole('button', { name: 'Add edge' }).click();
+
+  await expect.poll(async () => {
+    const log = await page.evaluate(() => (window as any).__brainCanvasEdgeLog || []);
+    return log.some((entry: any) => entry?.action === 'create'
+      && entry?.payload?.fromNode === 'card-item'
+      && entry?.payload?.toNode === 'card-note'
+      && entry?.payload?.mode === 'semantic'
+      && entry?.payload?.relation === 'blocks');
+  }, { timeout: 5_000 }).toBe(true);
+  await expect(page.locator('.canvas-brain-edge[data-edge-id="edge-2"][data-edge-mode="semantic"]')).toHaveCount(1);
+
+  await page.locator('.canvas-brain-edge-row[data-edge-id="edge-review"]').getByRole('button', { name: 'Delete' }).click();
+  await expect.poll(async () => {
+    const log = await page.evaluate(() => (window as any).__brainCanvasEdgeLog || []);
+    return log.some((entry: any) => entry?.action === 'delete' && entry?.edge_id === 'edge-review');
+  }, { timeout: 5_000 }).toBe(true);
+  await expect(page.locator('.canvas-brain-edge[data-edge-id="edge-review"]')).toHaveCount(0);
 });

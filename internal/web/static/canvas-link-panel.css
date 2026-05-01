@@ -155,10 +155,92 @@
   overflow: auto;
   padding: 0;
 }
+.canvas-brain-edge-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin-bottom: 0.55rem;
+}
+.canvas-brain-edge-form,
+.canvas-brain-edge-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+.canvas-brain-edge-card,
+.canvas-brain-edge-mode,
+.canvas-brain-edge-label-input,
+.canvas-brain-edge-relation {
+  min-width: 8rem;
+  max-width: 12rem;
+  border: 1px solid var(--border, #cbd5e1);
+  border-radius: 4px;
+  background: var(--bg, #fff);
+  color: var(--fg, #0f172a);
+  font: inherit;
+  font-size: 0.82rem;
+  padding: 0.2rem 0.35rem;
+}
+.canvas-brain-edge-title {
+  min-width: 10rem;
+  font-size: 0.82rem;
+  color: var(--fg-muted, #475569);
+}
+.canvas-brain-edge-action {
+  border: 1px solid var(--accent, #2563eb);
+  background: transparent;
+  color: var(--accent, #2563eb);
+  border-radius: 4px;
+  padding: 0.18rem 0.45rem;
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+.canvas-brain-edge-action:hover,
+.canvas-brain-edge-action:focus {
+  background: var(--accent, #2563eb);
+  color: white;
+  outline: none;
+}
+.canvas-brain-edge-status {
+  min-width: 5rem;
+  font-size: 0.78rem;
+  color: #9f1239;
+}
+.canvas-brain-edge-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 0;
+}
+.canvas-brain-edge-layer marker path {
+  fill: var(--accent, #2563eb);
+}
+.canvas-brain-edge {
+  stroke: var(--accent, #2563eb);
+  stroke-width: 2;
+}
+.canvas-brain-edge[data-edge-mode="semantic"] {
+  stroke: #047857;
+}
+.canvas-brain-edge-label {
+  fill: var(--fg, #0f172a);
+  font-size: 0.72rem;
+  font-weight: 600;
+  paint-order: stroke;
+  stroke: var(--bg, #fff);
+  stroke-width: 4px;
+  text-anchor: middle;
+}
 .canvas-brain-card {
   position: absolute;
   top: 0;
   left: 0;
+  z-index: 1;
   background: var(--bg-elevated, #f8fafc);
   border: 1px solid var(--border, #cbd5e1);
   border-radius: 6px;
