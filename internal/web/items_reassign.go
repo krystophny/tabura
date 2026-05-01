@@ -137,10 +137,55 @@ func (a *App) handleItemProjectItemLink(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	writeAPIData(w, http.StatusOK, map[string]any{
-		"item":           item,
+		"item":            item,
 		"project_item_id": req.ProjectItemID,
-		"links":          links,
-		"health":         health,
+		"links":           links,
+		"health":          health,
+	})
+}
+
+func (a *App) handleItemProjectItemUnlink(w http.ResponseWriter, r *http.Request) {
+	if !a.requireAuth(w, r) {
+		return
+	}
+	itemID, err := parseItemIDParam(r)
+	if err != nil {
+		writeAPIError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	var req itemProjectItemLinkRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeAPIError(w, http.StatusBadRequest, "invalid JSON")
+		return
+	}
+	if req.ProjectItemID <= 0 {
+		writeAPIError(w, http.StatusBadRequest, "project_item_id must be a positive integer")
+		return
+	}
+	if err := a.store.UnlinkItemChild(req.ProjectItemID, itemID); err != nil {
+		writeItemStoreError(w, err)
+		return
+	}
+	item, err := a.store.GetItem(itemID)
+	if err != nil {
+		writeItemStoreError(w, err)
+		return
+	}
+	links, err := a.store.ListItemChildLinks(req.ProjectItemID)
+	if err != nil {
+		writeItemStoreError(w, err)
+		return
+	}
+	health, err := a.store.GetProjectItemHealth(req.ProjectItemID)
+	if err != nil {
+		writeItemStoreError(w, err)
+		return
+	}
+	writeAPIData(w, http.StatusOK, map[string]any{
+		"item":            item,
+		"project_item_id": req.ProjectItemID,
+		"links":           links,
+		"health":          health,
 	})
 }
 

@@ -58,7 +58,7 @@ func isGtdSubcommand(args []string) bool {
 	if i+1 >= len(args) {
 		return true
 	}
-	return findGtdQueue(args[i+1]) != nil
+	return findGtdQueue(args[i+1]) != nil || isGtdMutationName(args[i+1])
 }
 
 type gtdFilters struct {
@@ -184,9 +184,12 @@ func handleGtdCommand(args []string, opts cliOptions, stdout, stderr io.Writer) 
 		printGtdUsage(stderr)
 		return 2
 	}
+	if isGtdMutationName(args[0]) {
+		return handleGtdMutationCommand(args, opts, stdout, stderr)
+	}
 	queue := findGtdQueue(args[0])
 	if queue == nil {
-		fmt.Fprintf(stderr, "unknown gtd subcommand %q (want inbox|next|waiting|later|someday|review|projects)\n", args[0])
+		fmt.Fprintf(stderr, "unknown gtd subcommand %q (want inbox|next|waiting|later|someday|review|projects|close|drop|defer|delegate|route|link-project|unlink-project)\n", args[0])
 		return 2
 	}
 	filters, err := parseGtdFilters(args[1:])
@@ -218,6 +221,15 @@ func printGtdUsage(out io.Writer) {
 	fmt.Fprintln(out, "  review                   stalled, drift, or needs-clarification items")
 	fmt.Fprintln(out, "  projects                 Item(kind=project) outcomes only")
 	fmt.Fprintln(out, "")
+	fmt.Fprintln(out, "actions:")
+	fmt.Fprintln(out, "  close <item>             mark an item done through its owning backend")
+	fmt.Fprintln(out, "  drop <item> [--yes]      remove a local item; source-backed items require --yes")
+	fmt.Fprintln(out, "  defer <item> <date>      defer until an RFC3339 follow-up timestamp")
+	fmt.Fprintln(out, "  delegate <item> <actor>  assign to an actor id and move to waiting")
+	fmt.Fprintln(out, "  route <item> <workspace|null> assign execution workspace")
+	fmt.Fprintln(out, "  link-project <item> <project-item> [--role next_action|support|blocked_by]")
+	fmt.Fprintln(out, "  unlink-project <item> <project-item>")
+	fmt.Fprintln(out, "")
 	fmt.Fprintln(out, "filters:")
 	fmt.Fprintln(out, "  --vault work|private       sphere filter")
 	fmt.Fprintln(out, "  --source NAME              source backend (todoist|github|imap|gmail|...)")
@@ -235,16 +247,11 @@ func printGtdUsage(out io.Writer) {
 }
 
 func fetchGtd(opts cliOptions, queue gtdQueue, filters gtdFilters) ([]byte, error) {
-	base := opts.resolveBaseURL()
-	client, err := newClientForBrain(base, opts.effectiveTokenFile())
+	client, base, err := newGtdHTTPClient(opts)
 	if err != nil {
 		return nil, err
 	}
-	target := strings.TrimRight(base, "/") + queue.Path
-	if q := filters.query(); len(q) > 0 {
-		target += "?" + q.Encode()
-	}
-	resp, err := client.Get(target)
+	resp, err := client.Get(gtdURL(base, queue.Path, filters.query()))
 	if err != nil {
 		return nil, fmt.Errorf("fetch %s: %w", queue.Name, err)
 	}

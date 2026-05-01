@@ -133,6 +133,21 @@ func TestItemProjectItemLinkAPI(t *testing.T) {
 	if rrSelf.Code != http.StatusBadRequest {
 		t.Fatalf("self link status = %d, want 400: %s", rrSelf.Code, rrSelf.Body.String())
 	}
+
+	rrUnlink := doAuthedJSONRequest(t, app.Router(), http.MethodDelete, "/api/items/"+itoa(item.ID)+"/project-item-link", map[string]any{
+		"project_item_id": project.ID,
+	})
+	if rrUnlink.Code != http.StatusOK {
+		t.Fatalf("project item unlink status = %d, want 200: %s", rrUnlink.Code, rrUnlink.Body.String())
+	}
+	unlinkPayload := decodeJSONResponse(t, rrUnlink)
+	if got := int64(unlinkPayload["project_item_id"].(float64)); got != project.ID {
+		t.Fatalf("unlink project_item_id = %d, want %d", got, project.ID)
+	}
+	links, ok := unlinkPayload["links"].([]any)
+	if !ok || len(links) != 0 {
+		t.Fatalf("unlink links = %#v, want empty", unlinkPayload["links"])
+	}
 }
 
 func assertProjectItemLinkResponse(t *testing.T, payload map[string]any, projectID, itemID int64) {
