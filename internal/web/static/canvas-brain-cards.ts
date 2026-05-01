@@ -1,5 +1,11 @@
 import { apiURL } from './paths.js';
 import { openResolvedMarkdownLink } from './canvas-markdown-links.js';
+import {
+  brainCanvasEdgeControls,
+  renderBrainCanvasEdgeControls,
+  renderBrainCanvasEdges,
+  type BrainCanvasEdge,
+} from './canvas-brain-edges.js';
 
 const SECTION_CLASS = 'canvas-brain-cards-section';
 const BOARD_CLASS = 'canvas-brain-cards-board';
@@ -42,6 +48,7 @@ interface BrainCanvasPayload {
   ok?: boolean;
   name?: string;
   cards?: BrainCanvasCard[];
+  edges?: BrainCanvasEdge[];
   error?: string;
 }
 
@@ -59,6 +66,7 @@ interface BrainCanvasContext {
   workspaceID: string;
   panelSourcePath: string;
   renderCanvas: RenderCanvas;
+  reload: () => Promise<void>;
 }
 
 function brainCanvasSection(panel: HTMLElement): HTMLElement {
@@ -355,7 +363,9 @@ export async function renderBrainCanvasCardsSection(
   const id = String(workspaceID || '').trim();
   if (!id) return;
   const section = brainCanvasSection(panel);
+  const controls = brainCanvasEdgeControls(section);
   const board = brainCanvasBoard(section);
+  controls.replaceChildren();
   board.replaceChildren();
   let payload: BrainCanvasPayload;
   try {
@@ -378,6 +388,14 @@ export async function renderBrainCanvasCardsSection(
     board.appendChild(emptyMessage('no canvas cards yet'));
     return;
   }
-  const ctx: BrainCanvasContext = { workspaceID: id, panelSourcePath, renderCanvas };
+  const edges = Array.isArray(payload.edges) ? payload.edges : [];
+  const ctx: BrainCanvasContext = {
+    workspaceID: id,
+    panelSourcePath,
+    renderCanvas,
+    reload: () => renderBrainCanvasCardsSection(panel, id, panelSourcePath, renderCanvas),
+  };
+  renderBrainCanvasEdgeControls(controls, cards, edges, ctx);
+  renderBrainCanvasEdges(board, cards, edges);
   cards.forEach((card) => renderCard(card, ctx, board));
 }
