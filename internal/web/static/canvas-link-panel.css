@@ -1,0 +1,63 @@
+.canvas-link-panel {
+  border-top: 1px solid var(--border, #e2e8f0);
+  background: var(--bg-elevated, #f8fafc);
+  padding: 0.75rem 1rem;
+  max-height: 35%;
+  overflow-y: auto;
+  font-size: 0.9em;
+  flex-shrink: 0;
+}
+.canvas-link-panel[hidden] {
+  display: none;
+}
+.canvas-link-panel-header {
+  font-weight: 600;
+  color: var(--accent, #2563eb);
+  margin-bottom: 0.5rem;
+}
+.canvas-link-panel-section {
+  margin-bottom: 0.75rem;
+}
+.canvas-link-panel-heading {
+  font-size: 0.85em;
+  font-weight: 600;
+  margin: 0 0 0.25rem;
+  color: var(--fg-muted, #475569);
+}
+.canvas-link-panel-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.canvas-link-panel-item {
+  padding: 0.25rem 0;
+  border-bottom: 1px solid var(--border-faint, #edf2f7);
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.15rem;
+}
+.canvas-link-panel-item.is-blocked .canvas-link-panel-target {
+  color: #9f1239;
+  text-decoration: line-through;
+  text-decoration-style: wavy;
+}
+.canvas-link-panel-item.is-blocked .canvas-link-panel-detail {
+  color: #9f1239;
+}
+.canvas-link-panel-target {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 0.95em;
+}
+.canvas-link-panel-detail {
+  color: var(--fg-muted, #64748b);
+  font-size: 0.85em;
+}
+.canvas-link-panel-excerpt {
+  color: var(--fg, #1e293b);
+  font-style: italic;
+}
+.canvas-link-panel-empty {
+  color: var(--fg-muted, #94a3b8);
+  font-style: italic;
+  margin: 0;
+}
