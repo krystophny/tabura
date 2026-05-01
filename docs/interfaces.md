@@ -162,6 +162,7 @@ Domain model API:
 - `GET /api/batches/{batch_id}/artifact`
 - `GET /api/items`
 - `POST /api/items`
+- `POST /api/items/capture`
 - `GET /api/items/inbox`
 - `GET /api/items/next`
 - `GET /api/items/waiting`
@@ -171,6 +172,8 @@ Domain model API:
 - `GET /api/items/projects`
 - `GET /api/items/people`
 - `GET /api/items/people/{actor_id}`
+- `GET /api/items/dedup`
+- `POST /api/items/dedup/{candidate_id}/{action}`
 - `GET /api/items/done`
 - `GET /api/items/counts`
 - `POST /api/items/sync/github`

@@ -58,6 +58,15 @@ const (
 	ItemReviewTargetAgent  = "agent"
 	ItemReviewTargetGitHub = "github"
 	ItemReviewTargetEmail  = "email"
+
+	ItemDedupStateOpen         = "open"
+	ItemDedupStateReviewLater  = "review_later"
+	ItemDedupStateKeepSeparate = "keep_separate"
+	ItemDedupStateMerged       = "merged"
+
+	ItemDedupActionMerge        = "merge"
+	ItemDedupActionKeepSeparate = "keep_separate"
+	ItemDedupActionReviewLater  = "review_later"
 )
 
 type ArtifactUpdate struct {
@@ -257,6 +266,44 @@ type ItemArtifactLink struct {
 	ArtifactID int64  `json:"artifact_id"`
 	Role       string `json:"role"`
 	CreatedAt  string `json:"created_at"`
+}
+
+type ItemDedupCandidateOptions struct {
+	Kind       string
+	Score      float64
+	Confidence float64
+	Outcome    string
+	Reasoning  string
+	Detector   string
+	Items      []ItemDedupCandidateItemInput
+}
+
+type ItemDedupCandidateItemInput struct {
+	ItemID  int64
+	Outcome string
+}
+
+type ItemDedupCandidateGroup struct {
+	ID              int64                      `json:"id"`
+	Kind            string                     `json:"kind"`
+	State           string                     `json:"state"`
+	Score           float64                    `json:"score"`
+	Confidence      float64                    `json:"confidence"`
+	Outcome         string                     `json:"outcome,omitempty"`
+	Reasoning       string                     `json:"reasoning,omitempty"`
+	Detector        string                     `json:"detector,omitempty"`
+	DetectedAt      string                     `json:"detected_at"`
+	ReviewedAt      *string                    `json:"reviewed_at,omitempty"`
+	CanonicalItemID *int64                     `json:"canonical_item_id,omitempty"`
+	Items           []ItemDedupCandidateMember `json:"items"`
+}
+
+type ItemDedupCandidateMember struct {
+	Item             ItemSummary       `json:"item"`
+	Outcome          string            `json:"outcome,omitempty"`
+	SourceBindings   []ExternalBinding `json:"source_bindings,omitempty"`
+	SourceContainers []string          `json:"source_containers,omitempty"`
+	Dates            []string          `json:"dates,omitempty"`
 }
 
 type ItemArtifact struct {

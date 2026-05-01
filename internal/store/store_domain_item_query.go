@@ -369,8 +369,8 @@ type SidebarSectionCounts struct {
 
 // CountSidebarSectionsFiltered counts open project items (Item.kind=project,
 // state != done), distinct actors with at least one open delegated/awaiting
-// item (people we owe or await), unresolved external-binding drift, open items whose
-// (source, source_ref) pair has duplicates (dedup review backlog), and
+// item (people we owe or await), unresolved external-binding drift, open dedup
+// candidate groups awaiting a user decision (dedup review backlog), and
 // meeting-note artifacts created within the last seven days. The filter
 // respects sphere/workspace/label scoping so the sidebar matches the active
 // queue context.
@@ -405,23 +405,9 @@ func (s *Store) CountSidebarSectionsFiltered(now time.Time, filter ItemListFilte
 		return out, err
 	}
 
-	dedupParts := []string{
-		"items.state <> ?",
-		"items.source IS NOT NULL",
-		"trim(items.source) <> ''",
-		"items.source_ref IS NOT NULL",
-		"trim(items.source_ref) <> ''",
-		`EXISTS (
-SELECT 1 FROM items dup
-WHERE dup.id <> items.id
-  AND lower(trim(dup.source)) = lower(trim(items.source))
-  AND lower(trim(dup.source_ref)) = lower(trim(items.source_ref))
-)`,
-	}
-	dedupArgs := []any{ItemStateDone}
-	dedupParts, dedupArgs = appendItemFilterClauses(dedupParts, dedupArgs, normalizedFilter, "")
-	dedupQuery := `SELECT COUNT(*) FROM items WHERE ` + stringsJoin(dedupParts, ` AND `)
-	if err := s.db.QueryRow(dedupQuery, dedupArgs...).Scan(&out.DedupReview); err != nil {
+	dedupFilter := normalizedFilter
+	dedupFilter.Section = ""
+	if out.DedupReview, err = s.CountItemDedupCandidatesFiltered(dedupFilter); err != nil {
 		return out, err
 	}
 
