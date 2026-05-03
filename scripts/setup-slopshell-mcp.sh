@@ -5,5 +5,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 "$SCRIPT_DIR/setup-codex-mcp.sh"
 "$SCRIPT_DIR/setup-claude-mcp.sh"
+"$SCRIPT_DIR/setup-gemini-mcp.sh"
 
-echo "Configured Codex and Claude to use local stdio MCP servers: sloppy, helpy"
+echo "Configured Codex, Claude and Gemini to use local stdio MCP servers: sloppy, helpy"
