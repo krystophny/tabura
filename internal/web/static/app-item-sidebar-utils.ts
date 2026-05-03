@@ -119,7 +119,12 @@ export function itemSidebarEndpoint(view, filters = state.itemSidebarFilters) {
 }
 
 export function itemSidebarCountsEndpoint(filters = state.itemSidebarFilters) {
-  const normalizedFilters = normalizeItemSidebarFilters(filters);
+  const normalizedFilters = {
+    ...normalizeItemSidebarFilters(filters),
+    actor_id: null,
+    project_item_id: null,
+    section: '',
+  };
   return appendItemSidebarFilterQuery(appendSphereQuery('items/counts', state.activeSphere, normalizedFilters.all_spheres), normalizedFilters);
 }
 
@@ -165,6 +170,7 @@ export async function refreshItemSidebarCounts() {
   const workspaceID = String(state.activeWorkspaceId || '').trim();
   if (!workspaceID) {
     applyItemSidebarCounts(defaultItemSidebarCounts(), null);
+    refs.renderPrReviewFileList?.();
     return false;
   }
   const resp = await fetch(apiURL(itemSidebarCountsEndpoint(state.itemSidebarFilters)), { cache: 'no-store' });
@@ -175,6 +181,7 @@ export async function refreshItemSidebarCounts() {
   const payload = await resp.json();
   if (workspaceID !== String(state.activeWorkspaceId || '').trim()) return false;
   applyItemSidebarCounts(payload?.counts, payload?.sections);
+  refs.renderPrReviewFileList?.();
   return true;
 }
 

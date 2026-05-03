@@ -65,11 +65,11 @@
   border: 0;
   border-right: 1px solid #d1d5db;
   border-radius: 0;
-  min-height: 44px;
-  padding: 0.62rem 0.2rem;
+  min-height: 38px;
+  padding: 0.48rem 0.18rem;
   background: transparent;
   color: #111827;
-  font-size: 0.73rem;
+  font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -107,15 +107,15 @@
   border-bottom: 1px solid #d1d5db;
   border-radius: 0;
   text-align: left;
-  min-height: 44px;
-  padding: 0.58rem 0.6rem;
+  min-height: 40px;
+  padding: 0.42rem 0.58rem;
   color: #111827;
   background: #ffffff;
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 1rem;
-  line-height: 1.3;
+  font-size: 0.9rem;
+  line-height: 1.24;
   transform: translateX(var(--swipe-offset, 0px));
   transition: transform 140ms ease, background-color 140ms ease, color 140ms ease;
   touch-action: pan-y;
@@ -215,7 +215,7 @@
 .pr-file-status {
   margin-left: auto;
   flex: 0 0 auto;
-  font-size: 0.74rem;
+  font-size: 0.68rem;
   text-align: center;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -251,7 +251,7 @@
 
 .sidebar-row-subtitle {
   color: #4b5563;
-  font-size: 0.8rem;
+  font-size: 0.74rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

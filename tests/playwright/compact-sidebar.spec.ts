@@ -83,8 +83,51 @@ test.describe('compact sidebar navigation (#746)', () => {
     });
     expect(layout).not.toBeNull();
     expect(layout?.primaryTop).toBeLessThanOrEqual((layout?.tabsTop || 0));
-    expect(layout?.filesLabel).toEqual(expect.arrayContaining(['Active', 'Files']));
-    expect(layout?.filesLabel.filter((label) => label.startsWith('Inbox'))).toHaveLength(0);
+    expect(layout?.filesLabel).toEqual(expect.arrayContaining(['Active', 'Inbox2', 'Files']));
+  });
+
+  test('inbox is discoverable only when it has uncategorized items or is selected', async ({ page }) => {
+    await waitReady(page);
+    await page.evaluate(() => {
+      (window as any).__setItemSidebarData({
+        inbox: [],
+        next: [{ id: 701, title: 'Queued action', state: 'next', sphere: 'private' }],
+        waiting: [],
+        deferred: [],
+        someday: [],
+        review: [],
+        done: [],
+      });
+      (window as any).__itemSidebarSectionCounts = { project_items_open: 1 };
+    });
+    await page.locator('#edge-left-tap').click();
+    await page.evaluate(async () => {
+      const mod = await import('../../internal/web/static/app-item-sidebar-utils.js');
+      await mod.refreshItemSidebarCounts();
+    });
+
+    await expect(page.locator('.sidebar-tab', { hasText: /^Inbox/ })).toHaveCount(0);
+
+    await page.evaluate(() => {
+      (window as any).__setItemSidebarData({
+        inbox: [{ id: 702, title: 'New uncategorized mail', state: 'inbox', sphere: 'private', artifact_kind: 'email' }],
+        next: [{ id: 701, title: 'Queued action', state: 'next', sphere: 'private' }],
+        waiting: [],
+        deferred: [],
+        someday: [],
+        review: [],
+        done: [],
+      });
+    });
+    await page.evaluate(async () => {
+      const mod = await import('../../internal/web/static/app-item-sidebar-utils.js');
+      await mod.refreshItemSidebarCounts();
+    });
+
+    const inboxTab = page.locator('.sidebar-tab', { hasText: /^Inbox/ });
+    await expect(inboxTab).toHaveText(/Inbox1/);
+    await inboxTab.click();
+    await expect(page.locator('#pr-file-list .pr-file-item[data-item-id="702"]')).toContainText('New uncategorized mail');
   });
 
   test('capture button opens the composer', async ({ page }) => {

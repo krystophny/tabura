@@ -56,6 +56,15 @@ function openProjectItemTab() {
   void openItemSidebarView(currentSection === 'project_items' ? state.itemSidebarView : 'next', nextFilters);
 }
 
+function primaryQueueFilters() {
+  return {
+    ...state.itemSidebarFilters,
+    section: '',
+    project_item_id: null,
+    actor_id: null,
+  };
+}
+
 export function toggleSidebarSecondary() {
   state.itemSidebarSecondaryOpen = !Boolean(state.itemSidebarSecondaryOpen);
   refs.renderPrReviewFileList?.();
@@ -324,7 +333,7 @@ export function renderSidebarTabs(list) {
   }
   bindSidebarTabActivation(activeButton, openProjectItemTab);
   tabs.appendChild(activeButton);
-  ITEM_SIDEBAR_VIEWS.filter((view) => view !== 'inbox').forEach((view) => {
+  ITEM_SIDEBAR_VIEWS.forEach((view) => {
     const count = Number(state.itemSidebarCounts?.[view] || 0);
     const current = !projectItemTabActive() && state.fileSidebarMode !== 'workspace' && state.itemSidebarView === view;
     if (count <= 0 && !current) return;
@@ -342,7 +351,7 @@ export function renderSidebarTabs(list) {
       button.appendChild(badge);
     }
     bindSidebarTabActivation(button, () => {
-      void openItemSidebarView(view);
+      void openItemSidebarView(view, primaryQueueFilters());
     });
     tabs.appendChild(button);
   });

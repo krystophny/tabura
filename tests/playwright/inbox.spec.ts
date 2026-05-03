@@ -29,25 +29,30 @@ async function injectChatEvent(page: Page, payload: Record<string, unknown>) {
 async function reloadInboxSidebar(page: Page) {
   await page.evaluate(async () => {
     const mod = await import('../../internal/web/static/app-item-sidebar-ui.js');
-    await mod.loadItemSidebarView('inbox');
+    await mod.loadItemSidebarView('inbox', { section: '' });
   });
 }
 
+async function openInboxSidebar(page: Page) {
+  await page.locator('#edge-left-tap').click();
+  await expect(page.locator('#pr-file-pane')).toHaveClass(/is-open/);
+  await reloadInboxSidebar(page);
+  await expect(page.locator('.sidebar-tab.is-active')).toContainText('Inbox');
+}
+
 test.describe('item inbox sidebar', () => {
-  test('renders inbox metadata and exposes inbox count on the trigger', async ({ page }) => {
+  test('renders concise inbox rows and exposes inbox count on the trigger', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await waitReady(page);
 
     await expect(page.locator('#edge-left-tap')).toHaveAttribute('data-inbox-count', '2');
 
-    await page.locator('#edge-left-tap').click();
-    await expect(page.locator('#pr-file-pane')).toHaveClass(/is-open/);
-    await expect(page.locator('.sidebar-tab.is-active')).toContainText('Inbox');
+    await openInboxSidebar(page);
     await expect(page.getByRole('button', { name: /Review parser cleanup/i })).toBeVisible();
-    await expect(page.locator('#pr-file-list')).toContainText('Parser cleanup plan');
-    await expect(page.locator('#pr-file-list')).toContainText('idea');
-    await expect(page.locator('#pr-file-list')).toContainText('github');
-    await expect(page.locator('#pr-file-list')).toContainText('email');
+    await expect(page.getByRole('button', { name: /Answer triage email/i })).toBeVisible();
+    await expect(page.locator('#pr-file-list .sidebar-row-secondary')).toHaveCount(0);
+    const rows = page.locator('#pr-file-list .pr-file-item');
+    await expect(rows).toHaveText(['Review parser cleanup', 'Answer triage email']);
   });
 
   test('desktop sidebar stays docked beside the canvas instead of covering it', async ({ page }) => {
@@ -63,9 +68,7 @@ test.describe('item inbox sidebar', () => {
     });
     expect(before.left).toBe(0);
 
-    await page.locator('#edge-left-tap').click();
-    await expect(page.locator('#pr-file-pane')).toHaveClass(/is-open/);
-    await expect(page.locator('.sidebar-tab.is-active')).toContainText('Inbox');
+    await openInboxSidebar(page);
 
     const readLayout = () => page.evaluate(() => {
       const pane = document.getElementById('pr-file-pane');
@@ -206,8 +209,7 @@ test.describe('item inbox sidebar', () => {
     });
     await reloadInboxSidebar(page);
 
-    await page.locator('#edge-left-tap').click();
-    await expect(page.locator('.sidebar-tab.is-active')).toContainText('Inbox');
+    await openInboxSidebar(page);
     await expect(page.locator('#pr-file-list')).toContainText('Review sidebar PR mapping');
     await page.locator('#pr-file-list .pr-file-item').first().click();
 
@@ -259,10 +261,12 @@ test.describe('item inbox sidebar', () => {
 
     await expect(page.locator('#pr-file-pane')).toHaveClass(/is-open/);
     const row = page.locator('#pr-file-list .pr-file-item').filter({ hasText: 'Drifted task' });
-    await expect(row).toContainText('local waiting @ 2026-03-08 09:58 UTC');
-    await expect(row).toContainText('upstream done @ 2026-03-08 10:05 UTC');
-    await expect(row).toContainText('todoist:task:task-1');
-    await expect(row).toContainText('container Errands');
+    await expect(row).toBeVisible();
+    await expect(row.locator('.sidebar-row-secondary')).toHaveCount(0);
+    await expect(row).not.toContainText('local waiting @ 2026-03-08 09:58 UTC');
+    await expect(row).not.toContainText('upstream done @ 2026-03-08 10:05 UTC');
+    await expect(row).not.toContainText('todoist:task:task-1');
+    await expect(row).not.toContainText('container Errands');
   });
 
   test('system actions can open provider-filtered and unassigned inbox views', async ({ page }) => {
