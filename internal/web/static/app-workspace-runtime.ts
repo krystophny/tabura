@@ -57,6 +57,7 @@ const normalizeProjectChatModelAlias = (...args) => refs.normalizeProjectChatMod
 const renderToolPalette = (...args) => refs.renderToolPalette(...args);
 const loadItemSidebarView = (...args) => refs.loadItemSidebarView(...args);
 const refreshItemSidebarCounts = (...args) => refs.refreshItemSidebarCounts(...args);
+const refreshActiveTrackFocus = (...args) => refs.refreshActiveTrackFocus(...args);
 const isTemporaryProjectKind = (...args) => refs.isTemporaryProjectKind(...args);
 const shouldRenderAssistantHistoryInChat = (...args) => refs.shouldRenderAssistantHistoryInChat(...args);
 const hasLocalAssistantWork = (...args) => refs.hasLocalAssistantWork(...args);
@@ -189,6 +190,7 @@ export async function setActiveSphere(nextSphere) {
   try {
     await updateRuntimePreferences({ active_sphere: sphere });
     await ensureVisibleActiveProject();
+    await refreshActiveTrackFocus().catch(() => null);
     await loadItemSidebarView(state.itemSidebarView);
     await refreshItemSidebarCounts().catch(() => false);
     showStatus(`${sphere} sphere on`);

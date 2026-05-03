@@ -105,9 +105,32 @@ export const TOOL_PALETTE_MODES = [
 ];
 
 export const SPHERE_OPTIONS = [
-  { id: 'work', label: 'Work' },
-  { id: 'private', label: 'Private' },
+	{ id: 'work', label: 'Work' },
+	{ id: 'private', label: 'Private' },
 ];
+
+export const TRACK_OPTIONS = {
+  work: [
+    { id: 'research-fusion', label: 'Research' },
+    { id: 'software-compilers', label: 'Compilers' },
+    { id: 'sloppy-tabura', label: 'Sloppy' },
+    { id: 'code-maintenance', label: 'Code maintenance' },
+    { id: 'docs-orga', label: 'Docs/orga' },
+    { id: 'teaching', label: 'Teaching' },
+    { id: 'supervision', label: 'Supervision' },
+    { id: 'proposals-funding', label: 'Funding' },
+    { id: 'admin', label: 'Admin' },
+  ],
+  private: [
+    { id: 'household', label: 'Household' },
+    { id: 'health', label: 'Health' },
+    { id: 'family-social', label: 'Family/social' },
+    { id: 'finance-admin', label: 'Finance/admin' },
+    { id: 'private-projects', label: 'Projects' },
+    { id: 'play', label: 'Play' },
+    { id: 'admin', label: 'Admin' },
+  ],
+};
 
 export const SIDEBAR_SOURCE_FILTERS = [
   { id: 'email', label: 'Email' },
@@ -139,6 +162,7 @@ export const state = {
     focus: null,
     explicit: false,
   },
+  activeTrackFocus: null,
   workspaceBusyStates: [],
   projectsOpen: false,
   projectSwitchInFlight: false,
@@ -281,6 +305,7 @@ export const state = {
   itemSidebarView: 'next',
   itemSidebarFilters: {
     all_spheres: false,
+    track: '',
     source: '',
     source_container: '',
     workspace_id: null,

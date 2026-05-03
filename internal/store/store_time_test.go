@@ -134,6 +134,55 @@ func TestTimeEntrySummaryGroupsAndFiltersByTrack(t *testing.T) {
 	}
 }
 
+func TestTimeEntrySummaryRollsUpActionProjectTrackAndSphere(t *testing.T) {
+	s := newTestStore(t)
+	work := SphereWork
+	project, err := s.CreateItem("Compiler outcome", ItemOptions{Kind: ItemKindProject, State: ItemStateNext, Track: "software-compilers", Sphere: &work})
+	if err != nil {
+		t.Fatalf("CreateItem(project) error: %v", err)
+	}
+	action, err := s.CreateItem("Fix parser", ItemOptions{State: ItemStateNext, Track: "software-compilers", Sphere: &work})
+	if err != nil {
+		t.Fatalf("CreateItem(action) error: %v", err)
+	}
+	if err := s.LinkItemChild(project.ID, action.ID, ItemLinkRoleNextAction); err != nil {
+		t.Fatalf("LinkItemChild() error: %v", err)
+	}
+	start := time.Date(2026, 3, 9, 8, 0, 0, 0, time.UTC)
+	end := start.Add(75 * time.Minute)
+	focus := TimeEntryFocus{
+		ProjectItemID: &project.ID,
+		ActionItemID:  &action.ID,
+		Sphere:        SphereWork,
+		Track:         "software-compilers",
+	}
+	if _, changed, err := s.SwitchActiveTimeEntryWithFocus(start, focus, "action_focus", nil); err != nil {
+		t.Fatalf("SwitchActiveTimeEntryWithFocus() error: %v", err)
+	} else if !changed {
+		t.Fatal("expected focus switch to create an entry")
+	}
+	if _, err := s.StopActiveTimeEntries(end); err != nil {
+		t.Fatalf("StopActiveTimeEntries() error: %v", err)
+	}
+	assertSummaryRow := func(groupBy, label string, id *int64) {
+		t.Helper()
+		rows, err := s.SummarizeTimeEntries(TimeEntryListFilter{From: &start, To: &end}, groupBy, end)
+		if err != nil {
+			t.Fatalf("SummarizeTimeEntries(%s) error: %v", groupBy, err)
+		}
+		if len(rows) != 1 || rows[0].Label != label || rows[0].Seconds != 75*60 {
+			t.Fatalf("summary %s = %#v, want %q 75m", groupBy, rows, label)
+		}
+		if id != nil && rows[0].ProjectItemID == nil && rows[0].ActionItemID == nil {
+			t.Fatalf("summary %s missing item id: %#v", groupBy, rows[0])
+		}
+	}
+	assertSummaryRow("action", action.Title, &action.ID)
+	assertSummaryRow("project", project.Title, &project.ID)
+	assertSummaryRow("track", "software-compilers", nil)
+	assertSummaryRow("sphere", SphereWork, nil)
+}
+
 func TestActiveWorkspaceReturnsCurrentSelection(t *testing.T) {
 	s := newTestStore(t)
 

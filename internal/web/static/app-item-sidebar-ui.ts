@@ -267,8 +267,10 @@ export async function openProjectItemQueue(item) {
   if (projectItemID <= 0) return false;
   state.itemSidebarActiveItemID = projectItemID;
   await resolveWorkspaceForSidebarItem(item);
+  await rememberActiveTrackProject(projectItemID);
   const nextFilters = {
     all_spheres: Boolean(state.itemSidebarFilters?.all_spheres),
+    track: String(state.itemSidebarFilters?.track || item?.track || '').trim(),
     project_item_id: projectItemID,
     section: '',
   };
@@ -409,8 +411,42 @@ async function activatePreferredProjectAction(projectItem) {
   state.itemSidebarActiveItemID = Number(firstAction?.id || 0);
   renderPrReviewFileList();
   await resolveWorkspaceForSidebarItem(firstAction);
+  await rememberActiveTrackAction(Number(projectItem?.id || 0), Number(firstAction?.id || 0));
   state.itemSidebarActiveItemID = Number(firstAction?.id || 0);
   renderPrReviewFileList();
+  return true;
+}
+
+async function rememberActiveTrackProject(projectItemID) {
+  const track = String(state.itemSidebarFilters?.track || state.activeTrackFocus?.track || '').trim();
+  if (!track || Number(projectItemID || 0) <= 0) return false;
+  const resp = await fetch(apiURL('tracks/active/project'), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sphere: state.activeSphere, track, project_item_id: Math.trunc(Number(projectItemID)) }),
+  });
+  if (!resp.ok) return false;
+  const payload = await resp.json();
+  state.activeTrackFocus = payload?.focus || state.activeTrackFocus;
+  return true;
+}
+
+async function rememberActiveTrackAction(projectItemID, actionItemID) {
+  const track = String(state.itemSidebarFilters?.track || state.activeTrackFocus?.track || '').trim();
+  if (!track || Number(projectItemID || 0) <= 0 || Number(actionItemID || 0) <= 0) return false;
+  const resp = await fetch(apiURL('tracks/active/action'), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      sphere: state.activeSphere,
+      track,
+      project_item_id: Math.trunc(Number(projectItemID)),
+      action_item_id: Math.trunc(Number(actionItemID)),
+    }),
+  });
+  if (!resp.ok) return false;
+  const payload = await resp.json();
+  state.activeTrackFocus = payload?.focus || state.activeTrackFocus;
   return true;
 }
 

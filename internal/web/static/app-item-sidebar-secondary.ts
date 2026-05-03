@@ -1,10 +1,11 @@
 import * as context from './app-context.js';
-import { showTextInput } from './app-env.js';
+import { apiURL, showTextInput } from './app-env.js';
 import { workspaceDisplayName } from './app-workspace-status.js';
 
-const { refs, state, SPHERE_OPTIONS, SIDEBAR_SOURCE_FILTERS } = context;
+const { refs, state, SPHERE_OPTIONS, TRACK_OPTIONS, SIDEBAR_SOURCE_FILTERS } = context;
 
 const setActiveSphere = (...args) => refs.setActiveSphere(...args);
+const showStatus = (...args) => refs.showStatus(...args);
 const activeWorkspace = (...args) => refs.activeProject(...args);
 const refreshWorkspaceBrowser = (...args) => refs.refreshWorkspaceBrowser(...args);
 const renderPrReviewFileList = (...args) => refs.renderPrReviewFileList(...args);
@@ -29,6 +30,35 @@ function applySidebarSourceFilter(sourceID) {
   const nextSource = current === cleanSource ? '' : cleanSource;
   const nextFilters = { ...state.itemSidebarFilters, source: nextSource };
   void loadItemSidebarView(state.itemSidebarView, nextFilters);
+}
+
+export async function refreshActiveTrackFocus() {
+  const sphere = String(state.activeSphere || 'work').trim().toLowerCase() === 'private' ? 'private' : 'work';
+  const resp = await fetch(apiURL(`tracks/active?sphere=${encodeURIComponent(sphere)}`), { cache: 'no-store' });
+  if (!resp.ok) throw new Error(`track focus failed: HTTP ${resp.status}`);
+  const payload = await resp.json();
+  state.activeTrackFocus = payload?.focus || null;
+  const track = String(state.activeTrackFocus?.track || '').trim();
+  state.itemSidebarFilters = { ...state.itemSidebarFilters, track };
+  renderPrReviewFileList();
+  return state.activeTrackFocus;
+}
+
+export async function setActiveTrack(trackID) {
+  const track = String(trackID || '').trim();
+  const sphere = String(state.activeSphere || 'work').trim().toLowerCase() === 'private' ? 'private' : 'work';
+  const resp = await fetch(apiURL('tracks/active'), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sphere, track }),
+  });
+  if (!resp.ok) throw new Error(`track switch failed: HTTP ${resp.status}`);
+  const payload = await resp.json();
+  state.activeTrackFocus = payload?.focus || null;
+  state.itemSidebarFilters = { ...state.itemSidebarFilters, track };
+  await loadItemSidebarView(state.itemSidebarView, state.itemSidebarFilters);
+  showStatus(track ? `${track} track on` : 'track cleared');
+  return state.activeTrackFocus;
 }
 
 function applySidebarSectionDrilldown(sectionID) {
@@ -130,6 +160,7 @@ export function renderSidebarPrimary(list) {
     sphereRow.appendChild(btn);
   }
   primary.appendChild(sphereRow);
+  primary.appendChild(renderTrackSelector());
 
   const pinRow = document.createElement('div');
   pinRow.className = 'sidebar-workspace-pin';
@@ -174,6 +205,33 @@ export function renderSidebarPrimary(list) {
   primary.appendChild(actionsRow);
 
   list.appendChild(primary);
+}
+
+function renderTrackSelector() {
+  const row = document.createElement('label');
+  row.className = 'sidebar-track-row';
+  const label = document.createElement('span');
+  label.className = 'sidebar-track-label';
+  label.textContent = 'Track';
+  row.appendChild(label);
+  const select = document.createElement('select');
+  select.className = 'sidebar-track-select';
+  const sphere = String(state.activeSphere || 'work').trim().toLowerCase() === 'private' ? 'private' : 'work';
+  const current = String(state.activeTrackFocus?.track || state.itemSidebarFilters?.track || '').trim();
+  const empty = document.createElement('option');
+  empty.value = '';
+  empty.textContent = 'All';
+  select.appendChild(empty);
+  for (const track of TRACK_OPTIONS[sphere] || []) {
+    const option = document.createElement('option');
+    option.value = track.id;
+    option.textContent = track.label;
+    select.appendChild(option);
+  }
+  select.value = current;
+  select.addEventListener('change', () => { void setActiveTrack(select.value); });
+  row.appendChild(select);
+  return row;
 }
 
 function sidebarSecondarySections() {

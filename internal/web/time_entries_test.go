@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -98,7 +99,7 @@ func TestTimeEntrySummaryCSVAndManualStampAPI(t *testing.T) {
 
 	from := start.Format(time.RFC3339)
 	to := end.Format(time.RFC3339)
-	rrSummary := doAuthedJSONRequest(t, app.Router(), http.MethodGet, "/api/time-entries/summary?from="+from+"&to="+to+"&group_by=project", nil)
+	rrSummary := doAuthedJSONRequest(t, app.Router(), http.MethodGet, "/api/time-entries/summary?from="+from+"&to="+to+"&group_by=workspace", nil)
 	if rrSummary.Code != http.StatusOK {
 		t.Fatalf("summary status = %d, want 200: %s", rrSummary.Code, rrSummary.Body.String())
 	}
@@ -113,24 +114,24 @@ func TestTimeEntrySummaryCSVAndManualStampAPI(t *testing.T) {
 		if !ok {
 			continue
 		}
-		if strFromAny(row["label"]) == project.Name {
+		if strFromAny(row["label"]) == workspace.Name {
 			foundLabel = true
 			break
 		}
 	}
 	if !foundLabel {
-		t.Fatalf("summary missing label %q in %#v", project.Name, summaryPayload)
+		t.Fatalf("summary missing label %q in %#v", workspace.Name, summaryPayload)
 	}
 
-	rrCSV := doAuthedJSONRequest(t, app.Router(), http.MethodGet, "/api/time-entries/summary?from="+from+"&to="+to+"&group_by=project&format=csv", nil)
+	rrCSV := doAuthedJSONRequest(t, app.Router(), http.MethodGet, "/api/time-entries/summary?from="+from+"&to="+to+"&group_by=workspace&format=csv", nil)
 	if rrCSV.Code != http.StatusOK {
 		t.Fatalf("summary csv status = %d, want 200: %s", rrCSV.Code, rrCSV.Body.String())
 	}
 	if got := rrCSV.Header().Get("Content-Type"); !strings.Contains(got, "text/csv") {
 		t.Fatalf("summary csv content type = %q, want text/csv", got)
 	}
-	if !strings.Contains(rrCSV.Body.String(), project.Name+",7200,2h,2") {
-		t.Fatalf("summary csv body = %q, want project duration row", rrCSV.Body.String())
+	if !strings.Contains(rrCSV.Body.String(), workspace.Name+",5400,1h 30m,1") {
+		t.Fatalf("summary csv body = %q, want workspace duration row", rrCSV.Body.String())
 	}
 
 	if err := app.store.SetActiveWorkspace(workspace.ID); err != nil {
@@ -164,5 +165,115 @@ func TestTimeEntrySummaryCSVAndManualStampAPI(t *testing.T) {
 	}
 	if len(entries) != 0 {
 		t.Fatalf("active time entries = %#v, want none", entries)
+	}
+}
+
+func TestActiveTrackRestoresProjectActionWorkspaceAndTimeFocus(t *testing.T) {
+	app := newAuthedTestApp(t)
+	work := store.SphereWork
+	source := store.ExternalProviderMarkdown
+	projectRef := "brain/commitments/compiler-outcome.md"
+	actionRef := "brain/commitments/fix-parser.md"
+	focusState := brainGTDFocus{Sphere: work}
+	originalFocusCall := brainGTDFocusCall
+	brainGTDFocusCall = func(_ context.Context, sphere string, updates map[string]interface{}) (brainGTDFocus, error) {
+		focusState.Sphere = sphere
+		if track, ok := updates["track"].(string); ok {
+			focusState.Track = track
+			focusState.Project = brainGTDFocusRef{}
+			focusState.Action = brainGTDFocusRef{}
+		}
+		if ref, ok := updates["project_ref"].(string); ok {
+			focusState.Project = brainGTDFocusRef{Source: source, Ref: ref, Path: ref}
+			focusState.Action = brainGTDFocusRef{}
+		}
+		if ref, ok := updates["action_ref"].(string); ok {
+			focusState.Action = brainGTDFocusRef{Source: source, Ref: ref, Path: ref}
+		}
+		return focusState, nil
+	}
+	t.Cleanup(func() { brainGTDFocusCall = originalFocusCall })
+	workspace, err := app.store.CreateWorkspace("Compiler", filepath.Join(t.TempDir(), "compiler"), work)
+	if err != nil {
+		t.Fatalf("CreateWorkspace() error: %v", err)
+	}
+	project, err := app.store.CreateItem("Compiler outcome", store.ItemOptions{
+		Kind:        store.ItemKindProject,
+		State:       store.ItemStateNext,
+		Track:       "software-compilers",
+		Sphere:      &work,
+		WorkspaceID: &workspace.ID,
+		Source:      &source,
+		SourceRef:   &projectRef,
+	})
+	if err != nil {
+		t.Fatalf("CreateItem(project) error: %v", err)
+	}
+	action, err := app.store.CreateItem("Fix parser", store.ItemOptions{
+		State:       store.ItemStateNext,
+		Track:       "software-compilers",
+		Sphere:      &work,
+		WorkspaceID: &workspace.ID,
+		Source:      &source,
+		SourceRef:   &actionRef,
+	})
+	if err != nil {
+		t.Fatalf("CreateItem(action) error: %v", err)
+	}
+	if err := app.store.LinkItemChild(project.ID, action.ID, store.ItemLinkRoleNextAction); err != nil {
+		t.Fatalf("LinkItemChild() error: %v", err)
+	}
+
+	rrTrack := doAuthedJSONRequest(t, app.Router(), http.MethodPut, "/api/tracks/active", map[string]any{
+		"sphere": work,
+		"track":  "software-compilers",
+	})
+	if rrTrack.Code != http.StatusOK {
+		t.Fatalf("active track status = %d, want 200: %s", rrTrack.Code, rrTrack.Body.String())
+	}
+	focusPayload := decodeJSONDataResponse(t, rrTrack)
+	focus := focusPayload["focus"].(map[string]any)
+	if needsChoice, _ := focus["needs_choice"].(bool); !needsChoice {
+		t.Fatalf("active track focus = %#v, want needs_choice", focus)
+	}
+
+	rrProject := doAuthedJSONRequest(t, app.Router(), http.MethodPut, "/api/tracks/active/project", map[string]any{
+		"sphere":          work,
+		"track":           "software-compilers",
+		"project_item_id": project.ID,
+	})
+	if rrProject.Code != http.StatusOK {
+		t.Fatalf("active project status = %d, want 200: %s", rrProject.Code, rrProject.Body.String())
+	}
+	rrAction := doAuthedJSONRequest(t, app.Router(), http.MethodPut, "/api/tracks/active/action", map[string]any{
+		"sphere":          work,
+		"track":           "software-compilers",
+		"project_item_id": project.ID,
+		"action_item_id":  action.ID,
+	})
+	if rrAction.Code != http.StatusOK {
+		t.Fatalf("active action status = %d, want 200: %s", rrAction.Code, rrAction.Body.String())
+	}
+	actionPayload := decodeJSONDataResponse(t, rrAction)
+	actionFocus := actionPayload["focus"].(map[string]any)
+	if strFromAny(actionFocus["track"]) != "software-compilers" {
+		t.Fatalf("focus track = %#v", actionFocus)
+	}
+	if int64(actionFocus["workspace_id"].(float64)) != workspace.ID {
+		t.Fatalf("focus workspace = %#v, want %d", actionFocus["workspace_id"], workspace.ID)
+	}
+	entry, err := app.store.ActiveTimeEntry()
+	if err != nil {
+		t.Fatalf("ActiveTimeEntry() error: %v", err)
+	}
+	if entry == nil || entry.ProjectItemID == nil || *entry.ProjectItemID != project.ID || entry.ActionItemID == nil || *entry.ActionItemID != action.ID {
+		t.Fatalf("active time entry = %#v, want project/action focus", entry)
+	}
+	activeWorkspace, err := app.store.ActiveWorkspace()
+	if err != nil {
+		t.Fatalf("ActiveWorkspace() error: %v", err)
+	}
+	if activeWorkspace.ID != workspace.ID {
+		t.Fatalf("active workspace = %d, want %d", activeWorkspace.ID, workspace.ID)
 	}
 }

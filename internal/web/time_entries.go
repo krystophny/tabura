@@ -1,10 +1,10 @@
 package web
 
 import (
+	"context"
 	"encoding/csv"
 	"errors"
 	"net/http"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -13,8 +13,11 @@ import (
 )
 
 type timeTrackingContext struct {
-	WorkspaceID *int64
-	Sphere      string
+	WorkspaceID   *int64
+	ProjectItemID *int64
+	ActionItemID  *int64
+	Sphere        string
+	Track         string
 }
 
 func parseTimeEntryQueryTime(raw string) (*time.Time, error) {
@@ -75,11 +78,19 @@ func timeEntryListFilterFromRequest(r *http.Request) (store.TimeEntryListFilter,
 }
 
 func csvSummaryRows(rows []store.TimeEntrySummary) [][]string {
-	out := [][]string{{"key", "label", "seconds", "duration", "entry_count", "sphere", "track", "workspace_id"}}
+	out := [][]string{{"key", "label", "seconds", "duration", "entry_count", "sphere", "track", "workspace_id", "project_item_id", "action_item_id"}}
 	for _, row := range rows {
 		workspaceID := ""
 		if row.WorkspaceID != nil {
 			workspaceID = strconv.FormatInt(*row.WorkspaceID, 10)
+		}
+		projectItemID := ""
+		if row.ProjectItemID != nil {
+			projectItemID = strconv.FormatInt(*row.ProjectItemID, 10)
+		}
+		actionItemID := ""
+		if row.ActionItemID != nil {
+			actionItemID = strconv.FormatInt(*row.ActionItemID, 10)
 		}
 		out = append(out, []string{
 			row.Key,
@@ -90,18 +101,31 @@ func csvSummaryRows(rows []store.TimeEntrySummary) [][]string {
 			row.Sphere,
 			row.Track,
 			workspaceID,
+			projectItemID,
+			actionItemID,
 		})
 	}
 	return out
 }
 
 func (a *App) currentTimeTrackingContext() (timeTrackingContext, error) {
-	ctx := timeTrackingContext{Sphere: a.runtimeActiveSphere()}
+	sphere := a.runtimeActiveSphere()
+	_, focus, focusErr := a.activeTrackFocusSnapshot(context.Background(), sphere)
+	ctx := timeTrackingContext{
+		WorkspaceID:   focus.WorkspaceID,
+		ProjectItemID: focus.ProjectItemID,
+		ActionItemID:  focus.ActionItemID,
+		Sphere:        sphere,
+		Track:         focus.Track,
+	}
+	if focusErr != nil {
+		ctx = timeTrackingContext{Sphere: sphere}
+	}
 	workspace, err := a.store.ActiveWorkspace()
 	if err != nil && !isNoRows(err) {
 		return timeTrackingContext{}, err
 	}
-	if err == nil {
+	if err == nil && ctx.WorkspaceID == nil {
 		ctx.WorkspaceID = &workspace.ID
 	}
 	return ctx, nil
@@ -112,7 +136,7 @@ func (a *App) syncTimeTrackingContext(activity string) (store.TimeEntry, bool, e
 	if err != nil {
 		return store.TimeEntry{}, false, err
 	}
-	return a.store.SwitchActiveTimeEntry(time.Now().UTC(), ctx.WorkspaceID, ctx.Sphere, activity, nil)
+	return a.store.SwitchActiveTimeEntryWithFocus(time.Now().UTC(), ctx.toStoreFocus(), activity, nil)
 }
 
 func (a *App) startTimeTrackingEntry(activity string) (store.TimeEntry, bool, error) {
@@ -127,7 +151,7 @@ func (a *App) startTimeTrackingEntry(activity string) (store.TimeEntry, bool, er
 	if active != nil && strings.TrimSpace(activity) == "stamp_in" && timeEntryContextMatches(*active, ctx) {
 		return *active, false, nil
 	}
-	return a.store.SwitchActiveTimeEntry(time.Now().UTC(), ctx.WorkspaceID, ctx.Sphere, activity, nil)
+	return a.store.SwitchActiveTimeEntryWithFocus(time.Now().UTC(), ctx.toStoreFocus(), activity, nil)
 }
 
 func (a *App) setActiveWorkspaceTracked(id int64, activity string) error {
@@ -214,85 +238,7 @@ func (a *App) handleTimeEntrySummary(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) summarizeTimeEntries(filter store.TimeEntryListFilter, groupBy string, now time.Time) ([]store.TimeEntrySummary, error) {
-	if !strings.EqualFold(strings.TrimSpace(groupBy), "project") {
-		return a.store.SummarizeTimeEntries(filter, groupBy, now)
-	}
-	workspaceSummary, err := a.store.SummarizeTimeEntries(filter, "workspace", now)
-	if err != nil {
-		return nil, err
-	}
-	projects, err := a.store.ListEnrichedWorkspaces()
-	if err != nil {
-		return nil, err
-	}
-	var preferred store.Workspace
-	for _, project := range projects {
-		if strings.TrimSpace(project.Kind) != "" && !strings.EqualFold(project.Kind, "workspace") {
-			preferred = project
-			break
-		}
-	}
-	if preferred.ID == 0 {
-		activeProjectID, activeErr := a.store.ActiveWorkspaceID()
-		if activeErr == nil && strings.TrimSpace(activeProjectID) != "" {
-			if project, getErr := a.store.GetEnrichedWorkspace(activeProjectID); getErr == nil {
-				preferred = project
-			}
-		}
-	}
-	if preferred.ID == 0 && len(projects) > 0 {
-		preferred = projects[0]
-	}
-	if preferred.ID == 0 {
-		return workspaceSummary, nil
-	}
-	rowsByProject := map[string]*store.TimeEntrySummary{}
-	for _, row := range workspaceSummary {
-		key := workspaceIDStr(preferred.ID)
-		label := strings.TrimSpace(preferred.Name)
-		current := rowsByProject[key]
-		if current == nil {
-			copyRow := store.TimeEntrySummary{
-				Key:        key,
-				Label:      label,
-				Sphere:     row.Sphere,
-				Seconds:    0,
-				EntryCount: 0,
-			}
-			rowsByProject[key] = &copyRow
-			current = &copyRow
-		}
-		current.Seconds += row.Seconds
-		current.EntryCount += row.EntryCount
-		current.Duration = formatTimeEntrySummaryDuration(current.Seconds)
-	}
-	rows := make([]store.TimeEntrySummary, 0, len(rowsByProject))
-	for _, row := range rowsByProject {
-		rows = append(rows, *row)
-	}
-	sort.Slice(rows, func(i, j int) bool {
-		if rows[i].Seconds != rows[j].Seconds {
-			return rows[i].Seconds > rows[j].Seconds
-		}
-		return rows[i].Label < rows[j].Label
-	})
-	return rows, nil
-}
-
-func formatTimeEntrySummaryDuration(total int64) string {
-	if total <= 0 {
-		return "0m"
-	}
-	hours := total / 3600
-	minutes := (total % 3600) / 60
-	switch {
-	case hours > 0 && minutes > 0:
-		return strconv.FormatInt(hours, 10) + "h " + strconv.FormatInt(minutes, 10) + "m"
-	case hours > 0:
-		return strconv.FormatInt(hours, 10) + "h"
-	default:
-		return strconv.FormatInt(minutes, 10) + "m"
-	}
+	return a.store.SummarizeTimeEntries(filter, groupBy, now)
 }
 
 func (a *App) handleTimeEntryStampIn(w http.ResponseWriter, r *http.Request) {
@@ -328,12 +274,7 @@ func timeEntryContextMatches(entry store.TimeEntry, ctx timeTrackingContext) boo
 	if entry.Sphere != ctx.Sphere {
 		return false
 	}
-	switch {
-	case entry.WorkspaceID == nil && ctx.WorkspaceID != nil:
-		return false
-	case entry.WorkspaceID != nil && ctx.WorkspaceID == nil:
-		return false
-	case entry.WorkspaceID != nil && ctx.WorkspaceID != nil && *entry.WorkspaceID != *ctx.WorkspaceID:
+	if strings.TrimSpace(entry.Track) != strings.TrimSpace(ctx.Track) {
 		return false
 	}
 	switch {
@@ -342,7 +283,27 @@ func timeEntryContextMatches(entry store.TimeEntry, ctx timeTrackingContext) boo
 	case entry.WorkspaceID != nil && ctx.WorkspaceID == nil:
 		return false
 	case entry.WorkspaceID != nil && ctx.WorkspaceID != nil && *entry.WorkspaceID != *ctx.WorkspaceID:
+		return false
+	}
+	if !sameTimeEntryID(entry.ProjectItemID, ctx.ProjectItemID) || !sameTimeEntryID(entry.ActionItemID, ctx.ActionItemID) {
 		return false
 	}
 	return true
+}
+
+func (ctx timeTrackingContext) toStoreFocus() store.TimeEntryFocus {
+	return store.TimeEntryFocus{
+		WorkspaceID:   ctx.WorkspaceID,
+		ProjectItemID: ctx.ProjectItemID,
+		ActionItemID:  ctx.ActionItemID,
+		Sphere:        ctx.Sphere,
+		Track:         ctx.Track,
+	}
+}
+
+func sameTimeEntryID(left, right *int64) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	return *left == *right
 }

@@ -41,6 +41,7 @@ export function normalizeItemSidebarFilters(rawFilters = null) {
   const filters = rawFilters && typeof rawFilters === 'object' ? rawFilters : {};
   const source = String(filters.source || '').trim().toLowerCase();
   const sourceContainer = String(filters.source_container || '').trim();
+  const track = String(filters.track || '').trim();
   const labelIDRaw = Number(filters.label_id || 0);
   const labelID = Number.isFinite(labelIDRaw) && labelIDRaw > 0 ? Math.trunc(labelIDRaw) : null;
   const actorIDRaw = Number(filters.actor_id || 0);
@@ -63,6 +64,7 @@ export function normalizeItemSidebarFilters(rawFilters = null) {
   const followUpAfter = String(filters.follow_up_after || '').trim();
   return {
     all_spheres: allSpheres,
+    track,
     source,
     source_container: sourceContainer,
     workspace_id: workspaceID,
@@ -87,6 +89,7 @@ function appendItemSidebarQueryParam(path, key, value) {
 function appendItemSidebarFilterQuery(path, filters = state.itemSidebarFilters) {
   const normalized = normalizeItemSidebarFilters(filters);
   let nextPath = String(path || '');
+  nextPath = appendItemSidebarQueryParam(nextPath, 'track', normalized.track);
   nextPath = appendItemSidebarQueryParam(nextPath, 'source', normalized.source);
   nextPath = appendItemSidebarQueryParam(nextPath, 'source_container', normalized.source_container);
   if (normalized.workspace_unassigned) {

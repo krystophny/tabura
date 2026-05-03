@@ -422,6 +422,16 @@ func (s *Store) migrateTrackSupport() error {
 			return err
 		}
 	}
+	if !tableColumns["time_entries"]["project_item_id"] {
+		if _, err := s.db.Exec(`ALTER TABLE time_entries ADD COLUMN project_item_id INTEGER REFERENCES items(id) ON DELETE SET NULL`); err != nil {
+			return err
+		}
+	}
+	if !tableColumns["time_entries"]["action_item_id"] {
+		if _, err := s.db.Exec(`ALTER TABLE time_entries ADD COLUMN action_item_id INTEGER REFERENCES items(id) ON DELETE SET NULL`); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

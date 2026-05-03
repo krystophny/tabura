@@ -30,6 +30,7 @@ const showDisclaimerModal = (...args) => refs.showDisclaimerModal(...args);
 const applyIPhoneFrameCorners = (...args) => refs.applyIPhoneFrameCorners(...args);
 const initPanelMotionMode = (...args) => refs.initPanelMotionMode(...args);
 const syncInkLayerSize = (...args) => refs.syncInkLayerSize(...args);
+const refreshActiveTrackFocus = (...args) => refs.refreshActiveTrackFocus(...args);
 
 let bootstrapStarted = false;
 let bootstrapErrorShown = false;
@@ -132,6 +133,7 @@ async function init() {
   await initHotwordLifecycle();
 
   await fetchProjects();
+  await refreshActiveTrackFocus().catch(() => null);
   const initialWorkspaceID = resolveInitialWorkspaceID();
   if (!initialWorkspaceID) throw new Error('no workspaces available');
   await switchProject(initialWorkspaceID);

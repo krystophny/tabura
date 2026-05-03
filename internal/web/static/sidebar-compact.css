@@ -76,6 +76,35 @@
   text-overflow: ellipsis;
 }
 
+.sidebar-track-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.45rem;
+  align-items: center;
+  min-height: 36px;
+}
+
+.sidebar-track-label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #4b5563;
+}
+
+.sidebar-track-select {
+  width: 100%;
+  min-height: 36px;
+  border: 1px solid #111827;
+  border-radius: 0;
+  background: #ffffff;
+  color: #111827;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.18rem 0.35rem;
+}
+
 .sidebar-primary-actions {
   display: flex;
   gap: 0.3rem;
@@ -247,6 +276,7 @@
   }
 
   .sidebar-sphere-btn,
+  .sidebar-track-select,
   .sidebar-capture-btn,
   .sidebar-secondary-toggle,
   .sidebar-secondary-row {

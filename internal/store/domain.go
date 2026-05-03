@@ -448,14 +448,24 @@ type PersonOpenLoopDashboard struct {
 }
 
 type TimeEntry struct {
-	ID          int64   `json:"id"`
-	WorkspaceID *int64  `json:"workspace_id,omitempty"`
-	Sphere      string  `json:"sphere"`
-	Track       string  `json:"track,omitempty"`
-	StartedAt   string  `json:"started_at"`
-	EndedAt     *string `json:"ended_at,omitempty"`
-	Activity    string  `json:"activity,omitempty"`
-	Notes       *string `json:"notes,omitempty"`
+	ID            int64   `json:"id"`
+	WorkspaceID   *int64  `json:"workspace_id,omitempty"`
+	ProjectItemID *int64  `json:"project_item_id,omitempty"`
+	ActionItemID  *int64  `json:"action_item_id,omitempty"`
+	Sphere        string  `json:"sphere"`
+	Track         string  `json:"track,omitempty"`
+	StartedAt     string  `json:"started_at"`
+	EndedAt       *string `json:"ended_at,omitempty"`
+	Activity      string  `json:"activity,omitempty"`
+	Notes         *string `json:"notes,omitempty"`
+}
+
+type TimeEntryFocus struct {
+	WorkspaceID   *int64
+	ProjectItemID *int64
+	ActionItemID  *int64
+	Sphere        string
+	Track         string
 }
 
 type TimeEntryListFilter struct {
@@ -467,14 +477,16 @@ type TimeEntryListFilter struct {
 }
 
 type TimeEntrySummary struct {
-	Key         string `json:"key"`
-	Label       string `json:"label"`
-	Seconds     int64  `json:"seconds"`
-	Duration    string `json:"duration"`
-	EntryCount  int    `json:"entry_count"`
-	WorkspaceID *int64 `json:"workspace_id,omitempty"`
-	Sphere      string `json:"sphere,omitempty"`
-	Track       string `json:"track,omitempty"`
+	Key           string `json:"key"`
+	Label         string `json:"label"`
+	Seconds       int64  `json:"seconds"`
+	Duration      string `json:"duration"`
+	EntryCount    int    `json:"entry_count"`
+	WorkspaceID   *int64 `json:"workspace_id,omitempty"`
+	ProjectItemID *int64 `json:"project_item_id,omitempty"`
+	ActionItemID  *int64 `json:"action_item_id,omitempty"`
+	Sphere        string `json:"sphere,omitempty"`
+	Track         string `json:"track,omitempty"`
 }
 
 type BatchRun struct {

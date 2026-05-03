@@ -28,6 +28,7 @@ export interface Item {
   title: string;
   kind?: 'action' | 'project';
   state: 'inbox' | 'waiting' | 'someday' | 'done';
+  track?: string;
   workspace_id?: number | null;
   artifact_id?: number | null;
   actor_id?: number | null;
