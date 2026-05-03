@@ -87,6 +87,41 @@ test.describe('compact sidebar navigation (#746)', () => {
     expect(layout?.filesLabel.filter((label) => label.startsWith('Inbox'))).toHaveLength(0);
   });
 
+  test('capture button opens the composer', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 760 });
+    await waitReady(page);
+    await openInbox(page);
+
+    await page.locator('#sidebar-capture-trigger').click();
+
+    await expect(page.locator('#floating-input')).toBeVisible();
+    await expect(page.locator('#floating-input')).toBeFocused();
+  });
+
+  test('plain task fallback shows project context instead of raw source metadata', async ({ page }) => {
+    await waitReady(page);
+
+    const markdown = await page.evaluate(async () => {
+      const mod = await import('../../internal/web/static/app-item-sidebar-artifacts.js');
+      return mod.buildSidebarItemFallbackText({
+        id: 42,
+        title: 'PR: Build on Linux on ARM',
+        kind: 'action',
+        state: 'next',
+        source: 'todoist',
+        source_ref: 'task:6XX5mm2JpV3wGC63',
+        project_item_id: 7,
+        project_item_title: 'Build portability',
+      }, null);
+    });
+
+    expect(markdown).toContain('# PR: Build on Linux on ARM');
+    expect(markdown).toContain('## Backlinks');
+    expect(markdown).toContain('- Project: Build portability');
+    expect(markdown).not.toContain('Kind:');
+    expect(markdown).not.toContain('Source: task:');
+  });
+
   test('projects are reachable as a first-level tab', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 760 });
     await waitReady(page);

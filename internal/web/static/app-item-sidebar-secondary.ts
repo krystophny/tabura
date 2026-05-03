@@ -1,10 +1,10 @@
 import * as context from './app-context.js';
+import { showTextInput } from './app-env.js';
 import { workspaceDisplayName } from './app-workspace-status.js';
 
 const { refs, state, SPHERE_OPTIONS, SIDEBAR_SOURCE_FILTERS } = context;
 
 const setActiveSphere = (...args) => refs.setActiveSphere(...args);
-const showTextInput = (...args) => refs.showTextInput(...args);
 const activeWorkspace = (...args) => refs.activeProject(...args);
 const refreshWorkspaceBrowser = (...args) => refs.refreshWorkspaceBrowser(...args);
 const renderPrReviewFileList = (...args) => refs.renderPrReviewFileList(...args);

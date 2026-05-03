@@ -277,6 +277,49 @@ function buildSidebarCanvasMeta(item, artifactKind) {
   return meta;
 }
 
+function itemEventPath(item, fallbackPath = '') {
+  const itemID = Number(item?.id || 0);
+  if (itemID > 0) return `item:${itemID}`;
+  return String(fallbackPath || '').trim();
+}
+
+function sourceURLForSidebarItem(item, artifact = null) {
+  const direct = String(item?.source_url || item?.url || artifact?.ref_url || '').trim();
+  if (/^https?:\/\//i.test(direct)) return direct;
+  const ref = String(item?.source_ref || '').trim();
+  return /^https?:\/\//i.test(ref) ? ref : '';
+}
+
+function itemStateLabel(item) {
+  const state = normalizeDisplayText(item?.state || '').trim();
+  if (!state) return '';
+  return state.charAt(0).toUpperCase() + state.slice(1);
+}
+
+function appendItemContext(detail, item, artifact = null) {
+  const projectTitle = String(item?.project_item_title || '').trim();
+  const projectID = Number(item?.project_item_id || 0);
+  if (projectTitle || projectID > 0) {
+    detail.push('', '## Backlinks');
+    detail.push(`- Project: ${projectTitle || `#${projectID}`}`);
+  }
+
+  const status = itemStateLabel(item);
+  const due = String(item?.due_at || '').trim();
+  const followUp = String(item?.follow_up_at || item?.visible_after || '').trim();
+  const statusParts = [status, due ? `due ${due}` : '', followUp ? `starts ${followUp}` : ''].filter(Boolean);
+  if (statusParts.length > 0) {
+    detail.push('', '## Status');
+    detail.push(`- ${statusParts.join(' / ')}`);
+  }
+
+  const url = sourceURLForSidebarItem(item, artifact);
+  if (url) {
+    detail.push('', '## Links');
+    detail.push(`- [Open source](${url})`);
+  }
+}
+
 export function buildSidebarItemFallbackText(item, artifact = null) {
   const artifactMeta = parseSidebarArtifactMeta(artifact?.meta_json || '');
   const title = String(artifact?.title || item?.artifact_title || item?.title || 'Item').trim() || 'Item';
@@ -290,16 +333,8 @@ export function buildSidebarItemFallbackText(item, artifact = null) {
   if (artifactKind === 'email_thread') {
     return buildEmailThreadArtifactMarkdown(title, artifactMeta);
   }
-  const detail = [
-    `# ${title}`,
-    '',
-    `- Item: ${String(item?.title || title).trim() || title}`,
-    `- Kind: ${normalizeDisplayText(artifact?.kind || item?.artifact_kind || 'note') || 'note'}`,
-  ];
-  const sourceRef = String(item?.source_ref || '').trim();
-  if (sourceRef) detail.push(`- Source: ${sourceRef}`);
-  const refURL = String(artifact?.ref_url || '').trim();
-  if (refURL) detail.push(`- Link: ${refURL}`);
+  const detail = [`# ${title}`];
+  appendItemContext(detail, item, artifact);
   const body = String(
     artifactMeta.transcript
     || artifactMeta.text
@@ -321,7 +356,16 @@ export async function openSidebarArtifactItem(item) {
     return openMailDraftArtifact(artifactID);
   }
   if (artifactID <= 0) {
-    return false;
+    const itemID = Number(item?.id || 0);
+    applyCanvasArtifactEvent({
+      kind: 'text_artifact',
+      event_id: `sidebar-item-${itemID || 'item'}-${Date.now()}`,
+      title: String(item?.title || 'Item'),
+      path: itemEventPath(item),
+      text: buildSidebarItemFallbackText(item, null),
+      meta: buildSidebarCanvasMeta(item, String(item?.artifact_kind || 'item').trim().toLowerCase() || 'item'),
+    });
+    return true;
   }
   const resp = await fetch(apiURL(`artifacts/${encodeURIComponent(String(artifactID))}`), { cache: 'no-store' });
   if (!resp.ok) {
@@ -359,7 +403,7 @@ export async function openSidebarArtifactItem(item) {
     kind: 'text_artifact',
     event_id: `sidebar-item-${artifactID}-${Date.now()}`,
     title: String(artifact?.title || item?.artifact_title || item?.title || 'Item'),
-    path: refPath,
+    path: itemEventPath(item, refPath),
     text: buildSidebarItemFallbackText(item, artifact),
     meta: buildSidebarCanvasMeta(item, artifactKind),
   };
