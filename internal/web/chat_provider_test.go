@@ -353,7 +353,7 @@ func TestAssistantProviderDisplayLabelPrefersSpecificResponderName(t *testing.T)
 		model    string
 		want     string
 	}{
-		{name: "local model", provider: assistantProviderLocal, model: "qwen3.5-9b", want: "Local"},
+		{name: "local model", provider: assistantProviderLocal, model: "qwen3.6-35b-a3b-q4", want: "Local"},
 		{name: "spark from generic openai", provider: assistantProviderOpenAI, model: "gpt-5.3-codex-spark", want: "Spark"},
 		{name: "gpt from generic openai", provider: assistantProviderOpenAI, model: "gpt-5.4", want: "GPT"},
 		{name: "unknown provider defaults local", provider: "", model: "", want: "Local"},

@@ -6,6 +6,7 @@ After=pipewire.service pipewire-pulse.service
 Type=simple
 Environment=HOME=%h
 Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=VOXTYPE_BIN=@@VOXTYPE_BIN@@
 Environment=SLOPSHELL_STT_LANGUAGE=de,en
 Environment=SLOPSHELL_STT_MODEL=large-v3-turbo
 ExecStart=@@REPO_ROOT@@/scripts/setup-voxtype-stt.sh

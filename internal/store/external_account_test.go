@@ -111,9 +111,6 @@ func TestExternalAccountStoreRejectsInvalidConfigAndIdentity(t *testing.T) {
 	if _, err := s.CreateExternalAccount(SphereWork, ExternalProviderGmail, "Mail", map[string]any{"password": "secret"}); err == nil {
 		t.Fatal("expected password config rejection")
 	}
-	if _, err := s.CreateExternalAccount(SphereWork, ExternalProviderExchangeEWS, "Mail", map[string]any{"legacy_helpy_env_var": "HELPY_IMAP_PASSWORD_TUGRAZ"}); err == nil {
-		t.Fatal("expected legacy env var config rejection")
-	}
 	if _, err := s.CreateExternalAccount(SphereWork, ExternalProviderGmail, "Mail", map[string]any{"oauth_token": "raw-token"}); err == nil {
 		t.Fatal("expected token config rejection")
 	}
@@ -204,6 +201,35 @@ func TestResolveExternalAccountPasswordUsesEnvFirstAndCaches(t *testing.T) {
 	}
 	if commandCalls != 0 {
 		t.Fatalf("credential command calls after cache = %d, want 0", commandCalls)
+	}
+}
+
+func TestResolveExternalAccountPasswordFallsBackToLegacyEnvVar(t *testing.T) {
+	s := newTestStore(t)
+
+	account, err := s.CreateExternalAccount(SphereWork, ExternalProviderExchangeEWS, "TU Graz Exchange", map[string]any{
+		"endpoint": "https://exchange.tugraz.at/EWS/Exchange.asmx",
+		"username": "ert",
+	})
+	if err != nil {
+		t.Fatalf("CreateExternalAccount() error: %v", err)
+	}
+	if _, err := s.db.Exec(`UPDATE external_accounts SET config_json = ? WHERE id = ?`, `{"endpoint":"https://exchange.tugraz.at/EWS/Exchange.asmx","username":"ert","legacy_helpy_env_var":"HELPY_IMAP_PASSWORD_TUGRAZ"}`, account.ID); err != nil {
+		t.Fatalf("inject legacy config: %v", err)
+	}
+	s.externalAccountLookupEnv = func(key string) (string, bool) {
+		if key == "HELPY_IMAP_PASSWORD_TUGRAZ" {
+			return "legacy-secret", true
+		}
+		return "", false
+	}
+
+	password, source, err := s.ResolveExternalAccountPassword(context.Background(), account.ID)
+	if err != nil {
+		t.Fatalf("ResolveExternalAccountPassword() error: %v", err)
+	}
+	if password != "legacy-secret" || source != externalAccountCredentialSourceLegacyEnv {
+		t.Fatalf("ResolveExternalAccountPassword() = (%q, %q), want legacy fallback", password, source)
 	}
 }
 

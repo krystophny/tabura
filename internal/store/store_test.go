@@ -322,7 +322,7 @@ func TestStoreChatSessionMessageAndThreading(t *testing.T) {
 		t.Fatalf("thread-b provider = %q, want openai", threadMessages[0].Provider)
 	}
 
-	if err := s.UpdateChatMessageContent(msg2.ID, "m2-updated", "p2-updated", "canvas", WithProviderMetadata("local", "qwen3.5-9b", 27)); err != nil {
+	if err := s.UpdateChatMessageContent(msg2.ID, "m2-updated", "p2-updated", "canvas", WithProviderMetadata("local", "qwen3.6-35b-a3b-q4", 27)); err != nil {
 		t.Fatalf("UpdateChatMessageContent() error: %v", err)
 	}
 	threadMessages, err = s.ListChatMessages(session.ID, 10, WithThreadKey("thread-a"))
@@ -335,8 +335,8 @@ func TestStoreChatSessionMessageAndThreading(t *testing.T) {
 	if threadMessages[0].Provider != "local" {
 		t.Fatalf("updated message provider = %q, want local", threadMessages[0].Provider)
 	}
-	if threadMessages[0].ProviderModel != "qwen3.5-9b" {
-		t.Fatalf("updated message provider_model = %q, want qwen3.5-9b", threadMessages[0].ProviderModel)
+	if threadMessages[0].ProviderModel != "qwen3.6-35b-a3b-q4" {
+		t.Fatalf("updated message provider_model = %q, want qwen3.6-35b-a3b-q4", threadMessages[0].ProviderModel)
 	}
 	if threadMessages[0].ProviderLatency != 27 {
 		t.Fatalf("updated message provider_latency = %d, want 27", threadMessages[0].ProviderLatency)

@@ -25,10 +25,9 @@ $PiperVenv = Join-Path $PiperRoot "venv"
 $ModelDir = Join-Path $PiperRoot "models"
 $ScriptDir = Join-Path $DataRoot "scripts"
 $PiperScriptPath = Join-Path $ScriptDir "piper_tts_server.py"
-$LlmDir = Join-Path $DataRoot "llm"
-$LlmModelDir = Join-Path $LlmDir "models"
-$LlmSetupScript = Join-Path $ScriptDir "setup-local-llm.sh"
-$SkipLlm = $env:SLOPSHELL_INSTALL_SKIP_LLM -eq "1"
+$LlmEnvDir = Join-Path $env:USERPROFILE ".config\slopshell"
+$LlmEnvFile = Join-Path $LlmEnvDir "llm.env"
+$WebLauncherPath = Join-Path $ScriptDir "start-slopshell-web.ps1"
 $WebHost = if ($env:SLOPSHELL_WEB_HOST) { $env:SLOPSHELL_WEB_HOST } else { "127.0.0.1" }
 
 function Write-Log {
@@ -69,6 +68,83 @@ function Normalize-Version {
     if (-not $Raw) { return "" }
     $clean = $Raw.TrimStart('v', 'V')
     return "v$clean"
+}
+
+function Get-DefaultOpenAIBaseUrl {
+    if ($env:SLOPSHELL_DEFAULT_OPENAI_BASE_URL) {
+        return $env:SLOPSHELL_DEFAULT_OPENAI_BASE_URL
+    }
+    return "http://127.0.0.1:8080/v1"
+}
+
+function Load-LlmEnvFile {
+    param([string]$Path)
+    $values = @{}
+    if (-not (Test-Path $Path)) {
+        return $values
+    }
+    foreach ($line in Get-Content -Path $Path) {
+        if ([string]::IsNullOrWhiteSpace($line)) { continue }
+        $trimmed = $line.Trim()
+        if ($trimmed.StartsWith("#")) { continue }
+        $parts = $trimmed.Split('=', 2)
+        if ($parts.Count -eq 2) {
+            $values[$parts[0]] = $parts[1]
+        }
+    }
+    return $values
+}
+
+function Write-LlmEnvFile {
+    $defaultBaseUrl = Get-DefaultOpenAIBaseUrl
+    $defaultIntentUrl = $defaultBaseUrl -replace '/v1$',''
+    $intentUrl = if ($env:SLOPSHELL_INTENT_LLM_URL) { $env:SLOPSHELL_INTENT_LLM_URL } else { $defaultIntentUrl }
+    $intentModel = if ($env:SLOPSHELL_INTENT_LLM_MODEL) { $env:SLOPSHELL_INTENT_LLM_MODEL } else { "qwen" }
+    $intentProfile = if ($env:SLOPSHELL_INTENT_LLM_PROFILE) { $env:SLOPSHELL_INTENT_LLM_PROFILE } else { "default" }
+    $intentProfileOptions = if ($env:SLOPSHELL_INTENT_LLM_PROFILE_OPTIONS) { $env:SLOPSHELL_INTENT_LLM_PROFILE_OPTIONS } else { $intentProfile }
+    $assistantUrl = if ($env:SLOPSHELL_ASSISTANT_LLM_URL) { $env:SLOPSHELL_ASSISTANT_LLM_URL } else { $intentUrl }
+    $assistantModel = if ($env:SLOPSHELL_ASSISTANT_LLM_MODEL) { $env:SLOPSHELL_ASSISTANT_LLM_MODEL } else { $intentModel }
+    $codexBaseUrl = if ($env:SLOPSHELL_CODEX_BASE_URL) { $env:SLOPSHELL_CODEX_BASE_URL } else { $defaultBaseUrl }
+    $codexFastModel = if ($env:SLOPSHELL_CODEX_FAST_MODEL) { $env:SLOPSHELL_CODEX_FAST_MODEL } else { $intentModel }
+    $codexLocalModel = if ($env:SLOPSHELL_CODEX_LOCAL_MODEL) { $env:SLOPSHELL_CODEX_LOCAL_MODEL } else { $intentModel }
+
+    $content = @(
+        "SLOPSHELL_INTENT_LLM_URL=$intentUrl"
+        "SLOPSHELL_INTENT_LLM_MODEL=$intentModel"
+        "SLOPSHELL_INTENT_LLM_PROFILE=$intentProfile"
+        "SLOPSHELL_INTENT_LLM_PROFILE_OPTIONS=$intentProfileOptions"
+        "SLOPSHELL_ASSISTANT_LLM_URL=$assistantUrl"
+        "SLOPSHELL_ASSISTANT_LLM_MODEL=$assistantModel"
+        "SLOPSHELL_CODEX_BASE_URL=$codexBaseUrl"
+        "SLOPSHELL_CODEX_FAST_MODEL=$codexFastModel"
+        "SLOPSHELL_CODEX_LOCAL_MODEL=$codexLocalModel"
+    )
+
+    if ($DryRun.IsPresent) {
+        Write-Log "[dry-run] Write $LlmEnvFile"
+        return [ordered]@{
+            SLOPSHELL_INTENT_LLM_URL = $intentUrl
+            SLOPSHELL_INTENT_LLM_MODEL = $intentModel
+            SLOPSHELL_CODEX_BASE_URL = $codexBaseUrl
+        }
+    }
+
+    New-Item -ItemType Directory -Force -Path $LlmEnvDir | Out-Null
+    Set-Content -Path $LlmEnvFile -Value $content
+    return [ordered]@{
+        SLOPSHELL_INTENT_LLM_URL = $intentUrl
+        SLOPSHELL_INTENT_LLM_MODEL = $intentModel
+        SLOPSHELL_CODEX_BASE_URL = $codexBaseUrl
+    }
+}
+
+function Initialize-LlmEnvFile {
+    if ((Test-Path $LlmEnvFile) -and -not $env:SLOPSHELL_INTENT_LLM_URL -and -not $env:SLOPSHELL_INTENT_LLM_MODEL -and -not $env:SLOPSHELL_CODEX_BASE_URL -and -not $env:SLOPSHELL_CODEX_FAST_MODEL -and -not $env:SLOPSHELL_CODEX_LOCAL_MODEL) {
+        Write-Log "using existing OpenAI-compatible LLM config from $LlmEnvFile"
+        return (Load-LlmEnvFile -Path $LlmEnvFile)
+    }
+    Write-Log "writing OpenAI-compatible LLM config to $LlmEnvFile"
+    return (Write-LlmEnvFile)
 }
 
 function Resolve-Arch {
@@ -147,7 +223,7 @@ function Get-Asset {
 
 function Ensure-InstallDirectories {
     Invoke-Step -Display "Create install directories" -Action {
-        New-Item -ItemType Directory -Force -Path $InstallRoot, $DataRoot, $ProjectDir, $WebDataDir, $PiperRoot, $ModelDir, $ScriptDir, $LlmDir, $LlmModelDir | Out-Null
+        New-Item -ItemType Directory -Force -Path $InstallRoot, $DataRoot, $ProjectDir, $WebDataDir, $PiperRoot, $ModelDir, $ScriptDir, $LlmEnvDir | Out-Null
     }
 }
 
@@ -257,85 +333,43 @@ function Setup-Piper {
     }
 }
 
-function Setup-LocalLlm {
-    if ($SkipLlm) {
-        Write-Log "skipping local LLM due to SLOPSHELL_INSTALL_SKIP_LLM=1"
-        return
-    }
-    Write-Host "=== Local LLMs (llama.cpp, optional) ==="
-    Write-Host "A fast Qwen3.5 9B coordinator runs on port 8081 for Slopshell routing and replies."
-    Write-Host "A Codex-focused gpt-oss-120b runtime runs on port 8080 for local Codex agent profiles."
-    Write-Host "Requires llama.cpp (llama-server binary)."
-
-    if (-not (Confirm-DefaultYes "Install local LLM service?")) {
-        Write-Log "skipping local LLM setup"
-        return
-    }
-
-    $llamaCmd = Get-Command llama-server -ErrorAction SilentlyContinue
-    if (-not $llamaCmd) {
-        $wingetCmd = Get-Command winget -ErrorAction SilentlyContinue
-        if ($wingetCmd -and (Confirm-DefaultYes "Install llama.cpp via winget?")) {
-            if ($DryRun.IsPresent) {
-                Invoke-Step -Display "winget install ggml-org.llama-cpp" -Action {}
-            } else {
-                winget install --id ggml-org.llama-cpp --accept-source-agreements --accept-package-agreements
-            }
-        } else {
-            Write-Log "llama-server not found; install llama.cpp and ensure llama-server is on PATH"
-        }
-    }
-
-    $modelFile = "Qwen3.5-9B-Q4_K_M.gguf"
-    $modelPath = Join-Path $LlmModelDir $modelFile
-    if (Test-Path $modelPath) {
-        Write-Log "LLM model already present: $modelFile"
-    } elseif (Confirm-DefaultYes "Download Qwen3.5 9B GGUF model (~5.3 GB)?") {
-        if ($DryRun.IsPresent) {
-            Invoke-Step -Display "Download $modelFile" -Action {}
-        } else {
-            $modelUrl = "https://huggingface.co/lmstudio-community/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf?download=true"
-            Invoke-WebRequest -Uri $modelUrl -OutFile $modelPath
-        }
-    }
-}
-
 function Write-TaskFiles {
     param([string]$CodexPath)
 
-    $webCmd = 'set "SLOPSHELL_INTENT_LLM_URL=http://127.0.0.1:8081" && set "SLOPSHELL_INTENT_LLM_MODEL=local" && set "SLOPSHELL_INTENT_LLM_PROFILE=qwen3.5-9b" && set "SLOPSHELL_INTENT_LLM_PROFILE_OPTIONS=qwen3.5-9b,qwen3.5-4b" && "' + $BinaryPath + '" server --workspace-dir "' + $ProjectDir + '" --data-dir "' + $WebDataDir + '" --web-host ' + $WebHost + ' --web-port 8420 --app-server-url ws://127.0.0.1:8787 --tts-url http://127.0.0.1:8424'
+    $webScript = @"
+\$envFile = '$LlmEnvFile'
+if (Test-Path \$envFile) {
+    foreach (\$line in Get-Content -Path \$envFile) {
+        if ([string]::IsNullOrWhiteSpace(\$line)) { continue }
+        \$trimmed = \$line.Trim()
+        if (\$trimmed.StartsWith('#')) { continue }
+        \$parts = \$trimmed.Split('=', 2)
+        if (\$parts.Count -eq 2) {
+            [Environment]::SetEnvironmentVariable(\$parts[0], \$parts[1])
+        }
+    }
+}
+[Environment]::SetEnvironmentVariable('SLOPSHELL_BRAIN_GTD_SYNC', 'on')
+& '$BinaryPath' server --workspace-dir '$ProjectDir' --data-dir '$WebDataDir' --web-host $WebHost --web-port 8420 --app-server-url ws://127.0.0.1:8787 --tts-url http://127.0.0.1:8424
+"@
     $piperCmd = 'set "PIPER_MODEL_DIR=' + $ModelDir + '" && "' + (Join-Path $PiperVenv 'Scripts\python.exe') + '" -m uvicorn piper_tts_server:app --app-dir "' + $ScriptDir + '" --host 127.0.0.1 --port 8424'
     $codexCmd = '"' + $CodexPath + '" app-server --listen ws://127.0.0.1:8787'
-
-    $llamaPath = (Get-Command llama-server -ErrorAction SilentlyContinue)
-    $llmCmd = ""
-    $codexLlmCmd = ""
-    if ($llamaPath) {
-        $llmCmd = '"' + $llamaPath.Source + '" -m "' + (Join-Path $LlmModelDir "Qwen3.5-9B-Q4_K_M.gguf") + '" --host 127.0.0.1 --port 8081 -c 131072 --threads 4 -ngl 99 --parallel 1 --alias qwen3.5-9b --reasoning-budget -1 --jinja'
-        $codexLlmCmd = '"' + $llamaPath.Source + '" --gpt-oss-120b-default --host 127.0.0.1 --port 8080 -c 32768 --threads 8 -ngl auto --parallel 1 --alias gpt-oss-120b --reasoning-budget -1 --jinja'
-    }
+    $webCmd = 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "' + $WebLauncherPath + '"'
 
     if ($DryRun.IsPresent) {
-        Write-Log "[dry-run] Register scheduled tasks slopshell-web, slopshell-piper-tts, slopshell-codex-app-server, slopshell-llm, slopshell-codex-llm"
+        Write-Log "[dry-run] Register scheduled tasks slopshell-web, slopshell-piper-tts, slopshell-codex-app-server"
         return
     }
 
+    Set-Content -Path $WebLauncherPath -Value $webScript
     schtasks /Create /SC ONLOGON /TN "slopshell-codex-app-server" /TR $codexCmd /F | Out-Null
     schtasks /Create /SC ONLOGON /TN "slopshell-piper-tts" /TR ("cmd /c " + $piperCmd) /F | Out-Null
     schtasks /Run /TN "slopshell-codex-app-server" | Out-Null
     schtasks /Run /TN "slopshell-piper-tts" | Out-Null
-
-    if ($llmCmd) {
-        schtasks /Create /SC ONLOGON /TN "slopshell-llm" /TR $llmCmd /F | Out-Null
-        schtasks /Run /TN "slopshell-llm" | Out-Null
-    }
-    if ($codexLlmCmd) {
-        schtasks /Create /SC ONLOGON /TN "slopshell-codex-llm" /TR $codexLlmCmd /F | Out-Null
-        schtasks /Run /TN "slopshell-codex-llm" | Out-Null
-    }
-
     schtasks /Create /SC ONLOGON /TN "slopshell-web" /TR $webCmd /F | Out-Null
     schtasks /Run /TN "slopshell-web" | Out-Null
+    schtasks /Delete /TN "slopshell-llm" /F | Out-Null 2>$null
+    schtasks /Delete /TN "slopshell-codex-llm" /F | Out-Null 2>$null
 }
 
 function Print-WindowsSTTNotice {
@@ -355,7 +389,7 @@ function Open-Browser {
 }
 
 function Print-Summary {
-    param([string]$Tag)
+    param([string]$Tag, $LlmConfig)
     Write-Host ""
     Write-Host "Install complete"
     Write-Host "  Version:      $Tag"
@@ -364,8 +398,9 @@ function Print-Summary {
     Write-Host "  Project dir:  $ProjectDir"
     Write-Host "  Piper models: $ModelDir"
     Write-Host "  Web URL:      http://127.0.0.1:8420"
-    Write-Host "  Intent LLM:   http://127.0.0.1:8081"
-    Write-Host "  Codex LLM:    http://127.0.0.1:8080"
+    Write-Host "  LLM env file: $LlmEnvFile"
+    Write-Host "  Intent LLM:   $($LlmConfig['SLOPSHELL_INTENT_LLM_URL'])"
+    Write-Host "  Codex LLM:    $($LlmConfig['SLOPSHELL_CODEX_BASE_URL'])"
 }
 
 function Remove-Task {
@@ -409,11 +444,11 @@ function Install-Slopshell {
     $tag = Install-Binary -Release $release
     Ensure-UserPath
     Setup-Piper
-    Setup-LocalLlm
+    $llmConfig = Initialize-LlmEnvFile
     Print-WindowsSTTNotice
     Write-TaskFiles -CodexPath $codexPath
     Open-Browser
-    Print-Summary -Tag $tag
+    Print-Summary -Tag $tag -LlmConfig $llmConfig
 }
 
 if ($Uninstall.IsPresent) {

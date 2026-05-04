@@ -21,7 +21,7 @@
 
 - At that point in time the public runtime remained a single `slopshell server`
   process with loopback-only MCP served alongside the web UI.
-- Local intent routing remains available through `slopshell-llm.service`, while Spark stays the default app-server model and optional Cerebras and Gemini providers extend execution for broader tasks.
+- Local intent routing now goes through a routed OpenAI-compatible `qwen` endpoint instead of a standalone Slopshell llama sidecar, while Spark stays the default app-server model and optional Cerebras and Gemini providers extend execution for broader tasks.
 - Runtime-facing version surfaces are aligned across the CLI binary, web runtime, MCP server, and app-server client/session handshakes.
 
 ### Documentation and Release Surfaces

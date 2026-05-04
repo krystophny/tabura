@@ -163,10 +163,10 @@ Slopshell runs with one web runtime plus private local backend/runtime links:
 5. TTS sidecar on `127.0.0.1:8424/v1/audio/speech`
    - default: Piper
 6. `slopshell-stt.service` (voxtype daemon with STT API and push-to-talk, `/v1/audio/transcriptions`)
-7. `slopshell-llm.service` (local OpenAI-compatible LLM endpoint at `127.0.0.1:8081/v1/chat/completions`)
-   - macOS default: `vllm-mlx` serving `mlx-community/Qwen3.5-9B-4bit`
-   - Linux default: `llama.cpp` serving Qwen3.5 9B GGUF
-   - keep the server reasoning-capable and WebUI-enabled; fast non-thinking paths disable thinking per request
+7. Routed intent/app-assistant LLM via a generic OpenAI-compatible endpoint (`SLOPSHELL_INTENT_LLM_URL`)
+   - deployment-specific URL/model/profile live in a gitignored env file (default `~/.config/slopshell/llm.env`)
+   - the runtime does not need to know what backend sits behind that endpoint
+   - fast non-thinking paths disable thinking per request; the backend stays reasoning-capable
 
 Voice commit still uses built-in browser VAD auto-stop, then sends audio to the local voxtype STT service.
 
@@ -185,12 +185,11 @@ Why TTS remains an HTTP sidecar:
 - Codex app-server websocket: `ws://127.0.0.1:8787`
 - TTS endpoint: `http://127.0.0.1:8424/v1/audio/speech`
 - Voxtype STT endpoint: `http://127.0.0.1:8427/v1/audio/transcriptions`
-- Intent LLM endpoint: `http://127.0.0.1:8081/v1/chat/completions` (`SLOPSHELL_INTENT_LLM_URL`, set `off` to disable)
-- Codex local profile endpoint on macOS: `http://127.0.0.1:8081/v1/responses`
-- Codex local profile endpoint on Linux: `http://127.0.0.1:8080/v1/responses`
-- Intent/delegator request model id: `SLOPSHELL_INTENT_LLM_MODEL` (default `local`)
-- Intent/delegator profile selection: `SLOPSHELL_INTENT_LLM_PROFILE` (default `qwen3.5-9b`)
-- Intent/delegator profile options: `SLOPSHELL_INTENT_LLM_PROFILE_OPTIONS` (macOS unplugged default: `qwen3.5-9b`)
+- Intent LLM endpoint: generic OpenAI-compatible base URL via `SLOPSHELL_INTENT_LLM_URL`, set `off` to disable
+- Codex local profile endpoint: generic OpenAI-compatible responses endpoint (`.../v1/responses`)
+- Intent/delegator request model id: `SLOPSHELL_INTENT_LLM_MODEL` (normally supplied by `~/.config/slopshell/llm.env`)
+- Intent/delegator profile selection: `SLOPSHELL_INTENT_LLM_PROFILE` (normally supplied by `~/.config/slopshell/llm.env`)
+- Intent/delegator profile options: `SLOPSHELL_INTENT_LLM_PROFILE_OPTIONS` (normally supplied by `~/.config/slopshell/llm.env`)
 - local fast requests that should skip chain-of-thought send `chat_template_kwargs.enable_thinking=false` instead of globally disabling reasoning on the server
 - Assistant routing mode: `SLOPSHELL_ASSISTANT_MODE` (macOS unplugged default: `local`)
 - Codex local profiles written by `scripts/setup-codex-mcp.sh`: `local` and `fast`

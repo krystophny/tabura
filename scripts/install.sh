@@ -3,36 +3,48 @@ set -euo pipefail
 
 SCRIPT_NAME="$(basename "$0")"
 SCRIPT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [ -f "${SCRIPT_ROOT}/lib/llama.sh" ]; then
-    # shellcheck source=scripts/lib/llama.sh
-    source "${SCRIPT_ROOT}/lib/llama.sh"
+if [ -f "${SCRIPT_ROOT}/lib/llm_env.sh" ]; then
+    # shellcheck source=scripts/lib/llm_env.sh
+    source "${SCRIPT_ROOT}/lib/llm_env.sh"
 else
-    SLOPSHELL_LLAMA_LAST_ERROR=""
-    slopshell_llama_prepend_library_dirs() { :; }
-    slopshell_find_llama_server() {
-        local candidate
-        SLOPSHELL_LLAMA_LAST_ERROR=""
-        if [ -n "${LLAMA_SERVER_BIN:-}" ]; then
-            if [ -x "$LLAMA_SERVER_BIN" ]; then
-                printf '%s' "$LLAMA_SERVER_BIN"
-                return 0
-            fi
-            if candidate="$(command -v "$LLAMA_SERVER_BIN" 2>/dev/null)"; then
-                printf '%s' "$candidate"
-                return 0
-            fi
-        fi
-        if candidate="$(command -v llama-server 2>/dev/null)"; then
-            printf '%s' "$candidate"
+    slopshell_llm_env_file() {
+        printf '%s' "${SLOPSHELL_LLM_ENV_FILE:-$HOME/.config/slopshell/llm.env}"
+    }
+    slopshell_load_llm_env() {
+        local env_file
+        env_file="$(slopshell_llm_env_file)"
+        [ -f "$env_file" ] || return 1
+        # shellcheck disable=SC1090
+        set -a && . "$env_file" && set +a
+    }
+    slopshell_resolve_intent_llm_url() {
+        local value="${SLOPSHELL_INTENT_LLM_URL:-}"
+        if [ -n "$value" ]; then
+            printf '%s' "$value"
             return 0
         fi
-        candidate="${HOME}/.local/llama.cpp/llama-server"
-        if [ -x "$candidate" ]; then
-            printf '%s' "$candidate"
+        slopshell_load_llm_env >/dev/null 2>&1 || return 1
+        value="${SLOPSHELL_INTENT_LLM_URL:-}"
+        [ -n "$value" ] || return 1
+        printf '%s' "$value"
+    }
+    slopshell_resolve_openai_base_url() {
+        local value="${SLOPSHELL_CODEX_BASE_URL:-}"
+        if [ -n "$value" ]; then
+            printf '%s' "$value"
             return 0
         fi
-        SLOPSHELL_LLAMA_LAST_ERROR="llama-server not found"
-        return 1
+        if slopshell_load_llm_env >/dev/null 2>&1 && [ -n "${SLOPSHELL_CODEX_BASE_URL:-}" ]; then
+            printf '%s' "${SLOPSHELL_CODEX_BASE_URL}"
+            return 0
+        fi
+        value="$(slopshell_resolve_intent_llm_url 2>/dev/null || true)"
+        [ -n "$value" ] || return 1
+        value="${value%/}"
+        case "$value" in
+            */v1) printf '%s' "$value" ;;
+            *) printf '%s/v1' "$value" ;;
+        esac
     }
 fi
 if [ -f "${SCRIPT_ROOT}/lib/python.sh" ]; then
@@ -94,7 +106,6 @@ ASSUME_YES="${SLOPSHELL_ASSUME_YES:-0}"
 DRY_RUN="${SLOPSHELL_INSTALL_DRY_RUN:-0}"
 SKIP_BROWSER="${SLOPSHELL_INSTALL_SKIP_BROWSER:-0}"
 SKIP_STT="${SLOPSHELL_INSTALL_SKIP_STT:-0}"
-SKIP_LLM="${SLOPSHELL_INSTALL_SKIP_LLM:-0}"
 REQUESTED_VERSION=""
 DO_UNINSTALL=0
 SLOPSHELL_OS=""
@@ -109,15 +120,9 @@ MODEL_DIR=""
 VENV_DIR=""
 SCRIPT_DIR=""
 PIPER_SERVER_SCRIPT=""
-LLM_DIR=""
-LLM_MODEL_DIR=""
-LLM_VENV_DIR=""
-LLM_SOURCE_DIR=""
-LLM_SETUP_SCRIPT=""
+LLM_ENV_FILE=""
 STT_SETUP_SCRIPT=""
 CODEX_PATH=""
-REUSE_LLM_URL=""
-LLAMA_SERVER_BIN_RESOLVED=""
 PYTHON3_BIN=""
 
 log() {
@@ -181,18 +186,6 @@ voxtype_supports_stt_service() {
     return 1
 }
 
-detect_llama_server() {
-    local port url
-    for port in 8081 8080; do
-        url="http://127.0.0.1:${port}"
-        if curl -fsS --max-time 2 "${url}/health" >/dev/null 2>&1; then
-            printf '%s' "$url"
-            return 0
-        fi
-    done
-    return 1
-}
-
 print_help() {
     cat <<USAGE
 Usage: ${SCRIPT_NAME} [options]
@@ -208,8 +201,9 @@ Environment overrides:
   SLOPSHELL_INSTALL_DRY_RUN=1
   SLOPSHELL_INSTALL_SKIP_BROWSER=1
   SLOPSHELL_INSTALL_SKIP_STT=1
-  SLOPSHELL_INSTALL_SKIP_LLM=1
-  SLOPSHELL_INTENT_LLM_URL=<url>   Reuse an existing local LLM (skip download/service)
+  SLOPSHELL_LLM_ENV_FILE=<path>    Override the OpenAI-compatible LLM env file
+  SLOPSHELL_INTENT_LLM_URL=<url>   Configure the intent/assistant endpoint
+  SLOPSHELL_CODEX_BASE_URL=<url>   Configure the Codex OpenAI-compatible base URL
   SLOPSHELL_REPO_OWNER / SLOPSHELL_REPO_NAME / SLOPSHELL_RELEASE_API_BASE
 USAGE
 }
@@ -285,33 +279,13 @@ resolve_paths() {
     VENV_DIR="${PIPER_DIR}/venv"
     SCRIPT_DIR="${DATA_ROOT}/scripts"
     PIPER_SERVER_SCRIPT="${SCRIPT_DIR}/piper_tts_server.py"
-    LLM_DIR="${DATA_ROOT}/llm"
-    LLM_MODEL_DIR="${LLM_DIR}/models"
-    LLM_VENV_DIR="${LLM_DIR}/venv"
-    LLM_SOURCE_DIR="${LLM_DIR}/vllm-mlx"
-    LLM_SETUP_SCRIPT="${SCRIPT_DIR}/setup-local-llm.sh"
+    LLM_ENV_FILE="$(slopshell_llm_env_file)"
     STT_SETUP_SCRIPT="${SCRIPT_DIR}/setup-voxtype-stt.sh"
 }
 
 require_codex_app_server() {
     CODEX_PATH="$(command -v codex || true)"
     [ -n "$CODEX_PATH" ] || fail "codex app-server is required but codex is not in PATH"
-}
-
-sync_vllm_mlx_source_checkout() {
-    local source_dir="$1"
-    local remote_url="git@github.com:computor-org/vllm-mlx.git"
-
-    run_cmd mkdir -p "$LLM_DIR"
-    if [ -d "${source_dir}/.git" ]; then
-        run_cmd git -C "$source_dir" remote set-url origin "$remote_url"
-        run_cmd git -C "$source_dir" fetch origin main --prune
-    else
-        run_cmd rm -rf "$source_dir"
-        run_cmd git clone --branch main "$remote_url" "$source_dir"
-    fi
-    run_cmd git -C "$source_dir" checkout main
-    run_cmd git -C "$source_dir" reset --hard origin/main
 }
 
 require_python_310() {
@@ -472,15 +446,9 @@ BIN
         else
             echo "# dry-run piper server" >"${tmpdir}/piper_tts_server.py"
         fi
-        if [ -f "scripts/setup-local-llm.sh" ]; then
-            cp "scripts/setup-local-llm.sh" "${tmpdir}/setup-local-llm.sh"
-        else
-            echo "#!/usr/bin/env bash" >"${tmpdir}/setup-local-llm.sh"
-        fi
-        chmod +x "${tmpdir}/setup-local-llm.sh"
-        if [ -f "scripts/lib/llama.sh" ]; then
+        if [ -f "scripts/lib/llm_env.sh" ]; then
             mkdir -p "${tmpdir}/scripts/lib"
-            cp "scripts/lib/llama.sh" "${tmpdir}/scripts/lib/llama.sh"
+            cp "scripts/lib/llm_env.sh" "${tmpdir}/scripts/lib/llm_env.sh"
         fi
         if [ -f "scripts/setup-voxtype-stt.sh" ]; then
             cp "scripts/setup-voxtype-stt.sh" "${tmpdir}/setup-voxtype-stt.sh"
@@ -516,9 +484,6 @@ BIN
     [ -x "${tmpdir}/slopshell" ] || fail "slopshell binary missing in archive"
     [ -f "${tmpdir}/scripts/piper_tts_server.py" ] || fail "scripts/piper_tts_server.py missing in archive"
     cp "${tmpdir}/scripts/piper_tts_server.py" "${tmpdir}/piper_tts_server.py"
-    if [ -f "${tmpdir}/scripts/setup-local-llm.sh" ]; then
-        cp "${tmpdir}/scripts/setup-local-llm.sh" "${tmpdir}/setup-local-llm.sh"
-    fi
     if [ -f "${tmpdir}/scripts/setup-voxtype-stt.sh" ]; then
         cp "${tmpdir}/scripts/setup-voxtype-stt.sh" "${tmpdir}/setup-voxtype-stt.sh"
     fi
@@ -534,9 +499,9 @@ install_binary_payload() {
     run_cmd cp "${staging_dir}/slopshell" "$BIN_PATH"
     run_cmd chmod +x "$BIN_PATH"
     run_cmd cp "${staging_dir}/piper_tts_server.py" "$PIPER_SERVER_SCRIPT"
-    if [ -f "${staging_dir}/scripts/lib/llama.sh" ]; then
+    if [ -f "${staging_dir}/scripts/lib/llm_env.sh" ]; then
         run_cmd mkdir -p "${SCRIPT_DIR}/lib"
-        run_cmd cp "${staging_dir}/scripts/lib/llama.sh" "${SCRIPT_DIR}/lib/llama.sh"
+        run_cmd cp "${staging_dir}/scripts/lib/llm_env.sh" "${SCRIPT_DIR}/lib/llm_env.sh"
     fi
     if ! printf ':%s:' "$PATH" | grep -Fq ":${BIN_DIR}:"; then
         log "${BIN_DIR} is not in PATH; add it in your shell profile"
@@ -554,7 +519,7 @@ bootstrap_project() {
 configure_codex_cli() {
     local staging_dir="${1:-}"
     local script_path=""
-    local fast_url agentic_url
+    local fast_url agentic_url fast_model local_model
 
     if [ -n "$staging_dir" ] && [ -f "${staging_dir}/scripts/setup-codex-mcp.sh" ]; then
         script_path="${staging_dir}/scripts/setup-codex-mcp.sh"
@@ -567,16 +532,14 @@ configure_codex_cli() {
         return
     fi
 
-    if [ -n "$REUSE_LLM_URL" ]; then
-        fast_url="${REUSE_LLM_URL}/v1"
-        agentic_url="${REUSE_LLM_URL}/v1"
-    elif [ "$SLOPSHELL_OS" = "darwin" ]; then
-        fast_url="http://127.0.0.1:8081/v1"
-        agentic_url="http://127.0.0.1:8081/v1"
-    else
-        fast_url="http://127.0.0.1:8081/v1"
-        agentic_url="http://127.0.0.1:8080/v1"
+    slopshell_load_llm_env >/dev/null 2>&1 || true
+    fast_url="${SLOPSHELL_CODEX_FAST_URL:-}"
+    if [ -z "$fast_url" ]; then
+        fast_url="$(slopshell_resolve_openai_base_url 2>/dev/null || printf '%s' 'http://127.0.0.1:8080/v1')"
     fi
+    agentic_url="${SLOPSHELL_CODEX_LOCAL_URL:-${SLOPSHELL_CODEX_AGENTIC_URL:-$fast_url}}"
+    fast_model="${SLOPSHELL_CODEX_FAST_MODEL:-${SLOPSHELL_INTENT_LLM_MODEL:-qwen}}"
+    local_model="${SLOPSHELL_CODEX_LOCAL_MODEL:-${SLOPSHELL_ASSISTANT_LLM_MODEL:-${SLOPSHELL_INTENT_LLM_MODEL:-qwen}}}"
 
     if [ "$DRY_RUN" = "1" ]; then
         log "[dry-run] configure Codex MCP and local model profiles via ${script_path}"
@@ -584,8 +547,10 @@ configure_codex_cli() {
     fi
 
     SLOPSHELL_CODEX_FAST_URL="$fast_url" \
+    SLOPSHELL_CODEX_FAST_MODEL="$fast_model" \
     SLOPSHELL_CODEX_AGENTIC_URL="$agentic_url" \
     SLOPSHELL_CODEX_LOCAL_URL="$agentic_url" \
+    SLOPSHELL_CODEX_LOCAL_MODEL="$local_model" \
     bash "$script_path" >/dev/null
 }
 
@@ -670,114 +635,76 @@ setup_piper_tts() {
     download_model "de_DE-karlsson-low" "de/de_DE/karlsson/low" "Per-model terms are documented in the model card."
 }
 
-ensure_llama_server() {
-    if LLAMA_SERVER_BIN_RESOLVED="$(slopshell_find_llama_server)"; then
-        return 0
-    fi
-    if [ "$SLOPSHELL_OS" = "darwin" ]; then
-        if ! have_cmd brew; then
-            if [ -n "${SLOPSHELL_LLAMA_LAST_ERROR:-}" ] && [ "${SLOPSHELL_LLAMA_LAST_ERROR}" != "llama-server not found" ]; then
-                log "llama-server not usable: ${SLOPSHELL_LLAMA_LAST_ERROR}"
-            else
-                log "llama-server not found; install llama.cpp via Homebrew: brew install llama.cpp"
-            fi
-            return 1
-        fi
-        if confirm_default_yes "Install llama.cpp via Homebrew?"; then
-            run_cmd brew install llama.cpp
-            if LLAMA_SERVER_BIN_RESOLVED="$(slopshell_find_llama_server)"; then
-                return 0
-            fi
-        fi
-    else
-        if [ -n "${SLOPSHELL_LLAMA_LAST_ERROR:-}" ]; then
-            log "llama-server not usable: ${SLOPSHELL_LLAMA_LAST_ERROR}"
-        else
-            log "llama-server not found; install llama.cpp and ensure llama-server is on PATH"
-        fi
-    fi
-    return 1
+default_openai_base_url() {
+    printf '%s' "${SLOPSHELL_DEFAULT_OPENAI_BASE_URL:-http://127.0.0.1:8080/v1}"
 }
 
-setup_local_llm() {
-    if [ "$SKIP_LLM" = "1" ]; then
-        log "skipping local LLM due to SLOPSHELL_INSTALL_SKIP_LLM=1"
+default_intent_llm_url() {
+    local base_url
+    base_url="$(default_openai_base_url)"
+    printf '%s' "${base_url%/v1}"
+}
+
+write_llm_env_file() {
+    local env_dir intent_url intent_model intent_profile intent_profile_options
+    local assistant_url assistant_model codex_base_url codex_fast_model codex_local_model
+    env_dir="$(dirname "$LLM_ENV_FILE")"
+    intent_url="${SLOPSHELL_INTENT_LLM_URL:-$(default_intent_llm_url)}"
+    intent_model="${SLOPSHELL_INTENT_LLM_MODEL:-qwen}"
+    intent_profile="${SLOPSHELL_INTENT_LLM_PROFILE:-default}"
+    intent_profile_options="${SLOPSHELL_INTENT_LLM_PROFILE_OPTIONS:-$intent_profile}"
+    assistant_url="${SLOPSHELL_ASSISTANT_LLM_URL:-$intent_url}"
+    assistant_model="${SLOPSHELL_ASSISTANT_LLM_MODEL:-$intent_model}"
+    codex_base_url="${SLOPSHELL_CODEX_BASE_URL:-}"
+    if [ -z "$codex_base_url" ]; then
+        codex_base_url="$(slopshell_resolve_openai_base_url 2>/dev/null || printf '%s' "$(default_openai_base_url)")"
+    fi
+    codex_fast_model="${SLOPSHELL_CODEX_FAST_MODEL:-$intent_model}"
+    codex_local_model="${SLOPSHELL_CODEX_LOCAL_MODEL:-$intent_model}"
+
+    run_cmd mkdir -p "$env_dir"
+    if [ "$DRY_RUN" = "1" ]; then
+        log "[dry-run] write LLM env file to ${LLM_ENV_FILE}"
         return
     fi
 
-    if [ -n "${SLOPSHELL_INTENT_LLM_URL:-}" ]; then
-        REUSE_LLM_URL="$SLOPSHELL_INTENT_LLM_URL"
-        log "SLOPSHELL_INTENT_LLM_URL set to ${REUSE_LLM_URL}; skipping LLM setup"
+    cat >"$LLM_ENV_FILE" <<ENV
+SLOPSHELL_INTENT_LLM_URL=${intent_url}
+SLOPSHELL_INTENT_LLM_MODEL=${intent_model}
+SLOPSHELL_INTENT_LLM_PROFILE=${intent_profile}
+SLOPSHELL_INTENT_LLM_PROFILE_OPTIONS=${intent_profile_options}
+SLOPSHELL_ASSISTANT_LLM_URL=${assistant_url}
+SLOPSHELL_ASSISTANT_LLM_MODEL=${assistant_model}
+SLOPSHELL_CODEX_BASE_URL=${codex_base_url}
+SLOPSHELL_CODEX_FAST_MODEL=${codex_fast_model}
+SLOPSHELL_CODEX_LOCAL_MODEL=${codex_local_model}
+ENV
+
+    slopshell_load_llm_env >/dev/null 2>&1 || fail "failed to reload ${LLM_ENV_FILE}"
+}
+
+setup_llm_env() {
+    local should_write=0
+
+    if [ ! -f "$LLM_ENV_FILE" ]; then
+        should_write=1
+    elif [ -n "${SLOPSHELL_INTENT_LLM_URL:-}" ] || [ -n "${SLOPSHELL_INTENT_LLM_MODEL:-}" ] || [ -n "${SLOPSHELL_CODEX_BASE_URL:-}" ] || [ -n "${SLOPSHELL_CODEX_FAST_MODEL:-}" ] || [ -n "${SLOPSHELL_CODEX_LOCAL_MODEL:-}" ]; then
+        should_write=1
+    fi
+
+    if [ "$should_write" = "1" ]; then
+        log "writing OpenAI-compatible LLM config to ${LLM_ENV_FILE}"
+        write_llm_env_file
         return
     fi
 
-    local existing_url
-    if existing_url="$(detect_llama_server)"; then
-        log "existing local LLM detected at ${existing_url}"
-        if confirm_default_yes "Reuse existing local LLM at ${existing_url}?"; then
-            REUSE_LLM_URL="$existing_url"
-            log "SLOPSHELL_INTENT_LLM_URL will point to ${REUSE_LLM_URL}"
-            return
-        fi
-    fi
-
-    if [ "$SLOPSHELL_OS" = "darwin" ]; then
-        cat <<NOTICE
-=== Local LLM (vLLM-MLX, default on macOS) ===
-A Qwen3.5 9B MLX runtime runs on port 8081 for Slopshell routing, replies, and local Codex profiles.
-Dependencies: python3, uv, git.
-NOTICE
-    else
-        cat <<NOTICE
-=== Local LLMs (llama.cpp, optional) ===
-A fast Qwen3.5 9B coordinator runs on port 8081 for Slopshell routing and replies.
-A Codex-focused gpt-oss-120b runtime runs on port 8080 for local Codex agent profiles.
-Requires llama.cpp (llama-server binary).
-NOTICE
-    fi
-    if ! confirm_default_yes "Install local LLM service?"; then
-        log "skipping local LLM setup"
+    if slopshell_load_llm_env >/dev/null 2>&1; then
+        log "using existing OpenAI-compatible LLM config from ${LLM_ENV_FILE}"
         return
     fi
 
-    if [ "$SLOPSHELL_OS" = "darwin" ]; then
-        if [ "$DRY_RUN" = "0" ]; then
-            have_cmd brew || fail "Homebrew is required on macOS"
-            if ! slopshell_find_python3 3 10 >/dev/null 2>&1; then
-                run_cmd brew install python
-            fi
-            have_cmd uv || run_cmd brew install uv
-        fi
-        sync_vllm_mlx_source_checkout "$LLM_SOURCE_DIR"
-    elif ! ensure_llama_server; then
-        log "skipping local LLM setup"
-        return
-    fi
-    run_cmd mkdir -p "$LLM_MODEL_DIR" "$LLM_VENV_DIR" "$SCRIPT_DIR"
-
-    local staging_llm="${1:-}"
-    if [ -n "$staging_llm" ] && [ -f "${staging_llm}/setup-local-llm.sh" ]; then
-        run_cmd cp "${staging_llm}/setup-local-llm.sh" "$LLM_SETUP_SCRIPT"
-        run_cmd chmod +x "$LLM_SETUP_SCRIPT"
-    fi
-
-    if [ "$SLOPSHELL_OS" != "darwin" ]; then
-        local model_file model_url model_size
-        model_file="Qwen3.5-9B-Q4_K_M.gguf"
-        model_url="https://huggingface.co/lmstudio-community/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf?download=true"
-        model_size="~5.9 GB"
-        local model_path="${LLM_MODEL_DIR}/${model_file}"
-        if [ -f "$model_path" ]; then
-            log "LLM model already present: ${model_file}"
-        elif confirm_default_yes "Download Qwen3.5 9B GGUF model (${model_size})?"; then
-            if [ "$DRY_RUN" = "1" ]; then
-                run_cmd curl -fL -o "$model_path" "$model_url"
-            else
-                curl -fL --retry 3 --retry-delay 2 -o "${model_path}.tmp" "$model_url"
-                mv "${model_path}.tmp" "$model_path"
-            fi
-        fi
-    fi
+    log "creating default OpenAI-compatible LLM config at ${LLM_ENV_FILE}"
+    write_llm_env_file
 }
 
 install_voxtype_stt() {
@@ -898,51 +825,6 @@ RestartSec=2
 WantedBy=default.target
 UNIT
 
-    if [ -x "$LLM_SETUP_SCRIPT" ] && [ -z "$REUSE_LLM_URL" ]; then
-        cat >"${systemd_dir}/slopshell-llm.service" <<UNIT
-[Unit]
-Description=Slopshell Local Coordinator LLM (Qwen3.5 9B GGUF)
-After=network.target
-
-[Service]
-Type=simple
-Environment=SLOPSHELL_LLM_MODEL_DIR=${LLM_MODEL_DIR}
-Environment=SLOPSHELL_LLM_MODEL_FILE=Qwen3.5-9B-Q4_K_M.gguf
-Environment=SLOPSHELL_LLM_MODEL_URL=https://huggingface.co/lmstudio-community/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf?download=true
-Environment=SLOPSHELL_LLM_CTX=65536
-Environment=LLAMA_SERVER_BIN=${LLAMA_SERVER_BIN_RESOLVED}
-ExecStart=${LLM_SETUP_SCRIPT}
-Restart=on-failure
-RestartSec=5
-TimeoutStopSec=15
-
-[Install]
-WantedBy=default.target
-UNIT
-
-        cat >"${systemd_dir}/slopshell-codex-llm.service" <<UNIT
-[Unit]
-Description=Slopshell Local Codex LLM (gpt-oss-120b via llama.cpp)
-After=network.target
-
-[Service]
-Type=simple
-Environment=SLOPSHELL_LLM_PRESET=codex-gpt-oss-120b
-Environment=LLAMA_SERVER_BIN=${LLAMA_SERVER_BIN_RESOLVED}
-ExecStart=${LLM_SETUP_SCRIPT}
-Restart=on-failure
-RestartSec=5
-TimeoutStopSec=15
-
-[Install]
-WantedBy=default.target
-UNIT
-    fi
-    if [ -n "$REUSE_LLM_URL" ]; then
-        run_cmd rm -f "${systemd_dir}/slopshell-llm.service" "${systemd_dir}/slopshell-codex-llm.service"
-    fi
-
-    local effective_llm_url="${REUSE_LLM_URL:-http://127.0.0.1:8081}"
     local helpy_socket
     local web_host="${SLOPSHELL_WEB_HOST:-127.0.0.1}"
     local web_control_args="--control-socket %t/sloppy/control.sock"
@@ -956,15 +838,11 @@ Wants=slopshell-codex-app-server.service slopshell-piper-tts.service helpy-mcp.s
 
 [Service]
 Type=simple
-Environment=SLOPSHELL_INTENT_LLM_URL=${effective_llm_url}
-Environment=SLOPSHELL_INTENT_LLM_MODEL=local
-Environment=SLOPSHELL_INTENT_LLM_PROFILE=qwen3.5-9b
-Environment=SLOPSHELL_INTENT_LLM_PROFILE_OPTIONS=qwen3.5-9b,qwen3.5-4b
+Environment=HOME=%h
+Environment=SHELL=/usr/bin/bash
 Environment=SLOPSHELL_HELPY_SOCKET=${helpy_socket}
-Environment=SLOPSHELL_ASSISTANT_LLM_URL=${effective_llm_url}
-Environment=SLOPSHELL_ASSISTANT_LLM_MODEL=local
 Environment=SLOPSHELL_BRAIN_GTD_SYNC=on
-ExecStart=${BIN_PATH} server --workspace-dir ${PROJECT_DIR} --data-dir ${WEB_DATA_DIR} ${web_control_args} --web-host ${web_host} --web-port 8420 --app-server-url ws://127.0.0.1:8787 --tts-url http://127.0.0.1:8424
+ExecStart=/usr/bin/bash -lc 'set -a; source ~/.config/helpy/env >/dev/null 2>&1 || true; source ${LLM_ENV_FILE} >/dev/null 2>&1 || true; set +a; exec ${BIN_PATH} server --workspace-dir ${PROJECT_DIR} --data-dir ${WEB_DATA_DIR} ${web_control_args} --web-host ${web_host} --web-port 8420 --app-server-url ws://127.0.0.1:8787 --tts-url http://127.0.0.1:8424'
 Restart=on-failure
 RestartSec=2
 
@@ -979,42 +857,30 @@ install_services_linux() {
     write_systemd_units
     run_cmd systemctl --user daemon-reload
     run_cmd systemctl --user disable --now slopshell.service >/dev/null 2>&1 || true
-    if [ -n "$REUSE_LLM_URL" ]; then
-        run_cmd systemctl --user disable --now slopshell-llm.service slopshell-codex-llm.service >/dev/null 2>&1 || true
-    fi
+    run_cmd systemctl --user disable --now slopshell-llm.service slopshell-codex-llm.service >/dev/null 2>&1 || true
     units=(slopshell-codex-app-server.service slopshell-piper-tts.service slopshell-web.service)
-    if [ -f "${HOME}/.config/systemd/user/slopshell-llm.service" ]; then
-        units+=(slopshell-llm.service)
-    fi
-    if [ -f "${HOME}/.config/systemd/user/slopshell-codex-llm.service" ]; then
-        units+=(slopshell-codex-llm.service)
-    fi
     run_cmd systemctl --user enable --now "${units[@]}"
 }
 
 substitute_launchd_template() {
     local src="$1" dst="$2"
-    local effective_llm_url="${REUSE_LLM_URL:-http://127.0.0.1:8081}"
     local web_host="${SLOPSHELL_WEB_HOST:-127.0.0.1}"
     local voxtype_bin
+    local helpy_socket
     voxtype_bin="$(command -v voxtype 2>/dev/null || echo voxtype)"
+    helpy_socket="$(resolve_helpy_socket)"
     sed \
         -e "s|@@BIN_PATH@@|${BIN_PATH}|g" \
         -e "s|@@CODEX_PATH@@|${CODEX_PATH}|g" \
         -e "s|@@PROJECT_DIR@@|${PROJECT_DIR}|g" \
         -e "s|@@WEB_DATA_DIR@@|${WEB_DATA_DIR}|g" \
         -e "s|@@SLOPSHELL_WEB_HOST@@|${web_host}|g" \
+        -e "s|@@SLOPSHELL_HELPY_SOCKET@@|${helpy_socket}|g" \
         -e "s|@@VENV_DIR@@|${VENV_DIR}|g" \
         -e "s|@@SCRIPT_DIR@@|${SCRIPT_DIR}|g" \
         -e "s|@@PIPER_MODEL_DIR@@|${MODEL_DIR}|g" \
-        -e "s|@@LLM_SETUP_SCRIPT@@|${LLM_SETUP_SCRIPT}|g" \
-        -e "s|@@LLM_MODEL_DIR@@|${LLM_MODEL_DIR}|g" \
-        -e "s|@@LLM_VENV_DIR@@|${LLM_VENV_DIR}|g" \
-        -e "s|@@LLM_SOURCE_DIR@@|${LLM_SOURCE_DIR}|g" \
-        -e "s|@@LLAMA_SERVER_BIN@@|${LLAMA_SERVER_BIN_RESOLVED}|g" \
         -e "s|@@STT_SETUP_SCRIPT@@|${STT_SETUP_SCRIPT}|g" \
         -e "s|@@VOXTYPE_BIN@@|${voxtype_bin}|g" \
-        -e "s|@@SLOPSHELL_INTENT_LLM_URL@@|${effective_llm_url}|g" \
         "$src" >"$dst"
 }
 
@@ -1038,12 +904,8 @@ write_launchd_plists() {
     run_cmd launchctl unload "${agent_dir}/io.slopshell.macos-tts.plist" >/dev/null 2>&1 || true
     run_cmd rm -f "${agent_dir}/io.slopshell.macos-tts.plist"
 
-    if [ -x "$LLM_SETUP_SCRIPT" ] && [ -z "$REUSE_LLM_URL" ]; then
-        substitute_launchd_template "${template_dir}/io.slopshell.llm.plist" "${agent_dir}/io.slopshell.llm.plist"
-    else
-        run_cmd launchctl unload "${agent_dir}/io.slopshell.llm.plist" >/dev/null 2>&1 || true
-        run_cmd rm -f "${agent_dir}/io.slopshell.llm.plist"
-    fi
+    run_cmd launchctl unload "${agent_dir}/io.slopshell.llm.plist" >/dev/null 2>&1 || true
+    run_cmd rm -f "${agent_dir}/io.slopshell.llm.plist" "${agent_dir}/io.slopshell.codex-llm.plist"
     if [ -x "$STT_SETUP_SCRIPT" ]; then
         substitute_launchd_template "${template_dir}/io.slopshell.stt.plist" "${agent_dir}/io.slopshell.stt.plist"
     fi
@@ -1064,9 +926,6 @@ install_services_macos() {
     write_launchd_plists "$staging_dir"
     load_launchd_service "${agent_dir}/io.slopshell.codex-app-server.plist"
     load_launchd_service "${agent_dir}/io.slopshell.piper-tts.plist"
-    if [ -f "${agent_dir}/io.slopshell.llm.plist" ]; then
-        load_launchd_service "${agent_dir}/io.slopshell.llm.plist"
-    fi
     if [ -f "${agent_dir}/io.slopshell.stt.plist" ]; then
         load_launchd_service "${agent_dir}/io.slopshell.stt.plist"
     fi
@@ -1097,7 +956,6 @@ open_browser() {
 
 print_summary() {
     local version="$1"
-    local effective_llm_url="${REUSE_LLM_URL:-http://127.0.0.1:8081}"
     local tts_summary="Piper (${MODEL_DIR})"
     cat <<SUMMARY
 
@@ -1109,11 +967,9 @@ Install complete
   TTS backend:   ${tts_summary}
   Service mode:  ${SLOPSHELL_OS}
   Web URL:       http://127.0.0.1:8420
-  Intent LLM:    ${effective_llm_url}
+  LLM env file:  ${LLM_ENV_FILE}
+  Intent LLM:    ${SLOPSHELL_INTENT_LLM_URL:-off}
 SUMMARY
-    if [ -n "$REUSE_LLM_URL" ]; then
-        log "using existing local LLM at ${REUSE_LLM_URL} (no slopshell-llm service created)"
-    fi
 }
 
 disable_lm_studio_login_item() {
@@ -1158,7 +1014,8 @@ remove_macos_services() {
         "${agent_dir}/io.slopshell.stt.plist" \
         "${agent_dir}/io.slopshell.piper-tts.plist" \
         "${agent_dir}/io.slopshell.codex-app-server.plist" \
-        "${agent_dir}/io.slopshell.llm.plist"
+        "${agent_dir}/io.slopshell.llm.plist" \
+        "${agent_dir}/io.slopshell.codex-llm.plist"
 }
 
 uninstall_flow() {
@@ -1195,7 +1052,7 @@ install_flow() {
     bootstrap_project
     disable_lm_studio_login_item
     setup_piper_tts
-    setup_local_llm "$tmpdir"
+    setup_llm_env
     install_voxtype_stt "$tmpdir"
     install_hotword_assets "$tmpdir"
     if [ "$SLOPSHELL_OS" = "darwin" ]; then

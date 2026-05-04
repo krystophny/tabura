@@ -34,7 +34,14 @@ poll_command() {
 }
 
 local_intent_runtime_live() {
-  curl -fsS --max-time 3 http://127.0.0.1:8081/health >/dev/null
+  local url="${SLOPSHELL_INTENT_LLM_URL:-}"
+  if [ -z "$url" ] && [ -f "${HOME}/.config/slopshell/llm.env" ]; then
+    # shellcheck disable=SC1090
+    set -a && source "${HOME}/.config/slopshell/llm.env" && set +a
+    url="${SLOPSHELL_INTENT_LLM_URL:-}"
+  fi
+  [ -n "$url" ] || return 1
+  curl -fsS --max-time 3 "${url%/}/health" >/dev/null
 }
 
 latest_workspace_epoch() {
@@ -75,9 +82,9 @@ maybe_sync_live_runtime() {
       'Slopshell web server did not come back on :8420 after restart' \
       30 \
       curl -fsS --max-time 3 http://127.0.0.1:8420/api/setup
-    if launchctl list io.slopshell.llm >/dev/null 2>&1; then
+    if poll_command 30 local_intent_runtime_live; then
       wait_for_command \
-        'Local intent runtime did not come back on :8081 after restart' \
+        'Configured intent runtime did not come back after restart' \
         30 \
         local_intent_runtime_live
     fi
@@ -99,9 +106,9 @@ maybe_sync_live_runtime() {
       'Slopshell web server did not come back on :8420 after restart' \
       30 \
       curl -fsS --max-time 3 http://127.0.0.1:8420/api/setup
-    if systemctl --user is-active --quiet slopshell-llm.service; then
+    if poll_command 30 local_intent_runtime_live; then
       wait_for_command \
-        'Local intent runtime did not come back on :8081 after restart' \
+        'Configured intent runtime did not come back after restart' \
         30 \
         local_intent_runtime_live
     fi
@@ -127,9 +134,9 @@ curl -fsS --max-time 3 http://127.0.0.1:8427/healthz >/dev/null \
   || fail 'voxtype STT not running on :8427'
 
 if poll_command 5 local_intent_runtime_live; then
-  printf 'Local intent runtime detected on :8081.\n'
+  printf 'Configured intent runtime detected from env.\n'
 else
-  printf 'Local intent runtime not detected on :8081; continuing with live runtime defaults.\n'
+  printf 'Configured intent runtime not detected from env; continuing with live runtime defaults.\n'
 fi
 
 if [[ "$PLATFORM" != "Darwin" ]]; then

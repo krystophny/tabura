@@ -3,24 +3,14 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PLATFORM="$(uname -s)"
-# shellcheck source=scripts/lib/llama.sh
-source "${REPO_ROOT}/scripts/lib/llama.sh"
-# shellcheck source=scripts/lib/python.sh
-source "${REPO_ROOT}/scripts/lib/python.sh"
+# shellcheck source=scripts/lib/llm_env.sh
+source "${REPO_ROOT}/scripts/lib/llm_env.sh"
 
 log() { printf '[slopshell-units] %s\n' "$*"; }
 fail() { printf '[slopshell-units] ERROR: %s\n' "$*" >&2; exit 1; }
 
-detect_llama_server() {
-    local port url
-    for port in 8081 8080; do
-        url="http://127.0.0.1:${port}"
-        if curl -fsS --max-time 2 "${url}/health" >/dev/null 2>&1; then
-            printf '%s' "$url"
-            return 0
-        fi
-    done
-    return 1
+resolve_intent_llm_url() {
+  slopshell_resolve_intent_llm_url 2>/dev/null || printf '%s' "http://127.0.0.1:8080"
 }
 
 confirm_default_yes() {
@@ -35,8 +25,6 @@ confirm_default_yes() {
 }
 
 REUSE_LLM_URL=""
-LLAMA_SERVER_BIN_RESOLVED=""
-LLM_VENV_DIR=""
 CODEX_PATH=""
 VOXTYPE_PATH=""
 BIN_PATH=""
@@ -52,6 +40,18 @@ resolve_helpy_socket() {
     return 0
   fi
   printf '%%t/sloppy/helpy.sock'
+}
+
+voxtype_supports_stt_service() {
+  local help_text
+  if ! command -v "$1" >/dev/null 2>&1; then
+    return 1
+  fi
+  help_text="$("$1" --help 2>&1 || true)"
+  case "$help_text" in
+    *"--service"*) return 0 ;;
+  esac
+  return 1
 }
 
 install_sls_binary() {
@@ -84,20 +84,14 @@ install_slopshell_binary() {
 
 configure_codex_cli() {
   local fast_url agentic_url
-  if [ -n "$REUSE_LLM_URL" ]; then
-    fast_url="${REUSE_LLM_URL}/v1"
-    agentic_url="${REUSE_LLM_URL}/v1"
-  elif [ "$PLATFORM" = "Darwin" ]; then
-    fast_url="http://127.0.0.1:8081/v1"
-    agentic_url="http://127.0.0.1:8081/v1"
-  else
-    fast_url="http://127.0.0.1:8081/v1"
-    agentic_url="http://127.0.0.1:8080/v1"
-  fi
+  fast_url="${SLOPSHELL_CODEX_FAST_URL:-${REUSE_LLM_URL}/v1}"
+  agentic_url="${SLOPSHELL_CODEX_LOCAL_URL:-${REUSE_LLM_URL}/v1}"
 
   SLOPSHELL_CODEX_FAST_URL="$fast_url" \
   SLOPSHELL_CODEX_LOCAL_URL="$agentic_url" \
   SLOPSHELL_CODEX_AGENTIC_URL="$agentic_url" \
+  SLOPSHELL_CODEX_FAST_MODEL="${SLOPSHELL_CODEX_FAST_MODEL:-qwen}" \
+  SLOPSHELL_CODEX_LOCAL_MODEL="${SLOPSHELL_CODEX_LOCAL_MODEL:-qwen}" \
   "$REPO_ROOT/scripts/setup-codex-mcp.sh"
 }
 
@@ -105,34 +99,6 @@ install_hotword_assets() {
   local script_path="${REPO_ROOT}/scripts/fetch-hotword-assets.sh"
   [ -x "$script_path" ] || fail "hotword asset bootstrap missing: $script_path"
   SLOPSHELL_WEB_DATA_DIR="$WEB_DATA_DIR" "$script_path"
-}
-
-ensure_macos_vllm_prereqs() {
-  command -v brew >/dev/null 2>&1 || fail "brew not in PATH. Install Homebrew first."
-  if ! slopshell_find_python3 3 10 >/dev/null 2>&1; then
-    log "Installing python via Homebrew"
-    brew install python
-  fi
-  if ! command -v uv >/dev/null 2>&1; then
-    log "Installing uv via Homebrew"
-    brew install uv
-  fi
-}
-
-sync_macos_vllm_source_checkout() {
-  local source_dir="$1"
-  local remote_url="git@github.com:computor-org/vllm-mlx.git"
-
-  mkdir -p "$(dirname "$source_dir")"
-  if [ -d "${source_dir}/.git" ]; then
-    git -C "$source_dir" remote set-url origin "$remote_url"
-    git -C "$source_dir" fetch origin main --prune
-  else
-    rm -rf "$source_dir"
-    git clone --branch main "$remote_url" "$source_dir"
-  fi
-  git -C "$source_dir" checkout main
-  git -C "$source_dir" reset --hard origin/main
 }
 
 # --- Platform detection ---
@@ -143,35 +109,13 @@ case "$PLATFORM" in
   *)      fail "unsupported platform: $PLATFORM" ;;
 esac
 
-# --- Resolve data paths ---
+# --- Resolve runtime URLs and verify prerequisites ---
 
-if [ "$PLATFORM" = "Darwin" ]; then
-  LLM_MODEL_DIR="${HOME}/Library/Application Support/slopshell/llm/models"
-  LLM_VENV_DIR="${HOME}/Library/Application Support/slopshell/llm/venv"
-else
-  LLM_MODEL_DIR="${HOME}/.local/share/slopshell-llm/models"
-  LLM_VENV_DIR="${HOME}/.local/share/slopshell-llm/venv"
-fi
+REUSE_LLM_URL="$(resolve_intent_llm_url)"
+log "Intent/app assistant route -> ${REUSE_LLM_URL}"
 
-# --- Detect existing local LLM ---
-
-if [ -n "${SLOPSHELL_INTENT_LLM_URL:-}" ]; then
-  REUSE_LLM_URL="$SLOPSHELL_INTENT_LLM_URL"
-  log "SLOPSHELL_INTENT_LLM_URL set to ${REUSE_LLM_URL}; skipping LLM setup"
-elif existing_url="$(detect_llama_server)"; then
-  log "Existing local LLM detected at ${existing_url}"
-  if [ "$PLATFORM" = "Darwin" ] && [ "$existing_url" = "http://127.0.0.1:8081" ]; then
-    log "Keeping managed macOS local LLM under launchd control"
-  elif confirm_default_yes "Reuse existing local LLM at ${existing_url}?"; then
-    REUSE_LLM_URL="$existing_url"
-    log "SLOPSHELL_INTENT_LLM_URL will point to ${REUSE_LLM_URL}"
-  fi
-fi
-
-# --- Verify prerequisites ---
-
-HAVE_LLAMA=1
 HAVE_VOXTYPE=1
+HAVE_VOXTYPE_STT_SERVICE=1
 
 if ! command -v codex >/dev/null 2>&1; then
   if [ "$PLATFORM" = "Darwin" ]; then
@@ -181,28 +125,17 @@ if ! command -v codex >/dev/null 2>&1; then
   fi
 fi
 
-if [ -n "$REUSE_LLM_URL" ]; then
-  HAVE_LLAMA=0
-elif [ "$PLATFORM" = "Darwin" ]; then
-  ensure_macos_vllm_prereqs
-  HAVE_LLAMA=1
-elif LLAMA_SERVER_BIN_RESOLVED="$(slopshell_find_llama_server)"; then
-  HAVE_LLAMA=1
-else
-  HAVE_LLAMA=0
-  if [ -n "${SLOPSHELL_LLAMA_LAST_ERROR:-}" ]; then
-    fail "llama-server not usable: ${SLOPSHELL_LLAMA_LAST_ERROR}"
-  fi
-  fail "llama-server not found. Build llama.cpp and install to ~/.local/bin"
-fi
-
 if ! command -v voxtype >/dev/null 2>&1; then
   HAVE_VOXTYPE=0
+  HAVE_VOXTYPE_STT_SERVICE=0
   if [ "$PLATFORM" = "Darwin" ]; then
     log "WARNING: voxtype not in PATH. Build from source: scripts/build-voxtype-macos.sh"
   else
     fail "voxtype not in PATH. Install voxtype"
   fi
+elif ! voxtype_supports_stt_service voxtype; then
+  HAVE_VOXTYPE_STT_SERVICE=0
+  log "WARNING: installed voxtype does not expose the local STT service flags; skipping slopshell-stt.service"
 fi
 
 if [ "$PLATFORM" = "Darwin" ]; then
@@ -214,38 +147,44 @@ fi
 install_linux() {
   local unit_src="$REPO_ROOT/deploy/systemd/user"
   local unit_dst="$HOME/.config/systemd/user"
-  local effective_llm_url="${REUSE_LLM_URL:-http://127.0.0.1:8081}"
+  local effective_llm_url="${REUSE_LLM_URL:-http://127.0.0.1:8080}"
   local helpy_socket
   local web_host="${SLOPSHELL_WEB_HOST:-127.0.0.1}"
   local -a core_units=(
     slopshell-codex-app-server.service
     slopshell-piper-tts.service
-    slopshell-stt.service
     slopshell-web.service
   )
   local -a optional_units=()
+  if [ "$HAVE_VOXTYPE_STT_SERVICE" = "1" ]; then
+    core_units+=(slopshell-stt.service)
+  fi
 
   install_slopshell_binary
   install_sls_binary
+  CODEX_PATH="$(command -v codex 2>/dev/null || true)"
+  [ -n "$CODEX_PATH" ] || fail "codex not in PATH. Install @openai/codex"
+  VOXTYPE_PATH="$(command -v voxtype 2>/dev/null || true)"
+  [ -n "$VOXTYPE_PATH" ] || fail "voxtype not in PATH. Install voxtype"
+  SLOPSHELL_ASSUME_YES=1 "$REPO_ROOT/scripts/setup-slopshell-piper-tts.sh"
   helpy_socket="$(resolve_helpy_socket)"
   mkdir -p "$unit_dst"
   for f in "$unit_src"/*.service; do
     local base
     base="$(basename "$f")"
-    if { [ "$base" = "slopshell-llm.service" ] || [ "$base" = "slopshell-codex-llm.service" ]; } && [ -n "$REUSE_LLM_URL" ]; then
+    if [ "$base" = "slopshell-llm.service" ] || [ "$base" = "slopshell-codex-llm.service" ]; then
       continue
     fi
     sed -e "s|@@REPO_ROOT@@|${REPO_ROOT}|g" \
         -e "s|@@BIN_PATH@@|${BIN_PATH}|g" \
-        -e "s|@@LLAMA_SERVER_BIN@@|${LLAMA_SERVER_BIN_RESOLVED}|g" \
+        -e "s|@@CODEX_PATH@@|${CODEX_PATH}|g" \
+        -e "s|@@VOXTYPE_BIN@@|${VOXTYPE_PATH}|g" \
         -e "s|@@SLOPSHELL_WEB_HOST@@|${web_host}|g" \
         -e "s|@@SLOPSHELL_INTENT_LLM_URL@@|${effective_llm_url}|g" \
         -e "s|@@SLOPSHELL_HELPY_SOCKET@@|${helpy_socket}|g" \
         "$f" > "$unit_dst/$base"
   done
-  if [ -n "$REUSE_LLM_URL" ]; then
-    rm -f "$unit_dst/slopshell-llm.service" "$unit_dst/slopshell-codex-llm.service"
-  fi
+  rm -f "$unit_dst/slopshell-llm.service" "$unit_dst/slopshell-codex-llm.service"
   systemctl --user daemon-reload
 
   # Disable legacy units
@@ -266,18 +205,13 @@ install_linux() {
     sloptools.service \
     voxtype.service \
     >/dev/null 2>&1 || true
-  if [ -n "$REUSE_LLM_URL" ]; then
-    systemctl --user disable --now slopshell-llm.service slopshell-codex-llm.service >/dev/null 2>&1 || true
+  systemctl --user disable --now slopshell-llm.service slopshell-codex-llm.service >/dev/null 2>&1 || true
+  if [ "$HAVE_VOXTYPE_STT_SERVICE" != "1" ]; then
+    systemctl --user disable --now slopshell-stt.service >/dev/null 2>&1 || true
   fi
 
   # Enable and start all services
   local units=("${core_units[@]}" "${optional_units[@]}")
-  if [ -z "$REUSE_LLM_URL" ]; then
-    units+=(slopshell-llm.service)
-    core_units+=(slopshell-llm.service)
-    units+=(slopshell-codex-llm.service)
-    optional_units+=(slopshell-codex-llm.service)
-  fi
 
   systemctl --user enable --now "${units[@]}"
   log "Enabled: ${units[*]}"
@@ -348,8 +282,8 @@ install_macos() {
   local plist_src="$REPO_ROOT/deploy/launchd"
   local plist_dst="$HOME/Library/LaunchAgents"
   local data_root="$HOME/Library/Application Support/slopshell"
-  local piper_model_dir piper_venv_dir llm_source_dir
-  local effective_llm_url="${REUSE_LLM_URL:-http://127.0.0.1:8081}"
+  local piper_model_dir piper_venv_dir
+  local effective_llm_url="${REUSE_LLM_URL:-http://127.0.0.1:8080}"
   local web_host="${SLOPSHELL_WEB_HOST:-127.0.0.1}"
   local helpy_socket
 
@@ -369,18 +303,12 @@ install_macos() {
   helpy_socket="$(resolve_helpy_socket)"
   piper_model_dir="${HOME}/.local/share/slopshell-piper-tts/models"
   piper_venv_dir="${HOME}/.local/share/slopshell-piper-tts/venv"
-  llm_source_dir="${data_root}/llm/vllm-mlx"
 
   mkdir -p "$plist_dst" "$WEB_DATA_DIR"
   install_hotword_assets
-  if [ "$HAVE_LLAMA" = "1" ] && [ -z "$REUSE_LLM_URL" ]; then
-    sync_macos_vllm_source_checkout "$llm_source_dir"
-  fi
-  if [ -n "$REUSE_LLM_URL" ]; then
-    launchctl unload "$plist_dst/io.slopshell.llm.plist" >/dev/null 2>&1 || true
-    launchctl unload "$plist_dst/io.slopshell.codex-llm.plist" >/dev/null 2>&1 || true
-    rm -f "$plist_dst/io.slopshell.llm.plist" "$plist_dst/io.slopshell.codex-llm.plist"
-  fi
+  launchctl unload "$plist_dst/io.slopshell.llm.plist" >/dev/null 2>&1 || true
+  launchctl unload "$plist_dst/io.slopshell.codex-llm.plist" >/dev/null 2>&1 || true
+  rm -f "$plist_dst/io.slopshell.llm.plist" "$plist_dst/io.slopshell.codex-llm.plist"
   launchctl unload "$plist_dst/io.sloptools.mcp.plist" >/dev/null 2>&1 || true
   launchctl unload "$plist_dst/io.slopshell.piper-tts.plist" >/dev/null 2>&1 || true
   launchctl unload "$plist_dst/io.slopshell.macos-tts.plist" >/dev/null 2>&1 || true
@@ -395,10 +323,7 @@ install_macos() {
 
   # Determine which agents to install
   local agents=(codex-app-server piper-tts web)
-  if [ "$HAVE_LLAMA" = "1" ] && [ -z "$REUSE_LLM_URL" ]; then
-    agents+=(llm)
-  fi
-  if [ "$HAVE_VOXTYPE" = "1" ]; then
+  if [ "$HAVE_VOXTYPE_STT_SERVICE" = "1" ]; then
     agents+=(stt)
   fi
 
@@ -420,11 +345,6 @@ install_macos() {
       -e "s|@@VENV_DIR@@|${piper_venv_dir}|g" \
       -e "s|@@SCRIPT_DIR@@|${REPO_ROOT}/scripts|g" \
       -e "s|@@PIPER_MODEL_DIR@@|${piper_model_dir}|g" \
-      -e "s|@@LLM_SETUP_SCRIPT@@|${REPO_ROOT}/scripts/setup-local-llm.sh|g" \
-      -e "s|@@LLM_MODEL_DIR@@|${LLM_MODEL_DIR}|g" \
-      -e "s|@@LLM_VENV_DIR@@|${LLM_VENV_DIR}|g" \
-      -e "s|@@LLM_SOURCE_DIR@@|${llm_source_dir}|g" \
-      -e "s|@@LLAMA_SERVER_BIN@@|${LLAMA_SERVER_BIN_RESOLVED}|g" \
       -e "s|@@STT_SETUP_SCRIPT@@|${REPO_ROOT}/scripts/setup-voxtype-stt.sh|g" \
       -e "s|@@VOXTYPE_BIN@@|${VOXTYPE_PATH}|g" \
       -e "s|@@SLOPSHELL_INTENT_LLM_URL@@|${effective_llm_url}|g" \
@@ -471,7 +391,7 @@ activate_launchd() {
 activate_direct() {
   local pidfile="/tmp/slopshell-pids.txt"
   local web_host="${SLOPSHELL_WEB_HOST:-127.0.0.1}"
-  local effective_llm_url="${REUSE_LLM_URL:-http://127.0.0.1:8081}"
+  local effective_llm_url="${REUSE_LLM_URL:-http://127.0.0.1:8080}"
   : > "$pidfile"
 
   for name in "$@"; do
@@ -490,21 +410,15 @@ activate_direct() {
       web)
         SLOPSHELL_INTENT_LLM_URL="$effective_llm_url" \
         SLOPSHELL_ASSISTANT_MODE=local \
-        SLOPSHELL_INTENT_LLM_MODEL=qwen3.5-9b \
-        SLOPSHELL_ASSISTANT_LLM_MODEL=qwen3.5-9b \
-        SLOPSHELL_INTENT_LLM_PROFILE=qwen3.5-9b \
-        SLOPSHELL_INTENT_LLM_PROFILE_OPTIONS=qwen3.5-9b \
+        SLOPSHELL_INTENT_LLM_MODEL=qwen \
+        SLOPSHELL_ASSISTANT_LLM_MODEL=qwen \
+        SLOPSHELL_INTENT_LLM_PROFILE=qwen3.6-35b-a3b-q4 \
+        SLOPSHELL_INTENT_LLM_PROFILE_OPTIONS=qwen3.6-35b-a3b-q4 \
         nohup "$BIN_PATH" server \
           --workspace-dir "$REPO_ROOT" --data-dir "$WEB_DATA_DIR" \
           --control-socket "$HOME/Library/Caches/sloppy/control.sock" \
           --web-host "$web_host" --web-port 8420 \
           --tts-url http://127.0.0.1:8424 \
-          >"$logfile" 2>&1 &
-        ;;
-      llm)
-        SLOPSHELL_LLM_MODEL_DIR="$LLM_MODEL_DIR" \
-        SLOPSHELL_LLM_VENV_DIR="$LLM_VENV_DIR" \
-        nohup "$REPO_ROOT/scripts/setup-local-llm.sh" \
           >"$logfile" 2>&1 &
         ;;
       stt)

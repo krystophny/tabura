@@ -5,8 +5,8 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PLATFORM="$(uname -s)"
 ARCH="$(uname -m)"
 ASSUME_YES="${SLOPSHELL_ASSUME_YES:-0}"
-# shellcheck source=scripts/lib/llama.sh
-source "${REPO_ROOT}/scripts/lib/llama.sh"
+# shellcheck source=scripts/lib/llm_env.sh
+source "${REPO_ROOT}/scripts/lib/llm_env.sh"
 # shellcheck source=scripts/lib/python.sh
 source "${REPO_ROOT}/scripts/lib/python.sh"
 
@@ -15,11 +15,7 @@ warn() { printf '[dev-setup] WARNING: %s\n' "$*"; }
 fail() { printf '[dev-setup] ERROR: %s\n' "$*" >&2; exit 1; }
 
 codex_local_url_default() {
-    if [ "$PLATFORM" = "Darwin" ]; then
-        printf '%s' "http://127.0.0.1:8081/v1"
-        return
-    fi
-    printf '%s' "http://127.0.0.1:8080/v1"
+    slopshell_resolve_openai_base_url 2>/dev/null || printf '%s' "http://127.0.0.1:8080/v1"
 }
 
 print_help() {
@@ -32,7 +28,7 @@ Steps performed:
   1. Detect platform and architecture
   2. Build slopshell binary from source
   3. Set up Piper TTS (venv + voice models)
-  4. Detect existing local LLM or prepare LLM service
+  4. Resolve an OpenAI-compatible LLM endpoint
   5. Check for voxtype (STT)
   6. Install and start service definitions (systemd/launchd)
   7. Bootstrap a default project directory
@@ -44,7 +40,7 @@ Options:
 
 Environment:
   SLOPSHELL_ASSUME_YES=1         Same as --yes
-  SLOPSHELL_INTENT_LLM_URL=<url> Reuse an existing local LLM (skip LLM setup)
+  SLOPSHELL_INTENT_LLM_URL=<url> Reuse an existing OpenAI-compatible LLM
   SLOPSHELL_INTENT_LLM_URL=off   Disable intent LLM entirely
 USAGE
 }
@@ -100,33 +96,12 @@ else
     warn "Piper TTS setup failed; TTS will be unavailable"
 fi
 
-# --- Step 5: LLM detection ---
+# --- Step 5: LLM endpoint resolution ---
 
 if [ -z "${SLOPSHELL_INTENT_LLM_URL:-}" ]; then
-    for port in 8081 8080; do
-        if curl -fsS --max-time 2 "http://127.0.0.1:${port}/health" >/dev/null 2>&1; then
-            export SLOPSHELL_INTENT_LLM_URL="http://127.0.0.1:${port}"
-            log "Detected existing local LLM at $SLOPSHELL_INTENT_LLM_URL"
-            break
-        fi
-    done
-fi
-
-if [ -z "${SLOPSHELL_INTENT_LLM_URL:-}" ]; then
-    if [ "$PLATFORM" = "Darwin" ]; then
-        export SLOPSHELL_INTENT_LLM_URL="http://127.0.0.1:8081"
-    elif ! LLAMA_SERVER_BIN="$(slopshell_find_llama_server)"; then
-        if [ -n "${SLOPSHELL_LLAMA_LAST_ERROR:-}" ]; then
-            warn "llama-server not usable (${SLOPSHELL_LLAMA_LAST_ERROR}); intent LLM will be disabled"
-        else
-            warn "llama-server not found; intent LLM will be disabled"
-        fi
-        if [ "$PLATFORM" != "Darwin" ]; then
-            warn "  Build llama.cpp and place llama-server in ~/.local/bin"
-        fi
+    if ! export SLOPSHELL_INTENT_LLM_URL="$(slopshell_resolve_intent_llm_url 2>/dev/null)"; then
+        warn "no OpenAI-compatible intent LLM configured; intent LLM will be disabled"
         export SLOPSHELL_INTENT_LLM_URL="off"
-    else
-        export LLAMA_SERVER_BIN
     fi
 fi
 
@@ -167,7 +142,7 @@ fi
 
 # --- Step 10: Summary ---
 
-EFFECTIVE_LLM_URL="${SLOPSHELL_INTENT_LLM_URL:-http://127.0.0.1:8081}"
+EFFECTIVE_LLM_URL="${SLOPSHELL_INTENT_LLM_URL:-off}"
 cat <<SUMMARY
 
 === Slopshell Dev Setup Complete ===
@@ -192,7 +167,6 @@ Log files:
   /tmp/slopshell-web.log
   /tmp/slopshell-codex-app-server.log
   /tmp/slopshell-piper-tts.log
-  /tmp/slopshell-llm.log
   /tmp/slopshell-stt.log
 LOGS
 else
@@ -201,7 +175,6 @@ Logs:
   journalctl --user -u slopshell-web.service
   journalctl --user -u slopshell-codex-app-server.service
   journalctl --user -u slopshell-piper-tts.service
-  journalctl --user -u slopshell-llm.service
   journalctl --user -u slopshell-stt.service
 LOGS
 fi

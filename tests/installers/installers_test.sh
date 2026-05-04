@@ -125,7 +125,7 @@ SH
     assert_contains "$out_file" "Service mode:  ${expected_os}"
     assert_contains "$out_file" "Piper TTS"
     assert_contains "$out_file" "TTS backend:   Piper"
-    assert_contains "$out_file" "Local LLM"
+    assert_contains "$out_file" "LLM env file"
     assert_contains "$out_file" "skipping voxtype STT setup"
 
     PATH="${fakebin}:/usr/bin:/bin" \
@@ -144,32 +144,31 @@ run_install_ps1_static_checks() {
     assert_contains "$ps1" "Speech-to-text requires voxtype (Linux/macOS only)"
     assert_contains "$ps1" "schtasks /Create"
     assert_contains "$ps1" "piper-tts"
-    assert_contains "$ps1" "slopshell-llm"
-    assert_contains "$ps1" "slopshell-codex-llm"
-    assert_contains "$ps1" "Setup-LocalLlm"
-    assert_contains "$ps1" "gpt-oss-120b-default"
+    assert_contains "$ps1" 'Join-Path $env:USERPROFILE ".config\slopshell"'
+    assert_contains "$ps1" "start-slopshell-web.ps1"
+    assert_contains "$ps1" "Write-LlmEnvFile"
     assert_contains "$ps1" "Print-WindowsSTTNotice"
+    assert_not_contains "$ps1" "Setup-LocalLlm"
+    assert_not_contains "$ps1" "gpt-oss-120b-default"
+    assert_not_contains "$ps1" '/TN "slopshell-llm" /TR'
+    assert_not_contains "$ps1" '/TN "slopshell-codex-llm" /TR'
 }
 
-run_local_llm_profile_static_checks() {
-    assert_contains "${ROOT_DIR}/scripts/setup-local-llm.sh" 'VLLM_MLX_MODEL_REPO="$(default_if_empty "$VLLM_MLX_MODEL_REPO" "mlx-community/Qwen3.5-9B-4bit")"'
-    assert_contains "${ROOT_DIR}/scripts/setup-local-llm.sh" 'SLOPSHELL_VLLM_MLX_SOURCE_DIR'
-    assert_contains "${ROOT_DIR}/scripts/setup-local-llm.sh" 'git+ssh://git@github.com/computor-org/vllm-mlx.git'
-    assert_contains "${ROOT_DIR}/scripts/setup-local-llm.sh" 'pip uninstall -y vllm-mlx'
-    assert_contains "${ROOT_DIR}/scripts/setup-local-llm.sh" 'pip install --upgrade --force-reinstall --no-cache-dir --no-deps "$pip_target"'
-    assert_contains "${ROOT_DIR}/scripts/setup-local-llm.sh" '--served-model-name "$ALIAS"'
-    assert_contains "${ROOT_DIR}/scripts/setup-local-llm.sh" 'args+=(--continuous-batching)'
-    assert_contains "${ROOT_DIR}/scripts/setup-local-llm.sh" 'REASONING_BUDGET="$(default_if_empty "$REASONING_BUDGET" "-1")"'
-    assert_not_contains "${ROOT_DIR}/scripts/setup-local-llm.sh" '--no-webui'
-    assert_contains "${ROOT_DIR}/scripts/install.ps1" '--reasoning-budget -1 --jinja'
-    assert_not_contains "${ROOT_DIR}/scripts/install.ps1" '--reasoning-budget 0'
-    assert_not_contains "${ROOT_DIR}/scripts/install.ps1" '--no-webui'
-    assert_contains "${ROOT_DIR}/scripts/install-slopshell-user-units.sh" 'sync_macos_vllm_source_checkout'
-    assert_contains "${ROOT_DIR}/scripts/install.sh" 'sync_vllm_mlx_source_checkout'
-    assert_contains "${ROOT_DIR}/deploy/launchd/io.slopshell.llm.plist" "SLOPSHELL_MLX_MODEL_REPO"
-    assert_contains "${ROOT_DIR}/deploy/launchd/io.slopshell.llm.plist" "mlx-community/Qwen3.5-9B-4bit"
-    assert_contains "${ROOT_DIR}/deploy/launchd/io.slopshell.llm.plist" "SLOPSHELL_VLLM_MLX_SOURCE_DIR"
-    assert_contains "${ROOT_DIR}/deploy/launchd/io.slopshell.web.plist" "<string>qwen3.5-9b</string>"
+run_llm_env_static_checks() {
+    if [ -e "${ROOT_DIR}/scripts/setup-local-llm.sh" ]; then
+        echo "assertion failed: did not expect scripts/setup-local-llm.sh to exist" >&2
+        exit 1
+    fi
+    if [ -e "${ROOT_DIR}/deploy/launchd/io.slopshell.llm.plist" ]; then
+        echo "assertion failed: did not expect deploy/launchd/io.slopshell.llm.plist to exist" >&2
+        exit 1
+    fi
+    assert_contains "${ROOT_DIR}/scripts/install.sh" 'write_llm_env_file'
+    assert_contains "${ROOT_DIR}/scripts/install.sh" 'source ${LLM_ENV_FILE}'
+    assert_contains "${ROOT_DIR}/scripts/install.sh" 'systemctl --user disable --now slopshell-llm.service slopshell-codex-llm.service'
+    assert_contains "${ROOT_DIR}/scripts/install.ps1" 'Write-LlmEnvFile'
+    assert_contains "${ROOT_DIR}/scripts/install.ps1" 'start-slopshell-web.ps1'
+    assert_contains "${ROOT_DIR}/deploy/launchd/io.slopshell.web.plist" 'source ~/.config/slopshell/llm.env'
 }
 
 run_setup_codex_mcp_checks() {
@@ -180,6 +179,10 @@ run_setup_codex_mcp_checks() {
     config_path="${tmpdir}/config.toml"
     printf 'model = "gpt-5.4"\n' >"$config_path"
 
+    SLOPSHELL_LLM_ENV_FILE="${tmpdir}/missing.env" \
+    SLOPSHELL_CODEX_BASE_URL="http://127.0.0.1:8080/v1" \
+    SLOPSHELL_CODEX_FAST_MODEL="qwen" \
+    SLOPSHELL_CODEX_LOCAL_MODEL="qwen" \
     CODEX_CONFIG_PATH="$config_path" \
     "${ROOT_DIR}/scripts/setup-codex-mcp.sh" >/dev/null
 
@@ -190,28 +193,15 @@ run_setup_codex_mcp_checks() {
     assert_contains "$config_path" "command = \"${HOME}/.local/bin/helpy\""
     assert_contains "$config_path" "args = [\"mcp-stdio\"]"
     assert_contains "$config_path" "[model_providers.local]"
-    if [ "$(uname -s)" = "Darwin" ]; then
-        assert_contains "$config_path" "name = \"Local vLLM-MLX\""
-        assert_contains "$config_path" "base_url = \"http://127.0.0.1:8081/v1\""
-    else
-        assert_contains "$config_path" "name = \"Local llama.cpp\""
-        assert_contains "$config_path" "base_url = \"http://127.0.0.1:8080/v1\""
-    fi
+    assert_contains "$config_path" "name = \"OpenAI-compatible local\""
+    assert_contains "$config_path" "base_url = \"http://127.0.0.1:8080/v1\""
     assert_contains "$config_path" "[model_providers.fast]"
-    assert_contains "$config_path" "base_url = \"http://127.0.0.1:8081/v1\""
-    if [ "$(uname -s)" = "Darwin" ]; then
-        assert_contains "$config_path" "name = \"Fast vLLM-MLX\""
-    else
-        assert_contains "$config_path" "name = \"Fast llama.cpp\""
-    fi
+    assert_contains "$config_path" "name = \"OpenAI-compatible fast\""
+    assert_contains "$config_path" "base_url = \"http://127.0.0.1:8080/v1\""
     assert_contains "$config_path" "[profiles.local]"
-    if [ "$(uname -s)" = "Darwin" ]; then
-        assert_contains "$config_path" "model = \"qwen3.5-9b\""
-    else
-        assert_contains "$config_path" "model = \"gpt-oss-120b\""
-    fi
+    assert_contains "$config_path" "model = \"qwen\""
     assert_contains "$config_path" "[profiles.fast]"
-    assert_contains "$config_path" "model = \"qwen3.5-9b\""
+    assert_contains "$config_path" "model = \"qwen\""
     assert_contains "$config_path" "wire_api = \"responses\""
 }
 
@@ -230,7 +220,7 @@ main() {
     run_install_sh_dry_run
     run_llama_helper_checks
     run_install_ps1_static_checks
-    run_local_llm_profile_static_checks
+    run_llm_env_static_checks
     run_setup_codex_mcp_checks
     run_hotword_bootstrap_checks
     "${ROOT_DIR}/tests/installers/distribution_artifacts_test.sh"

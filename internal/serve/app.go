@@ -49,6 +49,10 @@ type App struct {
 var syscallUmask = func(mask int) int { return syscallUmaskImpl(mask) }
 
 func NewApp(projectDir, dataDir string) *App {
+	return NewAppWithStore(projectDir, dataDir, nil)
+}
+
+func NewAppWithStore(projectDir, dataDir string, st *store.Store) *App {
 	a := &App{
 		ProjectDir:   projectDir,
 		wsClients:    map[*websocket.Conn]struct{}{},
@@ -56,7 +60,9 @@ func NewApp(projectDir, dataDir string) *App {
 		shutdownDone: make(chan struct{}),
 	}
 	a.Adapter = canvas.NewAdapter(projectDir, a.queueEvent)
-	if strings.TrimSpace(dataDir) != "" {
+	if st != nil {
+		a.Store = st
+	} else if strings.TrimSpace(dataDir) != "" {
 		dbPath := filepath.Join(dataDir, "slopshell.db")
 		if st, err := store.New(dbPath); err == nil {
 			a.Store = st

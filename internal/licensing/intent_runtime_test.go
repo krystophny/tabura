@@ -64,8 +64,8 @@ func TestPlaytestScriptUsesLocalIntentRuntimeProbe(t *testing.T) {
 		t.Fatal("playtest script still probes the removed classifier port 8425")
 	}
 	requireContainsAll(t, content,
-		"Local intent runtime detected on :8081.",
-		"Local intent runtime not detected on :8081; continuing with live runtime defaults.",
+		"Configured intent runtime detected from env.",
+		"Configured intent runtime not detected from env; continuing with live runtime defaults.",
 	)
 	if strings.Contains(content, "Intent LLM fallback") {
 		t.Fatal("playtest script still uses the deprecated intent LLM fallback wording")
@@ -84,11 +84,11 @@ func TestGoReleaserArchiveOmitsRemovedIntentClassifierFiles(t *testing.T) {
 			t.Fatalf("goreleaser still packages removed classifier artifact %q", forbidden)
 		}
 	}
-	if !strings.Contains(content, "scripts/setup-local-llm.sh") {
-		t.Fatalf("goreleaser no longer packages the local runtime setup script:\n%s", content)
+	if strings.Contains(content, "scripts/setup-local-llm.sh") {
+		t.Fatalf("goreleaser still packages removed standalone runtime setup script:\n%s", content)
 	}
-	if !strings.Contains(content, "scripts/lib/llama.sh") {
-		t.Fatalf("goreleaser no longer packages the llama runtime helper:\n%s", content)
+	if !strings.Contains(content, "scripts/lib/llm_env.sh") {
+		t.Fatalf("goreleaser no longer packages the LLM env helper:\n%s", content)
 	}
 }
 

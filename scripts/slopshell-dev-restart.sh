@@ -59,6 +59,4 @@ if [[ "$INCLUDE_PTYD" == "--include-ptyd" ]]; then
   restart_service slopshell-ptyd.service io.slopshell.ptyd
 fi
 restart_service slopshell-codex-app-server.service io.slopshell.codex-app-server
-restart_service slopshell-llm.service io.slopshell.llm
-restart_service slopshell-codex-llm.service io.slopshell.codex-llm
 restart_service slopshell-web.service io.slopshell.web

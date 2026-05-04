@@ -270,7 +270,7 @@ func (a *App) startLocalServe() error {
 	if socket == "" {
 		return errors.New("no control socket path: set SLOPSHELL_CONTROL_SOCKET or pass --control-socket")
 	}
-	app := serve.NewApp(a.localProjectDir, a.dataDir)
+	app := serve.NewAppWithStore(a.localProjectDir, "", a.store)
 	_, cancel := context.WithCancel(context.Background())
 	a.tunnels.setLocalServe(app, cancel)
 	errCh := make(chan error, 1)

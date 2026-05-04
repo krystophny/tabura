@@ -19,7 +19,7 @@ Runtime stack:
 - `helpy-mcp.service` runs the private helpy runtime daemon on `unix:$XDG_RUNTIME_DIR/sloppy/helpy.sock`
 - `slopshell-codex-app-server.service` runs Codex app-server
 - `slopshell-piper-tts.service` runs Piper TTS API on loopback
-- `slopshell-llm.service` runs the Qwen3 0.6B local coordinator on loopback (`/v1/chat/completions`)
+- the intent/app-assistant path uses a routed `qwen` backend (`qwen3.6-35b-a3b-q4`) over an OpenAI-compatible endpoint
 
 ## Components
 
@@ -57,7 +57,7 @@ Runtime stack:
 
 - Codex app-server remains a separate local service and is consumed over `ws://127.0.0.1:8787`.
 - Piper TTS remains a separate local HTTP service on `http://127.0.0.1:8424`.
-- Intent LLM remains a separate local HTTP service on `http://127.0.0.1:8081/v1/chat/completions`.
+- Intent LLM traffic goes through a configured OpenAI-compatible endpoint instead of a dedicated Slopshell-local llama service.
 - Voxtype STT remains a separate local HTTP service on `http://127.0.0.1:8427/v1/audio/transcriptions`.
 - Current Slopshell integration tracks voxtype branch `feature/single-daemon-openai-stt-api` from `https://github.com/peteonrails/voxtype`.
 - Piper is intentionally not linked into the Go binary (`libpiper`) to avoid GPL-linked distribution coupling.

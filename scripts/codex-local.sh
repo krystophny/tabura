@@ -3,16 +3,13 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BASE_CONFIG_PATH="${CODEX_CONFIG_PATH:-$HOME/.codex/config.toml}"
-PLATFORM="$(uname -s)"
-FAST_URL="${SLOPSHELL_CODEX_FAST_URL:-http://127.0.0.1:8081/v1}"
-FAST_MODEL="${SLOPSHELL_CODEX_FAST_MODEL:-qwen3.5-9b}"
-if [[ "$PLATFORM" == "Darwin" ]]; then
-  LOCAL_URL="${SLOPSHELL_CODEX_LOCAL_URL:-http://127.0.0.1:8081/v1}"
-  LOCAL_MODEL="${SLOPSHELL_CODEX_LOCAL_MODEL:-qwen3.5-9b}"
-else
-  LOCAL_URL="${SLOPSHELL_CODEX_LOCAL_URL:-http://127.0.0.1:8080/v1}"
-  LOCAL_MODEL="${SLOPSHELL_CODEX_LOCAL_MODEL:-gpt-oss-120b}"
-fi
+# shellcheck source=scripts/lib/llm_env.sh
+source "${ROOT_DIR}/scripts/lib/llm_env.sh"
+DEFAULT_CODEX_URL="${SLOPSHELL_CODEX_BASE_URL:-$(slopshell_resolve_openai_base_url 2>/dev/null || printf 'http://127.0.0.1:8080/v1')}"
+FAST_URL="${SLOPSHELL_CODEX_FAST_URL:-${DEFAULT_CODEX_URL}}"
+FAST_MODEL="${SLOPSHELL_CODEX_FAST_MODEL:-qwen}"
+LOCAL_URL="${SLOPSHELL_CODEX_LOCAL_URL:-${DEFAULT_CODEX_URL}}"
+LOCAL_MODEL="${SLOPSHELL_CODEX_LOCAL_MODEL:-qwen}"
 
 usage() {
   cat <<'EOF'

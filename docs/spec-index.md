@@ -9,7 +9,7 @@ Current runtime baseline:
 - `slopshell-codex-app-server.service`
 - `slopshell-piper-tts.service`
 - `slopshell-stt.service`
-- `slopshell-llm.service`
+- intent/app-assistant LLM via `SLOPSHELL_INTENT_LLM_URL`
 
 ## Product and Behavior Specs
 

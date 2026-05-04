@@ -17,14 +17,14 @@ import (
 )
 
 const (
-	llmURL       = "http://127.0.0.1:8081"
+	llmURL       = "http://10.77.0.20:8080"
 	sttURL       = "http://127.0.0.1:8427"
 	ttsURL       = "http://127.0.0.1:8424"
 	appServerURL = "ws://127.0.0.1:8787"
 )
 
 // ---------------------------------------------------------------------------
-// LLM — local OpenAI-compatible runtime (port 8081)
+// LLM — OpenAI-compatible routed runtime on port 8080
 // ---------------------------------------------------------------------------
 
 func TestLLMHealth(t *testing.T) {
@@ -64,7 +64,7 @@ Return {"action":"<action>"}.`
 	}
 	content := extractLLMContent(t, resp)
 	content = stripCodeFence(content)
-	// The 0.6B model may produce slightly malformed JSON. Verify it at least
+	// The routed backend may produce slightly malformed JSON. Verify it at least
 	// contains an action keyword from the allowed list.
 	if !strings.Contains(content, "action") {
 		t.Fatalf("LLM response does not contain 'action': %q", content)
@@ -101,7 +101,7 @@ func TestLLMLatency(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestSTTHealth(t *testing.T) {
-	resp := requireServiceHealth(t, "STT", sttURL+"/healthz")
+	resp := requireServiceHealth(t, "STT", sttURL+"/health")
 	status, _ := resp["status"].(string)
 	if status != "ok" {
 		t.Fatalf("STT health status=%q, want ok", status)
@@ -109,7 +109,7 @@ func TestSTTHealth(t *testing.T) {
 }
 
 func TestSTTTranscribeSineWave(t *testing.T) {
-	requireServiceHealth(t, "STT", sttURL+"/healthz")
+	requireServiceHealth(t, "STT", sttURL+"/health")
 	wav := buildSineWaveWAV(2000, 440, 16000)
 	resp, err := postSTTInference(wav)
 	if err != nil {
@@ -124,7 +124,7 @@ func TestSTTTranscribeSineWave(t *testing.T) {
 }
 
 func TestSTTTranscribeSilence(t *testing.T) {
-	requireServiceHealth(t, "STT", sttURL+"/healthz")
+	requireServiceHealth(t, "STT", sttURL+"/health")
 	wav := buildSilenceWAV(2000, 16000)
 	resp, err := postSTTInference(wav)
 	if err != nil {
@@ -139,7 +139,7 @@ func TestSTTTranscribeSilence(t *testing.T) {
 }
 
 func TestSTTHandlesEmptyPayload(t *testing.T) {
-	requireServiceHealth(t, "STT", sttURL+"/healthz")
+	requireServiceHealth(t, "STT", sttURL+"/health")
 	resp, err := postSTTInference([]byte{})
 	if err != nil {
 		// HTTP error is acceptable for empty payload.
@@ -154,7 +154,7 @@ func TestSTTHandlesEmptyPayload(t *testing.T) {
 }
 
 func TestSTTAcceptsValidWAV(t *testing.T) {
-	requireServiceHealth(t, "STT", sttURL+"/healthz")
+	requireServiceHealth(t, "STT", sttURL+"/health")
 	wav := buildMixedWAV(3000, 16000)
 	resp, err := postSTTInference(wav)
 	if err != nil {
@@ -232,7 +232,7 @@ func TestTTSLatency(t *testing.T) {
 
 func TestTTSRoundTripSTT(t *testing.T) {
 	requireServiceHealth(t, "TTS", ttsURL+"/health")
-	requireServiceHealth(t, "STT", sttURL+"/healthz")
+	requireServiceHealth(t, "STT", sttURL+"/health")
 	ttsWav, err := postTTSSpeak("The quick brown fox jumps over the lazy dog.", "en")
 	if err != nil {
 		t.Fatalf("TTS failed: %v", err)
@@ -327,7 +327,7 @@ func postJSON(url string, body interface{}, timeout time.Duration) (map[string]i
 
 func postLLMCompletion(messages []map[string]string, maxTokens int) (map[string]interface{}, error) {
 	body := map[string]interface{}{
-		"model":       "qwen3.5-9b",
+		"model":       "qwen",
 		"temperature": 0,
 		"max_tokens":  maxTokens,
 		"chat_template_kwargs": map[string]interface{}{

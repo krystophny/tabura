@@ -13,10 +13,10 @@ import (
 )
 
 const (
-	DefaultIntentLLMURL            = "http://127.0.0.1:8081"
-	DefaultIntentLLMModel          = "local"
-	DefaultIntentLLMProfile        = "qwen3.5-9b"
-	DefaultIntentLLMProfileOptions = "qwen3.5-9b,qwen3.5-4b"
+	DefaultIntentLLMURL            = ""
+	DefaultIntentLLMModel          = "qwen"
+	DefaultIntentLLMProfile        = "qwen3.6-35b-a3b-q4"
+	DefaultIntentLLMProfileOptions = "qwen3.6-35b-a3b-q4"
 	intentLLMRequestTimeout        = 900 * time.Millisecond
 	intentLLMResponseLimit         = 128 * 1024
 	systemActionShellTimeout       = 8 * time.Second

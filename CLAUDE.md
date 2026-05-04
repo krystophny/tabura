@@ -40,15 +40,15 @@ Supported loopback sidecars and helpers:
 - `slopshell-codex-app-server.service` for Codex app-server (`ws://127.0.0.1:8787`)
 - `slopshell-piper-tts.service` for Piper TTS (`http://127.0.0.1:8424/v1/audio/speech`)
 - `slopshell-stt.service` for voxtype daemon with STT service and push-to-talk (`/v1/audio/transcriptions` on `127.0.0.1:8427`)
-- `slopshell-llm.service` for the local Qwen routing/fallback layer (`/v1/chat/completions` via base URL `http://127.0.0.1:8081`)
+- Routed intent/app-assistant LLM via `SLOPSHELL_INTENT_LLM_URL` (generic OpenAI-compatible `/v1/chat/completions`)
 
 Non-runtime notes:
 - No separate `slopshell-mcp.service` sidecar is part of the current model.
 - Slopshell uses the separate `helpy-mcp.service` daemon for web/search tools.
-- `scripts/install.sh` wires `SLOPSHELL_INTENT_LLM_URL=http://127.0.0.1:8081` for `slopshell-web.service`.
-- Current Qwen profile defaults in code are `qwen3.5-9b` with profile options `qwen3.5-9b,qwen3.5-4b`.
-- Keep the local `:8081` runtime reasoning-capable and WebUI-enabled; `slopshell` disables thinking per request where the fast path needs it.
-- `scripts/install-slopshell-user-units.sh` enables the full local unit set, including `slopshell-llm.service` and `slopshell-stt.service`.
+- `scripts/install.sh` and `scripts/install-slopshell-user-units.sh` read deployment-specific LLM settings from a gitignored env file (default `~/.config/slopshell/llm.env`).
+- Current deployment model/profile should come from that env file, not from hardcoded host-specific values.
+- Keep the routed backend reasoning-capable; `slopshell` disables thinking per request where the fast path needs it.
+- `scripts/install-slopshell-user-units.sh` enables the local sidecars plus `slopshell-web.service`; standalone Slopshell llama services are removed.
 
 ## Project Bootstrap Contract
 
@@ -123,18 +123,17 @@ Core runtime user units:
 - `slopshell-codex-app-server.service`
 - `slopshell-piper-tts.service`
 - `slopshell-stt.service` (voxtype daemon with STT API and push-to-talk)
-- `slopshell-llm.service`
 
 Quick status:
 
 ```bash
-systemctl --user status sloptools-runtime.service helpy-mcp.service slopshell-web.service slopshell-codex-app-server.service slopshell-piper-tts.service slopshell-stt.service slopshell-llm.service --no-pager -n 40
+systemctl --user status sloptools-runtime.service helpy-mcp.service slopshell-web.service slopshell-codex-app-server.service slopshell-piper-tts.service slopshell-stt.service --no-pager -n 40
 ```
 
 Restart core stack:
 
 ```bash
-systemctl --user restart sloptools-runtime.service helpy-mcp.service slopshell-codex-app-server.service slopshell-piper-tts.service slopshell-stt.service slopshell-llm.service slopshell-web.service
+systemctl --user restart sloptools-runtime.service helpy-mcp.service slopshell-codex-app-server.service slopshell-piper-tts.service slopshell-stt.service slopshell-web.service
 ```
 
 ## Endpoints
@@ -145,7 +144,7 @@ systemctl --user restart sloptools-runtime.service helpy-mcp.service slopshell-c
 - Helpy MCP socket: `unix:$XDG_RUNTIME_DIR/sloppy/helpy.sock` (`SLOPSHELL_HELPY_SOCKET`)
 - App-server: `ws://127.0.0.1:8787`
 - TTS base URL: `http://127.0.0.1:8424` (`/v1/audio/speech`)
-- Intent LLM base URL: `http://127.0.0.1:8081` (Slopshell calls `/v1/chat/completions`)
+- Intent LLM base URL: from `~/.config/slopshell/llm.env` via `SLOPSHELL_INTENT_LLM_URL` (Slopshell calls `/v1/chat/completions`)
 - STT base URL: `http://127.0.0.1:8427` (`/v1/audio/transcriptions`)
 - Local canvas session: `local`
 - CLI login endpoint: `POST /api/cli/login` (loopback-only; consumes the token
@@ -172,9 +171,9 @@ go test -tags=e2e ./cmd/sls/...
 Environment toggles:
 - `SLOPSHELL_TTS_URL` overrides the TTS base URL
 - `SLOPSHELL_INTENT_LLM_URL=off` disables intent LLM fallback
-- `SLOPSHELL_INTENT_LLM_MODEL` selects the local routing model id (default `local`)
-- `SLOPSHELL_INTENT_LLM_PROFILE` selects the active local routing profile (default `qwen3.5-9b`)
-- `SLOPSHELL_INTENT_LLM_PROFILE_OPTIONS` exposes selectable local routing profiles (default `qwen3.5-9b,qwen3.5-4b`)
+- `SLOPSHELL_INTENT_LLM_MODEL` selects the OpenAI-compatible model id
+- `SLOPSHELL_INTENT_LLM_PROFILE` selects the active routing profile label
+- `SLOPSHELL_INTENT_LLM_PROFILE_OPTIONS` exposes selectable routing profile labels
 - `SLOPSHELL_STT_URL=off` disables STT sidecar usage
 - `SLOPSHELL_SLOPPY_SOCKET` overrides the sloppy runtime unix socket path
   (default `$XDG_RUNTIME_DIR/sloppy/sloptools.sock` on Linux and

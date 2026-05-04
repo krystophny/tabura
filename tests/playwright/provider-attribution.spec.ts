@@ -93,7 +93,7 @@ test('provisional assistant message is replaced by final output for the same tur
     message: 'Let me check.',
     provider: 'local',
     provider_label: 'Local',
-    provider_model: 'qwen3.5-9b',
+    provider_model: 'qwen',
   });
   await injectChatEvent(page, {
     type: 'assistant_output',

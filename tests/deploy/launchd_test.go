@@ -27,11 +27,6 @@ var expectedPlists = []struct {
 		tokens: []string{"@@VENV_DIR@@", "@@SCRIPT_DIR@@", "@@PIPER_MODEL_DIR@@"},
 	},
 	{
-		file:   "io.slopshell.llm.plist",
-		label:  "io.slopshell.llm",
-		tokens: []string{"@@LLM_SETUP_SCRIPT@@", "@@LLM_VENV_DIR@@", "@@LLM_SOURCE_DIR@@"},
-	},
-	{
 		file:   "io.slopshell.stt.plist",
 		label:  "io.slopshell.stt",
 		tokens: []string{"@@STT_SETUP_SCRIPT@@", "@@VOXTYPE_BIN@@"},
@@ -39,7 +34,7 @@ var expectedPlists = []struct {
 	{
 		file:   "io.slopshell.web.plist",
 		label:  "io.slopshell.web",
-		tokens: []string{"@@BIN_PATH@@", "@@PROJECT_DIR@@", "@@WEB_DATA_DIR@@", "@@SLOPSHELL_INTENT_LLM_URL@@", "@@SLOPSHELL_HELPY_SOCKET@@"},
+		tokens: []string{"@@BIN_PATH@@", "@@PROJECT_DIR@@", "@@WEB_DATA_DIR@@", "@@SLOPSHELL_HELPY_SOCKET@@"},
 	},
 }
 
@@ -149,15 +144,10 @@ func TestLaunchdTemplateTokenSubstitution(t *testing.T) {
 		"@@VENV_DIR@@":              "/tmp/venv",
 		"@@SCRIPT_DIR@@":            "/tmp/scripts",
 		"@@PIPER_MODEL_DIR@@":       "/tmp/models",
-		"@@LLM_SETUP_SCRIPT@@":      "/tmp/setup-llm.sh",
-		"@@LLM_MODEL_DIR@@":         "/tmp/llm-models",
-		"@@LLM_SOURCE_DIR@@":        "/tmp/vllm-mlx",
-		"@@LLM_VENV_DIR@@":          "/tmp/llm-venv",
-		"@@LLAMA_SERVER_BIN@@":      "/tmp/llama-server",
 		"@@STT_SETUP_SCRIPT@@":      "/tmp/setup-stt.sh",
 		"@@VOXTYPE_BIN@@":           "/tmp/voxtype",
 		"@@SLOPSHELL_WEB_HOST@@":       "127.0.0.1",
-		"@@SLOPSHELL_INTENT_LLM_URL@@": "http://127.0.0.1:8081",
+		"@@SLOPSHELL_INTENT_LLM_URL@@": "http://10.77.0.20:8080",
 		"@@SLOPSHELL_HELPY_SOCKET@@":   "/tmp/helpy.sock",
 	}
 
@@ -223,7 +213,6 @@ func TestSystemdAndLaunchdServiceParity(t *testing.T) {
 	launchdServices := map[string]bool{
 		"codex-app-server": false,
 		"piper-tts":        false,
-		"llm":              false,
 		"stt":              false,
 		"web":              false,
 	}

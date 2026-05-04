@@ -177,7 +177,7 @@ func TestMailTriagePreviewClassifiesAndAutoApplies(t *testing.T) {
 		"phase":            "auto_apply",
 		"apply":            true,
 		"primary_base_url": llm.URL,
-		"primary_model":    "qwen3.5-9b",
+		"primary_model":    "qwen",
 	})
 	if rr.Code != http.StatusOK {
 		t.Fatalf("POST preview status = %d: %s", rr.Code, rr.Body.String())

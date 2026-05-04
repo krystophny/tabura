@@ -19,8 +19,8 @@ func TestOpenAIClassifierParsesStructuredJSON(t *testing.T) {
 		if got := strings.TrimSpace(r.URL.Path); got != "/v1/chat/completions" {
 			t.Fatalf("path = %q, want /v1/chat/completions", got)
 		}
-		if payload["model"] != "qwen3.5-9b" {
-			t.Fatalf("model = %#v, want qwen3.5-9b", payload["model"])
+		if payload["model"] != "qwen" {
+			t.Fatalf("model = %#v, want qwen", payload["model"])
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte("{\"choices\":[{\"message\":{\"content\":\"```json\\n{\\\"action\\\":\\\"archive\\\",\\\"archive_label\\\":\\\"simons24\\\",\\\"confidence\\\":0.96,\\\"reason\\\":\\\"project update\\\",\\\"signals\\\":[\\\"direct update\\\"]}\\n```\"}}]}"))
@@ -29,7 +29,7 @@ func TestOpenAIClassifierParsesStructuredJSON(t *testing.T) {
 
 	classifier := OpenAIClassifier{
 		BaseURL: server.URL,
-		Model:   "qwen3.5-9b",
+		Model:   "qwen",
 	}
 	decision, err := classifier.Classify(context.Background(), Message{
 		ID:       "m1",
@@ -47,8 +47,8 @@ func TestOpenAIClassifierParsesStructuredJSON(t *testing.T) {
 	if decision.ArchiveLabel != "simons24" {
 		t.Fatalf("ArchiveLabel = %q, want simons24", decision.ArchiveLabel)
 	}
-	if decision.Model != "qwen3.5-9b" {
-		t.Fatalf("Model = %q, want qwen3.5-9b", decision.Model)
+	if decision.Model != "qwen" {
+		t.Fatalf("Model = %q, want qwen", decision.Model)
 	}
 }
 
@@ -61,7 +61,7 @@ func TestOpenAIClassifierParsesThinkingPreamble(t *testing.T) {
 
 	classifier := OpenAIClassifier{
 		BaseURL: server.URL,
-		Model:   "qwen3.5-9b",
+		Model:   "qwen",
 	}
 	decision, err := classifier.Classify(context.Background(), Message{ID: "m2", Subject: "FYI"})
 	if err != nil {
