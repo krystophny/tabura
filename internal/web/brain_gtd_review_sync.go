@@ -61,6 +61,7 @@ type brainGTDSyncResult struct {
 	Imported int
 	Migrated int
 	Merged   int
+	Bound    int
 }
 
 var fetchBrainGTDReviewList = defaultFetchBrainGTDReviewList
@@ -76,12 +77,6 @@ func (a *App) syncBrainGTDReviewLists(ctx context.Context) (brainGTDSyncResult, 
 		if err != nil {
 			return total, fmt.Errorf("sync GTD %s commitments: %w", sphere, err)
 		}
-		result, err := a.syncBrainGTDCanonicalBindings(ctx, sphere, list)
-		if err != nil {
-			return total, err
-		}
-		total.Migrated += result.Migrated
-		total.Merged += result.Merged
 		review, err := fetchBrainGTDReviewList(a, ctx, sphere)
 		if err != nil {
 			return total, fmt.Errorf("sync GTD %s review list: %w", sphere, err)
@@ -91,8 +86,15 @@ func (a *App) syncBrainGTDReviewLists(ctx context.Context) (brainGTDSyncResult, 
 			return total, err
 		}
 		total.Imported += imported
+		result, err := a.syncBrainGTDCanonicalBindings(ctx, sphere, list)
+		if err != nil {
+			return total, err
+		}
+		total.Migrated += result.Migrated
+		total.Merged += result.Merged
+		total.Bound += result.Bound
 	}
-	if changed := total.Imported + total.Migrated + total.Merged; changed > 0 {
+	if changed := total.Imported + total.Migrated + total.Merged + total.Bound; changed > 0 {
 		a.broadcastItemsIngested(changed, store.ExternalProviderMarkdown)
 	}
 	return total, nil
@@ -319,7 +321,72 @@ func (a *App) syncBrainGTDCanonicalBindings(ctx context.Context, sphere string, 
 			result.Migrated++
 		}
 	}
+	for _, canonical := range list.Items {
+		bound, err := a.attachBrainGTDCanonicalTaskBindings(ctx, sphere, canonical)
+		if err != nil {
+			return result, err
+		}
+		result.Bound += bound
+	}
 	return result, nil
+}
+
+func (a *App) attachBrainGTDCanonicalTaskBindings(ctx context.Context, sphere string, canonical brainGTDCommitmentItem) (int, error) {
+	path := strings.TrimSpace(canonical.Path)
+	if path == "" {
+		return 0, nil
+	}
+	item, err := a.store.GetItemBySource(store.ExternalProviderMarkdown, path)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	artifactID := int64(0)
+	if item.ArtifactID != nil && *item.ArtifactID > 0 {
+		artifactID = *item.ArtifactID
+	} else {
+		artifact, err := a.upsertCanonicalMarkdownArtifact(ctx, sphere, canonical)
+		if err != nil {
+			return 0, err
+		}
+		artifactID = artifact.ID
+		if err := a.store.UpdateItem(item.ID, store.ItemUpdate{ArtifactID: &artifactID}); err != nil {
+			return 0, err
+		}
+	}
+	bound := 0
+	for _, binding := range canonical.Bindings {
+		provider, remoteID, ok := brainGTDCanonicalTaskBinding(binding)
+		if !ok {
+			continue
+		}
+		account, err := a.ensureBrainGTDAccount(sphere, provider)
+		if err != nil {
+			return bound, err
+		}
+		existing, err := a.store.GetBindingByRemote(account.ID, provider, "task", remoteID)
+		if err == nil && existing.ItemID != nil && *existing.ItemID == item.ID && existing.ArtifactID != nil && *existing.ArtifactID == artifactID {
+			continue
+		}
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return bound, err
+		}
+		if _, err := a.store.UpsertExternalBinding(store.ExternalBinding{
+			AccountID:    account.ID,
+			Provider:     provider,
+			ObjectType:   "task",
+			RemoteID:     remoteID,
+			ItemID:       &item.ID,
+			ArtifactID:   &artifactID,
+			ContainerRef: optionalString(strings.TrimSpace(canonical.Project)),
+		}); err != nil {
+			return bound, err
+		}
+		bound++
+	}
+	return bound, nil
 }
 
 func (a *App) repointItemToBrainGTD(ctx context.Context, item store.Item, canonical brainGTDCommitmentItem) (bool, error) {
@@ -457,11 +524,55 @@ func brainGTDKeysForBinding(binding string) []string {
 	last := strings.TrimSpace(parts[len(parts)-1])
 	if last != "" {
 		keys = append(keys, brainGTDSourceKey(provider, last))
+		if brainGTDTaskBindingProvider(provider) {
+			if len(parts) >= 2 {
+				listID := strings.TrimSpace(parts[len(parts)-2])
+				if listID != "" {
+					keys = append(keys, brainGTDSourceKey(provider, listID+"/"+last))
+				}
+			}
+		}
 		if provider == store.ExternalProviderTodoist {
 			keys = append(keys, brainGTDSourceKey(provider, "task:"+last))
 		}
 	}
 	return keys
+}
+
+func brainGTDTaskBindingProvider(provider string) bool {
+	switch strings.ToLower(strings.TrimSpace(provider)) {
+	case store.ExternalProviderTodoist, store.ExternalProviderGoogleTasks, store.ExternalProviderExchangeEWS:
+		return true
+	default:
+		return false
+	}
+}
+
+func brainGTDCanonicalTaskBinding(binding string) (string, string, bool) {
+	provider, ref, ok := strings.Cut(strings.TrimSpace(binding), ":")
+	if !ok {
+		return "", "", false
+	}
+	provider = strings.ToLower(strings.TrimSpace(provider))
+	ref = strings.TrimSpace(ref)
+	if !brainGTDTaskBindingProvider(provider) || ref == "" {
+		return "", "", false
+	}
+	if strings.Contains(ref, "/") {
+		return provider, ref, true
+	}
+	parts := strings.Split(ref, ":")
+	last := strings.TrimSpace(parts[len(parts)-1])
+	if last == "" {
+		return "", "", false
+	}
+	if len(parts) >= 2 {
+		listID := strings.TrimSpace(parts[len(parts)-2])
+		if listID != "" {
+			return provider, listID + "/" + last, true
+		}
+	}
+	return provider, last, true
 }
 
 func brainGTDSourceKey(provider, ref string) string {

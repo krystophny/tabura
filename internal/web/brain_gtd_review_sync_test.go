@@ -98,7 +98,10 @@ func TestSyncBrainGTDReviewListsMigratesTodoistItemsToCanonicalMarkdown(t *testi
 	}); err != nil {
 		t.Fatalf("binding second: %v", err)
 	}
-	fetchBrainGTDCommitmentList = func(_ *App, _ context.Context, _ string) (brainGTDCommitmentList, error) {
+	fetchBrainGTDCommitmentList = func(_ *App, _ context.Context, sphere string) (brainGTDCommitmentList, error) {
+		if sphere != store.SphereWork {
+			return brainGTDCommitmentList{}, nil
+		}
 		return brainGTDCommitmentList{Items: []brainGTDCommitmentItem{{
 			Path:     "brain/commitments/alpha.md",
 			Title:    "Send alpha budget",
@@ -106,7 +109,10 @@ func TestSyncBrainGTDReviewListsMigratesTodoistItemsToCanonicalMarkdown(t *testi
 			Bindings: []string{"todoist:work:3:project:task-1", "todoist:work:3:project:task-2"},
 		}}}, nil
 	}
-	fetchBrainGTDReviewList = func(_ *App, _ context.Context, _ string) (brainGTDReviewList, error) {
+	fetchBrainGTDReviewList = func(_ *App, _ context.Context, sphere string) (brainGTDReviewList, error) {
+		if sphere != store.SphereWork {
+			return brainGTDReviewList{}, nil
+		}
 		return brainGTDReviewList{Items: []brainGTDReviewItem{{
 			Source: store.ExternalProviderMarkdown,
 			Title:  "Send alpha budget",
@@ -119,8 +125,8 @@ func TestSyncBrainGTDReviewListsMigratesTodoistItemsToCanonicalMarkdown(t *testi
 	if err != nil {
 		t.Fatalf("syncBrainGTDReviewLists: %v", err)
 	}
-	if result.Migrated != 1 || result.Merged != 1 {
-		t.Fatalf("result = %#v, want one migrated and one merged", result)
+	if result.Imported != 1 || result.Merged != 2 {
+		t.Fatalf("result = %#v, want one imported canonical winner and two merged Todoist items", result)
 	}
 	canonical, err := app.store.GetItemBySource(store.ExternalProviderMarkdown, "brain/commitments/alpha.md")
 	if err != nil {
@@ -211,6 +217,59 @@ func TestSyncBrainGTDReviewListsRepairsStaleMarkdownBinding(t *testing.T) {
 	}
 	if updated.State != store.ItemStateNext || updated.DueAt == nil {
 		t.Fatalf("updated canonical = %#v, want next with due date", updated)
+	}
+}
+
+func TestSyncBrainGTDReviewListsAttachesCanonicalTodoistBinding(t *testing.T) {
+	app := newAuthedTestApp(t)
+	t.Setenv("SLOPSHELL_BRAIN_GTD_SYNC", "on")
+	app.sloptoolsEndpoint = mcpEndpoint{httpURL: "http://mcp.test"}
+	restoreBrainGTDFetchers(t)
+
+	account, err := app.store.CreateExternalAccount(store.SphereWork, store.ExternalProviderTodoist, "Todoist", nil)
+	if err != nil {
+		t.Fatalf("CreateExternalAccount(todoist): %v", err)
+	}
+	fetchBrainGTDCommitmentList = func(_ *App, _ context.Context, sphere string) (brainGTDCommitmentList, error) {
+		if sphere != store.SphereWork {
+			return brainGTDCommitmentList{}, nil
+		}
+		return brainGTDCommitmentList{Items: []brainGTDCommitmentItem{{
+			Path:     "brain/commitments/todoist/next/alpha.md",
+			Title:    "Klimaticket TUG",
+			Status:   "next",
+			Bindings: []string{"todoist:work:3:6XWMrGx9jxV6hHH3:6gJJWc8F5Q5XVwX3"},
+		}}}, nil
+	}
+	fetchBrainGTDReviewList = func(_ *App, _ context.Context, sphere string) (brainGTDReviewList, error) {
+		if sphere != store.SphereWork {
+			return brainGTDReviewList{}, nil
+		}
+		return brainGTDReviewList{Items: []brainGTDReviewItem{{
+			Source: store.ExternalProviderMarkdown,
+			Title:  "Klimaticket TUG",
+			Queue:  "next",
+			Path:   "brain/commitments/todoist/next/alpha.md",
+		}}}, nil
+	}
+
+	result, err := app.syncBrainGTDReviewLists(context.Background())
+	if err != nil {
+		t.Fatalf("syncBrainGTDReviewLists: %v", err)
+	}
+	if result.Bound != 1 {
+		t.Fatalf("bound = %d, want 1", result.Bound)
+	}
+	canonical, err := app.store.GetItemBySource(store.ExternalProviderMarkdown, "brain/commitments/todoist/next/alpha.md")
+	if err != nil {
+		t.Fatalf("GetItemBySource(markdown): %v", err)
+	}
+	binding, err := app.store.GetBindingByRemote(account.ID, store.ExternalProviderTodoist, "task", "6XWMrGx9jxV6hHH3/6gJJWc8F5Q5XVwX3")
+	if err != nil {
+		t.Fatalf("GetBindingByRemote(todoist): %v", err)
+	}
+	if binding.ItemID == nil || *binding.ItemID != canonical.ID {
+		t.Fatalf("binding item = %#v, want canonical %d", binding.ItemID, canonical.ID)
 	}
 }
 

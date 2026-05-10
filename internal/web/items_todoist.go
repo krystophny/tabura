@@ -27,6 +27,14 @@ func todoistTaskIDFromSourceRef(raw string) string {
 	if strings.HasPrefix(strings.ToLower(clean), "task:") {
 		return strings.TrimSpace(clean[len("task:"):])
 	}
+	if strings.Contains(clean, "/") {
+		parts := strings.Split(clean, "/")
+		return strings.TrimSpace(parts[len(parts)-1])
+	}
+	if strings.Contains(clean, ":") {
+		parts := strings.Split(clean, ":")
+		return strings.TrimSpace(parts[len(parts)-1])
+	}
 	return clean
 }
 
@@ -196,7 +204,7 @@ func (a *App) todoistRemoteForItem(item store.Item) (store.ExternalAccount, *tod
 			continue
 		}
 		if taskID == "" {
-			taskID = strings.TrimSpace(binding.RemoteID)
+			taskID = todoistTaskIDFromSourceRef(binding.RemoteID)
 		}
 		client, err := todoistClientForAccount(account)
 		if err != nil {
