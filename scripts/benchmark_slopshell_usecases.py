@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Benchmark Tabura-aligned use cases on local GGUF models via llama-server.
+"""Benchmark Sloppy-aligned use cases on local GGUF models via llama-server.
 
 Use cases:
 1) Fast intent classification (EN + DE)
@@ -72,7 +72,7 @@ SCENARIO_DELEGATION = "delegation_policy"
 SCENARIO_TOOL_ROUTING = "tool_routing"
 SCENARIO_FEEDBACK = "instant_feedback_gate"
 
-INTENT_SYSTEM_PROMPT = """You are Tabura Hub intent router.
+INTENT_SYSTEM_PROMPT = """You are Sloppy Hub intent router.
 Return JSON only with this schema:
 {"action":"switch_project|toggle_silent|toggle_conversation|cancel_work|show_status|delegate|chat","model":"gpt|spark|none","name":"","task":""}
 Rules:
@@ -83,7 +83,7 @@ Rules:
 - Otherwise use chat.
 - Output strictly one JSON object and no prose."""
 
-DELEGATION_SYSTEM_PROMPT = """You are a delegation policy classifier for Tabura.
+DELEGATION_SYSTEM_PROMPT = """You are a delegation policy classifier for Sloppy.
 Return JSON only:
 {"delegate":true|false,"model":"gpt|spark|none","instant_feedback":true|false,"feedback":""}
 Rules:
@@ -93,7 +93,7 @@ Rules:
 - If delegate=true then instant_feedback=true and feedback must be a short confirmation in user language.
 - If delegate=false then model="none", instant_feedback=false, feedback=""."""
 
-TOOL_ROUTING_SYSTEM_PROMPT = """You route tool usage for Tabura.
+TOOL_ROUTING_SYSTEM_PROMPT = """You route tool usage for Sloppy.
 Available mock tools:
 1) weather(city)
 2) web_search(query, lang)
@@ -205,8 +205,8 @@ SCENARIOS: list[dict[str, Any]] = [
             {"lang": "de", "text": "Erzaehl mir einen witz.", "expected": {"tool": "none", "instant_feedback": False}},
             {
                 "lang": "en",
-                "text": "Find web results about Tabura release notes.",
-                "expected": {"tool": "web_search", "query_keyword": "tabura", "instant_feedback": True},
+                "text": "Find web results about Sloppy release notes.",
+                "expected": {"tool": "web_search", "query_keyword": "sloppy", "instant_feedback": True},
             },
             {"lang": "de", "text": "Wetter in Muenchen bitte.", "expected": {"tool": "weather", "city": "Muenchen", "instant_feedback": True}},
         ],
@@ -232,7 +232,7 @@ SCENARIOS: list[dict[str, Any]] = [
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--llama-bin", default=os.getenv("LLAMA_SERVER_BIN", "llama-server"))
-    parser.add_argument("--model-dir", default=os.getenv("TABURA_LLM_MODEL_DIR", str(Path.home() / ".local/share/tabura-llm/models")))
+    parser.add_argument("--model-dir", default=os.getenv("TABURA_LLM_MODEL_DIR", str(Path.home() / ".local/share/sloppy-llm/models")))
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=18427)
     parser.add_argument("--ctx-size", type=int, default=int(os.getenv("TABURA_LLM_CTX", "16384")))
@@ -242,7 +242,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--skip-download", action="store_true")
     parser.add_argument("--skip-missing", action="store_true", help="Skip missing models instead of failing.")
     parser.add_argument("--warmup-runs", type=int, default=2)
-    parser.add_argument("--results-json", default="", help="Optional output path. Default: .tabura/artifacts/benchmarks/")
+    parser.add_argument("--results-json", default="", help="Optional output path. Default: .sloppy/artifacts/benchmarks/")
     return parser.parse_args()
 
 
@@ -310,7 +310,7 @@ def start_llama_server(args: argparse.Namespace, model_path: Path, log_file: Pat
     log_file.parent.mkdir(parents=True, exist_ok=True)
     log_handle = open(log_file, "w", encoding="utf-8")
     proc = subprocess.Popen(cmd, stdout=log_handle, stderr=subprocess.STDOUT, preexec_fn=os.setsid)
-    proc._tabura_log_handle = log_handle  # type: ignore[attr-defined]
+    proc._sloppy_log_handle = log_handle  # type: ignore[attr-defined]
     return proc
 
 
@@ -330,7 +330,7 @@ def stop_llama_server(proc: subprocess.Popen[Any] | None) -> None:
             except Exception:
                 pass
             proc.wait(timeout=5)
-    log_handle = getattr(proc, "_tabura_log_handle", None)
+    log_handle = getattr(proc, "_sloppy_log_handle", None)
     if log_handle:
         try:
             log_handle.close()
@@ -691,13 +691,13 @@ def benchmark_model(spec: ModelSpec, model_path: Path, args: argparse.Namespace,
 
 def default_results_path(repo_root: Path) -> Path:
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    out_dir = repo_root / ".tabura" / "artifacts" / "benchmarks"
+    out_dir = repo_root / ".sloppy" / "artifacts" / "benchmarks"
     out_dir.mkdir(parents=True, exist_ok=True)
-    return out_dir / f"tabura-usecases-benchmark-{stamp}.json"
+    return out_dir / f"sloppy-usecases-benchmark-{stamp}.json"
 
 
 def print_summary(results: list[dict[str, Any]]) -> None:
-    print("\n=== Tabura Use-Case Benchmark (non-thinking, EN+DE) ===")
+    print("\n=== Sloppy Use-Case Benchmark (non-thinking, EN+DE) ===")
     header = (
         f"{'model':<22} {'med_ms':>8} {'p95_ms':>8} {'med_tps':>10} "
         f"{'acc_avg%':>10} {'n':>6}"
@@ -749,7 +749,7 @@ def main() -> int:
         raise SystemExit("No valid models selected. Expected subset of 0.8b,2b,4b,9b.")
 
     repo_root = Path(__file__).resolve().parents[1]
-    artifacts_dir = repo_root / ".tabura" / "artifacts"
+    artifacts_dir = repo_root / ".sloppy" / "artifacts"
     model_dir = Path(args.model_dir).expanduser().resolve()
 
     results: list[dict[str, Any]] = []
